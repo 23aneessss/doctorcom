@@ -34,9 +34,9 @@ Source of truth: `apps/server/DB.md`
 - [ ] `suivi`
   `id`, `patient_id` -> `patients.id`, `utilisateur_id` -> `utilisateurs.id`, `hypothese_diagnostic`, `motif`, `historique`, `date_ouverture`, `date_fermeture`, `est_actif`
 - [ ] `rendez_vous`
-  `id`, `patient_id` -> `patients.id`, `suivi_id` -> `suivi.id`, `utilisateur_id` -> `utilisateurs.id`, `date`, `heure`, `statut`, `important`
+  `id`, `patient_id` -> `patients.id`, `suivi_id` -> `suivi.id` (nullable), `utilisateur_id` -> `utilisateurs.id`, `date`, `heure`, `statut`, `important`, `frequence_rappel`, `periode_rappel`
 - [ ] `examen_consultation`
-  `id`, `rendez_vous_id` -> `rendez_vous.id`, `suivi_id` -> `suivi.id`, `date`, `aspect_general`, `examen_respiratoire`, `examen_cardiovasculaire`, `examen_cutane_muqueux`, `examen_orl`, `examen_digestif`, `examen_neurologique`, `examen_locomoteur`, `examen_genital`, `examen_urinaire`, `examen_ganglionnaire`, `examen_endocrinien`, `conclusion`
+  `id`, `rendez_vous_id` -> `rendez_vous.id`, `suivi_id` -> `suivi.id`, `date`, `taille`, `poids`, `traitement_prescrit`, `description_consultation`, `aspect_general`, `examen_respiratoire`, `examen_cardiovasculaire`, `examen_cutane_muqueux`, `examen_orl`, `examen_digestif`, `examen_neurologique`, `examen_locomoteur`, `examen_genital`, `examen_urinaire`, `examen_ganglionnaire`, `examen_endocrinien`, `conclusion`
 - [ ] `medicaments`
   `id`, `dci`, `indication`, `contre_indication`, `posologie_standard`, `effets_indesirables`, `dosage`
 - [ ] `historique_traitements`

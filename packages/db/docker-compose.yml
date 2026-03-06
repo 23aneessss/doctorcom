@@ -5,9 +5,9 @@ services:
     image: postgres
     container_name: doctor.com-postgres
     environment:
-      POSTGRES_DB: doctor.com
+      POSTGRES_DB: doctor_com
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:

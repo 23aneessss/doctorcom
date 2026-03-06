@@ -11,6 +11,8 @@ export const betterAuthConfigPlaceholder = {
   provider: "better-auth-placeholder",
 } as const;
 
+const isProduction = env.NODE_ENV === "production";
+
 export const auth = betterAuth({
   basePath: betterAuthConfigPlaceholder.basePath,
   database: drizzleAdapter(db, {
@@ -31,8 +33,8 @@ export const auth = betterAuth({
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction,
       httpOnly: true,
     },
   },
