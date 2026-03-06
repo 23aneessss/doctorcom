@@ -1,0 +1,51 @@
+name: Discord Notifications
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+  pull_request:
+  workflow_run:
+    workflows: ["*"]
+    types:
+      - completed
+
+jobs:
+  notify-push-pr:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send push/PR notification to Discord
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            MESSAGE="📌 New push in ${{ github.repository }} by ${{ github.actor }} on branch ${{ github.ref_name }}"
+          else
+            MESSAGE="🔁 Pull request event in ${{ github.repository }} by ${{ github.actor }}"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -d "{\"content\":\"$MESSAGE\"}" \
+          "${{ secrets.DISCORD_WEBHOOK }}"
+
+  notify-workflow:
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send workflow result to Discord
+        run: |
+          STATUS="${{ github.event.workflow_run.conclusion }}"
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          ACTOR="${{ github.event.workflow_run.actor.login }}"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE="✅ Workflow '$WORKFLOW_NAME' succeeded in ${{ github.repository }} on branch $BRANCH by $ACTOR"
+          else
+            MESSAGE="❌ Workflow '$WORKFLOW_NAME' failed in ${{ github.repository }} on branch $BRANCH by $ACTOR"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -d "{\"content\":\"$MESSAGE\"}" \
+          "${{ secrets.DISCORD_WEBHOOK }}"
