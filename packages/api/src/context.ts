@@ -1,15 +1,10 @@
-import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+export {
+  createTRPCContext as createContext,
+  createTRPCContext,
+} from "./trpc/context";
 
-import { auth } from "@doctor.com/auth";
-import { fromNodeHeaders } from "better-auth/node";
-
-export async function createContext(opts: CreateExpressContextOptions) {
-  const session = await auth.api.getSession({
-    headers: fromNodeHeaders(opts.req.headers),
-  });
-  return {
-    session,
-  };
-}
-
-export type Context = Awaited<ReturnType<typeof createContext>>;
+export type {
+  SessionUtilisateur,
+  TRPCContext as Context,
+  TRPCContext,
+} from "./trpc/context";

@@ -5,19 +5,26 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./context": {
+      "default": "./src/context.ts"
+    },
+    "./routers/index": {
+      "default": "./src/routers/index.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+  },
   "dependencies": {
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
-    "@doctor.com/env": "workspace:*",
-    "@trpc/client": "catalog:",
+    "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
-    "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

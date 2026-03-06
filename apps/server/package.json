@@ -1,25 +1,22 @@
 {
   "name": "server",
+  "private": true,
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsdown",
+    "build": "tsc -b",
     "check-types": "tsc -b",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun run --hot src/index.ts",
-    "start": "bun run dist/index.mjs"
+    "dev": "bun --watch src/index.ts"
   },
   "dependencies": {
     "@doctor.com/api": "workspace:*",
     "@doctor.com/auth": "workspace:*",
-    "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
-    "@hono/trpc-server": "^0.4.0",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "cors": "^2.8.5",
     "dotenv": "catalog:",
-    "express": "^5.1.0",
+    "express": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -27,7 +24,6 @@
     "@types/bun": "catalog:",
     "@types/cors": "^2.8.17",
     "@types/express": "catalog:",
-    "tsdown": "^0.16.5",
     "typescript": "catalog:"
   }
 }

@@ -1,13 +1,16 @@
-import { createContext } from "@doctor.com/api/context";
-import { appRouter } from "@doctor.com/api/routers/index";
+import "dotenv/config";
+
 import { auth } from "@doctor.com/auth";
 import { env } from "@doctor.com/env/server";
+import express from "express";
+import { createContext } from "@doctor.com/api/context";
+import { appRouter } from "@doctor.com/api/routers/index";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
-import express from "express";
 
-const app = express();
+const app: express.Express = express();
+const port = Number(process.env.PORT ?? 3000);
 
 app.use(
   cors({
@@ -20,6 +23,8 @@ app.use(
 
 app.all("/api/auth{/*path}", toNodeHandler(auth));
 
+app.use(express.json());
+
 app.use(
   "/trpc",
   createExpressMiddleware({
@@ -28,12 +33,12 @@ app.use(
   }),
 );
 
-app.use(express.json());
-
 app.get("/", (_req, res) => {
-  res.status(200).send("OK");
+  res.status(200).send("server running");
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
+app.listen(port, () => {
+  console.log(`server running on http://localhost:${port}`);
 });
+
+export { app };

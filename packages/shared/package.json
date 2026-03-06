@@ -1,0 +1,32 @@
+{
+  "name": "@doctor.com/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./schemas": {
+      "default": "./src/schemas/index.ts"
+    },
+    "./types": {
+      "default": "./src/types/index.ts"
+    },
+    "./errors": {
+      "default": "./src/errors/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+  },
+  "dependencies": {
+    "@doctor.com/db": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@doctor.com/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
