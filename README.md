@@ -27,15 +27,14 @@ Important:
 ## Prérequis
 
 1. Bun installe (version recommandee: `1.2.20` ou proche).
-2. Docker Desktop lance (pour PostgreSQL local via `docker compose`).
+2. PostgreSQL installe localement et en cours d’execution.
 3. Git + terminal.
 
 Verifier rapidement:
 
 ```bash
 bun --version
-docker --version
-docker compose version
+psql --version
 ```
 
 ## Installation (premier lancement)
@@ -60,10 +59,15 @@ Variables principales a connaitre:
 
 ## Démarrage rapide (backend + DB + web)
 
-1. Demarrer PostgreSQL local:
+1. Demarrer PostgreSQL local (exemples), puis verifier:
 
 ```bash
-bun run db:start
+# macOS (Homebrew)
+brew services start postgresql@16
+# Linux (systemd)
+sudo systemctl start postgresql
+# verification
+pg_isready -h localhost -p 5432
 ```
 
 2. Generer puis appliquer les migrations:
@@ -129,14 +133,6 @@ Lance un workspace cible.
 ## Base de donnees
 
 ```bash
-bun run db:start
-bun run db:watch
-bun run db:stop
-bun run db:down
-```
-Controle du conteneur PostgreSQL local.
-
-```bash
 bun run db:generate
 ```
 Genere migration SQL a partir des schemas Drizzle.
@@ -200,22 +196,22 @@ curl -fsSL https://bun.sh/install | bash
 
 Puis redemarrer le terminal.
 
-## Erreur Docker / DB non accessible
+## PostgreSQL local non accessible
 
-- Verifier Docker Desktop est lance.
-- Relancer:
+- Verifier que le service PostgreSQL tourne sur `localhost:5432`.
+- Lancer le service (exemples):
 
 ```bash
-bun run db:down
-bun run db:start
+brew services start postgresql@16
+# ou
+sudo systemctl start postgresql
 ```
 
-- Rejouer migrations:
+- Puis rejouer:
 
 ```bash
 bun run db:migrate
 ```
-
 ## TypeScript / routeTree web
 
 Si `apps/web` remonte des erreurs TanStack route tree:
