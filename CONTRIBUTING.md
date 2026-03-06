@@ -133,13 +133,12 @@ bun run check-types:backend
 Base de donnees:
 
 ```bash
-bun run db:start
 bun run db:generate
 bun run db:migrate
 bun run db:studio
-bun run db:stop
-bun run db:down
 ```
+
+Le service PostgreSQL local doit etre demarre en dehors du repo (service systeme local).
 
 ## Politique de résolution de conflits
 

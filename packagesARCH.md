@@ -70,7 +70,6 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── drizzle.config.ts
-│   ├── docker-compose.yml
 │   └── src/
 │       ├── index.ts
 │       ├── DB_CHECKLIST.md
@@ -190,8 +189,6 @@ Fichiers cle:
   - SQL versionne + snapshots Drizzle.
 - `src/DB_CHECKLIST.md`:
   - checklist de verification table/colonne/FK/enums vs schema fonctionnel.
-- `docker-compose.yml`:
-  - Postgres local pour dev.
 
 Pourquoi le split de schema est important:
 
