@@ -7,45 +7,42 @@ on:
       - master
       - dev
   pull_request:
-  workflow_run:
-    workflows: ["*"]
-    types:
-      - completed
 
 jobs:
-  notify-push-pr:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+  notify:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Send push/PR notification to Discord
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            MESSAGE="📌 New push in ${{ github.repository }} by ${{ github.actor }} on branch ${{ github.ref_name }}"
-          else
-            MESSAGE="🔁 Pull request event in ${{ github.repository }} by ${{ github.actor }}"
+            ACTOR="${{ github.actor }}"
+            BRANCH="${{ github.ref_name }}"
+            REPO="${{ github.repository }}"
+
+            COMMITS=$(jq -r '.commits[] | "• \(.author.name): \(.message)"' "$GITHUB_EVENT_PATH")
+
+            if [ -z "$COMMITS" ]; then
+              COMMITS="• No commit message found"
+            fi
+
+            CONTENT="📌 **$ACTOR** pushed to **$BRANCH** in **$REPO**%0A$COMMITS"
+
+            curl -H "Content-Type: application/json" \
+              -d "{\"content\":\"$CONTENT\"}" \
+              "$DISCORD_WEBHOOK"
+
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            ACTOR="${{ github.actor }}"
+            REPO="${{ github.repository }}"
+            ACTION="${{ github.event.action }}"
+            TITLE="${{ github.event.pull_request.title }}"
+
+            CONTENT="🔁 **$ACTOR** $ACTION a pull request in **$REPO**%0A• $TITLE"
+
+            curl -H "Content-Type: application/json" \
+              -d "{\"content\":\"$CONTENT\"}" \
+              "$DISCORD_WEBHOOK"
           fi
-
-          curl -H "Content-Type: application/json" \
-          -d "{\"content\":\"$MESSAGE\"}" \
-          "${{ secrets.DISCORD_WEBHOOK }}"
-
-  notify-workflow:
-    if: github.event_name == 'workflow_run'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send workflow result to Discord
-        run: |
-          STATUS="${{ github.event.workflow_run.conclusion }}"
-          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          ACTOR="${{ github.event.workflow_run.actor.login }}"
-
-          if [ "$STATUS" = "success" ]; then
-            MESSAGE="✅ Workflow '$WORKFLOW_NAME' succeeded in ${{ github.repository }} on branch $BRANCH by $ACTOR"
-          else
-            MESSAGE="❌ Workflow '$WORKFLOW_NAME' failed in ${{ github.repository }} on branch $BRANCH by $ACTOR"
-          fi
-
-          curl -H "Content-Type: application/json" \
-          -d "{\"content\":\"$MESSAGE\"}" \
-          "${{ secrets.DISCORD_WEBHOOK }}"
