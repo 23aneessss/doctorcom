@@ -2,10 +2,6 @@ name: Discord Notifications
 
 on:
   push:
-    branches:
-      - main
-      - master
-      - dev
   pull_request:
 
 jobs:
@@ -22,27 +18,33 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             REPO="${{ github.repository }}"
 
-            COMMITS=$(jq -r '.commits[] | "• \(.author.name): \(.message)"' "$GITHUB_EVENT_PATH")
+            AUTHOR=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
+            MESSAGE=$(jq -r '.head_commit.message // "No commit message"' "$GITHUB_EVENT_PATH")
+            URL=$(jq -r '.head_commit.url // ""' "$GITHUB_EVENT_PATH")
 
-            if [ -z "$COMMITS" ]; then
-              COMMITS="• No commit message found"
-            fi
-
-            CONTENT="📌 **$ACTOR** pushed to **$BRANCH** in **$REPO**%0A$COMMITS"
+            jq -n \
+              --arg content "📌 **$ACTOR** pushed to **$BRANCH** in **$REPO**\n• **Author:** $AUTHOR\n• **Commit:** $MESSAGE\n🔗 $URL" \
+              '{content: $content}' \
+              > payload.json
 
             curl -H "Content-Type: application/json" \
-              -d "{\"content\":\"$CONTENT\"}" \
+              -d @payload.json \
               "$DISCORD_WEBHOOK"
 
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             ACTOR="${{ github.actor }}"
             REPO="${{ github.repository }}"
             ACTION="${{ github.event.action }}"
-            TITLE="${{ github.event.pull_request.title }}"
+            TITLE=$(jq -r '.pull_request.title // "No title"' "$GITHUB_EVENT_PATH")
+            BRANCH=$(jq -r '.pull_request.head.ref // "unknown-branch"' "$GITHUB_EVENT_PATH")
+            URL=$(jq -r '.pull_request.html_url // ""' "$GITHUB_EVENT_PATH")
 
-            CONTENT="🔁 **$ACTOR** $ACTION a pull request in **$REPO**%0A• $TITLE"
+            jq -n \
+              --arg content "🔁 **$ACTOR** $ACTION a pull request in **$REPO**\n• **Branch:** $BRANCH\n• **Title:** $TITLE\n🔗 $URL" \
+              '{content: $content}' \
+              > payload.json
 
             curl -H "Content-Type: application/json" \
-              -d "{\"content\":\"$CONTENT\"}" \
+              -d @payload.json \
               "$DISCORD_WEBHOOK"
           fi
