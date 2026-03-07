@@ -1,5 +1,6 @@
 import type { db as databaseClient } from "@doctor.com/db";
 import { utilisateurs } from "@doctor.com/db/schema";
+import { eq } from "drizzle-orm";
 
 type DatabaseClient = typeof databaseClient;
 
@@ -17,26 +18,11 @@ export class AuthRepository {
     database: DatabaseClient,
     email: string,
   ): Promise<UtilisateurProfile | null> {
-    const result = await database.$client.query<UtilisateurProfile>(
-      `
-        SELECT
-          id,
-          nom,
-          prenom,
-          email,
-          adresse,
-          telephone,
-          mot_de_passe_hash,
-          date_creation,
-          role
-        FROM utilisateurs
-        WHERE email = $1
-        LIMIT 1
-      `,
-      [email],
-    );
-
-    const utilisateur = result.rows[0];
+    const [utilisateur] = await database
+      .select()
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
 
     return utilisateur ?? null;
   }
@@ -46,57 +32,33 @@ export class AuthRepository {
     email: string,
     input: UpdateMyProfileInput,
   ): Promise<UtilisateurProfile | null> {
-    const assignments: string[] = [];
-    const values: string[] = [];
-    let index = 1;
+    const updateData: UpdateMyProfileInput = {};
 
     if (input.nom !== undefined) {
-      assignments.push(`nom = $${index++}`);
-      values.push(input.nom);
+      updateData.nom = input.nom;
     }
 
     if (input.prenom !== undefined) {
-      assignments.push(`prenom = $${index++}`);
-      values.push(input.prenom);
+      updateData.prenom = input.prenom;
     }
 
     if (input.telephone !== undefined) {
-      assignments.push(`telephone = $${index++}`);
-      values.push(input.telephone);
+      updateData.telephone = input.telephone;
     }
 
     if (input.adresse !== undefined) {
-      assignments.push(`adresse = $${index++}`);
-      values.push(input.adresse);
+      updateData.adresse = input.adresse;
     }
 
-    if (assignments.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return this.findUtilisateurByEmail(database, email);
     }
 
-    values.push(email);
-    const emailIndex = index;
-
-    const result = await database.$client.query<UtilisateurProfile>(
-      `
-        UPDATE utilisateurs
-        SET ${assignments.join(", ")}
-        WHERE email = $${emailIndex}
-        RETURNING
-          id,
-          nom,
-          prenom,
-          email,
-          adresse,
-          telephone,
-          mot_de_passe_hash,
-          date_creation,
-          role
-      `,
-      values,
-    );
-
-    const updatedUtilisateur = result.rows[0];
+    const [updatedUtilisateur] = await database
+      .update(utilisateurs)
+      .set(updateData)
+      .where(eq(utilisateurs.email, email))
+      .returning();
 
     return updatedUtilisateur ?? null;
   }
