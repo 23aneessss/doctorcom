@@ -25,6 +25,7 @@
     "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
