@@ -1,5 +1,6 @@
 export class PatientRepository {
-  // TODO(phase-2): add patient persistence methods.
+  // Aggregate root repository.
+  // TODO(phase-2): keep only patient-core persistence logic here.
 }
 
 export const patientRepository = new PatientRepository();

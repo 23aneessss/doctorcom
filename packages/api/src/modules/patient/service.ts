@@ -1,5 +1,6 @@
 export class PatientService {
-  // TODO(phase-2): add patient orchestration logic.
+  // Aggregate root service.
+  // TODO(phase-2): keep patient-core orchestration logic here only.
 }
 
 export const patientService = new PatientService();
