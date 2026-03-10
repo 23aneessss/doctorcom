@@ -9,27 +9,21 @@ import { travelRouter } from "../modules/travel/router";
 import { documentsRouter } from "../modules/documents/router";
 import { treatmentRouter } from "../modules/treatment/router";
 import { exportRouter } from "../modules/export/router";
-import { aideRouter } from "../modules/aide/router";
-import { validationRouter } from "../modules/validation/router";
 import { aiRouter } from "../modules/ai/router";
-import { emailRouter } from "../modules/email/router";
 import { createTRPCRouter } from "./init";
 
 export const appRouter = createTRPCRouter({
   agenda: agendaRouter,
   ai: aiRouter,
-  aide: aideRouter,
   auth: authRouter,
   consultation: consultationRouter,
   documents: documentsRouter,
-  email: emailRouter,
   export: exportRouter,
   medicalHistory: medicalHistoryRouter,
   ordonnance: ordonnanceRouter,
   patient: patientRouter,
   travel: travelRouter,
   treatment: treatmentRouter,
-  validation: validationRouter,
   vaccination: vaccinationRouter,
 });
 
