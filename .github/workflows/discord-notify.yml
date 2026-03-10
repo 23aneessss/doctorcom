@@ -3,48 +3,83 @@ name: Discord Notifications
 on:
   push:
   pull_request:
+  workflow_run:
+    workflows: ["*"]
+    types:
+      - completed
 
 jobs:
-  notify:
+  notify-push:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send Discord notification
+      - name: Notify push
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            ACTOR="${{ github.actor }}"
-            BRANCH="${{ github.ref_name }}"
-            REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          BRANCH="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          AUTHOR=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
+          MESSAGE=$(jq -r '.head_commit.message // "No commit message"' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.head_commit.url // ""' "$GITHUB_EVENT_PATH")
 
-            AUTHOR=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
-            MESSAGE=$(jq -r '.head_commit.message // "No commit message"' "$GITHUB_EVENT_PATH")
-            URL=$(jq -r '.head_commit.url // ""' "$GITHUB_EVENT_PATH")
+          jq -n \
+            --arg content "📌 **$ACTOR** pushed to **$BRANCH** in **$REPO**\n• **Author:** $AUTHOR\n• **Commit:** $MESSAGE\n🔗 $URL" \
+            '{content: $content}' > payload.json
 
-            jq -n \
-              --arg content "📌 **$ACTOR** pushed to **$BRANCH** in **$REPO**\n• **Author:** $AUTHOR\n• **Commit:** $MESSAGE\n🔗 $URL" \
-              '{content: $content}' \
-              > payload.json
+          curl -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK"
 
-            curl -H "Content-Type: application/json" \
-              -d @payload.json \
-              "$DISCORD_WEBHOOK"
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify pull request
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          ACTION="${{ github.event.action }}"
+          TITLE=$(jq -r '.pull_request.title // "No title"' "$GITHUB_EVENT_PATH")
+          BRANCH=$(jq -r '.pull_request.head.ref // "unknown-branch"' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.pull_request.html_url // ""' "$GITHUB_EVENT_PATH")
 
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            ACTOR="${{ github.actor }}"
-            REPO="${{ github.repository }}"
-            ACTION="${{ github.event.action }}"
-            TITLE=$(jq -r '.pull_request.title // "No title"' "$GITHUB_EVENT_PATH")
-            BRANCH=$(jq -r '.pull_request.head.ref // "unknown-branch"' "$GITHUB_EVENT_PATH")
-            URL=$(jq -r '.pull_request.html_url // ""' "$GITHUB_EVENT_PATH")
+          jq -n \
+            --arg content "🔁 **$ACTOR** $ACTION a pull request in **$REPO**\n• **Branch:** $BRANCH\n• **Title:** $TITLE\n🔗 $URL" \
+            '{content: $content}' > payload.json
 
-            jq -n \
-              --arg content "🔁 **$ACTOR** $ACTION a pull request in **$REPO**\n• **Branch:** $BRANCH\n• **Title:** $TITLE\n🔗 $URL" \
-              '{content: $content}' \
-              > payload.json
+          curl -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK"
 
-            curl -H "Content-Type: application/json" \
-              -d @payload.json \
-              "$DISCORD_WEBHOOK"
+  notify-workflow:
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify workflow result
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          ACTOR=$(jq -r '.workflow_run.actor.login // "unknown"' "$GITHUB_EVENT_PATH")
+          WORKFLOW_NAME=$(jq -r '.workflow_run.name // "unknown workflow"' "$GITHUB_EVENT_PATH")
+          STATUS=$(jq -r '.workflow_run.conclusion // "unknown"' "$GITHUB_EVENT_PATH")
+          BRANCH=$(jq -r '.workflow_run.head_branch // "unknown-branch"' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.workflow_run.html_url // ""' "$GITHUB_EVENT_PATH")
+          REPO="${{ github.repository }}"
+
+          if [ "$STATUS" = "success" ]; then
+            ICON="✅"
+          else
+            ICON="❌"
           fi
+
+          jq -n \
+            --arg content "$ICON **$WORKFLOW_NAME** finished in **$REPO**\n• **By:** $ACTOR\n• **Branch:** $BRANCH\n• **Status:** $STATUS\n🔗 $URL" \
+            '{content: $content}' > payload.json
+
+          curl -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK"
