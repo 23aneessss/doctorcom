@@ -1,0 +1,115 @@
+{
+  "id": "cf4de66b-0b63-429d-9950-de4e7730b83b",
+  "name": "documents-module-env",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientId",
+      "value": "210d047b-c28c-4208-8f96-5d50b32b2f90",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientFatimaId",
+      "value": "e939a6ad-2ad8-4368-a275-4e1275ef37fc",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientLyndaId",
+      "value": "c4d33007-ecbb-4623-9916-6c9c9091da25",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "suiviId",
+      "value": "379f67a3-573f-4434-b002-4b063db8870e",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "suiviFatimaId",
+      "value": "3fc336fa-ab2e-4a49-aa66-49f4653f2172",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "suiviLyndaId",
+      "value": "505faaba-97a2-4dfa-b391-ebee5c630f2e",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieId",
+      "value": "93dbe10b-28d7-4cbe-8f10-4b0f9834be7d",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieOrdId",
+      "value": "8837ff05-af0e-4a5e-8655-25fd6b82ec47",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieCertId",
+      "value": "9ffd1163-0003-4d6d-bd58-9cbbb858afb6",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieExamId",
+      "value": "17207897-8e28-4de4-9f8e-470038d473af",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "documentId",
+      "value": "5a17a1eb-0f88-4901-92b2-b4ac4a44d5f7",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "documentLettreId",
+      "value": "d616e816-d307-4a04-8d91-d88b6607ccb3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "documentCertId",
+      "value": "8033685a-02e9-419a-8a15-78f543bd68da",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "lettreId",
+      "value": "5cab932f-b3e3-4f76-ac1a-11084a602793",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "lettreFatimaId",
+      "value": "5416cfe5-5d8a-45dc-bfda-9bd53d407fe3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "certificatId",
+      "value": "8df63cd0-715a-4106-96fc-230ae93e580f",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "certificatLyndaId",
+      "value": "968daeef-d15e-42a4-971b-85cfa3985cf8",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
