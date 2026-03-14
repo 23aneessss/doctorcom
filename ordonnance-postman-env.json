@@ -1,0 +1,145 @@
+{
+  "id": "97e85386-1635-423c-b49c-fdd58aa12b5a",
+  "name": "ordonnance-module-env",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientId",
+      "value": "210d047b-c28c-4208-8f96-5d50b32b2f90",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientFatimaId",
+      "value": "e939a6ad-2ad8-4368-a275-4e1275ef37fc",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientLyndaId",
+      "value": "c4d33007-ecbb-4623-9916-6c9c9091da25",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "rendezVousId",
+      "value": "2a35758c-6294-4d97-89cf-1d273d5dd910",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "rendezVousId2",
+      "value": "567775ed-dffa-4d97-b12e-0447dcfd2158",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "rendezVousFatimaId",
+      "value": "3f4b3e4e-a888-472e-9ba5-3ce071f6fbfa",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "rendezVousLyndaId",
+      "value": "9eef8434-6b5a-4d44-8d9d-8e9dc90fae31",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ordonnanceId",
+      "value": "6c2d03fa-727f-431a-a597-2264fca8b4ef",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ordonnanceId2",
+      "value": "eeba07b3-1105-43df-9a83-83ff27991db9",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ordonnanceFatimaId",
+      "value": "e05d29aa-aab5-40cd-ae1e-3912ce7e5d39",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ordonnanceMedicamentId",
+      "value": "e9906e80-3adb-40a1-8e14-81bf97c54a7d",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "medicamentId",
+      "value": "0c892ce1-c031-4308-b1d1-1dffa4594674",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "medicamentAmoxId",
+      "value": "e71dfd85-d45e-4c9b-b8f0-ccb1801bc023",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "medicamentMetformineId",
+      "value": "1f9e0f6f-a05c-49cb-b782-92acdffd66ac",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "medicamentAmlodipineId",
+      "value": "ee63b0ac-816d-4950-a940-45fc1d2e370a",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieId",
+      "value": "f2239807-9620-4df8-9898-82cab88551d1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieCardioId",
+      "value": "71aa8e11-beb5-4aa1-bf4c-35ddc37fb518",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "categorieDiabeteId",
+      "value": "13e133cc-3467-4e22-9666-dc874b13a7d9",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "preRempliId",
+      "value": "57be4d54-d687-4234-80dc-de706e7cdb0f",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "preRempliDiabeteId",
+      "value": "874b980b-089e-445a-bcd2-cc9266e4121b",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "preRempliInfectionId",
+      "value": "5464707e-2a69-4068-a684-4281c1674096",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "preRempliMedicamentId",
+      "value": "ff96fa6d-6f55-4555-af11-68668d850c2d",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
