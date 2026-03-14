@@ -22,6 +22,13 @@
       "when": 1772798283661,
       "tag": "0002_complete_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773473124502,
+      "tag": "0003_medical_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

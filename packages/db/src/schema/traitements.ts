@@ -1,6 +1,7 @@
 import { boolean, date, index, pgTable, text, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { patients } from "./patients";
+import { pre_rempli_ordonnance } from "./ordonnances";
 import { rendez_vous } from "./suivi";
 import { utilisateurs } from "./utilisateurs";
 
@@ -53,6 +54,9 @@ export const ordonnance = pgTable(
     utilisateur_id: uuid("utilisateur_id")
       .notNull()
       .references(() => utilisateurs.id),
+    pre_rempli_origine_id: uuid("pre_rempli_origine_id").references(
+      () => pre_rempli_ordonnance.id,
+    ),
     remarques: text("remarques"),
     date_prescription: date("date_prescription").notNull(),
   },
@@ -60,6 +64,9 @@ export const ordonnance = pgTable(
     index("ordonnance_rendez_vous_id_idx").on(table.rendez_vous_id),
     index("ordonnance_patient_id_idx").on(table.patient_id),
     index("ordonnance_utilisateur_id_idx").on(table.utilisateur_id),
+    index("ordonnance_pre_rempli_origine_id_idx").on(
+      table.pre_rempli_origine_id,
+    ),
   ],
 );
 
