@@ -22,11 +22,14 @@
   "dependencies": {
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
+    "@doctor.com/env": "workspace:*",
     "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "ai": "^4.3",
+    "@ai-sdk/mistral": "^1.2"
   },
   "devDependencies": {
     "@doctor.com/config": "workspace:*",
