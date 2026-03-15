@@ -5,6 +5,7 @@ import { env } from "@doctor.com/env/server";
 import express from "express";
 import { createContext } from "@doctor.com/api/context";
 import { appRouter } from "@doctor.com/api/routers/index";
+import { ensureBucketExists } from "@doctor.com/api/infrastructure/storage";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
@@ -40,5 +41,7 @@ app.get("/", (_req, res) => {
 app.listen(port, () => {
   console.log(`server running on http://localhost:${port}`);
 });
+
+ensureBucketExists();
 
 export { app };

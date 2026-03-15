@@ -11,6 +11,9 @@
     "./routers/index": {
       "default": "./src/routers/index.ts"
     },
+    "./infrastructure/storage": {
+      "default": "./src/infrastructure/storage/index.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }
@@ -22,10 +25,12 @@
   "dependencies": {
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
+    "@doctor.com/env": "workspace:*",
     "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "minio": "^8.0.5",
     "zod": "catalog:"
   },
   "devDependencies": {
