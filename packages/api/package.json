@@ -5,24 +5,39 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./context": {
+      "default": "./src/context.ts"
+    },
+    "./routers/index": {
+      "default": "./src/routers/index.ts"
+    },
+    "./infrastructure/storage": {
+      "default": "./src/infrastructure/storage/index.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+  },
   "dependencies": {
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
-    "@trpc/client": "catalog:",
+    "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
-    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "multer": "^2.1.1",
+    "minio": "^8.0.5",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@doctor.com/config": "workspace:*",
     "@types/express": "catalog:",
+    "@types/multer": "^2.0.0",
     "typescript": "catalog:"
   }
 }

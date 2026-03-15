@@ -1,3 +1,5 @@
 {
-  "extends": "@doctor.com/config/tsconfig.base.json"
+  "extends": "./packages/config/tsconfig.base.json",
+  "files": [],
+  "include": []
 }

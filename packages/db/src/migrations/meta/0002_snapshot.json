@@ -1,0 +1,2902 @@
+{
+  "id": "6d3d20b7-22ae-4507-acd9-af21593fe7c7",
+  "prevId": "1a5c39a8-6245-4b7f-9a91-a4ab978cc82d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.antecedents": {
+      "name": "antecedents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "antecedent_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "antecedents_patient_id_idx": {
+          "name": "antecedents_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "antecedents_patient_id_patients_id_fk": {
+          "name": "antecedents_patient_id_patients_id_fk",
+          "tableFrom": "antecedents",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.antecedents_familiaux": {
+      "name": "antecedents_familiaux",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "antecedent_id": {
+          "name": "antecedent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lien_parente": {
+          "name": "lien_parente",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "antecedents_familiaux_antecedent_id_idx": {
+          "name": "antecedents_familiaux_antecedent_id_idx",
+          "columns": [
+            {
+              "expression": "antecedent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "antecedents_familiaux_antecedent_id_antecedents_id_fk": {
+          "name": "antecedents_familiaux_antecedent_id_antecedents_id_fk",
+          "tableFrom": "antecedents_familiaux",
+          "tableTo": "antecedents",
+          "columnsFrom": [
+            "antecedent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.antecedents_personnels": {
+      "name": "antecedents_personnels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "antecedent_id": {
+          "name": "antecedent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "est_actif": {
+          "name": "est_actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "antecedents_personnels_antecedent_id_idx": {
+          "name": "antecedents_personnels_antecedent_id_idx",
+          "columns": [
+            {
+              "expression": "antecedent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "antecedents_personnels_antecedent_id_antecedents_id_fk": {
+          "name": "antecedents_personnels_antecedent_id_antecedents_id_fk",
+          "tableFrom": "antecedents_personnels",
+          "tableTo": "antecedents",
+          "columnsFrom": [
+            "antecedent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.categories_documents": {
+      "name": "categories_documents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nom": {
+          "name": "nom",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.certificats_medicaux": {
+      "name": "certificats_medicaux",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "documents_patient_id": {
+          "name": "documents_patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suivi_id": {
+          "name": "suivi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_certificat": {
+          "name": "type_certificat",
+          "type": "certificat_medical_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_emission": {
+          "name": "date_emission",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_debut": {
+          "name": "date_debut",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_fin": {
+          "name": "date_fin",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "diagnostic": {
+          "name": "diagnostic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destinataire": {
+          "name": "destinataire",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statut": {
+          "name": "statut",
+          "type": "certificat_medical_statut",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_creation": {
+          "name": "date_creation",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_modification": {
+          "name": "date_modification",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "certificats_medicaux_documents_patient_id_unique": {
+          "name": "certificats_medicaux_documents_patient_id_unique",
+          "columns": [
+            {
+              "expression": "documents_patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "certificats_medicaux_documents_patient_id_idx": {
+          "name": "certificats_medicaux_documents_patient_id_idx",
+          "columns": [
+            {
+              "expression": "documents_patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "certificats_medicaux_utilisateur_id_idx": {
+          "name": "certificats_medicaux_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "certificats_medicaux_suivi_id_idx": {
+          "name": "certificats_medicaux_suivi_id_idx",
+          "columns": [
+            {
+              "expression": "suivi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "certificats_medicaux_documents_patient_id_documents_patient_id_fk": {
+          "name": "certificats_medicaux_documents_patient_id_documents_patient_id_fk",
+          "tableFrom": "certificats_medicaux",
+          "tableTo": "documents_patient",
+          "columnsFrom": [
+            "documents_patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "certificats_medicaux_utilisateur_id_utilisateurs_id_fk": {
+          "name": "certificats_medicaux_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "certificats_medicaux",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "certificats_medicaux_suivi_id_suivi_id_fk": {
+          "name": "certificats_medicaux_suivi_id_suivi_id_fk",
+          "tableFrom": "certificats_medicaux",
+          "tableTo": "suivi",
+          "columnsFrom": [
+            "suivi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.documents_patient": {
+      "name": "documents_patient",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "categorie_id": {
+          "name": "categorie_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_document": {
+          "name": "type_document",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom_document": {
+          "name": "nom_document",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chemin_fichier": {
+          "name": "chemin_fichier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_fichier": {
+          "name": "type_fichier",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taille_fichier": {
+          "name": "taille_fichier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_upload": {
+          "name": "date_upload",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uploade_par_utilisateur": {
+          "name": "uploade_par_utilisateur",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "est_archive": {
+          "name": "est_archive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "documents_patient_patient_id_idx": {
+          "name": "documents_patient_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "documents_patient_categorie_id_idx": {
+          "name": "documents_patient_categorie_id_idx",
+          "columns": [
+            {
+              "expression": "categorie_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "documents_patient_uploade_par_utilisateur_idx": {
+          "name": "documents_patient_uploade_par_utilisateur_idx",
+          "columns": [
+            {
+              "expression": "uploade_par_utilisateur",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "documents_patient_patient_id_patients_id_fk": {
+          "name": "documents_patient_patient_id_patients_id_fk",
+          "tableFrom": "documents_patient",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "documents_patient_categorie_id_categories_documents_id_fk": {
+          "name": "documents_patient_categorie_id_categories_documents_id_fk",
+          "tableFrom": "documents_patient",
+          "tableTo": "categories_documents",
+          "columnsFrom": [
+            "categorie_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "documents_patient_uploade_par_utilisateur_utilisateurs_id_fk": {
+          "name": "documents_patient_uploade_par_utilisateur_utilisateurs_id_fk",
+          "tableFrom": "documents_patient",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "uploade_par_utilisateur"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.examen_consultation": {
+      "name": "examen_consultation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "rendez_vous_id": {
+          "name": "rendez_vous_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suivi_id": {
+          "name": "suivi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taille": {
+          "name": "taille",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "poids": {
+          "name": "poids",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "traitement_prescrit": {
+          "name": "traitement_prescrit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description_consultation": {
+          "name": "description_consultation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aspect_general": {
+          "name": "aspect_general",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_respiratoire": {
+          "name": "examen_respiratoire",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_cardiovasculaire": {
+          "name": "examen_cardiovasculaire",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_cutane_muqueux": {
+          "name": "examen_cutane_muqueux",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_orl": {
+          "name": "examen_orl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_digestif": {
+          "name": "examen_digestif",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_neurologique": {
+          "name": "examen_neurologique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_locomoteur": {
+          "name": "examen_locomoteur",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_genital": {
+          "name": "examen_genital",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_urinaire": {
+          "name": "examen_urinaire",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_ganglionnaire": {
+          "name": "examen_ganglionnaire",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_endocrinien": {
+          "name": "examen_endocrinien",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conclusion": {
+          "name": "conclusion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "examen_consultation_rendez_vous_id_idx": {
+          "name": "examen_consultation_rendez_vous_id_idx",
+          "columns": [
+            {
+              "expression": "rendez_vous_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "examen_consultation_suivi_id_idx": {
+          "name": "examen_consultation_suivi_id_idx",
+          "columns": [
+            {
+              "expression": "suivi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "examen_consultation_rendez_vous_id_rendez_vous_id_fk": {
+          "name": "examen_consultation_rendez_vous_id_rendez_vous_id_fk",
+          "tableFrom": "examen_consultation",
+          "tableTo": "rendez_vous",
+          "columnsFrom": [
+            "rendez_vous_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "examen_consultation_suivi_id_suivi_id_fk": {
+          "name": "examen_consultation_suivi_id_suivi_id_fk",
+          "tableFrom": "examen_consultation",
+          "tableTo": "suivi",
+          "columnsFrom": [
+            "suivi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.historique_traitements": {
+      "name": "historique_traitements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posologie": {
+          "name": "posologie",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "est_actif": {
+          "name": "est_actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_prescription": {
+          "name": "date_prescription",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prescrit_par_utilisateur": {
+          "name": "prescrit_par_utilisateur",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "historique_traitements_patient_id_idx": {
+          "name": "historique_traitements_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "historique_traitements_medicament_id_idx": {
+          "name": "historique_traitements_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "historique_traitements_prescrit_par_utilisateur_idx": {
+          "name": "historique_traitements_prescrit_par_utilisateur_idx",
+          "columns": [
+            {
+              "expression": "prescrit_par_utilisateur",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "historique_traitements_patient_id_patients_id_fk": {
+          "name": "historique_traitements_patient_id_patients_id_fk",
+          "tableFrom": "historique_traitements",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "historique_traitements_medicament_id_medicaments_id_fk": {
+          "name": "historique_traitements_medicament_id_medicaments_id_fk",
+          "tableFrom": "historique_traitements",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "historique_traitements_prescrit_par_utilisateur_utilisateurs_id_fk": {
+          "name": "historique_traitements_prescrit_par_utilisateur_utilisateurs_id_fk",
+          "tableFrom": "historique_traitements",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "prescrit_par_utilisateur"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.lettres_orientation": {
+      "name": "lettres_orientation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "documents_patient_id": {
+          "name": "documents_patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suivi_id": {
+          "name": "suivi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_exploration": {
+          "name": "type_exploration",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examen_demande": {
+          "name": "examen_demande",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raison": {
+          "name": "raison",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destinataire": {
+          "name": "destinataire",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "urgence": {
+          "name": "urgence",
+          "type": "lettre_orientation_urgence",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contenu_lettre": {
+          "name": "contenu_lettre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_creation": {
+          "name": "date_creation",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_modification": {
+          "name": "date_modification",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "lettres_orientation_documents_patient_id_unique": {
+          "name": "lettres_orientation_documents_patient_id_unique",
+          "columns": [
+            {
+              "expression": "documents_patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lettres_orientation_documents_patient_id_idx": {
+          "name": "lettres_orientation_documents_patient_id_idx",
+          "columns": [
+            {
+              "expression": "documents_patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lettres_orientation_utilisateur_id_idx": {
+          "name": "lettres_orientation_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lettres_orientation_suivi_id_idx": {
+          "name": "lettres_orientation_suivi_id_idx",
+          "columns": [
+            {
+              "expression": "suivi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lettres_orientation_documents_patient_id_documents_patient_id_fk": {
+          "name": "lettres_orientation_documents_patient_id_documents_patient_id_fk",
+          "tableFrom": "lettres_orientation",
+          "tableTo": "documents_patient",
+          "columnsFrom": [
+            "documents_patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lettres_orientation_utilisateur_id_utilisateurs_id_fk": {
+          "name": "lettres_orientation_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "lettres_orientation",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lettres_orientation_suivi_id_suivi_id_fk": {
+          "name": "lettres_orientation_suivi_id_suivi_id_fk",
+          "tableFrom": "lettres_orientation",
+          "tableTo": "suivi",
+          "columnsFrom": [
+            "suivi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.logs": {
+      "name": "logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "horodatage": {
+          "name": "horodatage",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "logs_utilisateur_id_idx": {
+          "name": "logs_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "logs_utilisateur_id_utilisateurs_id_fk": {
+          "name": "logs_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "logs",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.medicaments": {
+      "name": "medicaments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "dci": {
+          "name": "dci",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "indication": {
+          "name": "indication",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contre_indication": {
+          "name": "contre_indication",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "posologie_standard": {
+          "name": "posologie_standard",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effets_indesirables": {
+          "name": "effets_indesirables",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dosage": {
+          "name": "dosage",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ordonnance": {
+      "name": "ordonnance",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "rendez_vous_id": {
+          "name": "rendez_vous_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "remarques": {
+          "name": "remarques",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_prescription": {
+          "name": "date_prescription",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "ordonnance_rendez_vous_id_idx": {
+          "name": "ordonnance_rendez_vous_id_idx",
+          "columns": [
+            {
+              "expression": "rendez_vous_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ordonnance_patient_id_idx": {
+          "name": "ordonnance_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ordonnance_utilisateur_id_idx": {
+          "name": "ordonnance_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ordonnance_rendez_vous_id_rendez_vous_id_fk": {
+          "name": "ordonnance_rendez_vous_id_rendez_vous_id_fk",
+          "tableFrom": "ordonnance",
+          "tableTo": "rendez_vous",
+          "columnsFrom": [
+            "rendez_vous_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ordonnance_patient_id_patients_id_fk": {
+          "name": "ordonnance_patient_id_patients_id_fk",
+          "tableFrom": "ordonnance",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ordonnance_utilisateur_id_utilisateurs_id_fk": {
+          "name": "ordonnance_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "ordonnance",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ordonnance_medicaments": {
+      "name": "ordonnance_medicaments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "ordonnance_id": {
+          "name": "ordonnance_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posologie": {
+          "name": "posologie",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duree_traitement": {
+          "name": "duree_traitement",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructions": {
+          "name": "instructions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ordonnance_medicaments_ordonnance_id_idx": {
+          "name": "ordonnance_medicaments_ordonnance_id_idx",
+          "columns": [
+            {
+              "expression": "ordonnance_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ordonnance_medicaments_medicament_id_idx": {
+          "name": "ordonnance_medicaments_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ordonnance_medicaments_ordonnance_id_ordonnance_id_fk": {
+          "name": "ordonnance_medicaments_ordonnance_id_ordonnance_id_fk",
+          "tableFrom": "ordonnance_medicaments",
+          "tableTo": "ordonnance",
+          "columnsFrom": [
+            "ordonnance_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ordonnance_medicaments_medicament_id_medicaments_id_fk": {
+          "name": "ordonnance_medicaments_medicament_id_medicaments_id_fk",
+          "tableFrom": "ordonnance_medicaments",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.patients": {
+      "name": "patients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nom": {
+          "name": "nom",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prenom": {
+          "name": "prenom",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "telephone": {
+          "name": "telephone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "matricule": {
+          "name": "matricule",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_naissance": {
+          "name": "date_naissance",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nss": {
+          "name": "nss",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lieu_naissance": {
+          "name": "lieu_naissance",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sexe": {
+          "name": "sexe",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nationalite": {
+          "name": "nationalite",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "groupe_sanguin": {
+          "name": "groupe_sanguin",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adresse": {
+          "name": "adresse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "profession": {
+          "name": "profession",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "habitudes_saines": {
+          "name": "habitudes_saines",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "habitudes_toxiques": {
+          "name": "habitudes_toxiques",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nb_enfants": {
+          "name": "nb_enfants",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "situation_familiale": {
+          "name": "situation_familiale",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_circoncision": {
+          "name": "age_circoncision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_admission": {
+          "name": "date_admission",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "environnement_animal": {
+          "name": "environnement_animal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revenu_mensuel": {
+          "name": "revenu_mensuel",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "taille_menage": {
+          "name": "taille_menage",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nb_pieces": {
+          "name": "nb_pieces",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "niveau_intellectuel": {
+          "name": "niveau_intellectuel",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activite_sexuelle": {
+          "name": "activite_sexuelle",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "relations_environnement": {
+          "name": "relations_environnement",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cree_par_utilisateur": {
+          "name": "cree_par_utilisateur",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "patients_matricule_unique": {
+          "name": "patients_matricule_unique",
+          "columns": [
+            {
+              "expression": "matricule",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "patients_cree_par_utilisateur_idx": {
+          "name": "patients_cree_par_utilisateur_idx",
+          "columns": [
+            {
+              "expression": "cree_par_utilisateur",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patients_cree_par_utilisateur_utilisateurs_id_fk": {
+          "name": "patients_cree_par_utilisateur_utilisateurs_id_fk",
+          "tableFrom": "patients",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "cree_par_utilisateur"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.patients_femmes": {
+      "name": "patients_femmes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "menarche": {
+          "name": "menarche",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "regularite_cycles": {
+          "name": "regularite_cycles",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contraception": {
+          "name": "contraception",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nb_grossesses": {
+          "name": "nb_grossesses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nb_cesariennes": {
+          "name": "nb_cesariennes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "menopause": {
+          "name": "menopause",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_menopause": {
+          "name": "age_menopause",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "symptomes_menopause": {
+          "name": "symptomes_menopause",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "patients_femmes_patient_id_unique": {
+          "name": "patients_femmes_patient_id_unique",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "patients_femmes_patient_id_idx": {
+          "name": "patients_femmes_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patients_femmes_patient_id_patients_id_fk": {
+          "name": "patients_femmes_patient_id_patients_id_fk",
+          "tableFrom": "patients_femmes",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rendez_vous": {
+      "name": "rendez_vous",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suivi_id": {
+          "name": "suivi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "heure": {
+          "name": "heure",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statut": {
+          "name": "statut",
+          "type": "rendez_vous_statut",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "important": {
+          "name": "important",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "frequence_rappel": {
+          "name": "frequence_rappel",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "periode_rappel": {
+          "name": "periode_rappel",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "rendez_vous_patient_id_idx": {
+          "name": "rendez_vous_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rendez_vous_suivi_id_idx": {
+          "name": "rendez_vous_suivi_id_idx",
+          "columns": [
+            {
+              "expression": "suivi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rendez_vous_utilisateur_id_idx": {
+          "name": "rendez_vous_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rendez_vous_patient_id_patients_id_fk": {
+          "name": "rendez_vous_patient_id_patients_id_fk",
+          "tableFrom": "rendez_vous",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rendez_vous_suivi_id_suivi_id_fk": {
+          "name": "rendez_vous_suivi_id_suivi_id_fk",
+          "tableFrom": "rendez_vous",
+          "tableTo": "suivi",
+          "columnsFrom": [
+            "suivi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rendez_vous_utilisateur_id_utilisateurs_id_fk": {
+          "name": "rendez_vous_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "rendez_vous",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jeton": {
+          "name": "jeton",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_connexion": {
+          "name": "date_connexion",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_expiration": {
+          "name": "date_expiration",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "est_actif": {
+          "name": "est_actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom_appareil": {
+          "name": "nom_appareil",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "sessions_utilisateur_id_idx": {
+          "name": "sessions_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sessions_utilisateur_id_utilisateurs_id_fk": {
+          "name": "sessions_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.suivi": {
+      "name": "suivi",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "utilisateur_id": {
+          "name": "utilisateur_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hypothese_diagnostic": {
+          "name": "hypothese_diagnostic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motif": {
+          "name": "motif",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "historique": {
+          "name": "historique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_ouverture": {
+          "name": "date_ouverture",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_fermeture": {
+          "name": "date_fermeture",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "est_actif": {
+          "name": "est_actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "suivi_patient_id_idx": {
+          "name": "suivi_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "suivi_utilisateur_id_idx": {
+          "name": "suivi_utilisateur_id_idx",
+          "columns": [
+            {
+              "expression": "utilisateur_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "suivi_patient_id_patients_id_fk": {
+          "name": "suivi_patient_id_patients_id_fk",
+          "tableFrom": "suivi",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "suivi_utilisateur_id_utilisateurs_id_fk": {
+          "name": "suivi_utilisateur_id_utilisateurs_id_fk",
+          "tableFrom": "suivi",
+          "tableTo": "utilisateurs",
+          "columnsFrom": [
+            "utilisateur_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.utilisateurs": {
+      "name": "utilisateurs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nom": {
+          "name": "nom",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prenom": {
+          "name": "prenom",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "adresse": {
+          "name": "adresse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telephone": {
+          "name": "telephone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mot_de_passe_hash": {
+          "name": "mot_de_passe_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_creation": {
+          "name": "date_creation",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "utilisateur_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "utilisateurs_email_unique": {
+          "name": "utilisateurs_email_unique",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vaccinations_patient": {
+      "name": "vaccinations_patient",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vaccin": {
+          "name": "vaccin",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_vaccination": {
+          "name": "date_vaccination",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "vaccinations_patient_patient_id_idx": {
+          "name": "vaccinations_patient_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "vaccinations_patient_patient_id_patients_id_fk": {
+          "name": "vaccinations_patient_patient_id_patients_id_fk",
+          "tableFrom": "vaccinations_patient",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.voyages_recents": {
+      "name": "voyages_recents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination": {
+          "name": "destination",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duree_jours": {
+          "name": "duree_jours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "epidemies_destination": {
+          "name": "epidemies_destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "voyages_recents_patient_id_idx": {
+          "name": "voyages_recents_patient_id_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "voyages_recents_patient_id_patients_id_fk": {
+          "name": "voyages_recents_patient_id_patients_id_fk",
+          "tableFrom": "voyages_recents",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.account": {
+      "name": "account",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "account_user_id_user_id_fk": {
+          "name": "account_user_id_user_id_fk",
+          "tableFrom": "account",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.session": {
+      "name": "session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "session_user_id_user_id_fk": {
+          "name": "session_user_id_user_id_fk",
+          "tableFrom": "session",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "session_token_unique": {
+          "name": "session_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "user_email_unique": {
+          "name": "user_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verification": {
+      "name": "verification",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "verification_identifier_idx": {
+          "name": "verification_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.antecedent_type": {
+      "name": "antecedent_type",
+      "schema": "public",
+      "values": [
+        "personnel",
+        "familial"
+      ]
+    },
+    "public.certificat_medical_statut": {
+      "name": "certificat_medical_statut",
+      "schema": "public",
+      "values": [
+        "brouillon",
+        "emis",
+        "annule"
+      ]
+    },
+    "public.certificat_medical_type": {
+      "name": "certificat_medical_type",
+      "schema": "public",
+      "values": [
+        "arret_travail",
+        "aptitude",
+        "scolaire",
+        "grossesse",
+        "deces"
+      ]
+    },
+    "public.lettre_orientation_urgence": {
+      "name": "lettre_orientation_urgence",
+      "schema": "public",
+      "values": [
+        "normale",
+        "urgente",
+        "tres_urgente"
+      ]
+    },
+    "public.rendez_vous_statut": {
+      "name": "rendez_vous_statut",
+      "schema": "public",
+      "values": [
+        "planifie",
+        "confirme",
+        "termine",
+        "annule",
+        "non_present"
+      ]
+    },
+    "public.utilisateur_role": {
+      "name": "utilisateur_role",
+      "schema": "public",
+      "values": [
+        "medecin",
+        "secretaire",
+        "admin"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

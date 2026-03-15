@@ -26,9 +26,9 @@ sessions [icon: key, color: blue] {
 
 logs [icon: activity, color: gray] {
   ID int pk
-  user_ID int fk
+  utilisateur_ID int fk
   action string
-  timestamp date
+  horodatage datetime
 }
 
 // Patients
@@ -115,12 +115,14 @@ antecedents_familiaux [icon: users, color: orange] {
 rendez_vous [icon: calendar, color: green] {
   ID int pk
   patient_ID int fk
-  suivi_ID int fk
+  suivi_ID int fk  // nullable en implementation
   utilisateur_ID int fk
   date date
   heure string
   statut string
   important boolean
+  frequence_rappel string
+  periode_rappel string
     // 'planifie', 'confirme', 'termine', 'annule', 'non_present'
 }
 
@@ -141,6 +143,10 @@ examen_consultation [icon: thermometer, color: green] {
   rendez_vous_ID int fk
   suivi_ID int fk
   date date
+  taille decimal
+  poids decimal
+  traitement_prescrit text
+  description_consultation text
   aspect_general string
   examen_respiratoire string
   examen_cardiovasculaire string
@@ -269,7 +275,7 @@ certificats_medicaux [icon: award, color: gray] {
 
 // Relations Utilisateur
 utilisateurs.ID < sessions.utilisateur_ID
-utilisateurs.ID < logs.user_ID  // logs reste en anglais
+utilisateurs.ID < logs.utilisateur_ID
 utilisateurs.ID < patients.cree_par_utilisateur
 utilisateurs.ID < rendez_vous.utilisateur_ID
 utilisateurs.ID < suivi.utilisateur_ID

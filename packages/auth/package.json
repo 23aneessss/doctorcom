@@ -9,13 +9,15 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b"
+  },
   "dependencies": {
     "@better-auth/expo": "catalog:",
     "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
     "better-auth": "catalog:",
-    "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
