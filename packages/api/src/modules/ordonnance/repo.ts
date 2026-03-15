@@ -1,17 +1,19 @@
-import type { db as databaseClient } from "@doctor.com/db";
+import type { db as rootDatabaseClient } from "@doctor.com/db";
 import {
   categories_pre_rempli,
-  medicaments,
   ordonnance,
   ordonnance_medicaments,
   patients,
   pre_rempli_medicaments,
   pre_rempli_ordonnance,
   rendez_vous,
+  utilisateurs,
 } from "@doctor.com/db/schema";
 import { and, asc, desc, eq, ilike } from "drizzle-orm";
 
-type DatabaseClient = typeof databaseClient;
+type RootDatabaseClient = typeof rootDatabaseClient;
+type DatabaseTransaction = Parameters<Parameters<RootDatabaseClient["transaction"]>[0]>[0];
+type DatabaseClient = RootDatabaseClient | DatabaseTransaction;
 
 type NewOrdonnanceRecord = typeof ordonnance.$inferInsert;
 type NewOrdonnanceMedicamentRecord = typeof ordonnance_medicaments.$inferInsert;
@@ -21,10 +23,10 @@ type NewPreRempliMedicamentRecord = typeof pre_rempli_medicaments.$inferInsert;
 
 export type OrdonnanceRecord = typeof ordonnance.$inferSelect;
 export type OrdonnanceMedicamentRecord = typeof ordonnance_medicaments.$inferSelect;
-export type MedicamentRecord = typeof medicaments.$inferSelect;
 export type CategoriePreRempliRecord = typeof categories_pre_rempli.$inferSelect;
 export type PreRempliOrdonnanceRecord = typeof pre_rempli_ordonnance.$inferSelect;
 export type PreRempliMedicamentRecord = typeof pre_rempli_medicaments.$inferSelect;
+export type UtilisateurRecord = typeof utilisateurs.$inferSelect;
 
 export type CreateOrdonnanceInput = Omit<NewOrdonnanceRecord, "id">;
 export type UpdateOrdonnanceInput = Partial<CreateOrdonnanceInput>;
@@ -51,6 +53,19 @@ export type UpdatePreRempliMedicamentInput = Partial<
 >;
 
 export class OrdonnanceRepository {
+  async findUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<UtilisateurRecord | null> {
+    const [utilisateur] = await database
+      .select()
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return utilisateur ?? null;
+  }
+
   async createOrdonnance(
     database: DatabaseClient,
     data: CreateOrdonnanceInput,
@@ -83,6 +98,10 @@ export class OrdonnanceRepository {
   }
 
   async deleteOrdonnance(database: DatabaseClient, id: string): Promise<boolean> {
+    await database
+      .delete(ordonnance_medicaments)
+      .where(eq(ordonnance_medicaments.ordonnance_id, id));
+
     const [deleted] = await database
       .delete(ordonnance)
       .where(eq(ordonnance.id, id))
@@ -109,7 +128,7 @@ export class OrdonnanceRepository {
       .select()
       .from(ordonnance)
       .where(eq(ordonnance.patient_id, patientId))
-      .orderBy(desc(ordonnance.date_prescription));
+      .orderBy(desc(ordonnance.date_prescription), desc(ordonnance.id));
   }
 
   async getOrdonnancesByRendezVous(
@@ -120,7 +139,7 @@ export class OrdonnanceRepository {
       .select()
       .from(ordonnance)
       .where(eq(ordonnance.rendez_vous_id, rendezVousId))
-      .orderBy(desc(ordonnance.date_prescription));
+      .orderBy(desc(ordonnance.date_prescription), desc(ordonnance.id));
   }
 
   async addMedicamentToOrdonnance(
@@ -145,13 +164,7 @@ export class OrdonnanceRepository {
     data: UpdateOrdonnanceMedicamentInput,
   ): Promise<OrdonnanceMedicamentRecord | null> {
     if (Object.keys(data).length === 0) {
-      const [existing] = await database
-        .select()
-        .from(ordonnance_medicaments)
-        .where(eq(ordonnance_medicaments.id, id))
-        .limit(1);
-
-      return existing ?? null;
+      return this.getOrdonnanceMedicamentById(database, id);
     }
 
     const [updated] = await database
@@ -179,7 +192,8 @@ export class OrdonnanceRepository {
     return database
       .select()
       .from(ordonnance_medicaments)
-      .where(eq(ordonnance_medicaments.ordonnance_id, ordonnanceId));
+      .where(eq(ordonnance_medicaments.ordonnance_id, ordonnanceId))
+      .orderBy(asc(ordonnance_medicaments.nom_medicament), asc(ordonnance_medicaments.id));
   }
 
   async getOrdonnanceMedicamentById(
@@ -193,38 +207,6 @@ export class OrdonnanceRepository {
       .limit(1);
 
     return item ?? null;
-  }
-
-  async getMedicamentById(database: DatabaseClient, id: string): Promise<MedicamentRecord | null> {
-    const [item] = await database
-      .select()
-      .from(medicaments)
-      .where(eq(medicaments.id, id))
-      .limit(1);
-
-    return item ?? null;
-  }
-
-  async getMedicamentByNom(
-    database: DatabaseClient,
-    nom: string,
-  ): Promise<MedicamentRecord | null> {
-    const [item] = await database
-      .select()
-      .from(medicaments)
-      .where(ilike(medicaments.dci, nom))
-      .limit(1);
-
-    return item ?? null;
-  }
-
-  async searchMedicaments(database: DatabaseClient, query: string): Promise<MedicamentRecord[]> {
-    return database
-      .select()
-      .from(medicaments)
-      .where(ilike(medicaments.dci, `%${query}%`))
-      .orderBy(asc(medicaments.dci))
-      .limit(25);
   }
 
   async createCategorie(
@@ -325,6 +307,10 @@ export class OrdonnanceRepository {
   }
 
   async deletePreRempli(database: DatabaseClient, id: string): Promise<boolean> {
+    await database
+      .delete(pre_rempli_medicaments)
+      .where(eq(pre_rempli_medicaments.pre_rempli_id, id));
+
     const [deleted] = await database
       .delete(pre_rempli_ordonnance)
       .where(eq(pre_rempli_ordonnance.id, id))
@@ -366,7 +352,7 @@ export class OrdonnanceRepository {
       .from(pre_rempli_ordonnance)
       .where(
         and(
-          ilike(pre_rempli_ordonnance.specialite, specialite),
+          ilike(pre_rempli_ordonnance.specialite, `%${specialite}%`),
           eq(pre_rempli_ordonnance.est_actif, true),
         ),
       )
@@ -422,13 +408,7 @@ export class OrdonnanceRepository {
     data: UpdatePreRempliMedicamentInput,
   ): Promise<PreRempliMedicamentRecord | null> {
     if (Object.keys(data).length === 0) {
-      const [existing] = await database
-        .select()
-        .from(pre_rempli_medicaments)
-        .where(eq(pre_rempli_medicaments.id, id))
-        .limit(1);
-
-      return existing ?? null;
+      return this.getPreRempliMedicamentById(database, id);
     }
 
     const [updated] = await database
@@ -457,7 +437,10 @@ export class OrdonnanceRepository {
       .select()
       .from(pre_rempli_medicaments)
       .where(eq(pre_rempli_medicaments.pre_rempli_id, preRempliId))
-      .orderBy(asc(pre_rempli_medicaments.ordre_affichage));
+      .orderBy(
+        asc(pre_rempli_medicaments.ordre_affichage),
+        asc(pre_rempli_medicaments.nom_medicament),
+      );
   }
 
   async getPreRempliMedicamentById(

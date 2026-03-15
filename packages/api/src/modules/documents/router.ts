@@ -144,7 +144,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerDocument({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -234,7 +234,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerLettre({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -250,7 +250,7 @@ export const documentsRouter = createTRPCRouter({
 				db: ctx.db,
 				id: input.id,
 				input: input.data,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -301,7 +301,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerCertificat({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -317,7 +317,7 @@ export const documentsRouter = createTRPCRouter({
 				db: ctx.db,
 				id: input.id,
 				input: input.data,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 

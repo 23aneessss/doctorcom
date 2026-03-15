@@ -1,4 +1,4 @@
-import type { db as databaseClient } from "@doctor.com/db";
+import type { db as rootDatabaseClient } from "@doctor.com/db";
 import {
   antecedents,
   documents_patient,
@@ -14,7 +14,9 @@ import {
 } from "@doctor.com/db/schema";
 import { and, desc, eq, ilike, ne, type SQL } from "drizzle-orm";
 
-type DatabaseClient = typeof databaseClient;
+type RootDatabaseClient = typeof rootDatabaseClient;
+type DatabaseTransaction = Parameters<Parameters<RootDatabaseClient["transaction"]>[0]>[0];
+type DatabaseClient = RootDatabaseClient | DatabaseTransaction;
 
 type NewPatientRecord = typeof patients.$inferInsert;
 type NewPatientFemmeRecord = typeof patients_femmes.$inferInsert;
@@ -201,6 +203,18 @@ export class PatientRepository {
       .limit(1);
 
     return femaleInfo ?? null;
+  }
+
+  async deleteFemalePatientInfo(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<boolean> {
+    const [deletedInfo] = await database
+      .delete(patients_femmes)
+      .where(eq(patients_femmes.patient_id, patientId))
+      .returning({ id: patients_femmes.id });
+
+    return Boolean(deletedInfo);
   }
 
   async getPatientAntecedents(

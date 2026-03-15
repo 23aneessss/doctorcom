@@ -1,6 +1,8 @@
 # DB Checklist
 
-Source of truth: `apps/server/DB.md`
+Source of truth:
+- `packages/db/src/schema/**/*.ts`
+- `latest-context.md` pour la scission vers la base externe de medicaments
 
 ## Enums
 
@@ -10,6 +12,7 @@ Source of truth: `apps/server/DB.md`
 - [ ] `lettres_orientation.urgence`: `normale`, `urgente`, `tres_urgente`
 - [ ] `certificats_medicaux.type_certificat`: `arret_travail`, `aptitude`, `scolaire`, `grossesse`, `deces`
 - [ ] `certificats_medicaux.statut`: `brouillon`, `emis`, `annule`
+- [ ] `historique_traitements.source_type`: `manuel`, `ordonnance`
 
 ## Tables / Columns / FKs
 
@@ -37,14 +40,18 @@ Source of truth: `apps/server/DB.md`
   `id`, `patient_id` -> `patients.id`, `suivi_id` -> `suivi.id` (nullable), `utilisateur_id` -> `utilisateurs.id`, `date`, `heure`, `statut`, `important`, `frequence_rappel`, `periode_rappel`
 - [ ] `examen_consultation`
   `id`, `rendez_vous_id` -> `rendez_vous.id`, `suivi_id` -> `suivi.id`, `date`, `taille`, `poids`, `traitement_prescrit`, `description_consultation`, `aspect_general`, `examen_respiratoire`, `examen_cardiovasculaire`, `examen_cutane_muqueux`, `examen_orl`, `examen_digestif`, `examen_neurologique`, `examen_locomoteur`, `examen_genital`, `examen_urinaire`, `examen_ganglionnaire`, `examen_endocrinien`, `conclusion`
-- [ ] `medicaments`
-  `id`, `dci`, `indication`, `contre_indication`, `posologie_standard`, `effets_indesirables`, `dosage`
 - [ ] `historique_traitements`
-  `id`, `patient_id` -> `patients.id`, `medicament_id` -> `medicaments.id`, `posologie`, `est_actif`, `date_prescription`, `prescrit_par_utilisateur` -> `utilisateurs.id`
+  `id`, `patient_id` -> `patients.id`, `medicament_externe_id`, `nom_medicament`, `dosage`, `posologie`, `est_actif`, `date_prescription`, `prescrit_par_utilisateur` -> `utilisateurs.id`, `ordonnance_id` -> `ordonnance.id`, `ordonnance_medicament_id` -> `ordonnance_medicaments.id`, `source_type`
 - [ ] `ordonnance`
-  `id`, `rendez_vous_id` -> `rendez_vous.id`, `patient_id` -> `patients.id`, `utilisateur_id` -> `utilisateurs.id`, `remarques`, `date_prescription`
+  `id`, `rendez_vous_id` -> `rendez_vous.id`, `patient_id` -> `patients.id`, `utilisateur_id` -> `utilisateurs.id`, `pre_rempli_origine_id` -> `pre_rempli_ordonnance.id`, `remarques`, `date_prescription`
 - [ ] `ordonnance_medicaments`
-  `id`, `ordonnance_id` -> `ordonnance.id`, `medicament_id` -> `medicaments.id`, `posologie`, `duree_traitement`, `instructions`
+  `id`, `ordonnance_id` -> `ordonnance.id`, `medicament_externe_id`, `nom_medicament`, `dci`, `dosage`, `posologie`, `duree_traitement`, `instructions`
+- [ ] `categories_pre_rempli`
+  `id`, `nom`, `description`
+- [ ] `pre_rempli_ordonnance`
+  `id`, `nom`, `description`, `specialite`, `categorie_pre_rempli_id` -> `categories_pre_rempli.id`, `est_actif`, `created_at`, `updated_at`, `created_by_user` -> `utilisateurs.id`
+- [ ] `pre_rempli_medicaments`
+  `id`, `pre_rempli_id` -> `pre_rempli_ordonnance.id`, `medicament_externe_id`, `nom_medicament`, `dosage`, `posologie_defaut`, `duree_defaut`, `instructions_defaut`, `ordre_affichage`, `est_optionnel`
 - [ ] `vaccinations_patient`
   `id`, `patient_id` -> `patients.id`, `vaccin`, `date_vaccination`, `notes`
 - [ ] `categories_documents`
@@ -55,3 +62,9 @@ Source of truth: `apps/server/DB.md`
   `id`, `documents_patient_id` -> `documents_patient.id`, `utilisateur_id` -> `utilisateurs.id`, `suivi_id` -> `suivi.id`, `type_exploration`, `examen_demande`, `raison`, `destinataire`, `urgence`, `contenu_lettre`, `date_creation`, `date_modification`
 - [ ] `certificats_medicaux`
   `id`, `documents_patient_id` -> `documents_patient.id`, `utilisateur_id` -> `utilisateurs.id`, `suivi_id` -> `suivi.id`, `type_certificat`, `date_emission`, `date_debut`, `date_fin`, `diagnostic`, `destinataire`, `notes`, `statut`, `date_creation`, `date_modification`
+
+## Notes
+
+- La table `medicaments` n'existe plus dans la base principale.
+- Les medicaments applicatifs sont references par `medicament_externe_id` vers la base PostgreSQL externe dediee aux medicaments.
+- `ordonnance_medicaments` et `historique_traitements` conservent un snapshot du medicament prescrit pour preserver l'historique meme si la base externe evolue.

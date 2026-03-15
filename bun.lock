@@ -142,6 +142,7 @@
       "dependencies": {
         "@doctor.com/auth": "workspace:*",
         "@doctor.com/db": "workspace:*",
+        "@doctor.com/medications-db": "workspace:*",
         "@doctor.com/shared": "workspace:*",
         "@trpc/server": "catalog:",
         "better-auth": "catalog:",
@@ -197,6 +198,19 @@
       "devDependencies": {
         "@doctor.com/config": "workspace:*",
         "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/medications-db": {
+      "name": "@doctor.com/medications-db",
+      "dependencies": {
+        "dotenv": "catalog:",
+        "drizzle-orm": "catalog:",
+        "pg": "catalog:",
+      },
+      "devDependencies": {
+        "@doctor.com/config": "workspace:*",
+        "@types/pg": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -462,6 +476,8 @@
     "@doctor.com/db": ["@doctor.com/db@workspace:packages/db"],
 
     "@doctor.com/env": ["@doctor.com/env@workspace:packages/env"],
+
+    "@doctor.com/medications-db": ["@doctor.com/medications-db@workspace:packages/medications-db"],
 
     "@doctor.com/shared": ["@doctor.com/shared@workspace:packages/shared"],
 

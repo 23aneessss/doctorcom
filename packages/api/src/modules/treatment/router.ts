@@ -4,13 +4,15 @@ import { createTRPCRouter, protectedProcedure } from "../../trpc/init";
 import { treatmentService } from "./service";
 
 const uuidSchema = z.string().uuid();
+const externalMedicationIdSchema = z.string().trim().min(1);
 const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide. Format attendu: YYYY-MM-DD.");
 
 const startTreatmentInputSchema = z.object({
   patient_id: uuidSchema,
-  medicament_id: uuidSchema,
+  medicament_externe_id: externalMedicationIdSchema,
+  dosage: z.string().trim().min(1).optional().nullable(),
   posologie: z.string().trim().min(1),
   date_prescription: isoDateSchema,
   est_actif: z.boolean().optional(),
@@ -18,7 +20,8 @@ const startTreatmentInputSchema = z.object({
 
 const updateTreatmentDataSchema = z
   .object({
-    medicament_id: uuidSchema.optional(),
+    medicament_externe_id: externalMedicationIdSchema.optional(),
+    dosage: z.string().trim().min(1).optional().nullable(),
     posologie: z.string().trim().min(1).optional(),
     date_prescription: isoDateSchema.optional(),
     est_actif: z.boolean().optional(),

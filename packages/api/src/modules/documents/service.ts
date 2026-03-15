@@ -13,6 +13,7 @@ import {
   type UpdateCertificatInput,
   type UpdateDocumentInput,
   type UpdateLettreInput,
+  type UtilisateurRecord,
 } from "./repo";
 
 type DatabaseClient = typeof databaseClient;
@@ -154,9 +155,10 @@ export class DocumentsService {
   async creerDocument(data: {
     db: DatabaseClient;
     input: CreateDocumentServiceInput;
-    userId: string;
+    userEmail: string;
   }): Promise<DocumentPatientRecord> {
     await this.assertPatientExists(data.db, data.input.patient_id);
+    const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
     const payload: CreateDocumentInput = {
       patient_id: data.input.patient_id,
@@ -168,7 +170,7 @@ export class DocumentsService {
       taille_fichier: data.input.taille_fichier,
       description: data.input.description ?? null,
       date_upload: this.nowIsoDate(),
-      uploade_par_utilisateur: data.userId,
+      uploade_par_utilisateur: utilisateur.id,
       est_archive: false,
     };
 
@@ -284,10 +286,11 @@ export class DocumentsService {
   async creerLettre(data: {
     db: DatabaseClient;
     input: CreateLettreServiceInput;
-    userId: string;
+    userEmail: string;
   }): Promise<{ document: DocumentPatientRecord; lettre: LettreOrientationRecord }> {
     await this.assertPatientExists(data.db, data.input.document.patient_id);
     await this.assertSuiviExists(data.db, data.input.lettre.suivi_id);
+    const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
     const now = this.nowIsoDate();
 
@@ -303,11 +306,11 @@ export class DocumentsService {
         taille_fichier: data.input.document.taille_fichier,
         description: data.input.document.description ?? null,
         date_upload: now,
-        uploade_par_utilisateur: data.userId,
+        uploade_par_utilisateur: utilisateur.id,
         est_archive: false,
       },
       {
-        utilisateur_id: data.userId,
+        utilisateur_id: utilisateur.id,
         suivi_id: data.input.lettre.suivi_id,
         type_exploration: data.input.lettre.type_exploration ?? null,
         examen_demande: data.input.lettre.examen_demande ?? null,
@@ -325,15 +328,16 @@ export class DocumentsService {
     db: DatabaseClient;
     id: string;
     input: UpdateLettreServiceInput;
-    userId: string;
+    userEmail: string;
   }): Promise<LettreOrientationRecord> {
     const existing = await documentsRepository.getLettreById(data.db, data.id);
     if (!existing) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
     }
+    const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
     const payload: UpdateLettreInput = {
-      utilisateur_id: data.userId,
+      utilisateur_id: utilisateur.id,
       type_exploration: data.input.type_exploration,
       examen_demande: data.input.examen_demande,
       raison: data.input.raison,
@@ -408,10 +412,11 @@ export class DocumentsService {
   async creerCertificat(data: {
     db: DatabaseClient;
     input: CreateCertificatServiceInput;
-    userId: string;
+    userEmail: string;
   }): Promise<{ document: DocumentPatientRecord; certificat: CertificatMedicalRecord }> {
     await this.assertPatientExists(data.db, data.input.document.patient_id);
     await this.assertSuiviExists(data.db, data.input.certificat.suivi_id);
+    const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
     const now = this.nowIsoDate();
 
@@ -427,11 +432,11 @@ export class DocumentsService {
         taille_fichier: data.input.document.taille_fichier,
         description: data.input.document.description ?? null,
         date_upload: now,
-        uploade_par_utilisateur: data.userId,
+        uploade_par_utilisateur: utilisateur.id,
         est_archive: false,
       },
       {
-        utilisateur_id: data.userId,
+        utilisateur_id: utilisateur.id,
         suivi_id: data.input.certificat.suivi_id,
         type_certificat: data.input.certificat.type_certificat,
         date_emission: data.input.certificat.date_emission,
@@ -451,15 +456,16 @@ export class DocumentsService {
     db: DatabaseClient;
     id: string;
     input: UpdateCertificatServiceInput;
-    userId: string;
+    userEmail: string;
   }): Promise<CertificatMedicalRecord> {
     const existing = await documentsRepository.getCertificatById(data.db, data.id);
     if (!existing) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
     }
+    const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
     const payload: UpdateCertificatInput = {
-      utilisateur_id: data.userId,
+      utilisateur_id: utilisateur.id,
       type_certificat: data.input.type_certificat,
       date_emission: data.input.date_emission,
       date_debut: data.input.date_debut,
@@ -570,6 +576,29 @@ export class DocumentsService {
     if (!suiviItem) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Suivi introuvable." });
     }
+  }
+
+  private async resolveUtilisateur(
+    database: DatabaseClient,
+    userEmail: string,
+  ): Promise<UtilisateurRecord> {
+    const email = userEmail.trim().toLowerCase();
+    if (!email) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Session invalide: email utilisateur manquant.",
+      });
+    }
+
+    const utilisateur = await documentsRepository.findUtilisateurByEmail(database, email);
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Utilisateur introuvable pour la session courante.",
+      });
+    }
+
+    return utilisateur;
   }
 
   private nowIsoDate(): string {

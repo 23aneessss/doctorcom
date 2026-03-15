@@ -1,15 +1,17 @@
 import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
+import { withTx } from "@doctor.com/db";
 
+import type { SessionUtilisateur } from "../../trpc/context";
+import { medicamentsService } from "../medicaments/service";
+import { treatmentRepository } from "../treatment/repo";
 import {
   ordonnanceRepository,
   type AddOrdonnanceMedicamentInput,
   type AddPreRempliMedicamentInput,
   type CategoriePreRempliRecord,
   type CreateCategorieInput,
-  type CreateOrdonnanceInput,
   type CreatePreRempliInput,
-  type MedicamentRecord,
   type OrdonnanceMedicamentRecord,
   type OrdonnanceRecord,
   type PreRempliMedicamentRecord,
@@ -19,9 +21,12 @@ import {
   type UpdateOrdonnanceMedicamentInput,
   type UpdatePreRempliInput,
   type UpdatePreRempliMedicamentInput,
+  type UtilisateurRecord,
 } from "./repo";
 
 type DatabaseClient = typeof databaseClient;
+type DatabaseTransaction = Parameters<Parameters<typeof withTx>[0]>[0];
+type OrdonnanceSession = Exclude<SessionUtilisateur, null>;
 
 export interface CreateOrdonnanceServiceInput {
   patient_id: string;
@@ -30,7 +35,8 @@ export interface CreateOrdonnanceServiceInput {
   remarques?: string | null;
   pre_rempli_origine_id?: string | null;
   medicaments: Array<{
-    medicament_id: string;
+    medicament_externe_id: string;
+    dosage?: string | null;
     posologie: string;
     duree_traitement?: string | null;
     instructions?: string | null;
@@ -38,8 +44,10 @@ export interface CreateOrdonnanceServiceInput {
 }
 
 export interface CreateFromPreRempliModification {
-  medicament_nom: string;
+  medicament_externe_id?: string;
+  nom_medicament?: string;
   ignorer?: boolean;
+  dosage?: string | null;
   posologie?: string;
   duree_traitement?: string | null;
   instructions?: string | null;
@@ -54,14 +62,16 @@ export interface UpdateOrdonnanceServiceInput {
 }
 
 export interface AddOrdonnanceMedicamentServiceInput {
-  medicament_id: string;
+  medicament_externe_id: string;
+  dosage?: string | null;
   posologie: string;
   duree_traitement?: string | null;
   instructions?: string | null;
 }
 
 export interface UpdateOrdonnanceMedicamentServiceInput {
-  medicament_id?: string;
+  medicament_externe_id?: string;
+  dosage?: string | null;
   posologie?: string;
   duree_traitement?: string | null;
   instructions?: string | null;
@@ -89,7 +99,8 @@ export interface UpdatePreRempliServiceInput {
 }
 
 export interface AddPreRempliMedicamentServiceInput {
-  medicament_nom: string;
+  medicament_externe_id: string;
+  dosage?: string | null;
   posologie_defaut?: string | null;
   duree_defaut?: string | null;
   instructions_defaut?: string | null;
@@ -98,7 +109,8 @@ export interface AddPreRempliMedicamentServiceInput {
 }
 
 export interface UpdatePreRempliMedicamentServiceInput {
-  medicament_nom?: string;
+  medicament_externe_id?: string;
+  dosage?: string | null;
   posologie_defaut?: string | null;
   duree_defaut?: string | null;
   instructions_defaut?: string | null;
@@ -109,49 +121,62 @@ export interface UpdatePreRempliMedicamentServiceInput {
 export class OrdonnanceService {
   async creerOrdonnance(data: {
     db: DatabaseClient;
-    userId: string;
+    session: OrdonnanceSession;
     input: CreateOrdonnanceServiceInput;
   }): Promise<OrdonnanceRecord & { medicaments: OrdonnanceMedicamentRecord[] }> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     await this.assertPatientExists(data.db, data.input.patient_id);
     await this.assertRendezVousTermine(data.db, data.input.rendez_vous_id);
 
-    const ordonnancePayload: CreateOrdonnanceInput = {
-      patient_id: data.input.patient_id,
-      rendez_vous_id: data.input.rendez_vous_id,
-      utilisateur_id: data.userId,
-      pre_rempli_origine_id: data.input.pre_rempli_origine_id ?? null,
-      remarques: data.input.remarques ?? null,
-      date_prescription: data.input.date_prescription,
-    };
-
-    const created = await ordonnanceRepository.createOrdonnance(data.db, ordonnancePayload);
-
-    const medicaments = await Promise.all(
-      data.input.medicaments.map((item) =>
-        ordonnanceRepository.addMedicamentToOrdonnance(data.db, {
-          ordonnance_id: created.id,
-          medicament_id: item.medicament_id,
-          posologie: item.posologie.trim(),
-          duree_traitement: item.duree_traitement ?? null,
-          instructions: item.instructions ?? null,
-        }),
-      ),
+    const medicamentPayloads = await Promise.all(
+      data.input.medicaments.map((item) => this.buildOrdonnanceMedicamentPayload(item)),
     );
 
-    return {
-      ...created,
-      medicaments,
-    };
+    return withTx(async (tx) => {
+      const created = await ordonnanceRepository.createOrdonnance(tx, {
+        patient_id: data.input.patient_id,
+        rendez_vous_id: data.input.rendez_vous_id,
+        utilisateur_id: utilisateur.id,
+        pre_rempli_origine_id: data.input.pre_rempli_origine_id ?? null,
+        remarques: data.input.remarques ?? null,
+        date_prescription: data.input.date_prescription,
+      });
+
+      const medicaments = await Promise.all(
+        medicamentPayloads.map(async (payload) => {
+          const createdMedicament = await ordonnanceRepository.addMedicamentToOrdonnance(tx, {
+            ordonnance_id: created.id,
+            ...payload,
+          });
+
+          await this.syncDerivedTreatmentForOrdonnanceMedicament(tx, {
+            patient_id: created.patient_id,
+            utilisateur_id: utilisateur.id,
+            date_prescription: created.date_prescription,
+            ordonnance_id: created.id,
+            ordonnance_medicament: createdMedicament,
+          });
+
+          return createdMedicament;
+        }),
+      );
+
+      return {
+        ...created,
+        medicaments,
+      };
+    });
   }
 
   async creerOrdonnanceDepuisPreRempli(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     preRempliId: string;
     patientId: string;
     rendezVousId: string;
-    userId: string;
     modifications?: CreateFromPreRempliModification[];
   }): Promise<OrdonnanceRecord & { medicaments: OrdonnanceMedicamentRecord[] }> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const preRempli = await ordonnanceRepository.getPreRempliById(data.db, data.preRempliId);
     if (!preRempli || !preRempli.est_actif) {
       throw new TRPCError({
@@ -168,55 +193,66 @@ export class OrdonnanceService {
       data.preRempliId,
     );
 
-    const created = await ordonnanceRepository.createOrdonnance(data.db, {
-      patient_id: data.patientId,
-      rendez_vous_id: data.rendezVousId,
-      utilisateur_id: data.userId,
-      pre_rempli_origine_id: preRempli.id,
-      remarques: null,
-      date_prescription: this.todayIsoDate(),
-    });
-
-    const modificationByName = new Map(
-      (data.modifications ?? []).map((modification) => [
-        modification.medicament_nom.trim().toLowerCase(),
-        modification,
-      ]),
-    );
-
-    const createdMedicaments: OrdonnanceMedicamentRecord[] = [];
-
-    for (const templateItem of medicamentsTemplate) {
-      const key = templateItem.medicament_nom.trim().toLowerCase();
-      const modification = modificationByName.get(key);
-      if (modification?.ignorer) {
-        continue;
-      }
-
-      const medicament = await this.resolveMedicamentByNom(data.db, templateItem.medicament_nom);
-
-      const createdMedicament = await ordonnanceRepository.addMedicamentToOrdonnance(data.db, {
-        ordonnance_id: created.id,
-        medicament_id: medicament.id,
-        posologie: (modification?.posologie ?? templateItem.posologie_defaut ?? "").trim(),
-        duree_traitement: modification?.duree_traitement ?? templateItem.duree_defaut ?? null,
-        instructions: modification?.instructions ?? templateItem.instructions_defaut ?? null,
+    return withTx(async (tx) => {
+      const created = await ordonnanceRepository.createOrdonnance(tx, {
+        patient_id: data.patientId,
+        rendez_vous_id: data.rendezVousId,
+        utilisateur_id: utilisateur.id,
+        pre_rempli_origine_id: preRempli.id,
+        remarques: null,
+        date_prescription: this.todayIsoDate(),
       });
 
-      createdMedicaments.push(createdMedicament);
-    }
+      const createdMedicaments: OrdonnanceMedicamentRecord[] = [];
 
-    return {
-      ...created,
-      medicaments: createdMedicaments,
-    };
+      for (const templateItem of medicamentsTemplate) {
+        const modification = this.findPreRempliModification(
+          data.modifications ?? [],
+          templateItem,
+        );
+
+        if (modification?.ignorer) {
+          continue;
+        }
+
+        const createdMedicament = await ordonnanceRepository.addMedicamentToOrdonnance(tx, {
+          ordonnance_id: created.id,
+          medicament_externe_id: templateItem.medicament_externe_id,
+          nom_medicament: templateItem.nom_medicament,
+          dci: null,
+          dosage: modification?.dosage ?? templateItem.dosage ?? null,
+          posologie:
+            (modification?.posologie ?? templateItem.posologie_defaut ?? "").trim(),
+          duree_traitement: modification?.duree_traitement ?? templateItem.duree_defaut ?? null,
+          instructions:
+            modification?.instructions ?? templateItem.instructions_defaut ?? null,
+        });
+
+        await this.syncDerivedTreatmentForOrdonnanceMedicament(tx, {
+          patient_id: created.patient_id,
+          utilisateur_id: utilisateur.id,
+          date_prescription: created.date_prescription,
+          ordonnance_id: created.id,
+          ordonnance_medicament: createdMedicament,
+        });
+
+        createdMedicaments.push(createdMedicament);
+      }
+
+      return {
+        ...created,
+        medicaments: createdMedicaments,
+      };
+    });
   }
 
   async modifierOrdonnance(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     id: string;
     input: UpdateOrdonnanceServiceInput;
   }): Promise<OrdonnanceRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const existing = await ordonnanceRepository.getOrdonnanceById(data.db, data.id);
     if (!existing) {
       throw new TRPCError({
@@ -240,18 +276,29 @@ export class OrdonnanceService {
       pre_rempli_origine_id: data.input.pre_rempli_origine_id,
     };
 
-    const updated = await ordonnanceRepository.updateOrdonnance(data.db, data.id, payload);
-    if (!updated) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Echec de mise a jour de l'ordonnance.",
-      });
-    }
+    return withTx(async (tx) => {
+      const updated = await ordonnanceRepository.updateOrdonnance(tx, data.id, payload);
+      if (!updated) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Echec de mise a jour de l'ordonnance.",
+        });
+      }
 
-    return updated;
+      await treatmentRepository.updateTreatmentsByOrdonnanceId(tx, updated.id, {
+        patient_id: updated.patient_id,
+        date_prescription: updated.date_prescription,
+        prescrit_par_utilisateur: utilisateur.id,
+      });
+
+      return updated;
+    });
   }
 
-  async supprimerOrdonnance(data: { db: DatabaseClient; id: string }): Promise<{ success: true }> {
+  async supprimerOrdonnance(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<{ success: true }> {
     const existing = await ordonnanceRepository.getOrdonnanceById(data.db, data.id);
     if (!existing) {
       throw new TRPCError({
@@ -260,13 +307,16 @@ export class OrdonnanceService {
       });
     }
 
-    const deleted = await ordonnanceRepository.deleteOrdonnance(data.db, data.id);
-    if (!deleted) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Echec de suppression de l'ordonnance.",
-      });
-    }
+    await withTx(async (tx) => {
+      await treatmentRepository.detachTreatmentsByOrdonnanceId(tx, data.id);
+      const deleted = await ordonnanceRepository.deleteOrdonnance(tx, data.id);
+      if (!deleted) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Echec de suppression de l'ordonnance.",
+        });
+      }
+    });
 
     return { success: true };
   }
@@ -324,9 +374,11 @@ export class OrdonnanceService {
 
   async ajouterMedicament(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     ordonnanceId: string;
     input: AddOrdonnanceMedicamentServiceInput;
   }): Promise<OrdonnanceMedicamentRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const existing = await ordonnanceRepository.getOrdonnanceById(data.db, data.ordonnanceId);
     if (!existing) {
       throw new TRPCError({
@@ -335,22 +387,33 @@ export class OrdonnanceService {
       });
     }
 
-    const payload: AddOrdonnanceMedicamentInput = {
-      ordonnance_id: data.ordonnanceId,
-      medicament_id: data.input.medicament_id,
-      posologie: data.input.posologie.trim(),
-      duree_traitement: data.input.duree_traitement ?? null,
-      instructions: data.input.instructions ?? null,
-    };
+    const payload = await this.buildOrdonnanceMedicamentPayload(data.input);
 
-    return ordonnanceRepository.addMedicamentToOrdonnance(data.db, payload);
+    return withTx(async (tx) => {
+      const created = await ordonnanceRepository.addMedicamentToOrdonnance(tx, {
+        ordonnance_id: data.ordonnanceId,
+        ...payload,
+      });
+
+      await this.syncDerivedTreatmentForOrdonnanceMedicament(tx, {
+        patient_id: existing.patient_id,
+        utilisateur_id: utilisateur.id,
+        date_prescription: existing.date_prescription,
+        ordonnance_id: existing.id,
+        ordonnance_medicament: created,
+      });
+
+      return created;
+    });
   }
 
   async modifierMedicament(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     ordonnanceMedicamentId: string;
     input: UpdateOrdonnanceMedicamentServiceInput;
   }): Promise<OrdonnanceMedicamentRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const existing = await ordonnanceRepository.getOrdonnanceMedicamentById(
       data.db,
       data.ordonnanceMedicamentId,
@@ -362,26 +425,42 @@ export class OrdonnanceService {
       });
     }
 
-    const payload: UpdateOrdonnanceMedicamentInput = {
-      medicament_id: data.input.medicament_id,
-      posologie: data.input.posologie?.trim(),
-      duree_traitement: data.input.duree_traitement,
-      instructions: data.input.instructions,
-    };
-
-    const updated = await ordonnanceRepository.updateOrdonnanceMedicament(
+    const ordonnanceRecord = await ordonnanceRepository.getOrdonnanceById(
       data.db,
-      data.ordonnanceMedicamentId,
-      payload,
+      existing.ordonnance_id,
     );
-    if (!updated) {
+    if (!ordonnanceRecord) {
       throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Echec de mise a jour du medicament.",
+        code: "NOT_FOUND",
+        message: "Ordonnance parente introuvable.",
       });
     }
 
-    return updated;
+    const payload = await this.buildOrdonnanceMedicamentUpdatePayload(existing, data.input);
+
+    return withTx(async (tx) => {
+      const updated = await ordonnanceRepository.updateOrdonnanceMedicament(
+        tx,
+        data.ordonnanceMedicamentId,
+        payload,
+      );
+      if (!updated) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Echec de mise a jour du medicament.",
+        });
+      }
+
+      await this.syncDerivedTreatmentForOrdonnanceMedicament(tx, {
+        patient_id: ordonnanceRecord.patient_id,
+        utilisateur_id: utilisateur.id,
+        date_prescription: ordonnanceRecord.date_prescription,
+        ordonnance_id: ordonnanceRecord.id,
+        ordonnance_medicament: updated,
+      });
+
+      return updated;
+    });
   }
 
   async retirerMedicament(data: {
@@ -399,30 +478,44 @@ export class OrdonnanceService {
       });
     }
 
-    const removed = await ordonnanceRepository.removeMedicamentFromOrdonnance(
-      data.db,
-      data.ordonnanceMedicamentId,
-    );
-    if (!removed) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Echec de suppression du medicament.",
-      });
-    }
+    await withTx(async (tx) => {
+      await treatmentRepository.detachTreatmentByOrdonnanceMedicamentId(
+        tx,
+        data.ordonnanceMedicamentId,
+      );
+
+      const removed = await ordonnanceRepository.removeMedicamentFromOrdonnance(
+        tx,
+        data.ordonnanceMedicamentId,
+      );
+      if (!removed) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Echec de suppression du medicament.",
+        });
+      }
+    });
 
     return { success: true };
   }
 
-  async rechercherMedicaments(data: { db: DatabaseClient; query: string }): Promise<MedicamentRecord[]> {
-    return ordonnanceRepository.searchMedicaments(data.db, data.query.trim());
+  async rechercherMedicaments(data: { query: string }) {
+    const result = await medicamentsService.rechercherMedicaments({
+      query: data.query.trim(),
+      page: 1,
+      page_size: 25,
+    });
+
+    return result.items;
   }
 
   async renouvelerOrdonnance(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     id: string;
     newRendezVousId: string;
-    userId: string;
   }): Promise<OrdonnanceRecord & { medicaments: OrdonnanceMedicamentRecord[] }> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const source = await ordonnanceRepository.getOrdonnanceById(data.db, data.id);
     if (!source) {
       throw new TRPCError({
@@ -438,31 +531,46 @@ export class OrdonnanceService {
       source.id,
     );
 
-    const created = await ordonnanceRepository.createOrdonnance(data.db, {
-      patient_id: source.patient_id,
-      rendez_vous_id: data.newRendezVousId,
-      utilisateur_id: data.userId,
-      pre_rempli_origine_id: source.pre_rempli_origine_id,
-      remarques: source.remarques,
-      date_prescription: this.todayIsoDate(),
-    });
+    return withTx(async (tx) => {
+      const created = await ordonnanceRepository.createOrdonnance(tx, {
+        patient_id: source.patient_id,
+        rendez_vous_id: data.newRendezVousId,
+        utilisateur_id: utilisateur.id,
+        pre_rempli_origine_id: source.pre_rempli_origine_id,
+        remarques: source.remarques,
+        date_prescription: this.todayIsoDate(),
+      });
 
-    const copiedMedicaments = await Promise.all(
-      sourceMedicaments.map((item) =>
-        ordonnanceRepository.addMedicamentToOrdonnance(data.db, {
-          ordonnance_id: created.id,
-          medicament_id: item.medicament_id,
-          posologie: item.posologie,
-          duree_traitement: item.duree_traitement,
-          instructions: item.instructions,
+      const copiedMedicaments = await Promise.all(
+        sourceMedicaments.map(async (item) => {
+          const createdMedicament = await ordonnanceRepository.addMedicamentToOrdonnance(tx, {
+            ordonnance_id: created.id,
+            medicament_externe_id: item.medicament_externe_id,
+            nom_medicament: item.nom_medicament,
+            dci: item.dci,
+            dosage: item.dosage,
+            posologie: item.posologie,
+            duree_traitement: item.duree_traitement,
+            instructions: item.instructions,
+          });
+
+          await this.syncDerivedTreatmentForOrdonnanceMedicament(tx, {
+            patient_id: created.patient_id,
+            utilisateur_id: utilisateur.id,
+            date_prescription: created.date_prescription,
+            ordonnance_id: created.id,
+            ordonnance_medicament: createdMedicament,
+          });
+
+          return createdMedicament;
         }),
-      ),
-    );
+      );
 
-    return {
-      ...created,
-      medicaments: copiedMedicaments,
-    };
+      return {
+        ...created,
+        medicaments: copiedMedicaments,
+      };
+    });
   }
 
   async creerCategorie(data: {
@@ -471,7 +579,7 @@ export class OrdonnanceService {
   }): Promise<CategoriePreRempliRecord> {
     const payload: CreateCategorieInput = {
       nom: data.input.nom.trim(),
-      description: data.input.description ?? null,
+      description: data.input.description?.trim() || null,
     };
 
     return ordonnanceRepository.createCategorie(data.db, payload);
@@ -492,7 +600,7 @@ export class OrdonnanceService {
 
     const payload: UpdateCategorieInput = {
       nom: data.input.nom.trim(),
-      description: data.input.description ?? null,
+      description: data.input.description?.trim() || null,
     };
 
     const updated = await ordonnanceRepository.updateCategorie(data.db, data.id, payload);
@@ -532,16 +640,17 @@ export class OrdonnanceService {
 
   async creerPreRempli(data: {
     db: DatabaseClient;
+    session: OrdonnanceSession;
     input: CreatePreRempliServiceInput;
-    userId: string;
   }): Promise<PreRempliOrdonnanceRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const payload: CreatePreRempliInput = {
       nom: data.input.nom.trim(),
-      description: data.input.description ?? null,
-      specialite: data.input.specialite ?? null,
+      description: data.input.description?.trim() || null,
+      specialite: data.input.specialite?.trim() || null,
       categorie_pre_rempli_id: data.input.categorie_pre_rempli_id,
       est_actif: data.input.est_actif ?? true,
-      created_by_user: data.userId,
+      created_by_user: utilisateur.id,
     };
 
     return ordonnanceRepository.createPreRempli(data.db, payload);
@@ -562,8 +671,8 @@ export class OrdonnanceService {
 
     const payload: UpdatePreRempliInput = {
       nom: data.input.nom?.trim(),
-      description: data.input.description,
-      specialite: data.input.specialite,
+      description: data.input.description?.trim() || data.input.description || null,
+      specialite: data.input.specialite?.trim() || data.input.specialite || null,
       categorie_pre_rempli_id: data.input.categorie_pre_rempli_id,
       est_actif: data.input.est_actif,
     };
@@ -632,7 +741,9 @@ export class OrdonnanceService {
       sourceMedicaments.map((item) =>
         ordonnanceRepository.addMedicamentToPreRempli(data.db, {
           pre_rempli_id: duplicated.id,
-          medicament_nom: item.medicament_nom,
+          medicament_externe_id: item.medicament_externe_id,
+          nom_medicament: item.nom_medicament,
+          dosage: item.dosage,
           posologie_defaut: item.posologie_defaut,
           duree_defaut: item.duree_defaut,
           instructions_defaut: item.instructions_defaut,
@@ -695,12 +806,16 @@ export class OrdonnanceService {
       });
     }
 
+    const snapshot = await this.resolveMedicamentSnapshot(data.input.medicament_externe_id);
+
     const payload: AddPreRempliMedicamentInput = {
       pre_rempli_id: data.preRempliId,
-      medicament_nom: data.input.medicament_nom.trim(),
-      posologie_defaut: data.input.posologie_defaut ?? null,
-      duree_defaut: data.input.duree_defaut ?? null,
-      instructions_defaut: data.input.instructions_defaut ?? null,
+      medicament_externe_id: snapshot.medicament_externe_id,
+      nom_medicament: snapshot.nom_medicament,
+      dosage: data.input.dosage?.trim() || null,
+      posologie_defaut: data.input.posologie_defaut?.trim() || null,
+      duree_defaut: data.input.duree_defaut?.trim() || null,
+      instructions_defaut: data.input.instructions_defaut?.trim() || null,
       ordre_affichage: data.input.ordre_affichage ?? null,
       est_optionnel: data.input.est_optionnel ?? false,
     };
@@ -722,13 +837,20 @@ export class OrdonnanceService {
     }
 
     const payload: UpdatePreRempliMedicamentInput = {
-      medicament_nom: data.input.medicament_nom?.trim(),
-      posologie_defaut: data.input.posologie_defaut,
-      duree_defaut: data.input.duree_defaut,
-      instructions_defaut: data.input.instructions_defaut,
+      dosage: data.input.dosage?.trim() || data.input.dosage || null,
+      posologie_defaut: data.input.posologie_defaut?.trim() || data.input.posologie_defaut || null,
+      duree_defaut: data.input.duree_defaut?.trim() || data.input.duree_defaut || null,
+      instructions_defaut:
+        data.input.instructions_defaut?.trim() || data.input.instructions_defaut || null,
       ordre_affichage: data.input.ordre_affichage,
       est_optionnel: data.input.est_optionnel,
     };
+
+    if (data.input.medicament_externe_id !== undefined) {
+      const snapshot = await this.resolveMedicamentSnapshot(data.input.medicament_externe_id);
+      payload.medicament_externe_id = snapshot.medicament_externe_id;
+      payload.nom_medicament = snapshot.nom_medicament;
+    }
 
     const updated = await ordonnanceRepository.updatePreRempliMedicament(data.db, data.id, payload);
     if (!updated) {
@@ -771,6 +893,34 @@ export class OrdonnanceService {
     });
   }
 
+  private async resolveUtilisateur(
+    database: DatabaseClient,
+    session: OrdonnanceSession,
+  ): Promise<UtilisateurRecord> {
+    const email = this.resolveSessionEmail(session);
+    const utilisateur = await ordonnanceRepository.findUtilisateurByEmail(database, email);
+
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Utilisateur introuvable pour la session courante.",
+      });
+    }
+
+    return utilisateur;
+  }
+
+  private resolveSessionEmail(session: OrdonnanceSession): string {
+    const email = session.user.email.trim().toLowerCase();
+    if (!email) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Session invalide: email utilisateur manquant.",
+      });
+    }
+    return email;
+  }
+
   private async assertPatientExists(database: DatabaseClient, patientId: string): Promise<void> {
     const patient = await ordonnanceRepository.getPatientById(database, patientId);
     if (!patient) {
@@ -801,25 +951,125 @@ export class OrdonnanceService {
     }
   }
 
-  private async resolveMedicamentByNom(
-    database: DatabaseClient,
-    nom: string,
-  ): Promise<MedicamentRecord> {
-    const exact = await ordonnanceRepository.getMedicamentByNom(database, nom.trim());
-    if (exact) {
-      return exact;
-    }
-
-    const matches = await ordonnanceRepository.searchMedicaments(database, nom.trim());
-    const match = matches[0];
-    if (!match) {
+  private async resolveMedicamentSnapshot(medicamentExterneId: string) {
+    const parsedId = Number.parseInt(medicamentExterneId.trim(), 10);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
       throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: `Medicament introuvable dans la table de reference: ${nom}.`,
+        code: "BAD_REQUEST",
+        message: "medicament_externe_id invalide.",
       });
     }
 
-    return match;
+    return medicamentsService.getMedicamentSnapshot(parsedId);
+  }
+
+  private async buildOrdonnanceMedicamentPayload(
+    input: AddOrdonnanceMedicamentServiceInput,
+  ): Promise<Omit<AddOrdonnanceMedicamentInput, "ordonnance_id">> {
+    const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
+    const posologie = input.posologie.trim();
+
+    if (!posologie) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "La posologie est obligatoire.",
+      });
+    }
+
+    return {
+      medicament_externe_id: snapshot.medicament_externe_id,
+      nom_medicament: snapshot.nom_medicament,
+      dci: snapshot.dci,
+      dosage: input.dosage?.trim() || null,
+      posologie,
+      duree_traitement: input.duree_traitement?.trim() || null,
+      instructions: input.instructions?.trim() || null,
+    };
+  }
+
+  private async buildOrdonnanceMedicamentUpdatePayload(
+    existing: OrdonnanceMedicamentRecord,
+    input: UpdateOrdonnanceMedicamentServiceInput,
+  ): Promise<UpdateOrdonnanceMedicamentInput> {
+    const payload: UpdateOrdonnanceMedicamentInput = {
+      dosage: input.dosage?.trim() || input.dosage || null,
+      posologie: input.posologie?.trim(),
+      duree_traitement: input.duree_traitement?.trim() || input.duree_traitement || null,
+      instructions: input.instructions?.trim() || input.instructions || null,
+    };
+
+    if (input.medicament_externe_id !== undefined) {
+      const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
+      payload.medicament_externe_id = snapshot.medicament_externe_id;
+      payload.nom_medicament = snapshot.nom_medicament;
+      payload.dci = snapshot.dci;
+    } else {
+      payload.medicament_externe_id = existing.medicament_externe_id;
+      payload.nom_medicament = existing.nom_medicament;
+      payload.dci = existing.dci;
+    }
+
+    return payload;
+  }
+
+  private findPreRempliModification(
+    modifications: CreateFromPreRempliModification[],
+    templateItem: PreRempliMedicamentRecord,
+  ): CreateFromPreRempliModification | undefined {
+    const byExternalId = modifications.find(
+      (item) => item.medicament_externe_id?.trim() === templateItem.medicament_externe_id,
+    );
+    if (byExternalId) {
+      return byExternalId;
+    }
+
+    const normalizedName = templateItem.nom_medicament.trim().toLowerCase();
+    return modifications.find(
+      (item) => item.nom_medicament?.trim().toLowerCase() === normalizedName,
+    );
+  }
+
+  private async syncDerivedTreatmentForOrdonnanceMedicament(
+    database: DatabaseTransaction,
+    params: {
+      patient_id: string;
+      utilisateur_id: string;
+      date_prescription: string;
+      ordonnance_id: string;
+      ordonnance_medicament: OrdonnanceMedicamentRecord;
+    },
+  ): Promise<void> {
+    await treatmentRepository.deactivateActiveDerivedTreatmentsForPatientMedication(database, {
+      patient_id: params.patient_id,
+      medicament_externe_id: params.ordonnance_medicament.medicament_externe_id,
+      exclude_ordonnance_medicament_id: params.ordonnance_medicament.id,
+    });
+
+    const existingTreatment = await treatmentRepository.getTreatmentByOrdonnanceMedicamentId(
+      database,
+      params.ordonnance_medicament.id,
+    );
+
+    const payload = {
+      patient_id: params.patient_id,
+      medicament_externe_id: params.ordonnance_medicament.medicament_externe_id,
+      nom_medicament: params.ordonnance_medicament.nom_medicament,
+      dosage: params.ordonnance_medicament.dosage,
+      posologie: params.ordonnance_medicament.posologie,
+      date_prescription: params.date_prescription,
+      prescrit_par_utilisateur: params.utilisateur_id,
+      est_actif: true,
+      source_type: "ordonnance" as const,
+      ordonnance_id: params.ordonnance_id,
+      ordonnance_medicament_id: params.ordonnance_medicament.id,
+    };
+
+    if (existingTreatment) {
+      await treatmentRepository.updateTreatment(database, existingTreatment.id, payload);
+      return;
+    }
+
+    await treatmentRepository.createTreatment(database, payload);
   }
 
   private todayIsoDate(): string {

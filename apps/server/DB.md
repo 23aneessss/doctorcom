@@ -163,25 +163,54 @@ examen_consultation [icon: thermometer, color: green] {
 }
 
 // Traitements et Prescriptions
+// La base principale ne contient plus la table `medicaments`.
+// Les médicaments sont maintenant référencés via `medicament_externe_id`
+// vers une base PostgreSQL externe dédiée.
 
-medicaments [icon: package, color: yellow] {
+categories_pre_rempli [icon: folder, color: purple] {
   ID int pk
-  DCI string  // Dénomination Commune Internationale
-  indication string
-  contre_indication string
-  posologie_standard string
-  effets_indesirables string
+  nom string
+  description string
+}
+
+pre_rempli_ordonnance [icon: file-text, color: yellow] {
+  ID int pk
+  nom string
+  description string
+  specialite string
+  categorie_pre_rempli_ID int fk
+  est_actif boolean
+  created_at datetime
+  updated_at datetime
+  created_by_user int fk
+}
+
+pre_rempli_medicaments [icon: list, color: yellow] {
+  ID int pk
+  pre_rempli_ID int fk
+  medicament_externe_id string
+  nom_medicament string
   dosage string
+  posologie_defaut string
+  duree_defaut string
+  instructions_defaut string
+  ordre_affichage int
+  est_optionnel boolean
 }
 
 historique_traitements [icon: clock, color: yellow] {
   ID int pk
   patient_ID int fk
-  medicament_ID int fk
+  medicament_externe_id string
+  nom_medicament string
+  dosage string
   posologie string
   est_actif boolean
   date_prescription date
   prescrit_par_utilisateur int fk
+  ordonnance_ID int fk
+  ordonnance_medicament_ID int fk
+  source_type string // 'manuel' | 'ordonnance'
 }
 
 ordonnance [icon: file-text, color: yellow] {
@@ -189,6 +218,7 @@ ordonnance [icon: file-text, color: yellow] {
   rendez_vous_ID int fk
   patient_ID int fk
   utilisateur_ID int fk
+  pre_rempli_origine_ID int fk
   remarques string
   date_prescription date
 }
@@ -196,7 +226,10 @@ ordonnance [icon: file-text, color: yellow] {
 ordonnance_medicaments [icon: list, color: yellow] {
   ID int pk
   ordonnance_ID int fk
-  medicament_ID int fk
+  medicament_externe_id string
+  nom_medicament string
+  DCI string
+  dosage string
   posologie string
   duree_traitement string
   instructions string
@@ -306,12 +339,13 @@ suivi.ID < certificats_medicaux.suivi_ID
 rendez_vous.ID < examen_consultation.rendez_vous_ID
 rendez_vous.ID < ordonnance.rendez_vous_ID
 
-// Relations Médicaments
-medicaments.ID < historique_traitements.medicament_ID
-medicaments.ID < ordonnance_medicaments.medicament_ID
-
 // Relations Ordonnance
 ordonnance.ID < ordonnance_medicaments.ordonnance_ID
+ordonnance.ID < historique_traitements.ordonnance_ID
+ordonnance_medicaments.ID < historique_traitements.ordonnance_medicament_ID
+categories_pre_rempli.ID < pre_rempli_ordonnance.categorie_pre_rempli_ID
+pre_rempli_ordonnance.ID < pre_rempli_medicaments.pre_rempli_ID
+pre_rempli_ordonnance.ID < ordonnance.pre_rempli_origine_ID
 
 // Relations Antécédents
 antecedents.ID < antecedents_personnels.antecedent_ID

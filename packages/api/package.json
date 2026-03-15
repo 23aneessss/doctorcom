@@ -26,6 +26,7 @@
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
+    "@doctor.com/medications-db": "workspace:*",
     "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",

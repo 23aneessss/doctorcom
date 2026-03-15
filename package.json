@@ -31,7 +31,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo run check-types",
-    "check-types:backend": "turbo check-types --filter=server --filter=@doctor.com/api --filter=@doctor.com/db --filter=@doctor.com/auth --filter=@doctor.com/shared",
+    "check-types:backend": "turbo check-types --filter=server --filter=@doctor.com/api --filter=@doctor.com/db --filter=@doctor.com/medications-db --filter=@doctor.com/auth --filter=@doctor.com/shared",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",

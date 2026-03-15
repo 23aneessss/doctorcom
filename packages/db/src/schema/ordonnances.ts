@@ -59,7 +59,9 @@ export const pre_rempli_medicaments = pgTable(
     pre_rempli_id: uuid("pre_rempli_id")
       .notNull()
       .references(() => pre_rempli_ordonnance.id),
-    medicament_nom: varchar("medicament_nom", { length: 255 }).notNull(),
+    medicament_externe_id: varchar("medicament_externe_id", { length: 64 }).notNull(),
+    nom_medicament: varchar("nom_medicament", { length: 255 }).notNull(),
+    dosage: varchar("dosage", { length: 128 }),
     posologie_defaut: varchar("posologie_defaut", { length: 255 }),
     duree_defaut: varchar("duree_defaut", { length: 255 }),
     instructions_defaut: text("instructions_defaut"),
@@ -68,5 +70,8 @@ export const pre_rempli_medicaments = pgTable(
   },
   (table) => [
     index("pre_rempli_medicaments_pre_rempli_id_idx").on(table.pre_rempli_id),
+    index("pre_rempli_medicaments_medicament_externe_id_idx").on(
+      table.medicament_externe_id,
+    ),
   ],
 );
