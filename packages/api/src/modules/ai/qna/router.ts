@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { createTRPCRouter, protectedProcedure } from "../../trpc/init";
+import { createTRPCRouter, protectedProcedure } from "../../../trpc/init";
 import { aiService } from "./service";
 
-export const aiRouter = createTRPCRouter({
+export const qnaRouter = createTRPCRouter({
   ask: protectedProcedure
     .input(
       z.object({
