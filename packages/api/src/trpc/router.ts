@@ -10,7 +10,7 @@ import { travelRouter } from "../modules/travel/router";
 import { documentsRouter } from "../modules/documents/router";
 import { treatmentRouter } from "../modules/treatment/router";
 import { exportRouter } from "../modules/export/router";
-import { aiRouter } from "../modules/ai/router";
+import { aiRouter } from "../modules/ai-q&a/router";
 import { createTRPCRouter } from "./init";
 
 export const appRouter = createTRPCRouter({
