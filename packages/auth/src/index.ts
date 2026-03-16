@@ -19,13 +19,9 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  trustedOrigins: [
-    env.CORS_ORIGIN,
-    "doctor.com://",
-    ...(env.NODE_ENV === "development"
-      ? ["exp://", "exp://**", "exp://192.168.*.*:*/**", "http://localhost:8081"]
-      : []),
-  ],
+  trustedOrigins: isProduction
+    ? [env.CORS_ORIGIN, "doctor.com://"]
+    : ["*"],
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   emailAndPassword: {

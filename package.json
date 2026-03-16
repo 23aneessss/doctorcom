@@ -39,6 +39,10 @@
     "db:studio": "turbo -F @doctor.com/db db:studio",
     "db:generate": "turbo -F @doctor.com/db db:generate",
     "db:migrate": "turbo -F @doctor.com/db db:migrate",
+    "medications-db:push": "turbo -F @doctor.com/medications-db db:push",
+    "medications-db:generate": "turbo -F @doctor.com/medications-db db:generate",
+    "medications-db:studio": "turbo -F @doctor.com/medications-db db:studio",
+    "medications-db:migrate": "turbo -F @doctor.com/medications-db db:migrate",
     "db:reset": "bun reset.ts",
     "db:seed": "bun seed.ts"
   },

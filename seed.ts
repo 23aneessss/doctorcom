@@ -25,7 +25,7 @@ import {
   suivi,
   rendez_vous,
   examen_consultation,
-  medicaments,
+
   historique_traitements,
   ordonnance,
   ordonnance_medicaments,
@@ -64,12 +64,12 @@ const PATIENT_3 = "a0000000-0000-4000-a000-000000000003"; // M
 const PATIENT_4 = "a0000000-0000-4000-a000-000000000004"; // F
 const PATIENT_5 = "a0000000-0000-4000-a000-000000000005"; // F
 
-// Medicaments
-const MED_1 = "b0000000-0000-4000-a000-000000000001";
-const MED_2 = "b0000000-0000-4000-a000-000000000002";
-const MED_3 = "b0000000-0000-4000-a000-000000000003";
-const MED_4 = "b0000000-0000-4000-a000-000000000004";
-const MED_5 = "b0000000-0000-4000-a000-000000000005";
+// Ordonnance medicaments (explicit IDs for FK cross-referencing in historique_traitements)
+const ORD_MED_1 = "40000000-0000-4000-a000-000000000001"; // ORD_1 Paracetamol
+const ORD_MED_2 = "40000000-0000-4000-a000-000000000002"; // ORD_2 Metformine
+const ORD_MED_3 = "40000000-0000-4000-a000-000000000003"; // ORD_2 Amlodipine
+const ORD_MED_4 = "40000000-0000-4000-a000-000000000004"; // ORD_3 Paracetamol
+const ORD_MED_5 = "40000000-0000-4000-a000-000000000005"; // ORD_3 Omeprazole
 
 // Categories documents
 const CAT_1 = "c0000000-0000-4000-a000-000000000001";
@@ -142,7 +142,6 @@ async function seed() {
   await db.delete(voyages_recents);
   await db.delete(patients_femmes);
   await db.delete(patients);
-  await db.delete(medicaments);
   await db.delete(logs);
   await db.delete(sessions);
   await db.delete(utilisateurs);
@@ -167,56 +166,6 @@ async function seed() {
     date_creation: "2024-01-15",
     role: "medecin",
   });
-
-  // --- Medicaments (5) ---
-  console.log("Inserting medicaments...");
-  await db.insert(medicaments).values([
-    {
-      id: MED_1,
-      dci: "Amoxicilline",
-      indication: "Infections bacteriennes ORL, respiratoires, urinaires",
-      contre_indication: "Allergie aux penicillines",
-      posologie_standard: "1g toutes les 8h pendant 7 jours",
-      effets_indesirables: "Diarrhee, nausees, eruptions cutanees",
-      dosage: "1g",
-    },
-    {
-      id: MED_2,
-      dci: "Metformine",
-      indication: "Diabete de type 2",
-      contre_indication: "Insuffisance renale severe, acidose metabolique",
-      posologie_standard: "500mg 2 fois par jour au cours des repas",
-      effets_indesirables: "Troubles digestifs, acidose lactique (rare)",
-      dosage: "500mg",
-    },
-    {
-      id: MED_3,
-      dci: "Amlodipine",
-      indication: "Hypertension arterielle, angor stable",
-      contre_indication: "Choc cardiogenique, stenose aortique severe",
-      posologie_standard: "5mg une fois par jour",
-      effets_indesirables: "Oedemes des chevilles, cephalees, flush",
-      dosage: "5mg",
-    },
-    {
-      id: MED_4,
-      dci: "Omeprazole",
-      indication: "Reflux gastro-oesophagien, ulcere gastrique",
-      contre_indication: "Hypersensibilite aux IPP",
-      posologie_standard: "20mg une fois par jour avant le petit-dejeuner",
-      effets_indesirables: "Cephalees, douleurs abdominales, diarrhee",
-      dosage: "20mg",
-    },
-    {
-      id: MED_5,
-      dci: "Paracetamol",
-      indication: "Douleurs, fievre",
-      contre_indication: "Insuffisance hepatique severe",
-      posologie_standard: "1g toutes les 6h, max 4g par jour",
-      effets_indesirables: "Hepatotoxicite en cas de surdosage",
-      dosage: "1g",
-    },
-  ]);
 
   // --- Categories documents (3) ---
   console.log("Inserting categories_documents...");
@@ -805,36 +754,56 @@ async function seed() {
   console.log("Inserting ordonnance_medicaments...");
   await db.insert(ordonnance_medicaments).values([
     {
+      id: ORD_MED_1,
       ordonnance_id: ORD_1,
-      medicament_id: MED_5,
+      medicament_externe_id: "EXT-PARA-001",
+      nom_medicament: "Paracetamol",
+      dci: "Paracetamol",
+      dosage: "1g",
       posologie: "1g toutes les 6 heures si douleur ou fievre",
       duree_traitement: "7 jours",
       instructions: "Ne pas depasser 4g par jour",
     },
     {
+      id: ORD_MED_2,
       ordonnance_id: ORD_2,
-      medicament_id: MED_2,
+      medicament_externe_id: "EXT-METF-001",
+      nom_medicament: "Metformine",
+      dci: "Metformine",
+      dosage: "500mg",
       posologie: "500mg matin et soir au cours des repas",
       duree_traitement: "3 mois (renouvellement)",
       instructions: "Prendre avec de la nourriture pour reduire les effets digestifs",
     },
     {
+      id: ORD_MED_3,
       ordonnance_id: ORD_2,
-      medicament_id: MED_3,
+      medicament_externe_id: "EXT-AMLO-001",
+      nom_medicament: "Amlodipine",
+      dci: "Amlodipine",
+      dosage: "5mg",
       posologie: "5mg une fois par jour le matin",
       duree_traitement: "3 mois (renouvellement)",
       instructions: "Surveiller les oedemes des chevilles",
     },
     {
+      id: ORD_MED_4,
       ordonnance_id: ORD_3,
-      medicament_id: MED_5,
+      medicament_externe_id: "EXT-PARA-001",
+      nom_medicament: "Paracetamol",
+      dci: "Paracetamol",
+      dosage: "1g",
       posologie: "1g trois fois par jour",
       duree_traitement: "6 semaines",
       instructions: "Prendre a heures regulieres, espacer de 6h minimum",
     },
     {
+      id: ORD_MED_5,
       ordonnance_id: ORD_3,
-      medicament_id: MED_4,
+      medicament_externe_id: "EXT-OMEP-001",
+      nom_medicament: "Omeprazole",
+      dci: "Omeprazole",
+      dosage: "20mg",
       posologie: "20mg le matin a jeun",
       duree_traitement: "4 semaines",
       instructions: "Prendre 30 minutes avant le petit-dejeuner",
@@ -846,35 +815,55 @@ async function seed() {
   await db.insert(historique_traitements).values([
     {
       patient_id: PATIENT_1,
-      medicament_id: MED_5,
+      medicament_externe_id: "EXT-PARA-001",
+      nom_medicament: "Paracetamol",
+      dosage: "1g",
       posologie: "1g x3/jour si douleur",
       est_actif: false,
       date_prescription: "2024-03-15",
       prescrit_par_utilisateur: UTILISATEUR_ID,
+      ordonnance_id: ORD_1,
+      ordonnance_medicament_id: ORD_MED_1,
+      source_type: "ordonnance",
     },
     {
       patient_id: PATIENT_2,
-      medicament_id: MED_2,
+      medicament_externe_id: "EXT-METF-001",
+      nom_medicament: "Metformine",
+      dosage: "500mg",
       posologie: "500mg x2/jour",
       est_actif: true,
       date_prescription: "2024-04-20",
       prescrit_par_utilisateur: UTILISATEUR_ID,
+      ordonnance_id: ORD_2,
+      ordonnance_medicament_id: ORD_MED_2,
+      source_type: "ordonnance",
     },
     {
       patient_id: PATIENT_2,
-      medicament_id: MED_3,
+      medicament_externe_id: "EXT-AMLO-001",
+      nom_medicament: "Amlodipine",
+      dosage: "5mg",
       posologie: "5mg x1/jour",
       est_actif: true,
       date_prescription: "2024-04-20",
       prescrit_par_utilisateur: UTILISATEUR_ID,
+      ordonnance_id: ORD_2,
+      ordonnance_medicament_id: ORD_MED_3,
+      source_type: "ordonnance",
     },
     {
       patient_id: PATIENT_5,
-      medicament_id: MED_5,
+      medicament_externe_id: "EXT-PARA-001",
+      nom_medicament: "Paracetamol",
+      dosage: "1g",
       posologie: "1g x3/jour",
       est_actif: true,
       date_prescription: "2025-01-10",
       prescrit_par_utilisateur: UTILISATEUR_ID,
+      ordonnance_id: ORD_3,
+      ordonnance_medicament_id: ORD_MED_4,
+      source_type: "ordonnance",
     },
   ]);
 
@@ -993,7 +982,6 @@ async function seed() {
   console.log("\nSeed completed successfully!");
   console.log("Summary:");
   console.log("  - 1 utilisateur (medecin)");
-  console.log("  - 5 medicaments");
   console.log("  - 3 categories de documents");
   console.log("  - 5 patients (3M, 2F)");
   console.log("  - 2 fiches patients femmes");

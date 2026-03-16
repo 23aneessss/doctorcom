@@ -9,7 +9,6 @@ import {
   suivi,
   rendez_vous,
   examen_consultation,
-  medicaments,
   historique_traitements,
   ordonnance,
   ordonnance_medicaments,
@@ -31,7 +30,6 @@ export type AntecedentFamilialRecord = typeof antecedents_familiaux.$inferSelect
 export type SuiviRecord = typeof suivi.$inferSelect;
 export type RendezVousRecord = typeof rendez_vous.$inferSelect;
 export type ExamenConsultationRecord = typeof examen_consultation.$inferSelect;
-export type MedicamentRecord = typeof medicaments.$inferSelect;
 export type HistoriqueTraitementRecord = typeof historique_traitements.$inferSelect;
 export type OrdonnanceRecord = typeof ordonnance.$inferSelect;
 export type OrdonnanceMedicamentRecord = typeof ordonnance_medicaments.$inferSelect;
@@ -44,16 +42,8 @@ export interface AntecedentWithDetails extends AntecedentRecord {
   familiaux: AntecedentFamilialRecord[];
 }
 
-export interface HistoriqueTraitementWithMedicament extends HistoriqueTraitementRecord {
-  medicament: MedicamentRecord | null;
-}
-
-export interface OrdonnanceMedicamentWithDetails extends OrdonnanceMedicamentRecord {
-  medicament: MedicamentRecord | null;
-}
-
 export interface OrdonnanceWithMedicaments extends OrdonnanceRecord {
-  medicaments: OrdonnanceMedicamentWithDetails[];
+  medicaments: OrdonnanceMedicamentRecord[];
 }
 
 export interface FullPatientData {
@@ -64,7 +54,7 @@ export interface FullPatientData {
   suivis: SuiviRecord[];
   rendez_vous: RendezVousRecord[];
   examens: ExamenConsultationRecord[];
-  traitements: HistoriqueTraitementWithMedicament[];
+  traitements: HistoriqueTraitementRecord[];
   ordonnances: OrdonnanceWithMedicaments[];
   vaccinations: VaccinationPatientRecord[];
   certificats: CertificatMedicalRecord[];
@@ -225,20 +215,11 @@ export class AiRepository {
   private async fetchTraitementsWithMedicaments(
     database: DatabaseClient,
     patientId: string,
-  ): Promise<HistoriqueTraitementWithMedicament[]> {
-    const rows = await database
-      .select({
-        traitement: historique_traitements,
-        medicament: medicaments,
-      })
+  ): Promise<HistoriqueTraitementRecord[]> {
+    return database
+      .select()
       .from(historique_traitements)
-      .leftJoin(medicaments, eq(historique_traitements.medicament_id, medicaments.id))
       .where(eq(historique_traitements.patient_id, patientId));
-
-    return rows.map((row) => ({
-      ...row.traitement,
-      medicament: row.medicament,
-    }));
   }
 
   private async fetchOrdonnancesWithMedicaments(
@@ -258,20 +239,13 @@ export class AiRepository {
 
     for (const ord of ordonnancesRows) {
       const medsRows = await database
-        .select({
-          ordonnance_med: ordonnance_medicaments,
-          medicament: medicaments,
-        })
+        .select()
         .from(ordonnance_medicaments)
-        .leftJoin(medicaments, eq(ordonnance_medicaments.medicament_id, medicaments.id))
         .where(eq(ordonnance_medicaments.ordonnance_id, ord.id));
 
       result.push({
         ...ord,
-        medicaments: medsRows.map((row) => ({
-          ...row.ordonnance_med,
-          medicament: row.medicament,
-        })),
+        medicaments: medsRows,
       });
     }
 

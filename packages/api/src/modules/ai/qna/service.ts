@@ -4,7 +4,7 @@ import { createMistral } from "@ai-sdk/mistral";
 import type { db as databaseClient } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
 
-import type { SessionUtilisateur } from "../../trpc/context";
+import type { SessionUtilisateur } from "../../../trpc/context";
 import { aiRepository, type FullPatientData } from "./repo";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
@@ -199,7 +199,7 @@ export class AiService {
     // --- Traitements en cours ---
     if (data.traitements.length > 0) {
       const lines = data.traitements.map((t) => {
-        const medName = t.medicament?.dci ?? "Medicament inconnu";
+        const medName = t.nom_medicament ?? "Medicament inconnu";
         const status = t.est_actif ? "En cours" : "Termine";
         return `- ${medName}: ${t.posologie} (${status}, prescrit le ${t.date_prescription})`;
       });
@@ -213,7 +213,7 @@ export class AiService {
         lines.push(`### Ordonnance du ${ord.date_prescription}`);
         if (ord.remarques) lines.push(`Remarques: ${ord.remarques}`);
         for (const om of ord.medicaments) {
-          const medName = om.medicament?.dci ?? "Medicament inconnu";
+          const medName = om.dci ?? om.nom_medicament ?? "Medicament inconnu";
           lines.push(`- ${medName}: ${om.posologie}`);
           if (om.duree_traitement) lines.push(`  Duree: ${om.duree_traitement}`);
           if (om.instructions) lines.push(`  Instructions: ${om.instructions}`);
