@@ -28,6 +28,7 @@
     "@doctor.com/env": "workspace:*",
     "@doctor.com/medications-db": "workspace:*",
     "@doctor.com/shared": "workspace:*",
+    "@google/genai": "^1.45.0",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
