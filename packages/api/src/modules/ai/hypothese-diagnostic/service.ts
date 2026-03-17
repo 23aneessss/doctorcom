@@ -22,7 +22,11 @@ import {
 
 type DatabaseClient = typeof databaseClient;
 type HypotheseDiagnosticSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName = "openrouter" | "mistral" | "google-ai-studio";
+type AIProviderName =
+  | "openrouter"
+  | "together"
+  | "mistral"
+  | "google-ai-studio";
 
 interface AIProviderConfig {
   name: AIProviderName;
@@ -426,34 +430,69 @@ export class HypotheseDiagnosticService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    if (env.OPENROUTER_API_KEY) {
-      return {
-        name: "openrouter",
-        model: env.OPENROUTER_MODEL,
-        apiKey: env.OPENROUTER_API_KEY,
-      };
+    const providerConfigs: Record<AIProviderName, AIProviderConfig | null> = {
+      openrouter: env.OPENROUTER_API_KEY
+        ? {
+            name: "openrouter",
+            model: env.OPENROUTER_MODEL,
+            apiKey: env.OPENROUTER_API_KEY,
+          }
+        : null,
+      together: env.TOGETHER_API_KEY
+        ? {
+            name: "together",
+            model: env.TOGETHER_MODEL,
+            apiKey: env.TOGETHER_API_KEY,
+          }
+        : null,
+      mistral: env.MISTRAL_API_KEY
+        ? {
+            name: "mistral",
+            model: env.MISTRAL_MODEL,
+            apiKey: env.MISTRAL_API_KEY,
+          }
+        : null,
+      "google-ai-studio": env.GEMINI_API_KEY
+        ? {
+            name: "google-ai-studio",
+            model: env.GEMINI_MODEL,
+            apiKey: env.GEMINI_API_KEY,
+          }
+        : null,
+    };
+
+    if (env.AI_PROVIDER) {
+      const selectedProvider = providerConfigs[env.AI_PROVIDER];
+      if (!selectedProvider) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
+        });
+      }
+
+      return selectedProvider;
     }
 
-    if (env.MISTRAL_API_KEY) {
-      return {
-        name: "mistral",
-        model: env.MISTRAL_MODEL,
-        apiKey: env.MISTRAL_API_KEY,
-      };
+    if (providerConfigs.openrouter) {
+      return providerConfigs.openrouter;
     }
 
-    if (env.GEMINI_API_KEY) {
-      return {
-        name: "google-ai-studio",
-        model: env.GEMINI_MODEL,
-        apiKey: env.GEMINI_API_KEY,
-      };
+    if (providerConfigs.together) {
+      return providerConfigs.together;
+    }
+
+    if (providerConfigs.mistral) {
+      return providerConfigs.mistral;
+    }
+
+    if (providerConfigs["google-ai-studio"]) {
+      return providerConfigs["google-ai-studio"];
     }
 
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message:
-        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env.",
+        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
     });
   }
 
@@ -814,9 +853,11 @@ export class HypotheseDiagnosticService {
     const rawText =
       provider.name === "openrouter"
         ? await this.generateWithOpenRouter(provider, context)
+        : provider.name === "together"
+          ? await this.generateWithTogether(provider, context)
         : provider.name === "mistral"
-        ? await this.generateWithMistral(provider, context)
-        : await this.generateWithGemini(provider, context);
+          ? await this.generateWithMistral(provider, context)
+          : await this.generateWithGemini(provider, context);
 
     if (!rawText) {
       throw new TRPCError({
@@ -825,25 +866,235 @@ export class HypotheseDiagnosticService {
       });
     }
 
-    let parsedResponse: unknown;
-    try {
-      parsedResponse = JSON.parse(rawText);
-    } catch {
+    const parsedResponse = this.parseModelJson(rawText);
+    if (!parsedResponse) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "La reponse du modele AI n'est pas un JSON valide.",
       });
     }
 
-    const validation = aiResponseSchema.safeParse(parsedResponse);
+    const normalizedResponse = this.normalizeAiAnalysisResponse(parsedResponse);
+    const validation = aiResponseSchema.safeParse(normalizedResponse);
     if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "La reponse du modele AI ne respecte pas le schema attendu.",
+        message: firstIssue
+          ? `La reponse du modele AI ne respecte pas le schema attendu: ${firstIssue.path.join(".") || "racine"} - ${firstIssue.message}.`
+          : "La reponse du modele AI ne respecte pas le schema attendu.",
       });
     }
 
     return validation.data;
+  }
+
+  private parseModelJson(rawText: string): unknown | null {
+    const normalized = rawText.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const candidates = [
+      normalized,
+      normalized
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim(),
+    ];
+
+    const firstBraceIndex = normalized.indexOf("{");
+    const lastBraceIndex = normalized.lastIndexOf("}");
+    if (firstBraceIndex >= 0 && lastBraceIndex > firstBraceIndex) {
+      candidates.push(normalized.slice(firstBraceIndex, lastBraceIndex + 1).trim());
+    }
+
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeAiAnalysisResponse(raw: unknown): unknown {
+    if (!raw || typeof raw !== "object") {
+      return raw;
+    }
+
+    const payload = raw as Record<string, unknown>;
+    const chiefProblem =
+      this.toNullableString(payload.chief_problem) ??
+      "Hypothese clinique a preciser";
+    const diagnosticSummary =
+      this.toNullableString(payload.diagnostic_summary) ??
+      "Analyse clinique preliminaire fournie par le modele.";
+
+    const redFlags = this.normalizeStringArray(payload.red_flags, 8);
+    const hypotheses = this.normalizeHypotheses(payload.hypotheses, diagnosticSummary);
+
+    return {
+      recommendation_readiness: this.normalizeRecommendationReadiness(
+        payload.recommendation_readiness,
+        redFlags.length > 0,
+      ),
+      chief_problem: chiefProblem,
+      diagnostic_summary: diagnosticSummary,
+      hypotheses:
+        hypotheses.length > 0
+          ? hypotheses
+          : [
+              {
+                label: chiefProblem,
+                confidence: 0.5,
+                reasoning: diagnosticSummary,
+                evidence_for: [],
+                evidence_against: [],
+                missing_information: this.normalizeStringArray(
+                  payload.global_missing_information,
+                  8,
+                ),
+                recommended_next_questions: [],
+                recommended_next_checks: [],
+              },
+            ],
+      red_flags: redFlags,
+      caution_notes: this.normalizeStringArray(payload.caution_notes, 8),
+      global_missing_information: this.normalizeStringArray(
+        payload.global_missing_information,
+        10,
+      ),
+    };
+  }
+
+  private normalizeHypotheses(
+    rawValue: unknown,
+    fallbackReasoning: string,
+  ): Array<z.infer<typeof aiHypothesisSchema>> {
+    const items = Array.isArray(rawValue)
+      ? rawValue
+      : rawValue && typeof rawValue === "object"
+        ? [rawValue]
+        : [];
+
+    return items
+      .map((item, index) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const hypothesis = item as Record<string, unknown>;
+        const label =
+          this.toNullableString(hypothesis.label) ?? `Hypothese ${index + 1}`;
+        const reasoning =
+          this.toNullableString(hypothesis.reasoning) ?? fallbackReasoning;
+
+        return {
+          label,
+          confidence: this.normalizeConfidence(hypothesis.confidence),
+          reasoning,
+          evidence_for: this.normalizeStringArray(hypothesis.evidence_for, 8),
+          evidence_against: this.normalizeStringArray(
+            hypothesis.evidence_against,
+            8,
+          ),
+          missing_information: this.normalizeStringArray(
+            hypothesis.missing_information,
+            8,
+          ),
+          recommended_next_questions: this.normalizeStringArray(
+            hypothesis.recommended_next_questions,
+            8,
+          ),
+          recommended_next_checks: this.normalizeStringArray(
+            hypothesis.recommended_next_checks,
+            8,
+          ),
+        };
+      })
+      .filter(
+        (
+          value,
+        ): value is z.infer<typeof aiHypothesisSchema> => value !== null,
+      )
+      .slice(0, 5);
+  }
+
+  private normalizeRecommendationReadiness(
+    rawValue: unknown,
+    hasRedFlags: boolean,
+  ): z.infer<typeof aiResponseSchema>["recommendation_readiness"] {
+    const normalized = this.toNullableString(rawValue)?.toLowerCase();
+
+    if (normalized) {
+      if (
+        normalized === "ready_for_recommendation" ||
+        normalized.includes("ready")
+      ) {
+        return "ready_for_recommendation";
+      }
+
+      if (
+        normalized === "urgent_medical_review" ||
+        normalized.includes("urgent") ||
+        normalized.includes("red flag")
+      ) {
+        return "urgent_medical_review";
+      }
+
+      if (
+        normalized === "needs_more_information" ||
+        normalized.includes("need") ||
+        normalized.includes("insuff") ||
+        normalized.includes("more_information")
+      ) {
+        return "needs_more_information";
+      }
+    }
+
+    return hasRedFlags
+      ? "urgent_medical_review"
+      : "needs_more_information";
+  }
+
+  private normalizeConfidence(rawValue: unknown): number {
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      return Math.min(1, Math.max(0, rawValue));
+    }
+
+    if (typeof rawValue === "string") {
+      const parsed = Number.parseFloat(rawValue.replace(",", "."));
+      if (Number.isFinite(parsed)) {
+        if (parsed > 1) {
+          return Math.min(1, Math.max(0, parsed / 100));
+        }
+
+        return Math.min(1, Math.max(0, parsed));
+      }
+    }
+
+    return 0.5;
+  }
+
+  private normalizeStringArray(rawValue: unknown, maxItems: number): string[] {
+    const values = Array.isArray(rawValue)
+      ? rawValue
+      : rawValue === null || rawValue === undefined
+        ? []
+        : [rawValue];
+
+    return values
+      .map((value) => this.toNullableString(value))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, maxItems);
   }
 
   private async generateWithOpenRouter(
@@ -965,6 +1216,75 @@ export class HypotheseDiagnosticService {
     return response.text?.trim() ?? "";
   }
 
+  private async generateWithTogether(
+    provider: AIProviderConfig,
+    context: ClinicalContext,
+  ): Promise<string> {
+    let response: Response;
+
+    try {
+      response = await fetch("https://api.together.xyz/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Tu es un assistant de raisonnement clinique. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
+            },
+            {
+              role: "user",
+              content: this.buildProviderPrompt(context),
+            },
+          ],
+          response_format: {
+            type: "json_object",
+          },
+        }),
+      });
+    } catch (error) {
+      throw this.mapAiProviderError(provider.name, error);
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: Array<{
+        message?: {
+          content?:
+            | string
+            | Array<{
+                type?: string;
+                text?: string;
+              }>;
+        };
+      }>;
+    };
+
+    const content = payload.choices?.[0]?.message?.content;
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .map((item) => item.text ?? "")
+        .join("")
+        .trim();
+    }
+
+    return "";
+  }
+
   private async generateWithMistral(
     provider: AIProviderConfig,
     context: ClinicalContext,
@@ -1019,12 +1339,7 @@ export class HypotheseDiagnosticService {
     status: number,
     errorText: string,
   ): TRPCError {
-    const providerLabel =
-      provider === "openrouter"
-        ? "OpenRouter"
-        : provider === "mistral"
-          ? "Mistral"
-          : "Gemini";
+    const providerLabel = this.providerLabel(provider);
     const normalizedText = errorText.toLowerCase();
 
     if (
@@ -1075,12 +1390,7 @@ export class HypotheseDiagnosticService {
   ): TRPCError {
     if (error instanceof Error) {
       const message = error.message;
-      const providerLabel =
-        provider === "openrouter"
-          ? "OpenRouter"
-          : provider === "mistral"
-            ? "Mistral"
-            : "Gemini";
+      const providerLabel = this.providerLabel(provider);
 
       if (
         message.includes("RESOURCE_EXHAUSTED") ||
@@ -1120,14 +1430,24 @@ export class HypotheseDiagnosticService {
 
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${
-        provider === "openrouter"
-          ? "OpenRouter"
-          : provider === "mistral"
-            ? "Mistral"
-            : "Gemini"
-      }.`,
+      message: `Echec de l'appel au provider AI ${this.providerLabel(provider)}.`,
     });
+  }
+
+  private providerLabel(provider: AIProviderName): string {
+    if (provider === "openrouter") {
+      return "OpenRouter";
+    }
+
+    if (provider === "together") {
+      return "Together AI";
+    }
+
+    if (provider === "mistral") {
+      return "Mistral";
+    }
+
+    return "Gemini";
   }
 
   private computeAge(dateNaissance: string | null): number | null {
@@ -1157,10 +1477,22 @@ export class HypotheseDiagnosticService {
     return normalizedValue ? normalizedValue : null;
   }
 
-  private toNullableString(
-    value: string | number | null | undefined,
-  ): string | null {
+  private toNullableString(value: unknown): string | null {
     if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === "object") {
+      const objectValue = value as Record<string, unknown>;
+      const preferredKeys = ["text", "label", "name", "reason", "message"];
+
+      for (const key of preferredKeys) {
+        const nestedValue = this.toNullableString(objectValue[key]);
+        if (nestedValue) {
+          return nestedValue;
+        }
+      }
+
       return null;
     }
 
