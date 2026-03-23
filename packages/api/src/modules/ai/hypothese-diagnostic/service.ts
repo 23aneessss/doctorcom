@@ -932,10 +932,10 @@ export class HypotheseDiagnosticService {
 
     const payload = raw as Record<string, unknown>;
     const chiefProblem =
-      this.toNullableString(payload.chief_problem) ??
+      this.toNullableString(payload.chief_problem, 280) ??
       "Hypothese clinique a preciser";
     const diagnosticSummary =
-      this.toNullableString(payload.diagnostic_summary) ??
+      this.toNullableString(payload.diagnostic_summary, 1600) ??
       "Analyse clinique preliminaire fournie par le modele.";
 
     const redFlags = this.normalizeStringArray(payload.red_flags, 8);
@@ -955,7 +955,7 @@ export class HypotheseDiagnosticService {
               {
                 label: chiefProblem,
                 confidence: 0.5,
-                reasoning: diagnosticSummary,
+                reasoning: this.truncateText(diagnosticSummary, 1200),
                 evidence_for: [],
                 evidence_against: [],
                 missing_information: this.normalizeStringArray(
@@ -993,9 +993,11 @@ export class HypotheseDiagnosticService {
 
         const hypothesis = item as Record<string, unknown>;
         const label =
-          this.toNullableString(hypothesis.label) ?? `Hypothese ${index + 1}`;
+          this.toNullableString(hypothesis.label, 180) ??
+          `Hypothese ${index + 1}`;
         const reasoning =
-          this.toNullableString(hypothesis.reasoning) ?? fallbackReasoning;
+          this.toNullableString(hypothesis.reasoning, 1200) ??
+          this.truncateText(fallbackReasoning, 1200);
 
         return {
           label,
@@ -1092,7 +1094,7 @@ export class HypotheseDiagnosticService {
         : [rawValue];
 
     return values
-      .map((value) => this.toNullableString(value))
+      .map((value) => this.toNullableString(value, 280))
       .filter((value): value is string => Boolean(value))
       .slice(0, maxItems);
   }
@@ -1477,7 +1479,19 @@ export class HypotheseDiagnosticService {
     return normalizedValue ? normalizedValue : null;
   }
 
-  private toNullableString(value: unknown): string | null {
+  private truncateText(value: string, maxLength: number): string {
+    if (value.length <= maxLength) {
+      return value;
+    }
+
+    if (maxLength <= 1) {
+      return value.slice(0, maxLength);
+    }
+
+    return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+  }
+
+  private toNullableString(value: unknown, maxLength?: number): string | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -1487,7 +1501,7 @@ export class HypotheseDiagnosticService {
       const preferredKeys = ["text", "label", "name", "reason", "message"];
 
       for (const key of preferredKeys) {
-        const nestedValue = this.toNullableString(objectValue[key]);
+        const nestedValue = this.toNullableString(objectValue[key], maxLength);
         if (nestedValue) {
           return nestedValue;
         }
@@ -1497,7 +1511,13 @@ export class HypotheseDiagnosticService {
     }
 
     const normalizedValue = String(value).trim();
-    return normalizedValue ? normalizedValue : null;
+    if (!normalizedValue) {
+      return null;
+    }
+
+    return typeof maxLength === "number"
+      ? this.truncateText(normalizedValue, maxLength)
+      : normalizedValue;
   }
 
   private joinLabelParts(parts: Array<string | null | undefined>): string | null {

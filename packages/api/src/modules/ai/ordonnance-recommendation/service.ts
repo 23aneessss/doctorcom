@@ -128,6 +128,28 @@ interface CandidateMedication {
   exclusion_reason: string | null;
 }
 
+type RecommendationPolicyProfile =
+  | "generic"
+  | "antipyretic_simple"
+  | "analgesic_simple"
+  | "bronchodilator_inhaled"
+  | "antibiotic_general";
+
+interface RecommendationCandidateFeatures {
+  active_substance_count: number;
+  is_monotherapy: boolean;
+  is_combination: boolean;
+  is_suppressed: boolean;
+  is_paracetamol_like: boolean;
+  is_aspirin_like: boolean;
+  is_nsaid_like: boolean;
+  has_fever_indication: boolean;
+  has_pain_indication: boolean;
+  is_bronchodilator_like: boolean;
+  is_inhaled_like: boolean;
+  is_antibiotic_like: boolean;
+}
+
 const recommendationMedicamentSchema = z.object({
   medicament_externe_id: z.string().trim().min(1),
   nom_medicament: z.string().trim().min(1).max(180),
@@ -154,73 +176,6 @@ const aiResponseSchema = z.object({
   recommendations: z.array(recommendationSchema).max(3),
   global_warnings: z.array(z.string().trim().min(1).max(280)).max(12),
 });
-
-const openRouterResponseJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["recommendations", "global_warnings"],
-  properties: {
-    recommendations: {
-      type: "array",
-      maxItems: 3,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["rank", "label", "rationale", "warnings", "ordonnance_draft"],
-        properties: {
-          rank: { type: "integer", minimum: 1, maximum: 3 },
-          label: { type: "string" },
-          rationale: { type: "string" },
-          warnings: {
-            type: "array",
-            items: { type: "string" },
-          },
-          ordonnance_draft: {
-            type: "object",
-            additionalProperties: false,
-            required: ["remarques", "medicaments"],
-            properties: {
-              remarques: { type: ["string", "null"] },
-              medicaments: {
-                type: "array",
-                minItems: 1,
-                maxItems: 6,
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: [
-                    "medicament_externe_id",
-                    "nom_medicament",
-                    "dci",
-                    "dosage",
-                    "posologie",
-                    "duree_traitement",
-                    "instructions",
-                    "justification",
-                  ],
-                  properties: {
-                    medicament_externe_id: { type: "string" },
-                    nom_medicament: { type: "string" },
-                    dci: { type: ["string", "null"] },
-                    dosage: { type: ["string", "null"] },
-                    posologie: { type: "string" },
-                    duree_traitement: { type: ["string", "null"] },
-                    instructions: { type: ["string", "null"] },
-                    justification: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    global_warnings: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-} as const;
 
 const recommendationDisclaimer =
   "Aide au brouillon d'ordonnance uniquement. La decision finale, la validation clinique et la prescription appartiennent toujours au medecin.";
@@ -373,11 +328,15 @@ export class OrdonnanceRecommendationService {
       clinicalProblemBasis,
       clinicalContext,
     );
+    const policyProfile = this.deriveRecommendationPolicyProfile(
+      clinicalProblemBasis,
+    );
 
     const { safeCandidates, excludedCandidates } = this.filterAndScoreCandidates(
       candidates,
       clinicalContext,
       clinicalProblemBasis,
+      policyProfile,
     );
 
     const globalWarnings = [...clinicalContext.deterministic_red_flags];
@@ -408,16 +367,44 @@ export class OrdonnanceRecommendationService {
       };
     }
 
-    const aiDraft = await this.generateAiRecommendation(
-      provider,
-      clinicalProblemBasis,
-      clinicalContext,
-      safeCandidates,
-    );
-    const normalizedRecommendations = this.postValidateRecommendations(
-      aiDraft.recommendations,
-      safeCandidates,
-    );
+    let aiDraft: z.infer<typeof aiResponseSchema> | null = null;
+    try {
+      aiDraft = await this.generateAiRecommendation(
+        provider,
+        clinicalProblemBasis,
+        clinicalContext,
+        safeCandidates,
+      );
+    } catch (error) {
+      globalWarnings.push(
+        this.buildProviderFallbackWarning(
+          error,
+          "brouillon d'ordonnance",
+        ),
+      );
+    }
+
+    const normalizedRecommendations = aiDraft
+      ? this.postValidateRecommendations(aiDraft.recommendations, safeCandidates)
+      : [];
+    const fallbackRecommendations =
+      normalizedRecommendations.length > 0
+        ? []
+        : this.buildDeterministicFallbackRecommendations(
+            safeCandidates,
+            clinicalProblemBasis,
+            policyProfile,
+          );
+    const finalRecommendations =
+      normalizedRecommendations.length > 0
+        ? normalizedRecommendations
+        : fallbackRecommendations;
+
+    if (normalizedRecommendations.length === 0 && fallbackRecommendations.length > 0) {
+      globalWarnings.push(
+        "Le brouillon ci-dessous a ete construit par la logique backend locale car le modele n'a pas fourni de recommandation exploitable.",
+      );
+    }
 
     return {
       provider: provider.name,
@@ -434,10 +421,13 @@ export class OrdonnanceRecommendationService {
         safe_count: safeCandidates.length,
         excluded_count: excludedCandidates.length,
       },
-      recommendations: normalizedRecommendations,
+      recommendations: finalRecommendations,
       excluded_candidates: excludedCandidates,
       global_warnings: [
-        ...new Set([...globalWarnings, ...aiDraft.global_warnings]),
+        ...new Set([
+          ...globalWarnings,
+          ...(aiDraft?.global_warnings ?? []),
+        ]),
       ],
       disclaimer: recommendationDisclaimer,
     };
@@ -922,6 +912,7 @@ export class OrdonnanceRecommendationService {
     candidates: CandidateMedication[],
     context: ClinicalContext,
     clinicalProblemBasis: ClinicalProblemBasis,
+    policyProfile: RecommendationPolicyProfile,
   ): {
     safeCandidates: CandidateMedication[];
     excludedCandidates: Array<{
@@ -950,6 +941,25 @@ export class OrdonnanceRecommendationService {
 
     for (const candidate of candidates) {
       const medicament = candidate.aggregate.medicament;
+      const corpus = this.normalizeText([
+        medicament.nom_medicament,
+        medicament.nom_generique,
+        medicament.classe_therapeutique,
+        medicament.famille_pharmacologique,
+        medicament.posologie_adulte,
+        ...candidate.aggregate.substances_actives.map((item) => item.nom_substance),
+        ...candidate.aggregate.indications.map((item) => item.indication),
+        ...candidate.aggregate.contre_indications.map((item) => item.description),
+        ...candidate.aggregate.precautions.map((item) => item.description),
+        ...candidate.aggregate.interactions.map((item) => item.medicament_interaction),
+        ...candidate.aggregate.presentations.map((item) =>
+          [item.forme, item.dosage].filter(Boolean).join(" "),
+        ),
+      ].join(" "));
+      const features = this.computeRecommendationCandidateFeatures(
+        candidate.aggregate,
+        corpus,
+      );
       const nameCorpus = this.normalizeText([
         medicament.nom_medicament,
         medicament.nom_generique,
@@ -1023,7 +1033,24 @@ export class OrdonnanceRecommendationService {
         score += 1;
       }
 
+      score += this.applyRecommendationPolicyScoring(features, policyProfile);
       score -= warnings.size * 2;
+
+      if (features.is_suppressed) {
+        warnings.add("Produit marque comme supprime dans les donnees medicaments.");
+        score -= 8;
+      }
+
+      if (!this.passesRecommendationClinicalGate(features, policyProfile)) {
+        candidate.exclusion_reason =
+          "Exclu automatiquement: hors profil clinique principal retenu pour cette recommandation.";
+        excludedCandidates.push({
+          medicament_externe_id: String(medicament.id),
+          nom_medicament: medicament.nom_medicament,
+          reason: candidate.exclusion_reason,
+        });
+        continue;
+      }
 
       candidate.warnings = [...warnings];
       candidate.final_score = score;
@@ -1033,7 +1060,7 @@ export class OrdonnanceRecommendationService {
     safeCandidates.sort((left, right) => right.final_score - left.final_score);
 
     return {
-      safeCandidates: safeCandidates.slice(0, 8),
+      safeCandidates: safeCandidates.slice(0, 6),
       excludedCandidates,
     };
   }
@@ -1198,6 +1225,273 @@ export class OrdonnanceRecommendationService {
       });
   }
 
+  private buildDeterministicFallbackRecommendations(
+    safeCandidates: CandidateMedication[],
+    clinicalProblemBasis: ClinicalProblemBasis,
+    policyProfile: RecommendationPolicyProfile,
+  ): z.infer<typeof recommendationSchema>[] {
+    const preferredCandidates = this.selectDeterministicRecommendationCandidates(
+      safeCandidates,
+      policyProfile,
+    );
+
+    if (preferredCandidates.length === 0) {
+      return [];
+    }
+
+    const primary = preferredCandidates[0];
+    if (!primary) {
+      return [];
+    }
+    const posologie =
+      this.truncateText(primary.aggregate.medicament.posologie_adulte, 600) ?? null;
+
+    if (!posologie) {
+      return [];
+    }
+
+    const dosage = this.extractPrimaryDosage(primary.aggregate);
+    const instructions = this.buildDeterministicInstructions(
+      primary,
+      policyProfile,
+    );
+    const warnings = [...new Set(primary.warnings)].slice(0, 6);
+
+    return [
+      {
+        rank: 1,
+        label: this.buildDeterministicLabel(policyProfile),
+        rationale: this.buildDeterministicRationale(
+          primary,
+          clinicalProblemBasis,
+          policyProfile,
+        ),
+        warnings,
+        ordonnance_draft: {
+          remarques: this.buildDeterministicRemarks(policyProfile),
+          medicaments: [
+            {
+              medicament_externe_id: String(primary.aggregate.medicament.id),
+              nom_medicament: primary.aggregate.medicament.nom_medicament,
+              dci: primary.aggregate.medicament.nom_generique ?? null,
+              dosage,
+              posologie,
+              duree_traitement: null,
+              instructions,
+              justification: this.buildDeterministicJustification(
+                primary,
+                policyProfile,
+              ),
+            },
+          ],
+        },
+      },
+    ];
+  }
+
+  private selectDeterministicRecommendationCandidates(
+    safeCandidates: CandidateMedication[],
+    policyProfile: RecommendationPolicyProfile,
+  ): CandidateMedication[] {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return safeCandidates.filter((candidate) => {
+          const corpus = this.normalizeText([
+            candidate.aggregate.medicament.nom_medicament,
+            candidate.aggregate.medicament.nom_generique,
+            candidate.aggregate.medicament.classe_therapeutique,
+            ...candidate.aggregate.substances_actives.map((item) => item.nom_substance),
+            ...candidate.aggregate.indications.map((item) => item.indication),
+          ].join(" "));
+
+          return (
+            corpus.includes("paracetamol") ||
+            corpus.includes("antipyret") ||
+            corpus.includes("fievre")
+          );
+        });
+      case "analgesic_simple":
+        return safeCandidates.filter((candidate) => {
+          const corpus = this.normalizeText([
+            candidate.aggregate.medicament.nom_medicament,
+            candidate.aggregate.medicament.nom_generique,
+            candidate.aggregate.medicament.classe_therapeutique,
+            ...candidate.aggregate.substances_actives.map((item) => item.nom_substance),
+            ...candidate.aggregate.indications.map((item) => item.indication),
+          ].join(" "));
+
+          return (
+            corpus.includes("paracetamol") ||
+            corpus.includes("antalg") ||
+            corpus.includes("douleur")
+          );
+        });
+      case "bronchodilator_inhaled":
+        return safeCandidates.filter((candidate) => {
+          const corpus = this.normalizeText([
+            candidate.aggregate.medicament.nom_medicament,
+            candidate.aggregate.medicament.nom_generique,
+            candidate.aggregate.medicament.classe_therapeutique,
+            ...candidate.aggregate.substances_actives.map((item) => item.nom_substance),
+            ...candidate.aggregate.presentations.map((item) =>
+              [item.forme, item.dosage].filter(Boolean).join(" "),
+            ),
+          ].join(" "));
+
+          return (
+            (corpus.includes("bronchodilat") || corpus.includes("salbutamol")) &&
+            (corpus.includes("inhal") || corpus.includes("aerosol"))
+          );
+        });
+      case "antibiotic_general":
+        return safeCandidates.filter((candidate) => {
+          const corpus = this.normalizeText([
+            candidate.aggregate.medicament.nom_medicament,
+            candidate.aggregate.medicament.nom_generique,
+            candidate.aggregate.medicament.classe_therapeutique,
+            ...candidate.aggregate.substances_actives.map((item) => item.nom_substance),
+          ].join(" "));
+
+          return corpus.includes("antibioti") || corpus.includes("macrolide");
+        });
+      case "generic":
+      default:
+        return safeCandidates.filter((candidate) =>
+          Boolean(candidate.aggregate.medicament.posologie_adulte?.trim()),
+        );
+    }
+  }
+
+  private buildDeterministicLabel(
+    policyProfile: RecommendationPolicyProfile,
+  ): string {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return "Option antalgique / antipyretique simple";
+      case "analgesic_simple":
+        return "Option antalgique simple";
+      case "bronchodilator_inhaled":
+        return "Option bronchodilatatrice inalee";
+      case "antibiotic_general":
+        return "Option antibiotique de reference";
+      case "generic":
+      default:
+        return "Option therapeutique locale";
+    }
+  }
+
+  private buildDeterministicRationale(
+    candidate: CandidateMedication,
+    clinicalProblemBasis: ClinicalProblemBasis,
+    policyProfile: RecommendationPolicyProfile,
+  ): string {
+    const candidateName = candidate.aggregate.medicament.nom_medicament;
+
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return `${candidateName} a ete retenu comme option simple de premiere intention pour un besoin antalgique / antipyretique, avec une posologie adulte exploitable dans la base locale.`;
+      case "analgesic_simple":
+        return `${candidateName} a ete retenu comme option antalgique simple, avec une fiche suffisamment exploitable dans la base locale pour ${clinicalProblemBasis.chief_problem}.`;
+      case "bronchodilator_inhaled":
+        return `${candidateName} a ete retenu comme candidat bronchodilatateur inhale coherent avec le probleme clinique retenu et les informations disponibles dans la base locale.`;
+      case "antibiotic_general":
+        return `${candidateName} a ete retenu comme candidat antibiotique compatible avec le probleme clinique retenu, sous reserve de validation medicale finale.`;
+      case "generic":
+      default:
+        return `${candidateName} a ete retenu comme meilleur candidat exploitable de la shortlist locale pour ${clinicalProblemBasis.chief_problem}.`;
+    }
+  }
+
+  private buildDeterministicJustification(
+    candidate: CandidateMedication,
+    policyProfile: RecommendationPolicyProfile,
+  ): string {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return "Option simple et usuelle privilegiee par la logique backend locale.";
+      case "analgesic_simple":
+        return "Option antalgique simple privilegiee par la logique backend locale.";
+      case "bronchodilator_inhaled":
+        return "Option inalee coherentement priorisee par la logique backend locale.";
+      case "antibiotic_general":
+        return "Option antibiotique priorisee par la logique backend locale.";
+      case "generic":
+      default:
+        return `Candidat priorise localement parmi ${candidate.matched_terms.length || 1} signal(s) de pertinence.`;
+    }
+  }
+
+  private buildDeterministicRemarks(
+    policyProfile: RecommendationPolicyProfile,
+  ): string | null {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return "Verifier l'age, le poids, la grossesse, le terrain hepatique et les autres medicaments en cours avant validation.";
+      case "analgesic_simple":
+        return "Verifier les contre-indications, le contexte digestif/renal et les autres medicaments en cours avant validation.";
+      case "bronchodilator_inhaled":
+        return "Verifier la technique d'inhalation, le contexte respiratoire et la tolerance clinique avant validation.";
+      case "antibiotic_general":
+        return "Verifier l'indication infectieuse, les allergies et les interactions avant validation.";
+      case "generic":
+      default:
+        return null;
+    }
+  }
+
+  private buildDeterministicInstructions(
+    candidate: CandidateMedication,
+    policyProfile: RecommendationPolicyProfile,
+  ): string | null {
+    const presentation = candidate.aggregate.presentations[0];
+    const presentationLabel = presentation
+      ? [presentation.forme, presentation.dosage].filter(Boolean).join(" | ")
+      : null;
+
+    switch (policyProfile) {
+      case "antipyretic_simple":
+      case "analgesic_simple":
+        return presentationLabel
+          ? `Presentation locale reperee: ${presentationLabel}.`
+          : "Verifier la presentation la plus adaptee avant validation.";
+      case "bronchodilator_inhaled":
+        return presentationLabel
+          ? `Presentation inalee reperee: ${presentationLabel}.`
+          : "Verifier la forme inalee disponible avant validation.";
+      case "antibiotic_general":
+        return presentationLabel
+          ? `Presentation locale reperee: ${presentationLabel}.`
+          : null;
+      case "generic":
+      default:
+        return presentationLabel
+          ? `Presentation locale reperee: ${presentationLabel}.`
+          : null;
+    }
+  }
+
+  private extractPrimaryDosage(
+    aggregate: MedicamentAggregate,
+  ): string | null {
+    const presentation = aggregate.presentations.find(
+      (item) => Boolean(item.dosage?.trim()),
+    );
+
+    return this.truncateText(presentation?.dosage ?? null, 180);
+  }
+
+  private buildProviderFallbackWarning(error: unknown, stage: string): string {
+    if (error instanceof TRPCError) {
+      return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message}`;
+    }
+
+    if (error instanceof Error && error.message.trim()) {
+      return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message.trim()}`;
+    }
+
+    return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee.`;
+  }
+
   private buildProviderPrompt(
     clinicalProblemBasis: ClinicalProblemBasis,
     context: ClinicalContext,
@@ -1207,68 +1501,133 @@ export class OrdonnanceRecommendationService {
       patient: {
         age: context.patient.age,
         sexe: context.patient.sexe,
-        profession: context.patient.profession,
-        groupe_sanguin: context.patient.groupe_sanguin,
-        habitudes_saines: context.patient.habitudes_saines,
         habitudes_toxiques: context.patient.habitudes_toxiques,
-        environnement_animal: context.patient.environnement_animal,
-        female_context: context.patient.female_context,
+        female_context: context.patient.female_context
+          ? {
+              menopause: context.patient.female_context.menopause,
+              contraception: context.patient.female_context.contraception,
+              nb_grossesses: context.patient.female_context.nb_grossesses,
+            }
+          : null,
       },
       current_consultation: {
         motif: context.current_consultation.motif,
         hypothese_diagnostic: context.current_consultation.hypothese_diagnostic,
-        historique: context.current_consultation.historique,
+        historique: context.current_consultation.historique
+          ? this.truncateText(context.current_consultation.historique, 240)
+          : null,
         examen: context.current_consultation.examen
           ? {
               description_consultation:
-                context.current_consultation.examen.description_consultation,
-              aspect_general: context.current_consultation.examen.aspect_general,
+                context.current_consultation.examen.description_consultation
+                  ? this.truncateText(
+                      context.current_consultation.examen
+                        .description_consultation,
+                      220,
+                    )
+                  : null,
+              aspect_general: context.current_consultation.examen.aspect_general
+                ? this.truncateText(
+                    context.current_consultation.examen.aspect_general,
+                    120,
+                  )
+                : null,
               examen_respiratoire:
-                context.current_consultation.examen.examen_respiratoire,
+                context.current_consultation.examen.examen_respiratoire
+                  ? this.truncateText(
+                      context.current_consultation.examen.examen_respiratoire,
+                      180,
+                    )
+                  : null,
               examen_cardiovasculaire:
-                context.current_consultation.examen.examen_cardiovasculaire,
-              examen_orl: context.current_consultation.examen.examen_orl,
+                context.current_consultation.examen.examen_cardiovasculaire
+                  ? this.truncateText(
+                      context.current_consultation.examen
+                        .examen_cardiovasculaire,
+                      180,
+                    )
+                  : null,
+              examen_orl: context.current_consultation.examen.examen_orl
+                ? this.truncateText(
+                    context.current_consultation.examen.examen_orl,
+                    160,
+                  )
+                : null,
               conclusion: context.current_consultation.examen.conclusion,
               poids: context.current_consultation.examen.poids,
               taille: context.current_consultation.examen.taille,
             }
           : null,
       },
-      antecedents: context.antecedents,
-      treatments: context.treatments,
-      historical_consultations: context.historical_consultations.slice(0, 3),
+      antecedents: {
+        active_personal: context.antecedents.active_personal.slice(0, 8),
+        family: context.antecedents.family.slice(0, 6),
+        allergy_signals: context.antecedents.allergy_signals.slice(0, 6),
+      },
+      treatments: {
+        active: context.treatments.active.slice(0, 8),
+        recent: context.treatments.recent.slice(0, 6),
+      },
+      historical_consultations: context.historical_consultations
+        .slice(0, 2)
+        .map((consultation) => ({
+          date_ouverture: consultation.date_ouverture,
+          motif: this.truncateText(consultation.motif, 120),
+          hypothese_diagnostic: consultation.hypothese_diagnostic
+            ? this.truncateText(consultation.hypothese_diagnostic, 120)
+            : null,
+          examen_conclusion: consultation.examen_conclusion
+            ? this.truncateText(consultation.examen_conclusion, 120)
+            : null,
+        })),
       recent_travels: context.recent_travels.slice(0, 3),
       recent_vaccinations: context.recent_vaccinations.slice(0, 3),
-      deterministic_red_flags: context.deterministic_red_flags,
+      deterministic_red_flags: context.deterministic_red_flags.slice(0, 6),
     };
 
-    const candidatePayload = safeCandidates.map((candidate) => ({
+    const candidatePayload = safeCandidates.slice(0, 6).map((candidate) => ({
       medicament_externe_id: String(candidate.aggregate.medicament.id),
       nom_medicament: candidate.aggregate.medicament.nom_medicament,
       dci: candidate.aggregate.medicament.nom_generique ?? null,
       classe_therapeutique:
-        candidate.aggregate.medicament.classe_therapeutique ?? null,
-      posologie_adulte: candidate.aggregate.medicament.posologie_adulte ?? null,
-      grossesse: candidate.aggregate.medicament.grossesse ?? null,
-      allaitement: candidate.aggregate.medicament.allaitement ?? null,
+        candidate.aggregate.medicament.classe_therapeutique
+          ? this.truncateText(
+              candidate.aggregate.medicament.classe_therapeutique,
+              200,
+            )
+          : null,
+      posologie_adulte: candidate.aggregate.medicament.posologie_adulte
+        ? this.truncateText(candidate.aggregate.medicament.posologie_adulte, 180)
+        : null,
+      grossesse: candidate.aggregate.medicament.grossesse
+        ? this.truncateText(candidate.aggregate.medicament.grossesse, 140)
+        : null,
+      allaitement: candidate.aggregate.medicament.allaitement
+        ? this.truncateText(candidate.aggregate.medicament.allaitement, 140)
+        : null,
       indications: candidate.aggregate.indications
-        .slice(0, 4)
+        .slice(0, 3)
         .map((item) => this.truncateText(item.indication, 220)),
       contre_indications: candidate.aggregate.contre_indications
-        .slice(0, 4)
+        .slice(0, 3)
         .map((item) => this.truncateText(item.description, 220)),
       precautions: candidate.aggregate.precautions
-        .slice(0, 4)
+        .slice(0, 3)
         .map((item) => this.truncateText(item.description, 220)),
-      interactions: candidate.aggregate.interactions.map(
-        (item) => this.truncateText(item.medicament_interaction, 180),
-      ),
-      presentations: candidate.aggregate.presentations.map((item) =>
-        this.truncateText([item.forme, item.dosage].filter(Boolean).join(" | "), 120),
-      ),
-      backend_warnings: candidate.warnings,
-      matched_terms: candidate.matched_terms,
-      backend_score: candidate.final_score,
+      interactions: candidate.aggregate.interactions
+        .slice(0, 4)
+        .map((item) => this.truncateText(item.medicament_interaction, 180)),
+      presentations: candidate.aggregate.presentations
+        .slice(0, 3)
+        .map((item) =>
+          this.truncateText(
+            [item.forme, item.dosage].filter(Boolean).join(" | "),
+            120,
+          ),
+        ),
+      backend_warnings: candidate.warnings
+        .slice(0, 5)
+        .map((item) => this.truncateText(item, 160)),
     }));
 
     return [
@@ -1285,13 +1644,13 @@ export class OrdonnanceRecommendationService {
       "- Retourne exclusivement un JSON valide, sans markdown ni texte additionnel.",
       "",
       "Probleme clinique retenu:",
-      JSON.stringify(clinicalProblemBasis, null, 2),
+      JSON.stringify(clinicalProblemBasis),
       "",
       "Contexte clinique:",
-      JSON.stringify(compactContext, null, 2),
+      JSON.stringify(compactContext),
       "",
       "Shortlist candidate validee:",
-      JSON.stringify(candidatePayload, null, 2),
+      JSON.stringify(candidatePayload),
     ].join("\n");
   }
 
@@ -1395,7 +1754,6 @@ export class OrdonnanceRecommendationService {
           config: {
             temperature: 0.2,
             responseMimeType: "application/json",
-            responseJsonSchema: openRouterResponseJsonSchema,
           },
         }),
       );
@@ -1547,6 +1905,7 @@ export class OrdonnanceRecommendationService {
   ): TRPCError {
     const providerLabel = this.providerLabel(provider);
     const normalizedText = errorText.toLowerCase();
+    const detail = this.buildProviderErrorDetail(errorText);
 
     if (
       status === 429 ||
@@ -1583,7 +1942,7 @@ export class OrdonnanceRecommendationService {
 
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${providerLabel}.`,
+      message: `Echec de l'appel au provider AI ${providerLabel}.${detail ? ` Detail provider: ${detail}` : ""}`,
     });
   }
 
@@ -1637,6 +1996,22 @@ export class OrdonnanceRecommendationService {
           message: `Le modele ${providerLabel} configure est introuvable. Verifie la variable de modele dans apps/server/.env.`,
         });
       }
+
+      if (
+        message.includes("too many states for serving") ||
+        message.includes("specified schema produces a constraint")
+      ) {
+        return new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Le schema JSON demande a ${providerLabel} est trop complexe pour ce modele. Le backend va continuer sans schema strict provider pour cette route.`,
+        });
+      }
+
+      const detail = this.buildProviderErrorDetail(message);
+      return new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Echec de l'appel au provider AI ${providerLabel}.${detail ? ` Detail provider: ${detail}` : ""}`,
+      });
     }
 
     return new TRPCError({
@@ -1665,6 +2040,9 @@ export class OrdonnanceRecommendationService {
     clinicalProblemBasis: ClinicalProblemBasis,
     context: ClinicalContext,
   ): string[] {
+    const policyProfile = this.deriveRecommendationPolicyProfile(
+      clinicalProblemBasis,
+    );
     const rawParts = [
       clinicalProblemBasis.chief_problem,
       ...clinicalProblemBasis.hypotheses,
@@ -1672,6 +2050,7 @@ export class OrdonnanceRecommendationService {
       context.current_consultation.hypothese_diagnostic,
       context.current_consultation.examen?.conclusion,
       context.current_consultation.examen?.description_consultation,
+      ...this.getRecommendationPolicyExpansionTerms(policyProfile),
     ]
       .map((value) => this.nullableText(value))
       .filter((value): value is string => Boolean(value));
@@ -1697,7 +2076,200 @@ export class OrdonnanceRecommendationService {
     return [...phrases, ...tokens]
       .map((value) => value.trim())
       .filter((value, index, items) => items.indexOf(value) === index)
-      .slice(0, 8);
+      .slice(0, 12);
+  }
+
+  private deriveRecommendationPolicyProfile(
+    clinicalProblemBasis: ClinicalProblemBasis,
+  ): RecommendationPolicyProfile {
+    const normalized = this.normalizeText(
+      [
+        clinicalProblemBasis.chief_problem,
+        ...clinicalProblemBasis.hypotheses,
+      ].join(" "),
+    );
+
+    if (/antipyret|fievre/.test(normalized)) {
+      return "antipyretic_simple";
+    }
+
+    if (/antalg|douleur|cephale|mal de tete/.test(normalized)) {
+      return "analgesic_simple";
+    }
+
+    if (/bronchodilat|asthme|inhal/.test(normalized)) {
+      return "bronchodilator_inhaled";
+    }
+
+    if (/antibioti|infection bacter|macrolide|beta lactam|beta-lactam/.test(normalized)) {
+      return "antibiotic_general";
+    }
+
+    return "generic";
+  }
+
+  private getRecommendationPolicyExpansionTerms(
+    policyProfile: RecommendationPolicyProfile,
+  ): string[] {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return [
+          "antipyretique",
+          "antipyrétique",
+          "fievre",
+          "fièvre",
+          "paracetamol",
+          "paracétamol",
+          "doliprane",
+          "dafalgan",
+        ];
+      case "analgesic_simple":
+        return [
+          "antalgique",
+          "douleur",
+          "paracetamol",
+          "paracétamol",
+          "doliprane",
+          "dafalgan",
+        ];
+      case "bronchodilator_inhaled":
+        return [
+          "bronchodilatateur",
+          "inhalation",
+          "inhalé",
+          "aerosol",
+          "salbutamol",
+          "ventoline",
+        ];
+      case "antibiotic_general":
+        return [
+          "antibiotique",
+          "anti infectieux",
+          "amoxicilline",
+          "azithromycine",
+          "clarithromycine",
+        ];
+      case "generic":
+      default:
+        return [];
+    }
+  }
+
+  private computeRecommendationCandidateFeatures(
+    aggregate: MedicamentAggregate,
+    corpus: string,
+  ): RecommendationCandidateFeatures {
+    const substanceNames = aggregate.substances_actives.map((item) =>
+      this.normalizeText(item.nom_substance),
+    );
+
+    const aspirinLike =
+      corpus.includes("acide acetylsalicylique") ||
+      corpus.includes("aspirine");
+    const paracetamolLike = corpus.includes("paracetamol");
+    const nsaidLike =
+      aspirinLike ||
+      corpus.includes("ibuprofene") ||
+      corpus.includes("ketoprofene") ||
+      corpus.includes("diclofenac") ||
+      corpus.includes("naproxene");
+
+    return {
+      active_substance_count: substanceNames.length,
+      is_monotherapy: substanceNames.length <= 1,
+      is_combination: substanceNames.length > 1,
+      is_suppressed: /statut[: ]+supprim|supprime\b/.test(corpus),
+      is_paracetamol_like: paracetamolLike,
+      is_aspirin_like: aspirinLike,
+      is_nsaid_like: nsaidLike,
+      has_fever_indication:
+        corpus.includes("antipyret") || corpus.includes("fievre"),
+      has_pain_indication:
+        corpus.includes("antalg") ||
+        corpus.includes("douleur") ||
+        corpus.includes("cephale") ||
+        corpus.includes("migraine"),
+      is_bronchodilator_like:
+        corpus.includes("bronchodilat") ||
+        corpus.includes("salbutamol") ||
+        corpus.includes("terbutaline"),
+      is_inhaled_like:
+        corpus.includes("inhal") ||
+        corpus.includes("aerosol") ||
+        corpus.includes("spray") ||
+        corpus.includes("poudre pour inhalation"),
+      is_antibiotic_like:
+        corpus.includes("antibioti") ||
+        corpus.includes("anti infectieux") ||
+        corpus.includes("macrolide") ||
+        corpus.includes("amoxicilline") ||
+        corpus.includes("azithromycine"),
+    };
+  }
+
+  private applyRecommendationPolicyScoring(
+    features: RecommendationCandidateFeatures,
+    policyProfile: RecommendationPolicyProfile,
+  ): number {
+    let score = 0;
+
+    if (features.is_combination) {
+      score -= 4;
+    }
+
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        if (features.is_paracetamol_like) score += 30;
+        if (features.has_fever_indication) score += 18;
+        if (features.is_monotherapy) score += 10;
+        if (features.is_aspirin_like) score -= 16;
+        if (features.is_nsaid_like && !features.is_paracetamol_like) score -= 8;
+        break;
+      case "analgesic_simple":
+        if (features.is_paracetamol_like) score += 22;
+        if (features.has_pain_indication) score += 14;
+        if (features.is_monotherapy) score += 8;
+        if (features.is_aspirin_like) score -= 10;
+        break;
+      case "bronchodilator_inhaled":
+        if (features.is_bronchodilator_like) score += 22;
+        if (features.is_inhaled_like) score += 18;
+        else score -= 12;
+        break;
+      case "antibiotic_general":
+        if (features.is_antibiotic_like) score += 20;
+        else score -= 12;
+        break;
+      case "generic":
+      default:
+        if (features.is_monotherapy) score += 3;
+        break;
+    }
+
+    return score;
+  }
+
+  private passesRecommendationClinicalGate(
+    features: RecommendationCandidateFeatures,
+    policyProfile: RecommendationPolicyProfile,
+  ): boolean {
+    switch (policyProfile) {
+      case "antipyretic_simple":
+        return features.is_paracetamol_like || features.has_fever_indication;
+      case "analgesic_simple":
+        return (
+          features.is_paracetamol_like ||
+          features.has_pain_indication ||
+          features.has_fever_indication
+        );
+      case "bronchodilator_inhaled":
+        return features.is_bronchodilator_like && features.is_inhaled_like;
+      case "antibiotic_general":
+        return features.is_antibiotic_like;
+      case "generic":
+      default:
+        return true;
+    }
   }
 
   private buildFemaleContext(
@@ -2058,6 +2630,20 @@ export class OrdonnanceRecommendationService {
     }
 
     return null;
+  }
+
+  private buildProviderErrorDetail(value: string): string | null {
+    const normalized = value
+      .replace(/\s+/g, " ")
+      .replace(/https?:\/\/\S+/gi, "[url]")
+      .replace(/AIza[0-9A-Za-z\-_]+/g, "[redacted-api-key]")
+      .trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    return this.truncateText(normalized, 240);
   }
 }
 
