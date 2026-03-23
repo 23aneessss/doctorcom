@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc -b",
     "check-types": "tsc -b",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "test:export": "bun run test-export.ts"
   },
   "dependencies": {
     "@doctor.com/api": "workspace:*",

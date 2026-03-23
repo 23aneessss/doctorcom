@@ -165,6 +165,19 @@ export const agendaRouter = createTRPCRouter({
         rdv_id: input.rdv_id,
       });
     }),
+  envoyerRappelRDV: protectedProcedure
+    .input(
+      z.object({
+        rendezVousId: uuidSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return agendaService.envoyerRappelRDV({
+        db: ctx.db,
+        rendezVousId: input.rendezVousId,
+        userId: ctx.session.user.id,
+      });
+    }),
   getRDVAujourdhui: protectedProcedure.query(async ({ ctx }) => {
     return agendaService.getRDVAujourdhui({
       db: ctx.db,

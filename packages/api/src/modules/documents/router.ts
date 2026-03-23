@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, protectedProcedure } from "../../trpc/init";
 import { documentsService } from "./service";
@@ -149,33 +148,6 @@ export const documentsRouter = createTRPCRouter({
 			});
 		}),
 
-	uploadDocument: protectedProcedure
-		.input(
-			z.object({
-				patient_id: uuidSchema,
-				categorie_id: uuidSchema,
-				nom_document: z.string().trim().min(1).max(255),
-				type_document: z.string().trim().min(1).max(128),
-				description: z.string().optional().nullable(),
-			}),
-		)
-		.mutation(async ({ ctx, input }) => {
-			const file = (ctx.req as any).file as Express.Multer.File | undefined;
-			if (!file) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Aucun fichier fourni.",
-				});
-			}
-
-			return documentsService.uploadDocument({
-				db: ctx.db,
-				file,
-				input,
-				userId: ctx.session.user.id,
-			});
-		}),
-
 	mettreAJourDocument: protectedProcedure
 		.input(
 			z.object({
@@ -248,6 +220,26 @@ export const documentsRouter = createTRPCRouter({
 				db: ctx.db,
 				patientId: input.patientId,
 				typeDocument: input.typeDocument,
+			});
+		}),
+
+	envoyerLettreParEmail: protectedProcedure
+		.input(z.object({ lettreId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerLettreParEmail({
+				db: ctx.db,
+				lettreId: input.lettreId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
+	envoyerCertificatParEmail: protectedProcedure
+		.input(z.object({ certificatId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerCertificatParEmail({
+				db: ctx.db,
+				certificatId: input.certificatId,
+				userId: ctx.session.user.id,
 			});
 		}),
 

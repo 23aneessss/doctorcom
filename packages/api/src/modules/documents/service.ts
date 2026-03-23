@@ -1,6 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
+import { patients } from "@doctor.com/db/schema";
+import { user as authUser } from "@doctor.com/db/schema/auth";
+import { eq } from "drizzle-orm";
 import { uploadFile } from "../../infrastructure/storage";
+import {
+  envoyerCertificatMedical,
+  envoyerLettreOrientation,
+  type ClinicInfo,
+} from "@doctor.com/api/infrastructure/email/index";
+
+import { exportService } from "../export/service";
 
 import {
   documentsRepository,
@@ -619,6 +629,159 @@ export class DocumentsService {
     return documentsRepository.getCertificatsActifs(data.db, data.patientId);
   }
 
+  async envoyerLettreParEmail(data: {
+    db: DatabaseClient;
+    lettreId: string;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<{ success: true; message: string }> {
+    const lettre = await documentsRepository.getLettreById(data.db, data.lettreId);
+    if (!lettre) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
+    }
+
+    const document = await documentsRepository.getDocumentById(data.db, lettre.documents_patient_id);
+    if (!document) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+    }
+
+    const patient = await data.db
+      .select({
+        nom: patients.nom,
+        prenom: patients.prenom,
+        email: patients.email,
+      })
+      .from(patients)
+      .where(eq(patients.id, document.patient_id))
+      .then((rows) => rows[0]);
+
+    if (!patient) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Patient introuvable." });
+    }
+
+    if (!patient.email) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le patient n'a pas d'adresse email.",
+      });
+    }
+
+    const sessionEmail = await this.resolveSessionUserEmail(data);
+    const utilisateur = await documentsRepository.getUtilisateurByEmail(data.db, sessionEmail);
+
+    if (!utilisateur) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Utilisateur introuvable." });
+    }
+
+    const clinic: ClinicInfo = {
+      doctorName: `Dr. ${utilisateur.prenom} ${utilisateur.nom}`,
+      clinicName: `Cabinet ${utilisateur.prenom} ${utilisateur.nom}`,
+      phone: utilisateur.telephone ?? "",
+      address: utilisateur.adresse ?? "",
+    };
+
+    const pdfBuffer = await exportService.exporterLettreOrientation(data.db, data.lettreId);
+
+    await envoyerLettreOrientation({
+      clinic,
+      patientEmail: patient.email,
+      patientNom: patient.nom,
+      patientPrenom: patient.prenom,
+      destinataire: lettre.destinataire ?? "",
+      typeExploration: lettre.type_exploration,
+      examenDemande: lettre.examen_demande,
+      urgence: lettre.urgence,
+      dateCreation: lettre.date_creation,
+      attachments: [
+        {
+          filename: "lettre-orientation.pdf",
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    } as any);
+
+    return { success: true, message: "Email envoyé avec succès." };
+  }
+
+  async envoyerCertificatParEmail(data: {
+    db: DatabaseClient;
+    certificatId: string;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<{ success: true; message: string }> {
+    const certificat = await documentsRepository.getCertificatById(data.db, data.certificatId);
+    if (!certificat) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
+    }
+
+    const document = await documentsRepository.getDocumentById(
+      data.db,
+      certificat.documents_patient_id,
+    );
+    if (!document) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+    }
+
+    const patient = await data.db
+      .select({
+        nom: patients.nom,
+        prenom: patients.prenom,
+        email: patients.email,
+      })
+      .from(patients)
+      .where(eq(patients.id, document.patient_id))
+      .then((rows) => rows[0]);
+
+    if (!patient) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Patient introuvable." });
+    }
+
+    if (!patient.email) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le patient n'a pas d'adresse email.",
+      });
+    }
+
+    const sessionEmail = await this.resolveSessionUserEmail(data);
+    const utilisateur = await documentsRepository.getUtilisateurByEmail(data.db, sessionEmail);
+
+    if (!utilisateur) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Utilisateur introuvable." });
+    }
+
+    const clinic: ClinicInfo = {
+      doctorName: `Dr. ${utilisateur.prenom} ${utilisateur.nom}`,
+      clinicName: `Cabinet ${utilisateur.prenom} ${utilisateur.nom}`,
+      phone: utilisateur.telephone ?? "",
+      address: utilisateur.adresse ?? "",
+    };
+
+    const pdfBuffer = await exportService.exporterCertificatMedical(data.db, data.certificatId);
+
+    await envoyerCertificatMedical({
+      clinic,
+      patientEmail: patient.email,
+      patientNom: patient.nom,
+      patientPrenom: patient.prenom,
+      typeCertificat: certificat.type_certificat,
+      dateEmission: certificat.date_emission,
+      dateDebut: certificat.date_debut,
+      dateFin: certificat.date_fin,
+      statut: certificat.statut,
+      attachments: [
+        {
+          filename: `certificat-${certificat.type_certificat}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    } as any);
+
+    return { success: true, message: "Email envoyé avec succès." };
+  }
+
   private async assertPatientExists(database: DatabaseClient, patientId: string): Promise<void> {
     const patient = await documentsRepository.getPatientById(database, patientId);
     if (!patient) {
@@ -635,6 +798,39 @@ export class DocumentsService {
 
   private nowIsoDate(): string {
     return new Date().toISOString();
+  }
+
+  private async resolveSessionUserEmail(data: {
+    db: DatabaseClient;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<string> {
+    const directEmail = data.userEmail?.trim().toLowerCase();
+    if (directEmail) {
+      return directEmail;
+    }
+
+    if (!data.userId) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur manquant dans la session.",
+      });
+    }
+
+    const [sessionUser] = await data.db
+      .select({ email: authUser.email })
+      .from(authUser)
+      .where(eq(authUser.id, data.userId))
+      .limit(1);
+
+    if (!sessionUser?.email) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur introuvable dans la session.",
+      });
+    }
+
+    return sessionUser.email.trim().toLowerCase();
   }
 }
 

@@ -239,6 +239,16 @@ export const ordonnanceRouter = createTRPCRouter({
 			});
 		}),
 
+	envoyerOrdonnanceParEmail: protectedProcedure
+		.input(z.object({ ordonnanceId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return ordonnanceService.envoyerOrdonnanceParEmail({
+				db: ctx.db,
+				ordonnanceId: input.ordonnanceId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
 	rechercherMedicaments: protectedProcedure
 		.input(z.object({ query: z.string().trim().min(1) }))
 		.query(async ({ ctx, input }) => {

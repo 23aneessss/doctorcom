@@ -8,6 +8,7 @@ import {
   pre_rempli_medicaments,
   pre_rempli_ordonnance,
   rendez_vous,
+  utilisateurs,
 } from "@doctor.com/db/schema";
 import { and, asc, desc, eq, ilike } from "drizzle-orm";
 
@@ -497,6 +498,31 @@ export class OrdonnanceRepository {
       .limit(1);
 
     return item ?? null;
+  }
+
+  async getUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<{
+    id: string;
+    nom: string;
+    prenom: string;
+    telephone: string | null;
+    adresse: string | null;
+  } | null> {
+    const [result] = await database
+      .select({
+        id: utilisateurs.id,
+        nom: utilisateurs.nom,
+        prenom: utilisateurs.prenom,
+        telephone: utilisateurs.telephone,
+        adresse: utilisateurs.adresse,
+      })
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return result ?? null;
   }
 }
 
