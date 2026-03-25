@@ -36,6 +36,11 @@ export interface CreateExamenInput {
   date: string;
   taille?: string | null;
   poids?: string | null;
+  tension_arterielle?: string | null;
+  frequence_cardiaque?: number | null;
+  temperature?: string | null;
+  spo2?: string | null;
+  imc?: string | null;
   traitement_prescrit?: string | null;
   description_consultation?: string | null;
   aspect_general?: string | null;
@@ -57,6 +62,11 @@ export interface UpdateExamenInput {
   date?: string;
   taille?: string | null;
   poids?: string | null;
+  tension_arterielle?: string | null;
+  frequence_cardiaque?: number | null;
+  temperature?: string | null;
+  spo2?: string | null;
+  imc?: string | null;
   traitement_prescrit?: string | null;
   description_consultation?: string | null;
   aspect_general?: string | null;
@@ -211,6 +221,11 @@ export class ConsultationRepository {
       date: input.date,
       taille: input.taille ?? null,
       poids: input.poids ?? null,
+      tension_arterielle: input.tension_arterielle ?? null,
+      frequence_cardiaque: input.frequence_cardiaque ?? null,
+      temperature: input.temperature ?? null,
+      spo2: input.spo2 ?? null,
+      imc: input.imc ?? null,
       traitement_prescrit: input.traitement_prescrit ?? null,
       description_consultation: input.description_consultation ?? null,
       aspect_general: input.aspect_general ?? null,
@@ -255,6 +270,21 @@ export class ConsultationRepository {
     }
     if (input.poids !== undefined) {
       updateData.poids = input.poids;
+    }
+    if (input.tension_arterielle !== undefined) {
+      updateData.tension_arterielle = input.tension_arterielle;
+    }
+    if (input.frequence_cardiaque !== undefined) {
+      updateData.frequence_cardiaque = input.frequence_cardiaque;
+    }
+    if (input.temperature !== undefined) {
+      updateData.temperature = input.temperature;
+    }
+    if (input.spo2 !== undefined) {
+      updateData.spo2 = input.spo2;
+    }
+    if (input.imc !== undefined) {
+      updateData.imc = input.imc;
     }
     if (input.traitement_prescrit !== undefined) {
       updateData.traitement_prescrit = input.traitement_prescrit;

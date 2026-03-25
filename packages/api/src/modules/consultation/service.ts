@@ -39,6 +39,11 @@ export interface CreateExamenServiceInput {
   date: string;
   taille?: string | null;
   poids?: string | null;
+  tension_arterielle?: string | null;
+  frequence_cardiaque?: number | null;
+  temperature?: number | null;
+  spo2?: number | null;
+  imc?: number | null;
   traitement_prescrit?: string | null;
   description_consultation?: string | null;
   aspect_general?: string | null;
@@ -60,6 +65,11 @@ export interface UpdateExamenServiceInput {
   date?: string;
   taille?: string | null;
   poids?: string | null;
+  tension_arterielle?: string | null;
+  frequence_cardiaque?: number | null;
+  temperature?: number | null;
+  spo2?: number | null;
+  imc?: number | null;
   traitement_prescrit?: string | null;
   description_consultation?: string | null;
   aspect_general?: string | null;
@@ -374,12 +384,22 @@ export class ConsultationService {
   }
 
   private normalizeCreateExamenInput(input: CreateExamenServiceInput): CreateExamenInput {
+    const normalizedTaille = this.normalizeOptionalNumeric(input.taille);
+    const normalizedPoids = this.normalizeOptionalNumeric(input.poids);
+    const normalizedImc = this.normalizeOptionalDbNumeric(input.imc);
+    const imcToStore = this.resolveImcValue(normalizedTaille, normalizedPoids, normalizedImc);
+
     return {
       rendez_vous_id: input.rendez_vous_id,
       suivi_id: input.suivi_id,
       date: input.date,
-      taille: this.normalizeOptionalNumeric(input.taille),
-      poids: this.normalizeOptionalNumeric(input.poids),
+      taille: normalizedTaille,
+      poids: normalizedPoids,
+      tension_arterielle: this.normalizeOptionalText(input.tension_arterielle),
+      frequence_cardiaque: input.frequence_cardiaque ?? null,
+      temperature: this.normalizeOptionalDbNumeric(input.temperature),
+      spo2: this.normalizeOptionalDbNumeric(input.spo2),
+      imc: imcToStore,
       traitement_prescrit: this.normalizeOptionalText(input.traitement_prescrit),
       description_consultation: this.normalizeOptionalText(input.description_consultation),
       aspect_general: this.normalizeOptionalText(input.aspect_general),
@@ -409,6 +429,21 @@ export class ConsultationService {
     }
     if (input.poids !== undefined) {
       normalized.poids = this.normalizeOptionalNumeric(input.poids);
+    }
+    if (input.tension_arterielle !== undefined) {
+      normalized.tension_arterielle = this.normalizeOptionalText(input.tension_arterielle);
+    }
+    if (input.frequence_cardiaque !== undefined) {
+      normalized.frequence_cardiaque = input.frequence_cardiaque;
+    }
+    if (input.temperature !== undefined) {
+      normalized.temperature = this.normalizeOptionalDbNumeric(input.temperature);
+    }
+    if (input.spo2 !== undefined) {
+      normalized.spo2 = this.normalizeOptionalDbNumeric(input.spo2);
+    }
+    if (input.imc !== undefined) {
+      normalized.imc = this.normalizeOptionalDbNumeric(input.imc);
     }
     if (input.traitement_prescrit !== undefined) {
       normalized.traitement_prescrit = this.normalizeOptionalText(input.traitement_prescrit);
@@ -462,6 +497,18 @@ export class ConsultationService {
       normalized.conclusion = this.normalizeOptionalText(input.conclusion);
     }
 
+    if (
+      normalized.imc === undefined
+      && normalized.taille !== undefined
+      && normalized.poids !== undefined
+    ) {
+      normalized.imc = this.resolveImcValue(
+        normalized.taille,
+        normalized.poids,
+        undefined,
+      );
+    }
+
     return normalized;
   }
 
@@ -487,6 +534,52 @@ export class ConsultationService {
 
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
+  }
+
+  private normalizeOptionalDbNumeric(
+    value: number | string | null | undefined,
+  ): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null) {
+      return null;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? String(value) : null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  private resolveImcValue(
+    taille: string | null | undefined,
+    poids: string | null | undefined,
+    imc: string | null | undefined,
+  ): string | null | undefined {
+    if (imc !== undefined) {
+      return imc;
+    }
+
+    if (!taille || !poids) {
+      return undefined;
+    }
+
+    const tailleMeters = parseFloat(taille) / 100;
+    const poidsKg = parseFloat(poids);
+
+    if (!Number.isFinite(tailleMeters) || !Number.isFinite(poidsKg) || tailleMeters <= 0) {
+      return undefined;
+    }
+
+    const calculatedImc = poidsKg / (tailleMeters * tailleMeters);
+    if (!Number.isFinite(calculatedImc)) {
+      return undefined;
+    }
+
+    return calculatedImc.toFixed(1);
   }
 
   private getCurrentIsoDate(): string {
