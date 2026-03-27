@@ -6,6 +6,7 @@ import express from "express";
 import { createContext } from "@doctor.com/api/context";
 import { appRouter } from "@doctor.com/api/routers/index";
 import { ensureBucketExists } from "@doctor.com/api/infrastructure/storage";
+import { startScheduler } from "@doctor.com/api/infrastructure/scheduler/index";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
@@ -60,6 +61,8 @@ async function startServer(): Promise<void> {
       error,
     );
   }
+
+    startScheduler();
 
   app.listen(port, () => {
     console.log(`server running on http://localhost:${port}`);

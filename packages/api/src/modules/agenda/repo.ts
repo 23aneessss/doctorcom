@@ -1,6 +1,7 @@
 import type { db as databaseClient } from "@doctor.com/db";
 import {
   logs,
+  patients,
   rendez_vous,
   rendez_vous_statut_values,
   utilisateurs,
@@ -297,6 +298,43 @@ export class AgendaRepository {
         ),
       )
       .orderBy(asc(rendez_vous.date), asc(rendez_vous.heure));
+  }
+
+  async listAllRendezVousByDate(
+    database: DatabaseClient,
+    date: string,
+  ): Promise<(RendezVousRecord & {
+    patient_email: string | null;
+    patient_nom: string;
+    patient_prenom: string;
+    utilisateur_email: string;
+  })[]> {
+    const rows = await database
+      .select({
+        rendez_vous,
+        patient_email: patients.email,
+        patient_nom: patients.nom,
+        patient_prenom: patients.prenom,
+        utilisateur_email: utilisateurs.email,
+      })
+      .from(rendez_vous)
+      .innerJoin(patients, eq(rendez_vous.patient_id, patients.id))
+      .innerJoin(utilisateurs, eq(rendez_vous.utilisateur_id, utilisateurs.id))
+      .where(
+        and(
+          eq(rendez_vous.date, date),
+          inArray(rendez_vous.statut, ACTIVE_RENDEZ_VOUS_STATUTS),
+        ),
+      )
+      .orderBy(asc(rendez_vous.date), asc(rendez_vous.heure));
+
+    return rows.map((row) => ({
+      ...row.rendez_vous,
+      patient_email: row.patient_email,
+      patient_nom: row.patient_nom,
+      patient_prenom: row.patient_prenom,
+      utilisateur_email: row.utilisateur_email,
+    }));
   }
 
   async createAgendaLog(
