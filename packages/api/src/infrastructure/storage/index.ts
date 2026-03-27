@@ -26,5 +26,6 @@ export async function ensureBucketExists(): Promise<void> {
     }
   } catch (err) {
     console.error(`❌ MinIO bucket check failed:`, err);
+    throw err;
   }
 }

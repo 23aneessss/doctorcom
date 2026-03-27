@@ -38,10 +38,21 @@ app.get("/", (_req, res) => {
   res.status(200).send("server running");
 });
 
-app.listen(port, () => {
-  console.log(`server running on http://localhost:${port}`);
-});
+async function startServer(): Promise<void> {
+  try {
+    await ensureBucketExists();
+  } catch (error) {
+    console.warn(
+      "MinIO is unavailable at startup. Server will continue, but storage-dependent features may fail until MinIO is back.",
+      error,
+    );
+  }
 
-ensureBucketExists();
+  app.listen(port, () => {
+    console.log(`server running on http://localhost:${port}`);
+  });
+}
+
+void startServer();
 
 export { app };

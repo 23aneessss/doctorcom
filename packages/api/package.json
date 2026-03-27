@@ -23,18 +23,19 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1",
+    "@ai-sdk/mistral": "^1.2",
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
     "@doctor.com/medications-db": "workspace:*",
     "@doctor.com/shared": "workspace:*",
     "@trpc/server": "catalog:",
+    "ai": "^4.3",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "minio": "^8.0.5",
-    "zod": "catalog:",
-    "ai": "^4.3",
-    "@ai-sdk/mistral": "^1.2"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@doctor.com/config": "workspace:*",

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc -b",
     "check-types": "tsc -b",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "ai:anomaly:test": "bun src/scripts/anomaly-flag/test-anomaly-detection.ts --prepare",
+    "ai:anomaly:test:reseed": "bun src/scripts/anomaly-flag/test-anomaly-detection.ts --reseed --prepare"
   },
   "dependencies": {
     "@doctor.com/api": "workspace:*",
