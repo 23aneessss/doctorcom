@@ -223,6 +223,26 @@ export const documentsRouter = createTRPCRouter({
 			});
 		}),
 
+	envoyerLettreParEmail: protectedProcedure
+		.input(z.object({ lettreId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerLettreParEmail({
+				db: ctx.db,
+				lettreId: input.lettreId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
+	envoyerCertificatParEmail: protectedProcedure
+		.input(z.object({ certificatId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerCertificatParEmail({
+				db: ctx.db,
+				certificatId: input.certificatId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
 	creerLettre: protectedProcedure
 		.input(
 			z.object({

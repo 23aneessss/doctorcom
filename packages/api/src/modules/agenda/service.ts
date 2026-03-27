@@ -1,5 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
+import { patients } from "@doctor.com/db/schema";
+import { user as authUser } from "@doctor.com/db/schema/auth";
+import { eq } from "drizzle-orm";
+import {
+  envoyerRappelRDV as envoyerRappelRDVInfrastructure,
+  type ClinicInfo,
+} from "@doctor.com/api/infrastructure/email/index";
 
 import type { SessionUtilisateur } from "../../trpc/context";
 import {
@@ -246,6 +253,83 @@ export class AgendaService {
     };
   }
 
+  async envoyerRappelRDV(data: {
+    db: DatabaseClient;
+    rendezVousId: string;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<{ success: true; message: string }> {
+    const rendezVous = await agendaRepository.getRendezVousById(data.db, data.rendezVousId);
+
+    if (!rendezVous) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Rendez-vous introuvable.",
+      });
+    }
+
+    const patient = await data.db
+      .select({
+        nom: patients.nom,
+        prenom: patients.prenom,
+        email: patients.email,
+      })
+      .from(patients)
+      .where(eq(patients.id, rendezVous.patient_id))
+      .then((rows) => rows[0]);
+
+    if (!patient) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
+    }
+
+    if (!patient.email) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le patient n'a pas d'adresse email.",
+      });
+    }
+
+    const sessionEmail = await this.resolveSessionUserEmail(data);
+    const utilisateur = await agendaRepository.getUtilisateurByEmail(data.db, sessionEmail);
+
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Utilisateur introuvable.",
+      });
+    }
+
+    const clinic: ClinicInfo = {
+      doctorName: `Dr. ${utilisateur.prenom} ${utilisateur.nom}`,
+      clinicName: `Cabinet ${utilisateur.prenom} ${utilisateur.nom}`,
+      phone: utilisateur.telephone ?? "",
+      address: utilisateur.adresse ?? "",
+    };
+
+    const dateObj = new Date(rendezVous.date);
+    const dateStr = dateObj.toLocaleDateString("fr-FR", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    await envoyerRappelRDVInfrastructure({
+      clinic,
+      patientEmail: patient.email,
+      patientNom: patient.nom,
+      patientPrenom: patient.prenom,
+      dateRDV: dateStr,
+      heureRDV: rendezVous.heure,
+      important: rendezVous.important,
+    });
+
+    return { success: true, message: "Rappel envoyé avec succès." };
+  }
+
   async getRDVAujourdhui(data: {
     db: DatabaseClient;
     session: AgendaSession;
@@ -374,6 +458,39 @@ export class AgendaService {
     const nextDate = new Date(dateValue);
     nextDate.setUTCDate(nextDate.getUTCDate() + days);
     return nextDate;
+  }
+
+  private async resolveSessionUserEmail(data: {
+    db: DatabaseClient;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<string> {
+    const directEmail = data.userEmail?.trim().toLowerCase();
+    if (directEmail) {
+      return directEmail;
+    }
+
+    if (!data.userId) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur manquant dans la session.",
+      });
+    }
+
+    const [sessionUser] = await data.db
+      .select({ email: authUser.email })
+      .from(authUser)
+      .where(eq(authUser.id, data.userId))
+      .limit(1);
+
+    if (!sessionUser?.email) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur introuvable dans la session.",
+      });
+    }
+
+    return sessionUser.email.trim().toLowerCase();
   }
 }
 

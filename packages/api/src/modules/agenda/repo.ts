@@ -41,6 +41,31 @@ const ACTIVE_RENDEZ_VOUS_STATUTS: readonly RendezVousStatut[] = [
 ] as const;
 
 export class AgendaRepository {
+  async getUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<{
+    id: string;
+    nom: string;
+    prenom: string;
+    telephone: string | null;
+    adresse: string | null;
+  } | null> {
+    const [utilisateur] = await database
+      .select({
+        id: utilisateurs.id,
+        nom: utilisateurs.nom,
+        prenom: utilisateurs.prenom,
+        telephone: utilisateurs.telephone,
+        adresse: utilisateurs.adresse,
+      })
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return utilisateur ?? null;
+  }
+
   async findUtilisateurByEmail(
     database: DatabaseClient,
     email: string,
@@ -95,6 +120,19 @@ export class AgendaRepository {
           eq(rendez_vous.utilisateur_id, utilisateurId),
         ),
       )
+      .limit(1);
+
+    return rendezVous ?? null;
+  }
+
+  async getRendezVousById(
+    database: DatabaseClient,
+    rendezVousId: string,
+  ): Promise<RendezVousRecord | null> {
+    const [rendezVous] = await database
+      .select()
+      .from(rendez_vous)
+      .where(eq(rendez_vous.id, rendezVousId))
       .limit(1);
 
     return rendezVous ?? null;

@@ -7,18 +7,21 @@
     "build": "tsc -b",
     "check-types": "tsc -b",
     "dev": "bun --watch src/index.ts",
+    "test:export": "bun run test-export.ts",
     "ai:anomaly:test": "bun src/scripts/anomaly-flag/test-anomaly-detection.ts --prepare",
     "ai:anomaly:test:reseed": "bun src/scripts/anomaly-flag/test-anomaly-detection.ts --reseed --prepare"
   },
   "dependencies": {
     "@doctor.com/api": "workspace:*",
     "@doctor.com/auth": "workspace:*",
+    "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "cors": "^2.8.5",
     "dotenv": "catalog:",
     "express": "catalog:",
+    "multer": "^2.1.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -26,6 +29,7 @@
     "@types/bun": "catalog:",
     "@types/cors": "^2.8.17",
     "@types/express": "catalog:",
+    "@types/multer": "^2.1.0",
     "typescript": "catalog:"
   }
 }

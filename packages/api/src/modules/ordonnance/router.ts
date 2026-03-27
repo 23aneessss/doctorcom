@@ -249,13 +249,24 @@ export const ordonnanceRouter = createTRPCRouter({
       });
     }),
 
-  rechercherMedicaments: protectedProcedure
-    .input(z.object({ query: z.string().trim().min(1) }))
-    .query(async ({ input }) => {
-      return ordonnanceService.rechercherMedicaments({
-        query: input.query,
-      });
-    }),
+	envoyerOrdonnanceParEmail: protectedProcedure
+		.input(z.object({ ordonnanceId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return ordonnanceService.envoyerOrdonnanceParEmail({
+				db: ctx.db,
+				ordonnanceId: input.ordonnanceId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
+	rechercherMedicaments: protectedProcedure
+		.input(z.object({ query: z.string().trim().min(1) }))
+		.query(async ({ ctx, input }) => {
+			return ordonnanceService.rechercherMedicaments({
+				db: ctx.db,
+				query: input.query,
+			});
+		}),
 
   creerCategorie: protectedProcedure
     .input(createCategorieSchema)

@@ -586,6 +586,31 @@ export class DocumentsRepository {
 
     return item ?? null;
   }
+
+  async getUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<{
+    id: string;
+    nom: string;
+    prenom: string;
+    telephone: string | null;
+    adresse: string | null;
+  } | null> {
+    const [result] = await database
+      .select({
+        id: utilisateurs.id,
+        nom: utilisateurs.nom,
+        prenom: utilisateurs.prenom,
+        telephone: utilisateurs.telephone,
+        adresse: utilisateurs.adresse,
+      })
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return result ?? null;
+  }
 }
 
 export const documentsRepository = new DocumentsRepository();

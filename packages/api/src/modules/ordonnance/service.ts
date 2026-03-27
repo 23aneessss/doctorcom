@@ -1,6 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 import { withTx } from "@doctor.com/db";
+import { patients } from "@doctor.com/db/schema";
+import { user as authUser } from "@doctor.com/db/schema/auth";
+import { eq } from "drizzle-orm";
+import {
+  envoyerOrdonnanceParEmail as envoyerOrdonnanceParEmailInfrastructure,
+  type ClinicInfo,
+} from "@doctor.com/api/infrastructure/email/index";
+
+import { exportService } from "../export/service";
 
 import type { SessionUtilisateur } from "../../trpc/context";
 import { medicamentsService } from "../medicaments/service";
@@ -893,6 +902,104 @@ export class OrdonnanceService {
     });
   }
 
+  async envoyerOrdonnanceParEmail(data: {
+    db: DatabaseClient;
+    ordonnanceId: string;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<{ success: true; message: string }> {
+    const ordonnance = await ordonnanceRepository.getOrdonnanceById(data.db, data.ordonnanceId);
+    if (!ordonnance) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Ordonnance introuvable.",
+      });
+    }
+
+    const medicaments = await ordonnanceRepository.getMedicamentsByOrdonnance(
+      data.db,
+      ordonnance.id,
+    );
+
+    const medicamentsAvecDetails = await Promise.all(
+      medicaments.map(async (medicament) => {
+        const reference = await ordonnanceRepository.getMedicamentById(
+          data.db,
+          medicament.medicament_id,
+        );
+
+        return {
+          nom: reference?.dci ?? "Médicament",
+          posologie: medicament.posologie,
+          duree: medicament.duree_traitement,
+          instructions: medicament.instructions,
+        };
+      }),
+    );
+
+    const patient = await data.db
+      .select({
+        nom: patients.nom,
+        prenom: patients.prenom,
+        email: patients.email,
+      })
+      .from(patients)
+      .where(eq(patients.id, ordonnance.patient_id))
+      .then((rows) => rows[0]);
+
+    if (!patient) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
+    }
+
+    if (!patient.email) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le patient n'a pas d'adresse email.",
+      });
+    }
+
+    const sessionEmail = await this.resolveSessionUserEmail(data);
+    const utilisateur = await ordonnanceRepository.getUtilisateurByEmail(data.db, sessionEmail);
+
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Utilisateur introuvable.",
+      });
+    }
+
+    const clinic: ClinicInfo = {
+      doctorName: `Dr. ${utilisateur.prenom} ${utilisateur.nom}`,
+      clinicName: `Cabinet ${utilisateur.prenom} ${utilisateur.nom}`,
+      phone: utilisateur.telephone ?? "",
+      address: utilisateur.adresse ?? "",
+    };
+
+    const pdfBuffer = await exportService.exporterOrdonnance(data.db, data.ordonnanceId);
+
+    await envoyerOrdonnanceParEmailInfrastructure({
+      clinic,
+      patientEmail: patient.email,
+      patientNom: patient.nom,
+      patientPrenom: patient.prenom,
+      datePrescription: ordonnance.date_prescription,
+      medicaments: medicamentsAvecDetails,
+      remarques: ordonnance.remarques,
+      attachments: [
+        {
+          filename: `ordonnance-${ordonnance.date_prescription}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    } as any);
+
+    return { success: true, message: "Email envoyé avec succès." };
+  }
+
   private async resolveUtilisateur(
     database: DatabaseClient,
     session: OrdonnanceSession,
@@ -1074,6 +1181,39 @@ export class OrdonnanceService {
 
   private todayIsoDate(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  private async resolveSessionUserEmail(data: {
+    db: DatabaseClient;
+    userEmail?: string;
+    userId?: string;
+  }): Promise<string> {
+    const directEmail = data.userEmail?.trim().toLowerCase();
+    if (directEmail) {
+      return directEmail;
+    }
+
+    if (!data.userId) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur manquant dans la session.",
+      });
+    }
+
+    const [sessionUser] = await data.db
+      .select({ email: authUser.email })
+      .from(authUser)
+      .where(eq(authUser.id, data.userId))
+      .limit(1);
+
+    if (!sessionUser?.email) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Email utilisateur introuvable dans la session.",
+      });
+    }
+
+    return sessionUser.email.trim().toLowerCase();
   }
 }
 
