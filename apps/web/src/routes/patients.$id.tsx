@@ -1,9 +1,8 @@
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
-import { Sidebar } from "@/components/sidebar";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/patients/$id")({
   component: RouteComponent,
   beforeLoad: async () => {
     const session = await authClient.getSession();
@@ -15,12 +14,11 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function RouteComponent() {
+  const { id } = Route.useParams();
+
   return (
-    <div className="flex h-svh">
-      <Sidebar />
-      <main className="flex-1 overflow-auto p-6">
-        <Outlet />
-      </main>
+    <div>
+      <h1>Patient: {id}</h1>
     </div>
   );
 }

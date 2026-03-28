@@ -9,10 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PatientsIndexRouteImport } from './routes/patients/index'
+import { Route as OrdonnanceIndexRouteImport } from './routes/ordonnance/index'
+import { Route as MedicamentIndexRouteImport } from './routes/medicament/index'
+import { Route as AideIndexRouteImport } from './routes/aide/index'
+import { Route as AgendaIndexRouteImport } from './routes/agenda/index'
+import { Route as PatientsIdRouteImport } from './routes/patients.$id'
+import { Route as AideFaqRouteImport } from './routes/aide/faq'
+import { Route as AgendaModifierRouteImport } from './routes/agenda/modifier'
+import { Route as AgendaAjouterRouteImport } from './routes/agenda/ajouter'
+import { Route as PatientsIdVoyageRouteImport } from './routes/patients.$id/voyage'
+import { Route as PatientsIdVaccinationRouteImport } from './routes/patients.$id/vaccination'
+import { Route as PatientsIdTraitementRouteImport } from './routes/patients.$id/traitement'
+import { Route as PatientsIdSuiviRouteImport } from './routes/patients.$id/suivi'
+import { Route as PatientsIdSanteFeminineRouteImport } from './routes/patients.$id/sante-feminine'
+import { Route as PatientsIdInfoSocialeRouteImport } from './routes/patients.$id/info-sociale'
+import { Route as PatientsIdGeneralRouteImport } from './routes/patients.$id/general'
+import { Route as PatientsIdDocumentRouteImport } from './routes/patients.$id/document'
+import { Route as PatientsIdAntecedentRouteImport } from './routes/patients.$id/antecedent'
 
+const ParametresRoute = ParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -28,39 +52,270 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PatientsIndexRoute = PatientsIndexRouteImport.update({
+  id: '/patients/',
+  path: '/patients/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdonnanceIndexRoute = OrdonnanceIndexRouteImport.update({
+  id: '/ordonnance/',
+  path: '/ordonnance/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedicamentIndexRoute = MedicamentIndexRouteImport.update({
+  id: '/medicament/',
+  path: '/medicament/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AideIndexRoute = AideIndexRouteImport.update({
+  id: '/aide/',
+  path: '/aide/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgendaIndexRoute = AgendaIndexRouteImport.update({
+  id: '/agenda/',
+  path: '/agenda/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PatientsIdRoute = PatientsIdRouteImport.update({
+  id: '/patients/$id',
+  path: '/patients/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AideFaqRoute = AideFaqRouteImport.update({
+  id: '/aide/faq',
+  path: '/aide/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgendaModifierRoute = AgendaModifierRouteImport.update({
+  id: '/agenda/modifier',
+  path: '/agenda/modifier',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgendaAjouterRoute = AgendaAjouterRouteImport.update({
+  id: '/agenda/ajouter',
+  path: '/agenda/ajouter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PatientsIdVoyageRoute = PatientsIdVoyageRouteImport.update({
+  id: '/voyage',
+  path: '/voyage',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdVaccinationRoute = PatientsIdVaccinationRouteImport.update({
+  id: '/vaccination',
+  path: '/vaccination',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdTraitementRoute = PatientsIdTraitementRouteImport.update({
+  id: '/traitement',
+  path: '/traitement',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdSuiviRoute = PatientsIdSuiviRouteImport.update({
+  id: '/suivi',
+  path: '/suivi',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdSanteFeminineRoute = PatientsIdSanteFeminineRouteImport.update({
+  id: '/sante-feminine',
+  path: '/sante-feminine',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdInfoSocialeRoute = PatientsIdInfoSocialeRouteImport.update({
+  id: '/info-sociale',
+  path: '/info-sociale',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdGeneralRoute = PatientsIdGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdDocumentRoute = PatientsIdDocumentRouteImport.update({
+  id: '/document',
+  path: '/document',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
+const PatientsIdAntecedentRoute = PatientsIdAntecedentRouteImport.update({
+  id: '/antecedent',
+  path: '/antecedent',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/parametres': typeof ParametresRoute
+  '/agenda/ajouter': typeof AgendaAjouterRoute
+  '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/faq': typeof AideFaqRoute
+  '/patients/$id': typeof PatientsIdRouteWithChildren
+  '/agenda/': typeof AgendaIndexRoute
+  '/aide/': typeof AideIndexRoute
+  '/medicament/': typeof MedicamentIndexRoute
+  '/ordonnance/': typeof OrdonnanceIndexRoute
+  '/patients/': typeof PatientsIndexRoute
+  '/patients/$id/antecedent': typeof PatientsIdAntecedentRoute
+  '/patients/$id/document': typeof PatientsIdDocumentRoute
+  '/patients/$id/general': typeof PatientsIdGeneralRoute
+  '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
+  '/patients/$id/suivi': typeof PatientsIdSuiviRoute
+  '/patients/$id/traitement': typeof PatientsIdTraitementRoute
+  '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
+  '/patients/$id/voyage': typeof PatientsIdVoyageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/parametres': typeof ParametresRoute
+  '/agenda/ajouter': typeof AgendaAjouterRoute
+  '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/faq': typeof AideFaqRoute
+  '/patients/$id': typeof PatientsIdRouteWithChildren
+  '/agenda': typeof AgendaIndexRoute
+  '/aide': typeof AideIndexRoute
+  '/medicament': typeof MedicamentIndexRoute
+  '/ordonnance': typeof OrdonnanceIndexRoute
+  '/patients': typeof PatientsIndexRoute
+  '/patients/$id/antecedent': typeof PatientsIdAntecedentRoute
+  '/patients/$id/document': typeof PatientsIdDocumentRoute
+  '/patients/$id/general': typeof PatientsIdGeneralRoute
+  '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
+  '/patients/$id/suivi': typeof PatientsIdSuiviRoute
+  '/patients/$id/traitement': typeof PatientsIdTraitementRoute
+  '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
+  '/patients/$id/voyage': typeof PatientsIdVoyageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/parametres': typeof ParametresRoute
+  '/agenda/ajouter': typeof AgendaAjouterRoute
+  '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/faq': typeof AideFaqRoute
+  '/patients/$id': typeof PatientsIdRouteWithChildren
+  '/agenda/': typeof AgendaIndexRoute
+  '/aide/': typeof AideIndexRoute
+  '/medicament/': typeof MedicamentIndexRoute
+  '/ordonnance/': typeof OrdonnanceIndexRoute
+  '/patients/': typeof PatientsIndexRoute
+  '/patients/$id/antecedent': typeof PatientsIdAntecedentRoute
+  '/patients/$id/document': typeof PatientsIdDocumentRoute
+  '/patients/$id/general': typeof PatientsIdGeneralRoute
+  '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
+  '/patients/$id/suivi': typeof PatientsIdSuiviRoute
+  '/patients/$id/traitement': typeof PatientsIdTraitementRoute
+  '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
+  '/patients/$id/voyage': typeof PatientsIdVoyageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/parametres'
+    | '/agenda/ajouter'
+    | '/agenda/modifier'
+    | '/aide/faq'
+    | '/patients/$id'
+    | '/agenda/'
+    | '/aide/'
+    | '/medicament/'
+    | '/ordonnance/'
+    | '/patients/'
+    | '/patients/$id/antecedent'
+    | '/patients/$id/document'
+    | '/patients/$id/general'
+    | '/patients/$id/info-sociale'
+    | '/patients/$id/sante-feminine'
+    | '/patients/$id/suivi'
+    | '/patients/$id/traitement'
+    | '/patients/$id/vaccination'
+    | '/patients/$id/voyage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login'
-  id: '__root__' | '/' | '/dashboard' | '/login'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/parametres'
+    | '/agenda/ajouter'
+    | '/agenda/modifier'
+    | '/aide/faq'
+    | '/patients/$id'
+    | '/agenda'
+    | '/aide'
+    | '/medicament'
+    | '/ordonnance'
+    | '/patients'
+    | '/patients/$id/antecedent'
+    | '/patients/$id/document'
+    | '/patients/$id/general'
+    | '/patients/$id/info-sociale'
+    | '/patients/$id/sante-feminine'
+    | '/patients/$id/suivi'
+    | '/patients/$id/traitement'
+    | '/patients/$id/vaccination'
+    | '/patients/$id/voyage'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/parametres'
+    | '/agenda/ajouter'
+    | '/agenda/modifier'
+    | '/aide/faq'
+    | '/patients/$id'
+    | '/agenda/'
+    | '/aide/'
+    | '/medicament/'
+    | '/ordonnance/'
+    | '/patients/'
+    | '/patients/$id/antecedent'
+    | '/patients/$id/document'
+    | '/patients/$id/general'
+    | '/patients/$id/info-sociale'
+    | '/patients/$id/sante-feminine'
+    | '/patients/$id/suivi'
+    | '/patients/$id/traitement'
+    | '/patients/$id/vaccination'
+    | '/patients/$id/voyage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  ParametresRoute: typeof ParametresRoute
+  AgendaAjouterRoute: typeof AgendaAjouterRoute
+  AgendaModifierRoute: typeof AgendaModifierRoute
+  AideFaqRoute: typeof AideFaqRoute
+  PatientsIdRoute: typeof PatientsIdRouteWithChildren
+  AgendaIndexRoute: typeof AgendaIndexRoute
+  AideIndexRoute: typeof AideIndexRoute
+  MedicamentIndexRoute: typeof MedicamentIndexRoute
+  OrdonnanceIndexRoute: typeof OrdonnanceIndexRoute
+  PatientsIndexRoute: typeof PatientsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/parametres': {
+      id: '/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof ParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -82,13 +337,177 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/patients/': {
+      id: '/patients/'
+      path: '/patients'
+      fullPath: '/patients/'
+      preLoaderRoute: typeof PatientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ordonnance/': {
+      id: '/ordonnance/'
+      path: '/ordonnance'
+      fullPath: '/ordonnance/'
+      preLoaderRoute: typeof OrdonnanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medicament/': {
+      id: '/medicament/'
+      path: '/medicament'
+      fullPath: '/medicament/'
+      preLoaderRoute: typeof MedicamentIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aide/': {
+      id: '/aide/'
+      path: '/aide'
+      fullPath: '/aide/'
+      preLoaderRoute: typeof AideIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agenda/': {
+      id: '/agenda/'
+      path: '/agenda'
+      fullPath: '/agenda/'
+      preLoaderRoute: typeof AgendaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/patients/$id': {
+      id: '/patients/$id'
+      path: '/patients/$id'
+      fullPath: '/patients/$id'
+      preLoaderRoute: typeof PatientsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aide/faq': {
+      id: '/aide/faq'
+      path: '/aide/faq'
+      fullPath: '/aide/faq'
+      preLoaderRoute: typeof AideFaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agenda/modifier': {
+      id: '/agenda/modifier'
+      path: '/agenda/modifier'
+      fullPath: '/agenda/modifier'
+      preLoaderRoute: typeof AgendaModifierRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agenda/ajouter': {
+      id: '/agenda/ajouter'
+      path: '/agenda/ajouter'
+      fullPath: '/agenda/ajouter'
+      preLoaderRoute: typeof AgendaAjouterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/patients/$id/voyage': {
+      id: '/patients/$id/voyage'
+      path: '/voyage'
+      fullPath: '/patients/$id/voyage'
+      preLoaderRoute: typeof PatientsIdVoyageRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/vaccination': {
+      id: '/patients/$id/vaccination'
+      path: '/vaccination'
+      fullPath: '/patients/$id/vaccination'
+      preLoaderRoute: typeof PatientsIdVaccinationRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/traitement': {
+      id: '/patients/$id/traitement'
+      path: '/traitement'
+      fullPath: '/patients/$id/traitement'
+      preLoaderRoute: typeof PatientsIdTraitementRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/suivi': {
+      id: '/patients/$id/suivi'
+      path: '/suivi'
+      fullPath: '/patients/$id/suivi'
+      preLoaderRoute: typeof PatientsIdSuiviRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/sante-feminine': {
+      id: '/patients/$id/sante-feminine'
+      path: '/sante-feminine'
+      fullPath: '/patients/$id/sante-feminine'
+      preLoaderRoute: typeof PatientsIdSanteFeminineRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/info-sociale': {
+      id: '/patients/$id/info-sociale'
+      path: '/info-sociale'
+      fullPath: '/patients/$id/info-sociale'
+      preLoaderRoute: typeof PatientsIdInfoSocialeRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/general': {
+      id: '/patients/$id/general'
+      path: '/general'
+      fullPath: '/patients/$id/general'
+      preLoaderRoute: typeof PatientsIdGeneralRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/document': {
+      id: '/patients/$id/document'
+      path: '/document'
+      fullPath: '/patients/$id/document'
+      preLoaderRoute: typeof PatientsIdDocumentRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/$id/antecedent': {
+      id: '/patients/$id/antecedent'
+      path: '/antecedent'
+      fullPath: '/patients/$id/antecedent'
+      preLoaderRoute: typeof PatientsIdAntecedentRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
   }
 }
+
+interface PatientsIdRouteChildren {
+  PatientsIdAntecedentRoute: typeof PatientsIdAntecedentRoute
+  PatientsIdDocumentRoute: typeof PatientsIdDocumentRoute
+  PatientsIdGeneralRoute: typeof PatientsIdGeneralRoute
+  PatientsIdInfoSocialeRoute: typeof PatientsIdInfoSocialeRoute
+  PatientsIdSanteFeminineRoute: typeof PatientsIdSanteFeminineRoute
+  PatientsIdSuiviRoute: typeof PatientsIdSuiviRoute
+  PatientsIdTraitementRoute: typeof PatientsIdTraitementRoute
+  PatientsIdVaccinationRoute: typeof PatientsIdVaccinationRoute
+  PatientsIdVoyageRoute: typeof PatientsIdVoyageRoute
+}
+
+const PatientsIdRouteChildren: PatientsIdRouteChildren = {
+  PatientsIdAntecedentRoute: PatientsIdAntecedentRoute,
+  PatientsIdDocumentRoute: PatientsIdDocumentRoute,
+  PatientsIdGeneralRoute: PatientsIdGeneralRoute,
+  PatientsIdInfoSocialeRoute: PatientsIdInfoSocialeRoute,
+  PatientsIdSanteFeminineRoute: PatientsIdSanteFeminineRoute,
+  PatientsIdSuiviRoute: PatientsIdSuiviRoute,
+  PatientsIdTraitementRoute: PatientsIdTraitementRoute,
+  PatientsIdVaccinationRoute: PatientsIdVaccinationRoute,
+  PatientsIdVoyageRoute: PatientsIdVoyageRoute,
+}
+
+const PatientsIdRouteWithChildren = PatientsIdRoute._addFileChildren(
+  PatientsIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  ParametresRoute: ParametresRoute,
+  AgendaAjouterRoute: AgendaAjouterRoute,
+  AgendaModifierRoute: AgendaModifierRoute,
+  AideFaqRoute: AideFaqRoute,
+  PatientsIdRoute: PatientsIdRouteWithChildren,
+  AgendaIndexRoute: AgendaIndexRoute,
+  AideIndexRoute: AideIndexRoute,
+  MedicamentIndexRoute: MedicamentIndexRoute,
+  OrdonnanceIndexRoute: OrdonnanceIndexRoute,
+  PatientsIndexRoute: PatientsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
