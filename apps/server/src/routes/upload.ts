@@ -81,7 +81,7 @@ router.post("/document", upload.single("file"), async (req, res) => {
         taille_fichier: uploaded.size,
         description: description ?? null,
       },
-      userId: utilisateurId,
+      userEmail: session.user.email,
     });
 
     res.status(201).json(document);
@@ -160,7 +160,7 @@ router.post("/lettre", upload.single("file"), async (req, res) => {
           contenu_lettre: contenu_lettre ?? null,
         },
       },
-      userId: utilisateurId,
+      userEmail: session.user.email,
     });
 
     res.status(201).json(result);
@@ -245,7 +245,7 @@ router.post("/certificat", upload.single("file"), async (req, res) => {
           statut,
         },
       },
-      userId: utilisateurId,
+      userEmail: session.user.email,
     });
 
     res.status(201).json(result);

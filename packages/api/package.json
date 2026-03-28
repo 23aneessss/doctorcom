@@ -25,6 +25,7 @@
   "dependencies": {
     "@ai-sdk/google": "^1",
     "@ai-sdk/mistral": "^1.2",
+    "@ai-sdk/openai": "^1",
     "@doctor.com/auth": "workspace:*",
     "@doctor.com/db": "workspace:*",
     "@doctor.com/env": "workspace:*",

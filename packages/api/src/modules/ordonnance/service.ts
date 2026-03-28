@@ -921,21 +921,12 @@ export class OrdonnanceService {
       ordonnance.id,
     );
 
-    const medicamentsAvecDetails = await Promise.all(
-      medicaments.map(async (medicament) => {
-        const reference = await ordonnanceRepository.getMedicamentById(
-          data.db,
-          medicament.medicament_id,
-        );
-
-        return {
-          nom: reference?.dci ?? "Médicament",
-          posologie: medicament.posologie,
-          duree: medicament.duree_traitement,
-          instructions: medicament.instructions,
-        };
-      }),
-    );
+    const medicamentsAvecDetails = medicaments.map((medicament) => ({
+      nom: medicament.dci ?? "Médicament",
+      posologie: medicament.posologie,
+      duree: medicament.duree_traitement,
+      instructions: medicament.instructions,
+    }));
 
     const patient = await data.db
       .select({

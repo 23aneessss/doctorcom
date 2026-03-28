@@ -12,7 +12,6 @@ import {
   documents_patient,
   historique_traitements,
   lettres_orientation,
-  medicaments,
   ordonnance,
   ordonnance_medicaments,
   patients,
@@ -35,16 +34,12 @@ export class ExportRepository {
     const medicamentsData = await db
       .select({
         id: ordonnance_medicaments.id,
-        dci: medicaments.dci,
+        dci: ordonnance_medicaments.dci,
         posologie: ordonnance_medicaments.posologie,
         duree_traitement: ordonnance_medicaments.duree_traitement,
         instructions: ordonnance_medicaments.instructions,
       })
       .from(ordonnance_medicaments)
-      .innerJoin(
-        medicaments,
-        eq(ordonnance_medicaments.medicament_id, medicaments.id),
-      )
       .where(eq(ordonnance_medicaments.ordonnance_id, id));
 
     const patientData = await db
@@ -218,15 +213,11 @@ export class ExportRepository {
     const historiqueTraitements = await db
       .select({
         id: historique_traitements.id,
-        dci: medicaments.dci,
+        dci: historique_traitements.nom_medicament,
         posologie: historique_traitements.posologie,
         date_prescription: historique_traitements.date_prescription,
       })
       .from(historique_traitements)
-      .innerJoin(
-        medicaments,
-        eq(historique_traitements.medicament_id, medicaments.id),
-      )
       .where(
         and(
           eq(historique_traitements.patient_id, patientId),

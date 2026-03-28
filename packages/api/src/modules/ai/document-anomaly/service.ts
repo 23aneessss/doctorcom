@@ -1,13 +1,13 @@
 import { TRPCError } from "@trpc/server";
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import type { db as databaseClient } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
-import { updatePatientSchema } from "@doctor.com/shared/schemas";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -21,6 +21,12 @@ import { documentAnomalyRepository, type FullPatientData } from "./repo";
 
 type DatabaseClient = typeof databaseClient;
 type AiSession = Exclude<SessionUtilisateur, null>;
+
+type AIProviderName =
+  | "openrouter"
+  | "together"
+  | "mistral"
+  | "google-ai-studio";
 
 interface DocumentContent {
   key: string;
@@ -56,94 +62,26 @@ type DocumentPart =
   | { type: "file"; data: string; mimeType: string }
   | { type: "text"; text: string };
 
-type VerificationResult = z.infer<typeof verificationResultSchema>;
-type SuggestionsResult = z.infer<typeof suggestionsResultSchema>;
-
-const patientDirectFieldKinds = {
-  nom: "string",
-  prenom: "string",
-  telephone: "stringOrNull",
-  email: "stringOrNull",
-  matricule: "string",
-  date_naissance: "string",
-  nss: "numberOrNull",
-  lieu_naissance: "stringOrNull",
-  sexe: "stringOrNull",
-  nationalite: "stringOrNull",
-  groupe_sanguin: "stringOrNull",
-  adresse: "stringOrNull",
-  profession: "stringOrNull",
-  habitudes_saines: "stringOrNull",
-  habitudes_toxiques: "stringOrNull",
-  nb_enfants: "numberOrNull",
-  situation_familiale: "stringOrNull",
-  age_circoncision: "numberOrNull",
-  date_admission: "stringOrNull",
-  environnement_animal: "stringOrNull",
-  revenu_mensuel: "stringOrNull",
-  taille_menage: "numberOrNull",
-  nb_pieces: "numberOrNull",
-  niveau_intellectuel: "stringOrNull",
-  activite_sexuelle: "boolean",
-  relations_environnement: "stringOrNull",
-} as const;
-
-const patientFemaleFieldKinds = {
-  menarche: "numberOrNull",
-  regularite_cycles: "stringOrNull",
-  contraception: "stringOrNull",
-  nb_grossesses: "numberOrNull",
-  nb_cesariennes: "numberOrNull",
-  menopause: "booleanOrNull",
-  age_menopause: "numberOrNull",
-  symptomes_menopause: "stringOrNull",
-} as const;
-
-const femalePatientInfoSchema = z
-  .object({
-    menarche: z.number().int().min(0).nullable().optional(),
-    regularite_cycles: z.string().trim().min(1).max(255).nullable().optional(),
-    contraception: z.string().trim().min(1).nullable().optional(),
-    nb_grossesses: z.number().int().min(0).nullable().optional(),
-    nb_cesariennes: z.number().int().min(0).nullable().optional(),
-    menopause: z.boolean().nullable().optional(),
-    age_menopause: z.number().int().min(0).nullable().optional(),
-    symptomes_menopause: z.string().trim().min(1).nullable().optional(),
-  })
-  .strict();
-
-const updatePatientDataSchema = updatePatientSchema
-  .omit({ id: true, cree_par_utilisateur: true })
-  .extend({
-    female_data: femalePatientInfoSchema.optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: "Au moins un champ doit etre fourni pour mettre a jour le patient.",
-  });
-
-type UpdatePatientData = z.infer<typeof updatePatientDataSchema>;
-
-interface PatientUpdateAction {
-  action_id: string;
-  mode: "single" | "batch";
-  mutation: "patient.updatePatient";
-  merge_key: string;
-  input: {
-    id: string;
-    data: UpdatePatientData;
-  };
-  suggestion_ids: string[];
+interface VerificationResult {
+  verifiable: boolean;
+  patient_match: boolean;
+  confidence: number;
+  details: string;
+  matched_fields: string[];
+  mismatched_fields: { field: string; expected: string; found: string }[];
 }
+
+type SuggestionsResult = z.infer<typeof suggestionsResultSchema>;
 
 interface ProcessedSuggestionsResult {
   suggestions: NonNullable<DocumentAnalysisResult["suggestions"]>;
-  proposed_actions: PatientUpdateAction[];
 }
 
 export interface DocumentAnalysisResult {
   validated: boolean;
   confidence: number;
   identity: {
+    verifiable: boolean;
     patient_match: boolean;
     confidence: number;
     details: string;
@@ -151,37 +89,31 @@ export interface DocumentAnalysisResult {
     mismatched_fields: { field: string; expected: string; found: string }[];
     risk_level: "low" | "medium" | "high";
   };
-  verification: {
-    patient_match: boolean;
-    details: string;
-    matched_fields: string[];
-    mismatched_fields: { field: string; expected: string; found: string }[];
-  };
+  identity_flag: "match" | "mismatch" | "uncertain";
   suggestions?: {
     suggestion_id: string;
     table: string;
     field: string;
-    target_path?: string;
+    category: "demographic" | "lab_value" | "antecedent" | "treatment" | "vaccination" | "other";
     current_value: string | null;
     suggested_value: string;
     reason: string;
     confidence: number;
+    severity?: "normal" | "abnormal" | "critical";
     source?: {
       document_key: string;
       modality: DocumentModality;
       snippet?: string;
     };
     validation_flags?: string[];
-    action?: {
-      mutation: "patient.updatePatient";
-      input: {
-        id: string;
-        data: UpdatePatientData;
-      };
-      merge_key: string;
-    };
   }[];
-  proposed_actions: PatientUpdateAction[];
+  proposed_actions: {
+    action_id: string;
+    mutation: string;
+    input: Record<string, unknown>;
+    description: string;
+    suggestion_ids: string[];
+  }[];
   extraction_stats: {
     documents_total: number;
     documents_processed: number;
@@ -192,53 +124,26 @@ export interface DocumentAnalysisResult {
 }
 
 // ---------------------------------------------------------------------------
-// Zod schemas for structured AI output (used with generateObject)
+// Zod schemas for AI output reference (not used for strict validation)
 // ---------------------------------------------------------------------------
-
-const verificationResultSchema = z.object({
-  patient_match: z
-    .boolean()
-    .describe("true si les documents correspondent au patient, false sinon"),
-  confidence: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe("Score de confiance entre 0 et 1"),
-  details: z
-    .string()
-    .describe("Explication detaillee en francais de la verification"),
-  matched_fields: z
-    .array(z.string())
-    .describe(
-      "Liste des champs d'identite qui correspondent (ex: nom, prenom, date_naissance, nss)",
-    ),
-  mismatched_fields: z
-    .array(
-      z.object({
-        field: z.string().describe("Nom du champ"),
-        expected: z.string().describe("Valeur attendue (base de donnees)"),
-        found: z.string().describe("Valeur trouvee dans le document"),
-      }),
-    )
-    .describe("Liste des champs qui ne correspondent pas"),
-});
 
 const suggestionsResultSchema = z.object({
   suggestions: z
     .array(
       z.object({
         table: z
-          .enum(["patients", "patients_femmes"])
-          .describe("Table cible: patients ou patients_femmes"),
+          .string()
+          .describe("Table cible: patients, patients_femmes, examen_consultation, antecedents, historique_traitements, vaccinations_patient"),
         field: z
           .string()
-          .describe("Nom du champ a mettre a jour autorise par patient.updatePatient"),
+          .describe("Nom du champ ou element concerne"),
+        category: z
+          .enum(["demographic", "lab_value", "antecedent", "treatment", "vaccination", "other"])
+          .describe("Categorie de la suggestion"),
         current_value: z
           .string()
           .nullable()
-          .describe(
-            "Valeur actuelle dans la base de donnees, null si absent",
-          ),
+          .describe("Valeur actuelle dans la base de donnees, null si absent"),
         suggested_value: z
           .string()
           .describe("Valeur suggeree d'apres le document"),
@@ -250,6 +155,10 @@ const suggestionsResultSchema = z.object({
           .min(0)
           .max(1)
           .describe("Score de confiance pour cette suggestion"),
+        severity: z
+          .enum(["normal", "abnormal", "critical"])
+          .optional()
+          .describe("Niveau de severite pour les valeurs cliniques"),
         source: z
           .object({
             document_key: z.string().describe("Cle du document source"),
@@ -283,48 +192,52 @@ const suggestionsResultSchema = z.object({
 
 const VERIFICATION_SYSTEM_PROMPT = `Vous etes un assistant specialise dans la verification d'identite de documents medicaux.
 
-Votre tache: comparer les informations d'identite d'un patient (provenant de la base de donnees) avec les informations visibles dans les documents medicaux scannes fournis.
+Votre tache: comparer les informations d'identite d'un patient (base de donnees) avec les informations visibles dans les documents fournis.
 
-Regles strictes:
-1. Comparez UNIQUEMENT les champs d'identite: nom, prenom, date de naissance, numero de securite sociale (NSS), matricule, sexe, lieu de naissance.
-2. Si un champ n'est pas visible ou lisible dans le document, ne le comptez PAS comme un echec — ignorez-le.
-3. Tolerez les variations mineures d'orthographe, les accents manquants, et les differences de casse (majuscules/minuscules).
-4. Pour les dates, acceptez tous les formats courants (JJ/MM/AAAA, AAAA-MM-JJ, etc.).
-5. Le score de confiance doit refleter votre certitude globale:
-   - 0.9-1.0: correspondance claire et certaine
-   - 0.7-0.89: correspondance probable avec quelques elements non verifiables
-   - 0.5-0.69: incertain, peu d'elements de comparaison
-   - 0.0-0.49: divergence constatee
-6. Repondez en francais.
-7. Si les documents sont illisibles ou ne contiennent aucune information d'identite, indiquez patient_match: false avec une explication.`;
+Reponse attendue (JSON):
+- verifiable: true si le document contient au moins un element d'identite (nom, prenom, NSS, matricule, date de naissance). false si le document ne contient aucune information d'identite.
+- patient_match: true si les informations correspondent, false si elles different. Si verifiable=false, mettre false.
+- confidence: score 0-1 refletant la certitude de la correspondance.
+- details: 1-2 phrases max, en francais.
+- matched_fields: liste des champs qui correspondent.
+- mismatched_fields: liste des champs qui different ({field, expected, found}).
 
-const SUGGESTIONS_SYSTEM_PROMPT = `Vous etes un assistant medical specialise dans l'analyse de documents medicaux scannes.
+Regles:
+1. Comparez nom, prenom, date de naissance, NSS, matricule, sexe, lieu de naissance.
+2. Tolerez variations mineures, accents, casse.
+3. Si le document ne contient AUCUNE information d'identite, mettez verifiable: false avec un details court expliquant l'absence d'information.
+4. Repondez en JSON uniquement.`;
 
-Votre tache: comparer le contenu des documents medicaux fournis avec les donnees existantes du patient dans la base de donnees, et identifier les mises a jour potentielles directement applicables via la mutation patient.updatePatient.
+const SUGGESTIONS_SYSTEM_PROMPT = `Vous etes un assistant medical specialise dans l'analyse de documents medicaux.
 
-Regles strictes:
-1. Analysez TOUT le contenu medical des documents, MAIS ne retournez que les suggestions qui peuvent etre appliquees a patient.updatePatient.
-2. Comparez avec les donnees existantes du patient fournies ci-dessous.
-3. Generez des suggestions UNIQUEMENT pour:
-   - Des informations presentes dans les documents mais ABSENTES de la base de donnees
-   - Des informations dans les documents qui DIFFERENT des donnees existantes
-   - Des informations plus recentes qui pourraient remplacer des donnees obsoletes
-4. Pour chaque suggestion, indiquez:
-   - table: UNIQUEMENT "patients" ou "patients_femmes"
-   - field: un champ exact autorise dans patient.updatePatient
-   - current_value: la valeur actuelle (null si absente)
-   - suggested_value: la nouvelle valeur suggeree
-   - reason: pourquoi cette mise a jour est suggeree
-   - confidence: score de confiance (0-1) pour cette suggestion specifique
-5. Ne suggerez PAS de modifications sur les champs d'identite (nom, prenom, date_naissance, nss, matricule) — ceux-ci ont deja ete verifies.
-6. Ne suggerez PAS de modifications si vous n'etes pas raisonnablement certain (confiance < 0.5).
-7. Si aucune mise a jour n'est necessaire, retournez un tableau vide.
-8. Repondez en francais pour tous les champs textuels.
-9. N'incluez JAMAIS des tables non prises en charge par patient.updatePatient (antecedents, vaccinations_patient, historique_traitements, suivi, voyages_recents, etc.).
+Votre tache: analyser les documents medicaux et identifier des actions a proposer pour mettre a jour les donnees du patient.
 
-Champs autorises:
-- patients: nom, prenom, telephone, email, matricule, date_naissance, nss, lieu_naissance, sexe, nationalite, groupe_sanguin, adresse, profession, habitudes_saines, habitudes_toxiques, nb_enfants, situation_familiale, age_circoncision, date_admission, environnement_animal, revenu_mensuel, taille_menage, nb_pieces, niveau_intellectuel, activite_sexuelle, relations_environnement
-- patients_femmes: menarche, regularite_cycles, contraception, nb_grossesses, nb_cesariennes, menopause, age_menopause, symptomes_menopause`;
+Tables concernees (actionnables):
+- patients / patients_femmes: donnees demographiques
+- antecedents: antecedents medicaux personnels ou familiaux
+- historique_traitements: medicaments et traitements
+- vaccinations_patient: vaccinations
+
+Tables NON actionnables: suivi, examen_consultation, rendez_vous, certificats_medicaux, lettres_orientation.
+
+Pour chaque suggestion, indiquez:
+- table: la table concernee
+- field: le champ ou element concerne
+- category: "demographic" | "lab_value" (valeur anormale → antecedent) | "antecedent" | "treatment" | "vaccination" | "other"
+- current_value: valeur actuelle dans les donnees patient, sinon null
+- suggested_value: la valeur a ajouter ou mettre a jour
+- reason: explication courte en francais
+- confidence: score 0-1
+- severity: "normal" | "abnormal" | "critical"
+
+Types de suggestions:
+1. DONNEES DEMOGRAPHIQUES differentes ou absentes (groupe sanguin, adresse, profession, etc.) → table: patients
+2. ANTECEDENTS mentions dans les documents mais absents de la base → table: antecedents
+3. VALEURS DE LABORATOIRE anormales significatives (cholesterol bas/haut, diabete, etc.) → table: antecedents, category: lab_value
+4. TRAITEMENTS mentionnes dans les documents → table: historique_traitements
+5. VACCINATIONS mentionnees mais absentes → table: vaccinations_patient
+
+Ne suggerez PAS de modifications si confiance < 0.5. Si aucune suggestion, retournez un tableau vide. Repondez en JSON uniquement.`;
 
 // ---------------------------------------------------------------------------
 // Service
@@ -343,21 +256,8 @@ export class DocumentAnomalyService {
   }): Promise<DocumentAnalysisResult> {
     const startedAt = Date.now();
 
-    // 1. Check AI provider API key
-    if (env.AI_PROVIDER === "google-ai-studio" && !env.GOOGLE_AI_API_KEY) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "GOOGLE_AI_API_KEY n'est pas configuree. Veuillez ajouter la cle API dans les variables d'environnement.",
-      });
-    }
-    if (env.AI_PROVIDER === "mistral-ai-studio" && !env.MISTRAL_API_KEY) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "MISTRAL_API_KEY n'est pas configuree. Veuillez ajouter la cle API dans les variables d'environnement.",
-      });
-    }
+    // 1. Resolve AI provider (validates API keys)
+    const aiModel = this.resolveAiProvider();
 
     // 2. Resolve authenticated user
     await this.resolveUtilisateur(data.db, data.session);
@@ -400,35 +300,37 @@ export class DocumentAnomalyService {
       });
     }
 
-    // 5. Initialize AI model
-    const aiModel = this.createAiModel();
-
-    // 6. Run identity verification + suggestions generation in parallel
-    const [verification, suggestionsResult] = await Promise.all([
-      this.verifyPatientIdentity(
-        aiModel,
-        {
-          nom: patientData.patient.nom,
-          prenom: patientData.patient.prenom,
-          date_naissance: patientData.patient.date_naissance,
-          nss: patientData.patient.nss,
-          matricule: patientData.patient.matricule,
-          sexe: patientData.patient.sexe,
-          lieu_naissance: patientData.patient.lieu_naissance,
-        },
-        documentParts,
-      ),
-      this.generateSuggestions(
-        aiModel,
-        patientData,
-        documentParts,
-        classifiedDocuments,
-      ),
-    ]);
+    // 5. Run identity verification + suggestions in parallel
+    const [verification, suggestionsResult] =
+      await Promise.all([
+        this.verifyPatientIdentity(
+          aiModel,
+          {
+            nom: patientData.patient.nom,
+            prenom: patientData.patient.prenom,
+            date_naissance: patientData.patient.date_naissance,
+            nss: patientData.patient.nss,
+            matricule: patientData.patient.matricule,
+            sexe: patientData.patient.sexe,
+            lieu_naissance: patientData.patient.lieu_naissance,
+          },
+          documentParts,
+        ),
+        this.generateSuggestions(
+          aiModel,
+          patientData,
+          documentParts,
+          classifiedDocuments,
+        ),
+      ]);
 
     const processedSuggestions = this.postProcessSuggestions(
       suggestionsResult.suggestions,
       classifiedDocuments,
+    );
+
+    const proposedActions = this.buildProposedActions(
+      processedSuggestions.suggestions,
       data.patient_id,
     );
 
@@ -436,10 +338,18 @@ export class DocumentAnomalyService {
       (suggestion) => suggestion.confidence < 0.6,
     ).length;
 
+    const identityFlag: "match" | "mismatch" | "uncertain" =
+      verification.verifiable && verification.patient_match && verification.confidence >= 0.7
+        ? "match"
+        : verification.verifiable && !verification.patient_match
+          ? "mismatch"
+          : "uncertain";
+
     const result: DocumentAnalysisResult = {
       validated: true,
       confidence: verification.confidence,
       identity: {
+        verifiable: verification.verifiable,
         patient_match: verification.patient_match,
         confidence: verification.confidence,
         details: verification.details,
@@ -447,14 +357,9 @@ export class DocumentAnomalyService {
         mismatched_fields: verification.mismatched_fields,
         risk_level: this.deriveIdentityRisk(verification),
       },
-      verification: {
-        patient_match: verification.patient_match,
-        details: verification.details,
-        matched_fields: verification.matched_fields,
-        mismatched_fields: verification.mismatched_fields,
-      },
+      identity_flag: identityFlag,
       suggestions: processedSuggestions.suggestions,
-      proposed_actions: processedSuggestions.proposed_actions,
+      proposed_actions: proposedActions,
       extraction_stats: {
         documents_total: documents.length,
         documents_processed: processableParts.length,
@@ -473,28 +378,67 @@ export class DocumentAnomalyService {
   // AI provider
   // ---------------------------------------------------------------------------
 
-  private createAiModel(): LanguageModel {
-    if (env.AI_PROVIDER === "google-ai-studio") {
-      if (!env.GOOGLE_AI_API_KEY) {
+  private resolveAiProvider(): LanguageModel {
+    const providerFactories: Record<
+      AIProviderName,
+      (() => LanguageModel) | null
+    > = {
+      openrouter: env.OPENROUTER_API_KEY
+        ? () => {
+            const openai = createOpenAI({
+              apiKey: env.OPENROUTER_API_KEY,
+              baseURL: "https://openrouter.ai/api/v1",
+            });
+            return openai(env.OPENROUTER_MODEL);
+          }
+        : null,
+      together: env.TOGETHER_API_KEY
+        ? () => {
+            const openai = createOpenAI({
+              apiKey: env.TOGETHER_API_KEY,
+              baseURL: "https://api.together.xyz/v1",
+            });
+            return openai(env.TOGETHER_MODEL);
+          }
+        : null,
+      mistral: env.MISTRAL_API_KEY
+        ? () => {
+            const mistral = createMistral({ apiKey: env.MISTRAL_API_KEY });
+            return mistral(env.MISTRAL_MODEL);
+          }
+        : null,
+      "google-ai-studio": env.GEMINI_API_KEY
+        ? () => {
+            const google = createGoogleGenerativeAI({
+              apiKey: env.GEMINI_API_KEY,
+            });
+            return google(env.GEMINI_MODEL);
+          }
+        : null,
+    };
+
+    if (env.AI_PROVIDER) {
+      const factory = providerFactories[env.AI_PROVIDER];
+      if (!factory) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message:
-            "GOOGLE_AI_API_KEY n'est pas configuree. Veuillez ajouter la cle API dans les variables d'environnement.",
+          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
         });
       }
-      const google = createGoogleGenerativeAI({ apiKey: env.GOOGLE_AI_API_KEY });
-      return google("gemini-2.5-flash");
+      return factory();
     }
 
-    if (!env.MISTRAL_API_KEY) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "MISTRAL_API_KEY n'est pas configuree. Veuillez ajouter la cle API dans les variables d'environnement.",
-      });
-    }
-    const mistral = createMistral({ apiKey: env.MISTRAL_API_KEY });
-    return mistral("pixtral-large-latest");
+    if (providerFactories.openrouter) return providerFactories.openrouter();
+    if (providerFactories.together) return providerFactories.together();
+    if (providerFactories.mistral) return providerFactories.mistral();
+    if (providerFactories["google-ai-studio"])
+      return providerFactories["google-ai-studio"]();
+
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -525,9 +469,8 @@ export class DocumentAnomalyService {
     ].join("\n");
 
     try {
-      const result = await generateObject({
+      const result = await generateText({
         model: model,
-        schema: verificationResultSchema,
         messages: [
           {
             role: "system",
@@ -538,7 +481,7 @@ export class DocumentAnomalyService {
             content: [
               {
                 type: "text" as const,
-                text: `## Identite du patient dans la base de donnees\n\n${identityText}\n\n## Documents medicaux a verifier\n\nAnalysez les documents suivants et verifiez s'ils correspondent au patient ci-dessus.`,
+                text: `## Identite du patient dans la base de donnees\n\n${identityText}\n\n## Documents medicaux a verifier\n\nAnalysez les documents suivants et verifiez s'ils correspondent au patient ci-dessus.\n\nRepondez UNIQUEMENT avec un objet JSON valide (pas de texte avant ou apres).`,
               },
               ...documentParts,
             ],
@@ -546,18 +489,15 @@ export class DocumentAnomalyService {
         ],
       });
 
-      return result.object as VerificationResult;
+      const parsed = this.parseJsonFromText(result.text);
+      return this.normalizeVerificationResult(parsed);
     } catch (error) {
       if (error instanceof TRPCError) throw error;
-      console.error("[document-anomaly] verifyPatientIdentity failed:", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          error instanceof Error
-            ? `Verification d'identite impossible: ${error.message}`
-            : "Erreur lors de la verification d'identite des documents. Veuillez reessayer.",
-        cause: error,
-      });
+      console.error(
+        "[document-anomaly] verifyPatientIdentity failed (non-blocking):",
+        error,
+      );
+      return this.fallbackVerification();
     }
   }
 
@@ -575,9 +515,8 @@ export class DocumentAnomalyService {
     const modalityContext = this.buildDocumentClassificationPrompt(classifiedDocuments);
 
     try {
-      const result = await generateObject({
+      const result = await generateText({
         model: model,
-        schema: suggestionsResultSchema,
         messages: [
           {
             role: "system",
@@ -588,7 +527,7 @@ export class DocumentAnomalyService {
             content: [
               {
                 type: "text" as const,
-                text: `## Donnees actuelles du patient dans la base de donnees\n\n${patientContext}\n\n## Classification preliminaire des documents\n\n${modalityContext}\n\n## Documents medicaux a analyser\n\nComparez le contenu des documents suivants avec les donnees du patient ci-dessus. Identifiez toute information dans les documents qui differe des donnees existantes ou qui est absente de la base de donnees. Fournissez une source lorsque possible (document_key + modality + snippet).`,
+                text: `## Donnees actuelles du patient dans la base de donnees\n\n${patientContext}\n\n## Classification preliminaire des documents\n\n${modalityContext}\n\n## Documents medicaux a analyser\n\nComparez le contenu des documents suivants avec les donnees du patient ci-dessus. Identifiez toute information dans les documents qui differe des donnees existantes ou qui est absente de la base de donnees. Fournissez une source lorsque possible (document_key + modality + snippet).\n\nRepondez UNIQUEMENT avec un objet JSON contenant une cle "suggestions" (tableau). Pas de texte avant ou apres le JSON.`,
               },
               ...documentParts,
             ],
@@ -596,19 +535,190 @@ export class DocumentAnomalyService {
         ],
       });
 
-      return result.object as SuggestionsResult;
+      const parsed = this.parseJsonFromText(result.text);
+      return this.normalizeSuggestionsResult(parsed);
     } catch (error) {
       if (error instanceof TRPCError) throw error;
       console.error("[document-anomaly] generateSuggestions failed:", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          error instanceof Error
-            ? `Analyse des documents impossible: ${error.message}`
-            : "Erreur lors de l'analyse des documents pour suggestions. Veuillez reessayer.",
-        cause: error,
-      });
+      return { suggestions: [] };
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // JSON parsing helpers
+  // ---------------------------------------------------------------------------
+
+  private parseJsonFromText(text: string): unknown {
+    const trimmed = text.trim();
+    // Strip markdown code fences
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const raw = fenced?.[1]?.trim() ?? trimmed;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // Try to find first { or [ and last } or ]
+      const start = raw.search(/[\[{]/);
+      const end = Math.max(raw.lastIndexOf("}"), raw.lastIndexOf("]"));
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(raw.slice(start, end + 1));
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  }
+
+  private normalizeVerificationResult(
+    parsed: unknown,
+  ): VerificationResult {
+    if (!parsed || typeof parsed !== "object") {
+      return this.fallbackVerification();
+    }
+    const obj = parsed as Record<string, unknown>;
+    return {
+      verifiable:
+        typeof obj.verifiable === "boolean" ? obj.verifiable : true,
+      patient_match:
+        typeof obj.patient_match === "boolean" ? obj.patient_match : false,
+      confidence:
+        typeof obj.confidence === "number"
+          ? obj.confidence
+          : typeof obj.confidence_score === "number"
+            ? obj.confidence_score
+            : 0,
+      details:
+        typeof obj.details === "string"
+          ? obj.details
+          : typeof obj.explanation === "string"
+            ? obj.explanation
+            : "Verification d'identite impossible.",
+      matched_fields: Array.isArray(obj.matched_fields)
+        ? (obj.matched_fields as string[])
+        : [],
+      mismatched_fields: Array.isArray(obj.mismatched_fields)
+        ? (obj.mismatched_fields as { field: string; expected: string; found: string }[])
+        : [],
+    };
+  }
+
+  private fallbackVerification(): VerificationResult {
+    return {
+      verifiable: false,
+      patient_match: false,
+      confidence: 0,
+      details: "Verification impossible (modele incompatible).",
+      matched_fields: [],
+      mismatched_fields: [],
+    };
+  }
+
+  private normalizeSuggestionsResult(parsed: unknown): SuggestionsResult {
+    if (!parsed || typeof parsed !== "object") {
+      return { suggestions: [] };
+    }
+    const obj = parsed as Record<string, unknown>;
+    const raw = Array.isArray(obj) ? obj : Array.isArray(obj.suggestions) ? obj.suggestions : [];
+    const suggestions = raw
+      .filter(
+        (s: unknown) =>
+          s && typeof s === "object" && "table" in (s as Record<string, unknown>) && "field" in (s as Record<string, unknown>),
+      )
+      .map((s: unknown) => {
+        const item = s as Record<string, unknown>;
+        return {
+          table: String(item.table ?? "patients"),
+          field: String(item.field ?? ""),
+          category: String(item.category ?? "other") as "demographic" | "lab_value" | "antecedent" | "treatment" | "vaccination" | "other",
+          current_value: item.current_value != null ? String(item.current_value) : null,
+          suggested_value: String(item.suggested_value ?? ""),
+          reason: String(item.reason ?? ""),
+          confidence: typeof item.confidence === "number" ? item.confidence : 0.5,
+          severity: item.severity != null ? String(item.severity) as "normal" | "abnormal" | "critical" : undefined,
+          source: item.source && typeof item.source === "object"
+            ? {
+                document_key: String((item.source as Record<string, unknown>).document_key ?? "unknown"),
+                modality: String((item.source as Record<string, unknown>).modality ?? "unknown") as DocumentModality,
+                snippet: (item.source as Record<string, unknown>).snippet != null
+                  ? String((item.source as Record<string, unknown>).snippet)
+                  : undefined,
+              }
+            : undefined,
+        };
+      });
+    return { suggestions };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Proposed actions builder
+  // ---------------------------------------------------------------------------
+
+  private buildProposedActions(
+    suggestions: NonNullable<DocumentAnalysisResult["suggestions"]>,
+    patientId: string,
+  ): DocumentAnalysisResult["proposed_actions"] {
+    const actions: DocumentAnalysisResult["proposed_actions"] = [];
+
+    for (const suggestion of suggestions) {
+      const actionId = `act_${suggestion.suggestion_id}`;
+
+      if (suggestion.table === "patients" || suggestion.table === "patients_femmes") {
+        const updateData: Record<string, unknown> = {};
+        if (suggestion.table === "patients_femmes") {
+          updateData.female_data = { [suggestion.field]: suggestion.suggested_value };
+        } else {
+          updateData[suggestion.field] = suggestion.suggested_value;
+        }
+        actions.push({
+          action_id: actionId,
+          mutation: "patient.updatePatient",
+          input: { id: patientId, data: updateData },
+          description: `Mettre a jour ${suggestion.field} du patient`,
+          suggestion_ids: [suggestion.suggestion_id],
+        });
+      } else if (suggestion.table === "antecedents") {
+        actions.push({
+          action_id: actionId,
+          mutation: "medicalHistory.ajouterAntecedent",
+          input: {
+            patient_id: patientId,
+            type: "personnel",
+            description: suggestion.suggested_value,
+            personnel: { type: suggestion.field, est_actif: true },
+          },
+          description: `Ajouter un antecedent: ${suggestion.suggested_value}`,
+          suggestion_ids: [suggestion.suggestion_id],
+        });
+      } else if (suggestion.table === "historique_traitements") {
+        actions.push({
+          action_id: actionId,
+          mutation: "treatment.startTreatment",
+          input: {
+            patient_id: patientId,
+            medicament_externe_id: suggestion.field,
+            posologie: suggestion.suggested_value,
+            date_prescription: new Date().toISOString().split("T")[0],
+          },
+          description: `Demarrer un traitement: ${suggestion.suggested_value}`,
+          suggestion_ids: [suggestion.suggestion_id],
+        });
+      } else if (suggestion.table === "vaccinations_patient") {
+        actions.push({
+          action_id: actionId,
+          mutation: "vaccination.recordVaccination",
+          input: {
+            patient_id: patientId,
+            vaccin: suggestion.suggested_value,
+            date_vaccination: new Date().toISOString().split("T")[0],
+          },
+          description: `Enregistrer une vaccination: ${suggestion.suggested_value}`,
+          suggestion_ids: [suggestion.suggestion_id],
+        });
+      }
+    }
+
+    return actions;
   }
 
   // ---------------------------------------------------------------------------
@@ -749,6 +859,7 @@ export class DocumentAnomalyService {
   private deriveIdentityRisk(
     verification: VerificationResult,
   ): "low" | "medium" | "high" {
+    if (!verification.verifiable) return "medium";
     if (!verification.patient_match && verification.confidence < 0.5) {
       return "high";
     }
@@ -761,13 +872,8 @@ export class DocumentAnomalyService {
   private postProcessSuggestions(
     suggestions: SuggestionsResult["suggestions"],
     classifiedDocuments: ClassifiedDocument[],
-    patientId: string,
   ): ProcessedSuggestionsResult {
     const deduped = new Map<string, NonNullable<DocumentAnalysisResult["suggestions"]>[number]>();
-    const actionableByPath = new Map<
-      string,
-      NonNullable<DocumentAnalysisResult["suggestions"]>[number]
-    >();
 
     suggestions.forEach((suggestion, index) => {
       const suggestionId = `sug_${index + 1}`;
@@ -779,22 +885,12 @@ export class DocumentAnomalyService {
         validationFlags.push("empty_suggested_value");
       }
 
-      const mapping = this.resolveSuggestionTarget(suggestion.table, suggestion.field);
-      if (!mapping) {
-        validationFlags.push("unsupported_field");
-      }
-
-      const parsedValue = mapping
-        ? this.parseSuggestedValue(suggestion.suggested_value, mapping.kind)
-        : { ok: false as const, reason: "unsupported_field" as const };
-
-      if (!parsedValue.ok) {
-        validationFlags.push("invalid_value_for_field");
-      }
-
       const selectedSource =
         suggestion.source ??
         this.selectBestSourceForSuggestion(classifiedDocuments, suggestion.table);
+
+      const category =
+        suggestion.category as NonNullable<DocumentAnalysisResult["suggestions"]>[number]["category"];
 
       const dedupeKey = [
         suggestion.table,
@@ -807,37 +903,15 @@ export class DocumentAnomalyService {
         suggestion_id: suggestionId,
         table: suggestion.table,
         field: suggestion.field,
-        target_path: mapping?.targetPath,
+        category: category ?? "other",
         current_value: suggestion.current_value,
         suggested_value: suggestion.suggested_value,
         reason: suggestion.reason,
         confidence: suggestion.confidence,
+        severity: suggestion.severity as NonNullable<DocumentAnalysisResult["suggestions"]>[number]["severity"],
         source: selectedSource,
         validation_flags: validationFlags,
       };
-
-      if (mapping && parsedValue.ok) {
-        const updateData = this.buildUpdatePatientData(
-          mapping,
-          parsedValue.value,
-        );
-        const validated = updatePatientDataSchema.safeParse(updateData);
-        if (validated.success) {
-          candidate.action = {
-            mutation: "patient.updatePatient",
-            input: {
-              id: patientId,
-              data: validated.data,
-            },
-            merge_key: `patient.updatePatient:${patientId}`,
-          };
-        } else {
-          candidate.validation_flags = [
-            ...(candidate.validation_flags ?? []),
-            "schema_validation_failed",
-          ];
-        }
-      }
 
       const existing = deduped.get(dedupeKey);
       if (!existing || existing.confidence < candidate.confidence) {
@@ -845,174 +919,9 @@ export class DocumentAnomalyService {
       }
     });
 
-    const finalSuggestions = Array.from(deduped.values());
-
-    for (const suggestion of finalSuggestions) {
-      if (!suggestion.action || !suggestion.target_path) continue;
-      const existing = actionableByPath.get(suggestion.target_path);
-      if (!existing || existing.confidence < suggestion.confidence) {
-        actionableByPath.set(suggestion.target_path, suggestion);
-      }
-    }
-
-    const proposedActions: PatientUpdateAction[] = [];
-    for (const suggestion of finalSuggestions) {
-      if (!suggestion.action) continue;
-      proposedActions.push({
-        action_id: `act_${suggestion.suggestion_id}`,
-        mode: "single",
-        mutation: "patient.updatePatient",
-        merge_key: suggestion.action.merge_key,
-        input: suggestion.action.input,
-        suggestion_ids: [suggestion.suggestion_id],
-      });
-    }
-
-    const mergeKey = `patient.updatePatient:${patientId}`;
-    const batchData: UpdatePatientData = {};
-    const batchSuggestionIds: string[] = [];
-
-    for (const suggestion of actionableByPath.values()) {
-      if (!suggestion.action) continue;
-      this.mergeUpdatePatientData(batchData, suggestion.action.input.data);
-      batchSuggestionIds.push(suggestion.suggestion_id);
-    }
-
-    const batchValidated = updatePatientDataSchema.safeParse(batchData);
-    if (batchValidated.success && batchSuggestionIds.length > 0) {
-      proposedActions.push({
-        action_id: "act_batch",
-        mode: "batch",
-        mutation: "patient.updatePatient",
-        merge_key: mergeKey,
-        input: {
-          id: patientId,
-          data: batchValidated.data,
-        },
-        suggestion_ids: batchSuggestionIds,
-      });
-    }
-
     return {
-      suggestions: finalSuggestions,
-      proposed_actions: proposedActions,
+      suggestions: Array.from(deduped.values()),
     };
-  }
-
-  private resolveSuggestionTarget(
-    table: string,
-    field: string,
-  ):
-    | {
-        kind:
-          | "string"
-          | "stringOrNull"
-          | "numberOrNull"
-          | "boolean"
-          | "booleanOrNull";
-        targetPath: string;
-      }
-    | null {
-    if (table === "patients") {
-      const kind = patientDirectFieldKinds[field as keyof typeof patientDirectFieldKinds];
-      if (!kind) return null;
-      return { kind, targetPath: `data.${field}` };
-    }
-
-    if (table === "patients_femmes") {
-      const kind = patientFemaleFieldKinds[field as keyof typeof patientFemaleFieldKinds];
-      if (!kind) return null;
-      return { kind, targetPath: `data.female_data.${field}` };
-    }
-
-    return null;
-  }
-
-  private parseSuggestedValue(
-    raw: string,
-    kind:
-      | "string"
-      | "stringOrNull"
-      | "numberOrNull"
-      | "boolean"
-      | "booleanOrNull",
-  ):
-    | { ok: true; value: string | number | boolean | null }
-    | { ok: false; reason: string } {
-    const value = raw.trim();
-    const nullLike = ["null", "aucun", "aucune", "non renseigne", "none", "n/a"];
-    const isNullLike = value.length === 0 || nullLike.includes(value.toLowerCase());
-
-    if (kind === "string") {
-      if (isNullLike) return { ok: false, reason: "empty_string" };
-      return { ok: true, value };
-    }
-
-    if (kind === "stringOrNull") {
-      return isNullLike ? { ok: true, value: null } : { ok: true, value };
-    }
-
-    if (kind === "numberOrNull") {
-      if (isNullLike) return { ok: true, value: null };
-      const normalized = value.replace(",", ".");
-      const numberValue = Number(normalized);
-      if (!Number.isFinite(numberValue) || !Number.isInteger(numberValue)) {
-        return { ok: false, reason: "invalid_number" };
-      }
-      return { ok: true, value: numberValue };
-    }
-
-    if (kind === "boolean" || kind === "booleanOrNull") {
-      if (kind === "booleanOrNull" && isNullLike) {
-        return { ok: true, value: null };
-      }
-
-      const truthy = ["true", "oui", "yes", "1", "actif"];
-      const falsy = ["false", "non", "no", "0", "inactif"];
-      const lowered = value.toLowerCase();
-
-      if (truthy.includes(lowered)) return { ok: true, value: true };
-      if (falsy.includes(lowered)) return { ok: true, value: false };
-      return { ok: false, reason: "invalid_boolean" };
-    }
-
-    return { ok: false, reason: "unsupported_kind" };
-  }
-
-  private buildUpdatePatientData(
-    mapping: { targetPath: string },
-    value: string | number | boolean | null,
-  ): UpdatePatientData {
-    if (mapping.targetPath.startsWith("data.female_data.")) {
-      const field = mapping.targetPath.replace("data.female_data.", "");
-      return {
-        female_data: {
-          [field]: value,
-        },
-      };
-    }
-
-    const field = mapping.targetPath.replace("data.", "");
-    return {
-      [field]: value,
-    };
-  }
-
-  private mergeUpdatePatientData(
-    target: UpdatePatientData,
-    patch: UpdatePatientData,
-  ): void {
-    for (const [key, value] of Object.entries(patch)) {
-      if (key === "female_data") {
-        const femalePatch = value ?? {};
-        target.female_data = {
-          ...(target.female_data ?? {}),
-          ...(femalePatch as NonNullable<UpdatePatientData["female_data"]>),
-        };
-        continue;
-      }
-      (target as Record<string, unknown>)[key] = value;
-    }
   }
 
   private selectBestSourceForSuggestion(
