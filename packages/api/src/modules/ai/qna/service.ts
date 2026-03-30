@@ -1,10 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { generateText } from "ai";
-import { createMistral } from "@ai-sdk/mistral";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
 
 import type { SessionUtilisateur } from "../../../trpc/context";
+import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
 import { aiRepository, type FullPatientData } from "./repo";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
@@ -19,15 +17,6 @@ export class AiService {
     patient_id: string;
     question: string;
   }): Promise<{ answer: string }> {
-    // Check API key is available
-    if (!env.MISTRAL_API_KEY) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "MISTRAL_API_KEY n'est pas configuree. Veuillez ajouter la cle API dans les variables d'environnement.",
-      });
-    }
-
     // Resolve authenticated utilisateur
     await this.resolveUtilisateur(data.db, data.session);
 
@@ -44,16 +33,20 @@ export class AiService {
     // Build the structured patient context
     const patientContext = this.buildPatientPrompt(patientData);
 
-    // Call Mistral via Vercel AI SDK
-    const mistral = createMistral({
-      apiKey: env.MISTRAL_API_KEY,
-    });
-
-    const result = await generateText({
-      model: mistral("mistral-large-latest"),
+    const provider = resolveGeminiProvider();
+    const result = await generateGeminiText({
+      provider,
       system:
-        "Vous etes un assistant medical destine aux medecins. Regles strictes :\n\n1. Repondez UNIQUEMENT a la question posee — ne mentionnez pas d'informations provenant d'autres sections des donnees qui ne sont pas directement liees a la question.\n2. Basez-vous exclusivement sur les donnees du patient fournies ci-dessous.\n3. Soyez bref et direct : quelques lignes suffisent pour une question factuelle simple. N'ajoutez pas de recapitulatif, de contexte supplementaire ou de sections non demandees.\n4. Ne speculez pas sur les donnees manquantes. Mentionnez l'absence d'information UNIQUEMENT si la question porte specifiquement sur une donnee absente.\n5. Repondez en francais. Utilisez le Markdown (listes, gras) uniquement si cela ameliore la lisibilite — pas de titres inutiles pour les reponses courtes.",
-      prompt: `## Donnees du patient\n\n${patientContext}\n\n## Question du medecin\n\n${data.question}`,
+        "Vous etes un assistant medical destine aux medecins. Repondez uniquement a la question posee, basez-vous uniquement sur les donnees fournies, soyez bref, n'inventez rien et repondez en francais simple.",
+      prompt: `## Donnees du patient
+
+${patientContext}
+
+## Question du medecin
+
+${data.question}`,
+      temperature: 0.1,
+      timeoutMs: 20000,
     });
 
     return { answer: result.text };
@@ -264,7 +257,7 @@ export class AiService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
     return email;
@@ -284,7 +277,7 @@ export class AiService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Utilisateur connecte introuvable.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 

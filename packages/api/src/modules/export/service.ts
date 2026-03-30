@@ -7,6 +7,55 @@ import { exportRepository } from "./repo";
 type DB = NodePgDatabase<any>;
 
 export class ExportService {
+  private ensureUtilisateurExportData<T>(value: T | null | undefined): T {
+    if (!value) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Le compte associé à cette session est introuvable.",
+      });
+    }
+
+    return value;
+  }
+
+  private ensurePatientExportData<T>(value: T | null | undefined): T {
+    if (!value) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Le patient demandé est introuvable.",
+      });
+    }
+
+    return value;
+  }
+
+  private async resolveUtilisateurIdByEmail(
+    db: DB,
+    email: string,
+  ): Promise<string> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "La session a expiré. Reconnectez-vous.",
+      });
+    }
+
+    const utilisateur = await exportRepository.findUtilisateurByEmail(
+      db,
+      normalizedEmail,
+    );
+
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Le compte associé à cette session est introuvable.",
+      });
+    }
+
+    return utilisateur.id;
+  }
+
   private createPDFHeader(
     doc: PDFKit.PDFDocument,
     doctorName: string,
@@ -47,19 +96,18 @@ export class ExportService {
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Ordonnance not found.",
+        message: "Cette ordonnance est introuvable.",
       });
     }
 
-    const { ordonnance: ord, medicaments, patient, utilisateur } = data;
+    const { ordonnance: ord, medicaments } = data;
+    const patient = this.ensurePatientExportData(data.patient);
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
 
     const doc = new PDFDocument();
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
-
-    if (!utilisateur) throw new Error("Utilisateur not found");
-    if (!patient) throw new Error("Patient not found");
 
     const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
     let yPos = this.createPDFHeader(
@@ -149,19 +197,18 @@ export class ExportService {
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Certificat médical not found.",
+        message: "Ce certificat est introuvable.",
       });
     }
 
-    const { certificat: cert, patient, utilisateur } = data;
+    const { certificat: cert } = data;
+    const patient = this.ensurePatientExportData(data.patient);
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
 
     const doc = new PDFDocument();
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
-
-    if (!utilisateur) throw new Error("Utilisateur not found");
-    if (!patient) throw new Error("Patient not found");
 
     const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
     let yPos = this.createPDFHeader(
@@ -263,19 +310,18 @@ export class ExportService {
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Lettre d'orientation not found.",
+        message: "Cette lettre est introuvable.",
       });
     }
 
-    const { lettre, patient, utilisateur } = data;
+    const { lettre } = data;
+    const patient = this.ensurePatientExportData(data.patient);
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
 
     const doc = new PDFDocument();
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
-
-    if (!utilisateur) throw new Error("Utilisateur not found");
-    if (!patient) throw new Error("Patient not found");
 
     const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
     let yPos = this.createPDFHeader(
@@ -388,7 +434,7 @@ export class ExportService {
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Patient not found.",
+        message: "Le patient demandé est introuvable.",
       });
     }
 
@@ -542,25 +588,25 @@ export class ExportService {
 
   async exporterAgenda(
     db: DB,
-    utilisateurId: string,
+    userEmail: string,
     date: string,
   ): Promise<Buffer> {
+    const utilisateurId = await this.resolveUtilisateurIdByEmail(db, userEmail);
     const data = await exportRepository.getAgendaForExport(db, utilisateurId, date);
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Agenda data not found.",
+        message: "Aucune donnée d’agenda n’a été trouvée pour cette date.",
       });
     }
 
-    const { rendezVous, utilisateur } = data;
+    const { rendezVous } = data;
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
 
     const doc = new PDFDocument();
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
-
-    if (!utilisateur) throw new Error("Utilisateur not found");
 
     const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
     let yPos = this.createPDFHeader(

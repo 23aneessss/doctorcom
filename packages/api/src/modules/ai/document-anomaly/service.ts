@@ -1,8 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { generateText } from "ai";
-import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { createHash } from "node:crypto";
@@ -21,12 +19,6 @@ import { documentAnomalyRepository, type FullPatientData } from "./repo";
 
 type DatabaseClient = typeof databaseClient;
 type AiSession = Exclude<SessionUtilisateur, null>;
-
-type AIProviderName =
-  | "openrouter"
-  | "together"
-  | "mistral"
-  | "google-ai-studio";
 
 interface DocumentContent {
   key: string;
@@ -379,66 +371,19 @@ export class DocumentAnomalyService {
   // ---------------------------------------------------------------------------
 
   private resolveAiProvider(): LanguageModel {
-    const providerFactories: Record<
-      AIProviderName,
-      (() => LanguageModel) | null
-    > = {
-      openrouter: env.OPENROUTER_API_KEY
-        ? () => {
-            const openai = createOpenAI({
-              apiKey: env.OPENROUTER_API_KEY,
-              baseURL: "https://openrouter.ai/api/v1",
-            });
-            return openai(env.OPENROUTER_MODEL);
-          }
-        : null,
-      together: env.TOGETHER_API_KEY
-        ? () => {
-            const openai = createOpenAI({
-              apiKey: env.TOGETHER_API_KEY,
-              baseURL: "https://api.together.xyz/v1",
-            });
-            return openai(env.TOGETHER_MODEL);
-          }
-        : null,
-      mistral: env.MISTRAL_API_KEY
-        ? () => {
-            const mistral = createMistral({ apiKey: env.MISTRAL_API_KEY });
-            return mistral(env.MISTRAL_MODEL);
-          }
-        : null,
-      "google-ai-studio": env.GEMINI_API_KEY
-        ? () => {
-            const google = createGoogleGenerativeAI({
-              apiKey: env.GEMINI_API_KEY,
-            });
-            return google(env.GEMINI_MODEL);
-          }
-        : null,
-    };
-
-    if (env.AI_PROVIDER) {
-      const factory = providerFactories[env.AI_PROVIDER];
-      if (!factory) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
-        });
-      }
-      return factory();
+    if (!env.GEMINI_API_KEY) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "La clé Gemini est absente. Ajoute GEMINI_API_KEY dans apps/server/.env.",
+      });
     }
 
-    if (providerFactories.openrouter) return providerFactories.openrouter();
-    if (providerFactories.together) return providerFactories.together();
-    if (providerFactories.mistral) return providerFactories.mistral();
-    if (providerFactories["google-ai-studio"])
-      return providerFactories["google-ai-studio"]();
-
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message:
-        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
+    const google = createGoogleGenerativeAI({
+      apiKey: env.GEMINI_API_KEY,
     });
+
+    return google(env.GEMINI_MODEL);
   }
 
   // ---------------------------------------------------------------------------
@@ -1270,7 +1215,7 @@ export class DocumentAnomalyService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
     return email;
@@ -1290,7 +1235,7 @@ export class DocumentAnomalyService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Utilisateur connecte introuvable.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 

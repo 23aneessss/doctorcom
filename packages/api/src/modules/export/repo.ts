@@ -22,6 +22,21 @@ import {
 } from "@doctor.com/db/schema";
 
 export class ExportRepository {
+  async findUtilisateurByEmail(db: DB, email: string) {
+    return db
+      .select({
+        id: utilisateurs.id,
+        nom: utilisateurs.nom,
+        prenom: utilisateurs.prenom,
+        adresse: utilisateurs.adresse,
+        telephone: utilisateurs.telephone,
+        email: utilisateurs.email,
+      })
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .then((rows) => rows[0] ?? null);
+  }
+
   async getOrdonnanceForExport(db: DB, id: string) {
     const ord = await db
       .select()

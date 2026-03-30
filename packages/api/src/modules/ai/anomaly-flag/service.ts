@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { generateObject } from "ai";
-import { createMistral } from "@ai-sdk/mistral";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import type { db as databaseClient } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
@@ -681,7 +681,7 @@ export class AnomalyFlagService {
     let aiSummary: string | null = null;
     let aiAvailable = false;
 
-    if (env.MISTRAL_API_KEY) {
+    if (env.GEMINI_API_KEY) {
       try {
         checkpoint("ai_started", {
           patient_id: data.patient_id,
@@ -761,7 +761,7 @@ export class AnomalyFlagService {
         });
       }
     } else {
-      logWarn("ai analysis skipped: MISTRAL_API_KEY missing");
+      logWarn("ai analysis skipped: GEMINI_API_KEY missing");
       checkpoint("ai_skipped_no_key");
     }
 
@@ -1088,7 +1088,7 @@ export class AnomalyFlagService {
     existingMedAnomalies: MedicationAnomaly[],
     existingGlobalAnomalies: GlobalAnomaly[],
   ): Promise<AiAnomalyResult> {
-    const mistral = createMistral({ apiKey: env.MISTRAL_API_KEY! });
+    const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY! });
 
     // Build the user prompt
     const userPrompt = this.buildAiUserPrompt(
@@ -1102,7 +1102,7 @@ export class AnomalyFlagService {
     );
 
     const result = await generateObject({
-      model: mistral("mistral-large-latest"),
+      model: google(env.GEMINI_MODEL),
       schema: aiAnomalyResultSchema,
       messages: [
         { role: "system", content: AI_SYSTEM_PROMPT },
@@ -1228,7 +1228,7 @@ export class AnomalyFlagService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
     return email;
@@ -1248,7 +1248,7 @@ export class AnomalyFlagService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Utilisateur connecte introuvable.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 

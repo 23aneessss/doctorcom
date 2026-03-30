@@ -4,6 +4,7 @@ import { db } from "@doctor.com/db";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { documentsService } from "@doctor.com/api/modules/documents/service";
 import { uploadFile } from "@doctor.com/api/infrastructure/storage";
+import { toSimpleFrenchRuntimeMessage } from "@doctor.com/api/trpc/error-messages";
 import { fromNodeHeaders } from "better-auth/node";
 import multer from "multer";
 
@@ -19,7 +20,7 @@ async function requireSession(req: express.Request, res: express.Response) {
     headers: fromNodeHeaders(req.headers),
   });
   if (!session) {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "La session a expiré. Reconnectez-vous." });
     return null;
   }
   return session;
@@ -35,7 +36,7 @@ async function requireUtilisateurId(email: string, res: express.Response): Promi
 
   if (!utilisateur) {
     res.status(400).json({
-      error: "Utilisateur applicatif introuvable pour cette session.",
+      error: "Le compte associé à cette session est introuvable.",
     });
     return null;
   }
@@ -87,7 +88,12 @@ router.post("/document", upload.single("file"), async (req, res) => {
     res.status(201).json(document);
   } catch (err: any) {
     console.error("Upload document error:", err);
-    res.status(500).json({ error: err?.message ?? "Erreur interne." });
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
   }
 });
 
@@ -166,7 +172,12 @@ router.post("/lettre", upload.single("file"), async (req, res) => {
     res.status(201).json(result);
   } catch (err: any) {
     console.error("Upload lettre error:", err);
-    res.status(500).json({ error: err?.message ?? "Erreur interne." });
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
   }
 });
 
@@ -251,7 +262,12 @@ router.post("/certificat", upload.single("file"), async (req, res) => {
     res.status(201).json(result);
   } catch (err: any) {
     console.error("Upload certificat error:", err);
-    res.status(500).json({ error: err?.message ?? "Erreur interne." });
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
   }
 });
 

@@ -66,7 +66,7 @@ export const exportRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const pdfBuffer = await exportService.exporterAgenda(
         ctx.db,
-        ctx.session.user.id,
+        ctx.session.user.email,
         input.date,
       );
       return {

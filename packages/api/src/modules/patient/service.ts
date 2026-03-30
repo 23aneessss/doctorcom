@@ -424,7 +424,7 @@ export class PatientService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
 
@@ -432,7 +432,7 @@ export class PatientService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur introuvable pour la session active.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 
