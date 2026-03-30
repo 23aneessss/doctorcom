@@ -810,7 +810,7 @@ export class DocumentsService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
 
@@ -818,7 +818,7 @@ export class DocumentsService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur introuvable pour la session courante.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 

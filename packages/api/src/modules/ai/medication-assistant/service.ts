@@ -400,7 +400,7 @@ export class MedicationAssistantService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
 
@@ -412,7 +412,7 @@ export class MedicationAssistantService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur metier introuvable pour cette session.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 
@@ -514,7 +514,7 @@ export class MedicationAssistantService {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message:
-          "La passe de construction de contexte medicament n'a pas retourne de JSON exploitable.",
+          "La demande n’a pas pu être comprise correctement par le service d’aide médicale.",
       });
     }
 
@@ -1436,7 +1436,7 @@ export class MedicationAssistantService {
   }
 
   private buildProviderFallbackWarning(error: unknown, stage: string): string {
-    return `Le service AI n'a pas pu finaliser la ${stage}. Une logique locale de secours a ete utilisee. ${toSimpleFrenchAiMessage(error)}`.trim();
+    return `Le service d’aide médicale n’a pas pu finaliser ${stage}. Une logique locale de secours a été utilisée. ${toSimpleFrenchAiMessage(error)}`.trim();
   }
 
   private async generateAiResponse(data: {
@@ -1571,7 +1571,7 @@ export class MedicationAssistantService {
       if (!candidate) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Le modele a reference un medicament hors shortlist.",
+          message: "La réponse du service d’aide médicale n’a pas pu être validée correctement.",
         });
       }
 

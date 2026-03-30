@@ -27,8 +27,7 @@ export function resolveGeminiProvider(): GeminiProviderConfig {
   if (!env.GEMINI_API_KEY) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message:
-        "La clé Gemini est absente. Ajoute GEMINI_API_KEY dans apps/server/.env.",
+      message: "Le service d’aide médicale n’est pas disponible pour le moment.",
     });
   }
 

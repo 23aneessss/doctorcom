@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
 
 import type { TRPCContext } from "./context";
+import { toSimpleFrenchRuntimeMessage } from "./error-messages";
 
 export const trpc = initTRPC.context<TRPCContext>().create({
   errorFormatter({ shape, error }) {
@@ -20,12 +21,20 @@ export const trpc = initTRPC.context<TRPCContext>().create({
     if (error.code === "PARSE_ERROR") {
       return {
         ...shape,
-        message:
-          "La requete recue par le serveur est invalide. Reessaie avec une saisie plus simple.",
+        message: toSimpleFrenchRuntimeMessage({
+          code: error.code,
+          message: shape.message,
+        }),
       };
     }
 
-    return shape;
+    return {
+      ...shape,
+      message: toSimpleFrenchRuntimeMessage({
+        code: error.code,
+        message: shape.message,
+      }),
+    };
   },
 });
 
@@ -35,7 +44,7 @@ export const protectedProcedure = trpc.procedure.use(({ ctx, next }) => {
   if (!ctx.session) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Authentification requise.",
+      message: "La session a expiré. Reconnectez-vous.",
     });
   }
 

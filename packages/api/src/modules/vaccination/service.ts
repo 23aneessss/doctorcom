@@ -125,7 +125,7 @@ export class VaccinationService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
   }

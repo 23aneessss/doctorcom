@@ -1215,7 +1215,7 @@ export class DocumentAnomalyService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
     return email;
@@ -1235,7 +1235,7 @@ export class DocumentAnomalyService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Utilisateur connecte introuvable.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 

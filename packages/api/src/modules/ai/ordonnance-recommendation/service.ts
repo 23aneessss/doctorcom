@@ -430,7 +430,7 @@ export class OrdonnanceRecommendationService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
 
@@ -442,7 +442,7 @@ export class OrdonnanceRecommendationService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur metier introuvable pour cette session.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 
@@ -1011,7 +1011,7 @@ export class OrdonnanceRecommendationService {
     if (!parsedResponse) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "La réponse du modèle AI n'est pas un JSON valide.",
+        message: "La réponse du service d’aide médicale n’a pas pu être exploitée.",
       });
     }
 
@@ -1056,7 +1056,7 @@ export class OrdonnanceRecommendationService {
             throw new TRPCError({
               code: "INTERNAL_SERVER_ERROR",
               message:
-                "Le modele AI a retourne un medicament absent de la shortlist validee.",
+                "La réponse du service d’aide médicale n’a pas pu être validée correctement.",
             });
           }
 
@@ -1064,7 +1064,7 @@ export class OrdonnanceRecommendationService {
             throw new TRPCError({
               code: "INTERNAL_SERVER_ERROR",
               message:
-                "Le modele AI a retourne le meme medicament plusieurs fois dans une meme recommandation.",
+                "La réponse du service d’aide médicale contient des doublons incohérents.",
             });
           }
 
@@ -1391,7 +1391,7 @@ export class OrdonnanceRecommendationService {
   }
 
   private buildProviderFallbackWarning(error: unknown, stage: string): string {
-    return `Le service AI n'a pas pu finaliser le ${stage}. Une logique locale de secours a été utilisée. ${toSimpleFrenchAiMessage(error)}`.trim();
+    return `Le service d’aide médicale n’a pas pu finaliser ${stage}. Une logique locale de secours a été utilisée. ${toSimpleFrenchAiMessage(error)}`.trim();
   }
 
   private buildProviderPrompt(

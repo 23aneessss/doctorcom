@@ -1001,7 +1001,7 @@ export class OrdonnanceService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur introuvable pour la session courante.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 
@@ -1013,7 +1013,7 @@ export class OrdonnanceService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
     return email;

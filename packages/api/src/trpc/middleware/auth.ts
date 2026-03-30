@@ -6,7 +6,7 @@ export const requireAuth = trpc.middleware(({ ctx, next }) => {
   if (!ctx.session) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Authentification requise.",
+      message: "La session a expiré. Reconnectez-vous.",
     });
   }
 

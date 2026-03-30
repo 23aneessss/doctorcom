@@ -234,7 +234,7 @@ export class HypotheseDiagnosticService {
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Session invalide: email utilisateur manquant.",
+        message: "La session a expiré. Reconnectez-vous.",
       });
     }
 
@@ -246,7 +246,7 @@ export class HypotheseDiagnosticService {
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Utilisateur metier introuvable pour cette session.",
+        message: "Le compte associé à cette session est introuvable.",
       });
     }
 
@@ -585,7 +585,7 @@ export class HypotheseDiagnosticService {
     if (!rawText) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Reponse vide du modele AI.",
+        message: "Aucune réponse fiable n’a pu être produite pour le moment.",
       });
     }
 
@@ -593,7 +593,7 @@ export class HypotheseDiagnosticService {
     if (!parsedResponse) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "La reponse du modele AI n'est pas un JSON valide.",
+        message: "La réponse du service d’aide médicale n’a pas pu être exploitée.",
       });
     }
 
@@ -604,8 +604,8 @@ export class HypotheseDiagnosticService {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: firstIssue
-          ? `La reponse du modele AI ne respecte pas le schema attendu: ${firstIssue.path.join(".") || "racine"} - ${firstIssue.message}.`
-          : "La reponse du modele AI ne respecte pas le schema attendu.",
+          ? "La réponse du service d’aide médicale est incomplète ou incohérente."
+          : "La réponse du service d’aide médicale est incomplète ou incohérente.",
       });
     }
 

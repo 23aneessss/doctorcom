@@ -65,7 +65,7 @@ export function getObjectNameFromUrl(url: string): string {
   const pathPrefix = `/${storageConfig.bucket}/`;
 
   if (!parsedUrl.pathname.startsWith(pathPrefix)) {
-    throw new Error("Invalid MinIO URL format.");
+    throw new Error("Le lien de stockage du document est invalide.");
   }
 
   return decodeURIComponent(parsedUrl.pathname.slice(pathPrefix.length));

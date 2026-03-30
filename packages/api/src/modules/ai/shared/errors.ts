@@ -40,11 +40,11 @@ export function toSimpleFrenchAiMessage(error: unknown): string {
     message.includes("timeout") ||
     status === 408
   ) {
-    return "Le service AI met trop de temps à répondre. Réessaie dans un instant.";
+    return "Le service d’aide médicale met trop de temps à répondre. Réessaie dans un instant.";
   }
 
   if (status === 401 || status === 403 || message.includes("api key")) {
-    return "La configuration du service AI est invalide. Vérifie la clé Gemini.";
+    return "Le service d’aide médicale n’est pas disponible pour le moment.";
   }
 
   if (
@@ -53,19 +53,20 @@ export function toSimpleFrenchAiMessage(error: unknown): string {
     message.includes("rate limit") ||
     message.includes("too many requests")
   ) {
-    return "Le service AI est temporairement saturé ou le quota Gemini est atteint. Réessaie un peu plus tard.";
+    return "Le service d’aide médicale est temporairement saturé. Réessaie un peu plus tard.";
   }
 
   if (
     status === 400 ||
     message.includes("schema") ||
     message.includes("constraint") ||
-    message.includes("invalid")
+    message.includes("invalid") ||
+    message.includes("json")
   ) {
-    return "La demande AI n’a pas pu être traitée avec ce format. Réessaie avec une demande plus simple.";
+    return "La réponse du service d’aide médicale n’a pas pu être exploitée. Réessaie avec une demande plus simple.";
   }
 
-  return "Le service AI n’a pas pu produire une réponse exploitable pour le moment.";
+  return "Aucune réponse fiable n’a pu être produite pour le moment.";
 }
 
 export function mapGeminiProviderError(error: unknown): TRPCError {
