@@ -1,8 +1,17 @@
 import { TRPCError } from "@trpc/server";
-import { GoogleGenAI } from "@google/genai";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
-import { z } from "zod";
+
+import { toSimpleFrenchAiMessage } from "../shared/errors";
+import { parseModelJson as parseSharedModelJson } from "../shared/json";
+import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
+import {
+  aiResponseSchema,
+  structuredQuerySchema,
+  type MedicationAssistantIntent,
+  type MedicationPolicyProfile,
+  type NormalizedModelResponse,
+  type StructuredMedicationQuery,
+} from "./schema";
 
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
@@ -13,28 +22,7 @@ import {
 
 type DatabaseClient = typeof databaseClient;
 type MedicationAssistantSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName =
-  | "openrouter"
-  | "together"
-  | "mistral"
-  | "google-ai-studio";
-type MedicationAssistantIntent =
-  | "search"
-  | "explain"
-  | "compare"
-  | "safety"
-  | "out_of_scope";
-type MedicationPolicyProfile =
-  | "generic"
-  | "antipyretic_simple"
-  | "analgesic_simple"
-  | "cough_wet"
-  | "cough_dry"
-  | "nasal_congestion"
-  | "bronchodilator_inhaled"
-  | "antibiotic_general"
-  | "safety_lookup"
-  | "comparison_general";
+type AIProviderName = "google-ai-studio";
 
 interface AIProviderConfig {
   name: AIProviderName;
@@ -90,44 +78,6 @@ interface CandidateMedication {
   features: CandidateMedicationFeatures;
 }
 
-interface StructuredMedicationQuery {
-  intent: MedicationAssistantIntent;
-  normalized_user_goal: string;
-  requires_patient_context: boolean;
-  medication_names_mentioned: string[];
-  substances_mentioned: string[];
-  therapeutic_classes_mentioned: string[];
-  clinical_uses_mentioned: string[];
-  safety_topics_requested: string[];
-  requested_constraints: string[];
-  comparison_requested: boolean;
-  response_style: string;
-  confidence: number | null;
-}
-
-interface ModelReferencedMedication {
-  medicament_externe_id: string;
-  why_relevant: string;
-  highlights: string[];
-}
-
-interface ModelComparisonItem {
-  medicament_externe_id: string;
-  strengths: string[];
-  cautions: string[];
-}
-
-interface NormalizedModelResponse {
-  answer: string;
-  referenced_medicaments: ModelReferencedMedication[];
-  comparison: {
-    summary: string;
-    items: ModelComparisonItem[];
-  } | null;
-  warnings: string[];
-  follow_up_suggestions: string[];
-}
-
 export interface MedicationAssistantResult {
   provider: AIProviderName;
   model: string;
@@ -157,196 +107,8 @@ export interface MedicationAssistantResult {
   requires_patient_context: boolean;
 }
 
-const providerTimeoutMs = 25000;
 const medicationAssistantDisclaimer =
   "Assistant global du catalogue medicaments. Il ne remplace pas la verification contextuelle sur un patient reel.";
-
-const medicationReferenceSchema = z.object({
-  medicament_externe_id: z.string().trim().min(1),
-  why_relevant: z.string().trim().min(1).max(500),
-  highlights: z.array(z.string().trim().min(1).max(280)).max(6),
-});
-
-const comparisonItemSchema = z.object({
-  medicament_externe_id: z.string().trim().min(1),
-  strengths: z.array(z.string().trim().min(1).max(280)).max(6),
-  cautions: z.array(z.string().trim().min(1).max(280)).max(6),
-});
-
-const aiResponseSchema = z.object({
-  answer: z.string().trim().min(1).max(2500),
-  referenced_medicaments: z.array(medicationReferenceSchema).max(8).default([]),
-  comparison: z
-    .object({
-      summary: z.string().trim().min(1).max(1200),
-      items: z.array(comparisonItemSchema).min(2).max(4),
-    })
-    .nullable()
-    .default(null),
-  warnings: z.array(z.string().trim().min(1).max(280)).max(12).default([]),
-  follow_up_suggestions: z
-    .array(z.string().trim().min(1).max(280))
-    .max(8)
-    .default([]),
-});
-
-const structuredQuerySchema = z.object({
-  intent: z
-    .enum(["search", "explain", "compare", "safety", "out_of_scope"])
-    .default("search"),
-  normalized_user_goal: z.string().trim().min(1).max(500),
-  requires_patient_context: z.boolean().default(false),
-  medication_names_mentioned: z.array(z.string().trim().min(1).max(160)).max(8).default([]),
-  substances_mentioned: z.array(z.string().trim().min(1).max(160)).max(8).default([]),
-  therapeutic_classes_mentioned: z
-    .array(z.string().trim().min(1).max(200))
-    .max(8)
-    .default([]),
-  clinical_uses_mentioned: z.array(z.string().trim().min(1).max(200)).max(8).default([]),
-  safety_topics_requested: z.array(z.string().trim().min(1).max(200)).max(8).default([]),
-  requested_constraints: z.array(z.string().trim().min(1).max(200)).max(8).default([]),
-  comparison_requested: z.boolean().default(false),
-  response_style: z.string().trim().min(1).max(120).default("concise_clinical"),
-  confidence: z.number().min(0).max(1).nullable().default(null),
-});
-
-const openRouterResponseJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "answer",
-    "referenced_medicaments",
-    "comparison",
-    "warnings",
-    "follow_up_suggestions",
-  ],
-  properties: {
-    answer: { type: "string" },
-    referenced_medicaments: {
-      type: "array",
-      maxItems: 8,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["medicament_externe_id", "why_relevant", "highlights"],
-        properties: {
-          medicament_externe_id: { type: "string" },
-          why_relevant: { type: "string" },
-          highlights: {
-            type: "array",
-            items: { type: "string" },
-          },
-        },
-      },
-    },
-    comparison: {
-      anyOf: [
-        {
-          type: "null",
-        },
-        {
-          type: "object",
-          additionalProperties: false,
-          required: ["summary", "items"],
-          properties: {
-            summary: { type: "string" },
-            items: {
-              type: "array",
-              minItems: 2,
-              maxItems: 4,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                required: ["medicament_externe_id", "strengths", "cautions"],
-                properties: {
-                  medicament_externe_id: { type: "string" },
-                  strengths: {
-                    type: "array",
-                    items: { type: "string" },
-                  },
-                  cautions: {
-                    type: "array",
-                    items: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
-        },
-      ],
-    },
-    warnings: {
-      type: "array",
-      items: { type: "string" },
-    },
-    follow_up_suggestions: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-} as const;
-
-const structuredQueryJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "intent",
-    "normalized_user_goal",
-    "requires_patient_context",
-    "medication_names_mentioned",
-    "substances_mentioned",
-    "therapeutic_classes_mentioned",
-    "clinical_uses_mentioned",
-    "safety_topics_requested",
-    "requested_constraints",
-    "comparison_requested",
-    "response_style",
-    "confidence",
-  ],
-  properties: {
-    intent: {
-      type: "string",
-      enum: ["search", "explain", "compare", "safety", "out_of_scope"],
-    },
-    normalized_user_goal: { type: "string" },
-    requires_patient_context: { type: "boolean" },
-    medication_names_mentioned: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    substances_mentioned: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    therapeutic_classes_mentioned: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    clinical_uses_mentioned: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    safety_topics_requested: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    requested_constraints: {
-      type: "array",
-      items: { type: "string" },
-      maxItems: 8,
-    },
-    comparison_requested: { type: "boolean" },
-    response_style: { type: "string" },
-    confidence: {
-      anyOf: [{ type: "null" }, { type: "number", minimum: 0, maximum: 1 }],
-    },
-  },
-} as const;
 
 const medicationStopWords = new Set([
   "alors",
@@ -627,70 +389,7 @@ export class MedicationAssistantService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    const providerConfigs: Record<AIProviderName, AIProviderConfig | null> = {
-      openrouter: env.OPENROUTER_API_KEY
-        ? {
-            name: "openrouter",
-            model: env.OPENROUTER_MODEL,
-            apiKey: env.OPENROUTER_API_KEY,
-          }
-        : null,
-      together: env.TOGETHER_API_KEY
-        ? {
-            name: "together",
-            model: env.TOGETHER_MODEL,
-            apiKey: env.TOGETHER_API_KEY,
-          }
-        : null,
-      mistral: env.MISTRAL_API_KEY
-        ? {
-            name: "mistral",
-            model: env.MISTRAL_MODEL,
-            apiKey: env.MISTRAL_API_KEY,
-          }
-        : null,
-      "google-ai-studio": env.GEMINI_API_KEY
-        ? {
-            name: "google-ai-studio",
-            model: env.GEMINI_MODEL,
-            apiKey: env.GEMINI_API_KEY,
-          }
-        : null,
-    };
-
-    if (env.AI_PROVIDER) {
-      const selectedProvider = providerConfigs[env.AI_PROVIDER];
-      if (!selectedProvider) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
-        });
-      }
-
-      return selectedProvider;
-    }
-
-    if (providerConfigs.openrouter) {
-      return providerConfigs.openrouter;
-    }
-
-    if (providerConfigs.together) {
-      return providerConfigs.together;
-    }
-
-    if (providerConfigs.mistral) {
-      return providerConfigs.mistral;
-    }
-
-    if (providerConfigs["google-ai-studio"]) {
-      return providerConfigs["google-ai-studio"];
-    }
-
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message:
-        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
-    });
+    return resolveGeminiProvider();
   }
 
   private async resolveUtilisateur(
@@ -803,34 +502,12 @@ export class MedicationAssistantService {
     selectedIds: number[];
     heuristicIntent: MedicationAssistantIntent;
   }): Promise<StructuredMedicationQuery> {
-    const rawText =
-      data.provider.name === "openrouter"
-        ? await this.generateStructuredQueryWithOpenRouter(
-            data.provider,
-            data.messages,
-            data.selectedIds,
-            data.heuristicIntent,
-          )
-        : data.provider.name === "together"
-          ? await this.generateStructuredQueryWithTogether(
-              data.provider,
-              data.messages,
-              data.selectedIds,
-              data.heuristicIntent,
-            )
-          : data.provider.name === "mistral"
-            ? await this.generateStructuredQueryWithMistral(
-                data.provider,
-                data.messages,
-                data.selectedIds,
-                data.heuristicIntent,
-              )
-            : await this.generateStructuredQueryWithGemini(
-                data.provider,
-                data.messages,
-                data.selectedIds,
-                data.heuristicIntent,
-              );
+    const rawText = await this.generateStructuredQueryWithGemini(
+      data.provider,
+      data.messages,
+      data.selectedIds,
+      data.heuristicIntent,
+    );
 
     const parsed = this.parseModelJson(rawText);
     if (!parsed) {
@@ -1419,222 +1096,28 @@ export class MedicationAssistantService {
     ].join("\n");
   }
 
-  private async generateStructuredQueryWithOpenRouter(
-    provider: AIProviderConfig,
-    messages: ChatMessage[],
-    selectedIds: number[],
-    heuristicIntent: MedicationAssistantIntent,
-  ): Promise<string> {
-    const response = await this.withProviderTimeout(
-      fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": env.CORS_ORIGIN,
-          "X-Title": "doctor-com-backend",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.1,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un constructeur de contexte pour un assistant medicaments. Tu retournes uniquement du JSON conforme au schema.",
-            },
-            {
-              role: "user",
-              content: this.buildStructuredQueryPrompt({
-                messages,
-                selectedIds,
-                heuristicIntent,
-              }),
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "medication_assistant_query_builder",
-              strict: true,
-              schema: structuredQueryJsonSchema,
-            },
-          },
-        }),
-      }),
-    ).catch((error) => {
-      throw this.mapAiProviderError(provider.name, error);
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
   private async generateStructuredQueryWithGemini(
     provider: AIProviderConfig,
     messages: ChatMessage[],
     selectedIds: number[],
     heuristicIntent: MedicationAssistantIntent,
   ): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: provider.apiKey });
-
-    const response = await this.withProviderTimeout(
-      ai.models.generateContent({
-        model: provider.model,
-        contents: this.buildStructuredQueryPrompt({
-          messages,
-          selectedIds,
-          heuristicIntent,
-        }),
-        config: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
-          responseJsonSchema: structuredQueryJsonSchema,
-        },
+    const response = await generateGeminiText({
+      provider,
+      prompt: this.buildStructuredQueryPrompt({
+        messages,
+        selectedIds,
+        heuristicIntent,
       }),
-    ).catch((error) => {
-      throw this.mapAiProviderError(provider.name, error);
+      system:
+        "Tu es un constructeur de contexte pour un assistant medicaments. Tu retournes uniquement du JSON conforme au format attendu.",
+      temperature: 0.1,
+      timeoutMs: 15000,
+    }).catch((error) => {
+      throw this.mapAiProviderError(error);
     });
 
-    return response.text?.trim() ?? "";
-  }
-
-  private async generateStructuredQueryWithTogether(
-    provider: AIProviderConfig,
-    messages: ChatMessage[],
-    selectedIds: number[],
-    heuristicIntent: MedicationAssistantIntent,
-  ): Promise<string> {
-    const response = await this.withProviderTimeout(
-      fetch("https://api.together.xyz/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.1,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un constructeur de contexte pour un assistant medicaments. Tu retournes uniquement du JSON conforme au schema.",
-            },
-            {
-              role: "user",
-              content: this.buildStructuredQueryPrompt({
-                messages,
-                selectedIds,
-                heuristicIntent,
-              }),
-            },
-          ],
-          response_format: {
-            type: "json_object",
-          },
-        }),
-      }),
-    ).catch((error) => {
-      throw this.mapAiProviderError(provider.name, error);
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  private async generateStructuredQueryWithMistral(
-    provider: AIProviderConfig,
-    messages: ChatMessage[],
-    selectedIds: number[],
-    heuristicIntent: MedicationAssistantIntent,
-  ): Promise<string> {
-    const response = await this.withProviderTimeout(
-      fetch("https://api.mistral.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.1,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un constructeur de contexte pour un assistant medicaments. Tu retournes uniquement du JSON conforme au schema.",
-            },
-            {
-              role: "user",
-              content: this.buildStructuredQueryPrompt({
-                messages,
-                selectedIds,
-                heuristicIntent,
-              }),
-            },
-          ],
-        }),
-      }),
-    ).catch((error) => {
-      throw this.mapAiProviderError(provider.name, error);
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
+    return response.text.trim();
   }
 
   private normalizeStructuredQuery(
@@ -1953,15 +1436,7 @@ export class MedicationAssistantService {
   }
 
   private buildProviderFallbackWarning(error: unknown, stage: string): string {
-    if (error instanceof TRPCError) {
-      return `Le provider AI n'a pas pu finaliser la ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message}`;
-    }
-
-    if (error instanceof Error && error.message.trim()) {
-      return `Le provider AI n'a pas pu finaliser la ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message.trim()}`;
-    }
-
-    return `Le provider AI n'a pas pu finaliser la ${stage}; une logique locale de secours a ete utilisee.`;
+    return `Le service AI n'a pas pu finaliser la ${stage}. Une logique locale de secours a ete utilisee. ${toSimpleFrenchAiMessage(error)}`.trim();
   }
 
   private async generateAiResponse(data: {
@@ -1972,48 +1447,14 @@ export class MedicationAssistantService {
     structuredQuery: StructuredMedicationQuery;
     policyProfile: MedicationPolicyProfile;
   }): Promise<NormalizedModelResponse | null> {
-    let rawText = "";
-
-    try {
-      rawText =
-        data.provider.name === "openrouter"
-          ? await this.generateWithOpenRouter(
-              data.provider,
-              data.intent,
-              data.messages,
-              data.shortlistedCandidates,
-              data.structuredQuery,
-              data.policyProfile,
-            )
-          : data.provider.name === "together"
-            ? await this.generateWithTogether(
-                data.provider,
-                data.intent,
-                data.messages,
-                data.shortlistedCandidates,
-                data.structuredQuery,
-                data.policyProfile,
-              )
-            : data.provider.name === "mistral"
-              ? await this.generateWithMistral(
-                  data.provider,
-                  data.intent,
-                  data.messages,
-                  data.shortlistedCandidates,
-                  data.structuredQuery,
-                  data.policyProfile,
-                )
-              : await this.generateWithGemini(
-                  data.provider,
-                  data.intent,
-                  data.messages,
-                  data.shortlistedCandidates,
-                  data.structuredQuery,
-                  data.policyProfile,
-                );
-    } catch (error) {
-      throw error;
-    }
+    const rawText = await this.generateWithGemini(
+      data.provider,
+      data.intent,
+      data.messages,
+      data.shortlistedCandidates,
+      data.structuredQuery,
+      data.policyProfile,
+    );
 
     const parsed = this.parseModelJson(rawText);
     if (!parsed) {
@@ -2031,39 +1472,7 @@ export class MedicationAssistantService {
   }
 
   private parseModelJson(rawText: string): unknown | null {
-    const trimmed = rawText.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const directParse = this.tryParseJson(trimmed);
-    if (directParse !== null) {
-      return directParse;
-    }
-
-    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fencedMatch?.[1]) {
-      const fencedParse = this.tryParseJson(fencedMatch[1].trim());
-      if (fencedParse !== null) {
-        return fencedParse;
-      }
-    }
-
-    const firstBrace = trimmed.indexOf("{");
-    const lastBrace = trimmed.lastIndexOf("}");
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      return this.tryParseJson(trimmed.slice(firstBrace, lastBrace + 1));
-    }
-
-    return null;
-  }
-
-  private tryParseJson(value: string): unknown | null {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
+    return parseSharedModelJson(rawText);
   }
 
   private normalizeModelResponse(raw: unknown): NormalizedModelResponse {
@@ -2680,94 +2089,6 @@ export class MedicationAssistantService {
     ].join("\n");
   }
 
-  private async generateWithOpenRouter(
-    provider: AIProviderConfig,
-    intent: MedicationAssistantIntent,
-    messages: ChatMessage[],
-    shortlistedCandidates: CandidateMedication[],
-    structuredQuery: StructuredMedicationQuery,
-    policyProfile: MedicationPolicyProfile,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": env.CORS_ORIGIN,
-            "X-Title": "doctor-com-backend",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant medicaments. Tu reponds uniquement avec un JSON valide conforme au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildAnswerPrompt({
-                  intent,
-                  messages,
-                  shortlistedCandidates,
-                  structuredQuery,
-                  policyProfile,
-                }),
-              },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "medication_assistant_chat",
-                strict: true,
-                schema: openRouterResponseJsonSchema,
-              },
-            },
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
   private async generateWithGemini(
     provider: AIProviderConfig,
     intent: MedicationAssistantIntent,
@@ -2776,278 +2097,38 @@ export class MedicationAssistantService {
     structuredQuery: StructuredMedicationQuery,
     policyProfile: MedicationPolicyProfile,
   ): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: provider.apiKey });
-
-    let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
     try {
-      response = await this.withProviderTimeout(
-        ai.models.generateContent({
-          model: provider.model,
-          contents: this.buildAnswerPrompt({
-            intent,
-            messages,
-            shortlistedCandidates,
-            structuredQuery,
-            policyProfile,
-          }),
-          config: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseJsonSchema: openRouterResponseJsonSchema,
-          },
+      const response = await generateGeminiText({
+        provider,
+        prompt: this.buildAnswerPrompt({
+          intent,
+          messages,
+          shortlistedCandidates,
+          structuredQuery,
+          policyProfile,
         }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    return response.text?.trim() ?? "";
-  }
-
-  private async generateWithTogether(
-    provider: AIProviderConfig,
-    intent: MedicationAssistantIntent,
-    messages: ChatMessage[],
-    shortlistedCandidates: CandidateMedication[],
-    structuredQuery: StructuredMedicationQuery,
-    policyProfile: MedicationPolicyProfile,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://api.together.xyz/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant medicaments. Tu reponds uniquement avec un JSON valide conforme au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildAnswerPrompt({
-                  intent,
-                  messages,
-                  shortlistedCandidates,
-                  structuredQuery,
-                  policyProfile,
-                }),
-              },
-            ],
-            response_format: {
-              type: "json_object",
-            },
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  private async generateWithMistral(
-    provider: AIProviderConfig,
-    intent: MedicationAssistantIntent,
-    messages: ChatMessage[],
-    shortlistedCandidates: CandidateMedication[],
-    structuredQuery: StructuredMedicationQuery,
-    policyProfile: MedicationPolicyProfile,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://api.mistral.ai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant medicaments. Tu reponds uniquement avec un JSON valide conforme au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildAnswerPrompt({
-                  intent,
-                  messages,
-                  shortlistedCandidates,
-                  structuredQuery,
-                  policyProfile,
-                }),
-              },
-            ],
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  private mapAiProviderHttpError(
-    provider: AIProviderName,
-    status: number,
-    errorText: string,
-  ): TRPCError {
-    const providerLabel = this.providerLabel(provider);
-    const normalizedText = errorText.toLowerCase();
-
-    if (
-      status === 429 ||
-      normalizedText.includes("quota") ||
-      normalizedText.includes("rate") ||
-      normalizedText.includes("resource_exhausted")
-    ) {
-      return new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message: `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
+        system:
+          "Tu es un assistant medicaments. Tu reponds uniquement avec un JSON valide conforme au format demande.",
+        temperature: 0.2,
+        timeoutMs: 20000,
       });
-    }
 
-    if (
-      status === 401 ||
-      status === 403 ||
-      normalizedText.includes("api key") ||
-      normalizedText.includes("permission") ||
-      normalizedText.includes("unauthorized") ||
-      normalizedText.includes("forbidden")
-    ) {
-      return new TRPCError({
-        code: "UNAUTHORIZED",
-        message: `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-      });
+      return response.text.trim();
+    } catch (error) {
+      throw this.mapAiProviderError(error);
     }
-
-    if (status === 400 && normalizedText.includes("model")) {
-      return new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Le modele ${providerLabel} configure est introuvable ou invalide. Verifie la variable de modele dans apps/server/.env.`,
-      });
-    }
-
-    return new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${providerLabel}.`,
-    });
   }
 
-  private mapAiProviderError(
-    provider: AIProviderName,
-    error: unknown,
-  ): TRPCError {
+  private mapAiProviderError(error: unknown): TRPCError {
     if (error instanceof TRPCError) {
       return error;
     }
 
-    if (error instanceof Error) {
-      const message = error.message;
-      const providerLabel = this.providerLabel(provider);
-
-      if (
-        message.includes("RESOURCE_EXHAUSTED") ||
-        message.includes("\"code\":429") ||
-        message.includes("rate-limits") ||
-        message.includes("quota")
-      ) {
-        return new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
-        });
-      }
-
-      if (
-        message.includes("API key not valid") ||
-        message.includes("API_KEY_INVALID") ||
-        message.includes("PERMISSION_DENIED") ||
-        message.includes("Unauthorized") ||
-        message.includes("Forbidden")
-      ) {
-        return new TRPCError({
-          code: "UNAUTHORIZED",
-          message: `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-        });
-      }
-    }
-
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${this.providerLabel(provider)}.`,
+      message: toSimpleFrenchAiMessage(error),
+      cause: error,
     });
-  }
-
-  private providerLabel(provider: AIProviderName): string {
-    if (provider === "openrouter") {
-      return "OpenRouter";
-    }
-    if (provider === "together") {
-      return "Together AI";
-    }
-    if (provider === "mistral") {
-      return "Mistral";
-    }
-    return "Gemini";
-  }
-
-  private withProviderTimeout<T>(promise: Promise<T>): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        setTimeout(() => {
-          reject(
-            new TRPCError({
-              code: "TIMEOUT",
-              message:
-                "Le provider AI a mis trop de temps a repondre. Reessaie avec une requete plus simple ou un autre provider.",
-            }),
-          );
-        }, providerTimeoutMs);
-      }),
-    ]);
   }
 
   private buildPromptCandidateCountHint(intent: MedicationAssistantIntent): string {

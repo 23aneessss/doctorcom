@@ -643,14 +643,14 @@ async function main(): Promise<void> {
     title: "AI availability flag",
     expectedCodes: [],
     observedCodes: extractCodes(aiResult),
-    status: process.env.MISTRAL_API_KEY
+    status: process.env.GEMINI_API_KEY
       ? "PASS"
       : aiResult.ai_available === false
         ? "PASS"
         : "FAIL",
-    details: process.env.MISTRAL_API_KEY
-      ? `MISTRAL_API_KEY configuree, ai_available=${aiResult.ai_available}.`
-      : `MISTRAL_API_KEY absente, ai_available=${aiResult.ai_available} (attendu: false).`,
+    details: process.env.GEMINI_API_KEY
+      ? `GEMINI_API_KEY configuree, ai_available=${aiResult.ai_available}.`
+      : `GEMINI_API_KEY absente, ai_available=${aiResult.ai_available} (attendu: false).`,
     required: false,
   });
 

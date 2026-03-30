@@ -1,11 +1,18 @@
 import { TRPCError } from "@trpc/server";
-import { GoogleGenAI } from "@google/genai";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
 import { z } from "zod";
 
+import { toSimpleFrenchAiMessage } from "../shared/errors";
+import { parseModelJson as parseSharedModelJson } from "../shared/json";
+import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import { hypotheseDiagnosticService } from "../hypothese-diagnostic/service";
+import {
+  aiResponseSchema,
+  recommendationSchema,
+  type MedicationRecommendationSuggestion,
+  type RecommendationResponseMode,
+} from "./schema";
 import {
   medicamentsService,
   type MedicamentAggregate,
@@ -27,11 +34,7 @@ import {
 
 type DatabaseClient = typeof databaseClient;
 type OrdonnanceRecommendationSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName =
-  | "openrouter"
-  | "together"
-  | "mistral"
-  | "google-ai-studio";
+type AIProviderName = "google-ai-studio";
 
 interface AIProviderConfig {
   name: AIProviderName;
@@ -46,6 +49,7 @@ interface GenerateOrdonnanceRecommendationInput {
   max_historical_suivis?: number;
   max_historical_treatments?: number;
   clinical_problem_override?: string | null;
+  response_mode?: RecommendationResponseMode;
 }
 
 interface HistoricalConsultationSummary {
@@ -150,33 +154,6 @@ interface RecommendationCandidateFeatures {
   is_antibiotic_like: boolean;
 }
 
-const recommendationMedicamentSchema = z.object({
-  medicament_externe_id: z.string().trim().min(1),
-  nom_medicament: z.string().trim().min(1).max(180),
-  dci: z.string().trim().min(1).max(180).nullable(),
-  dosage: z.string().trim().min(1).max(180).nullable(),
-  posologie: z.string().trim().min(1).max(600),
-  duree_traitement: z.string().trim().min(1).max(180).nullable(),
-  instructions: z.string().trim().min(1).max(600).nullable(),
-  justification: z.string().trim().min(1).max(800),
-});
-
-const recommendationSchema = z.object({
-  rank: z.number().int().min(1).max(3),
-  label: z.string().trim().min(1).max(120),
-  rationale: z.string().trim().min(1).max(1400),
-  warnings: z.array(z.string().trim().min(1).max(280)).max(10),
-  ordonnance_draft: z.object({
-    remarques: z.string().trim().min(1).max(500).nullable(),
-    medicaments: z.array(recommendationMedicamentSchema).min(1).max(6),
-  }),
-});
-
-const aiResponseSchema = z.object({
-  recommendations: z.array(recommendationSchema).max(3),
-  global_warnings: z.array(z.string().trim().min(1).max(280)).max(12),
-});
-
 const recommendationDisclaimer =
   "Aide au brouillon d'ordonnance uniquement. La decision finale, la validation clinique et la prescription appartiennent toujours au medecin.";
 const providerTimeoutMs = 25000;
@@ -241,6 +218,7 @@ export interface OrdonnanceRecommendationResult {
   provider: AIProviderName;
   model: string;
   generated_at: string;
+  response_mode: RecommendationResponseMode;
   source: {
     patient_id: string;
     suivi_id: string;
@@ -252,7 +230,7 @@ export interface OrdonnanceRecommendationResult {
     safe_count: number;
     excluded_count: number;
   };
-  recommendations: z.infer<typeof recommendationSchema>[];
+  recommendations: Array<z.infer<typeof recommendationSchema> | MedicationRecommendationSuggestion>;
   excluded_candidates: Array<{
     medicament_externe_id: string;
     nom_medicament: string;
@@ -269,6 +247,7 @@ export class OrdonnanceRecommendationService {
     input: GenerateOrdonnanceRecommendationInput;
   }): Promise<OrdonnanceRecommendationResult> {
     const provider = this.resolveAiProvider();
+    const responseMode = data.input.response_mode ?? "ordonnance";
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const currentSuivi = await ordonnanceRecommendationRepository.getSuiviById(
       data.db,
@@ -349,6 +328,7 @@ export class OrdonnanceRecommendationService {
         provider: provider.name,
         model: provider.model,
         generated_at: new Date().toISOString(),
+        response_mode: responseMode,
         source: {
           patient_id: patient.id,
           suivi_id: currentSuivi.id,
@@ -399,6 +379,10 @@ export class OrdonnanceRecommendationService {
       normalizedRecommendations.length > 0
         ? normalizedRecommendations
         : fallbackRecommendations;
+    const responseRecommendations = this.shapeRecommendationsForMode(
+      responseMode,
+      finalRecommendations,
+    );
 
     if (normalizedRecommendations.length === 0 && fallbackRecommendations.length > 0) {
       globalWarnings.push(
@@ -410,6 +394,7 @@ export class OrdonnanceRecommendationService {
       provider: provider.name,
       model: provider.model,
       generated_at: new Date().toISOString(),
+      response_mode: responseMode,
       source: {
         patient_id: patient.id,
         suivi_id: currentSuivi.id,
@@ -421,7 +406,7 @@ export class OrdonnanceRecommendationService {
         safe_count: safeCandidates.length,
         excluded_count: excludedCandidates.length,
       },
-      recommendations: finalRecommendations,
+      recommendations: responseRecommendations,
       excluded_candidates: excludedCandidates,
       global_warnings: [
         ...new Set([
@@ -434,70 +419,7 @@ export class OrdonnanceRecommendationService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    const providerConfigs: Record<AIProviderName, AIProviderConfig | null> = {
-      openrouter: env.OPENROUTER_API_KEY
-        ? {
-            name: "openrouter",
-            model: env.OPENROUTER_MODEL,
-            apiKey: env.OPENROUTER_API_KEY,
-          }
-        : null,
-      together: env.TOGETHER_API_KEY
-        ? {
-            name: "together",
-            model: env.TOGETHER_MODEL,
-            apiKey: env.TOGETHER_API_KEY,
-          }
-        : null,
-      mistral: env.MISTRAL_API_KEY
-        ? {
-            name: "mistral",
-            model: env.MISTRAL_MODEL,
-            apiKey: env.MISTRAL_API_KEY,
-          }
-        : null,
-      "google-ai-studio": env.GEMINI_API_KEY
-        ? {
-            name: "google-ai-studio",
-            model: env.GEMINI_MODEL,
-            apiKey: env.GEMINI_API_KEY,
-          }
-        : null,
-    };
-
-    if (env.AI_PROVIDER) {
-      const selectedProvider = providerConfigs[env.AI_PROVIDER];
-      if (!selectedProvider) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
-        });
-      }
-
-      return selectedProvider;
-    }
-
-    if (providerConfigs.openrouter) {
-      return providerConfigs.openrouter;
-    }
-
-    if (providerConfigs.together) {
-      return providerConfigs.together;
-    }
-
-    if (providerConfigs.mistral) {
-      return providerConfigs.mistral;
-    }
-
-    if (providerConfigs["google-ai-studio"]) {
-      return providerConfigs["google-ai-studio"];
-    }
-
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message:
-        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
-    });
+    return resolveGeminiProvider();
   }
 
   private async resolveUtilisateur(
@@ -779,7 +701,7 @@ export class OrdonnanceRecommendationService {
 
       const hypotheses = [
         analysis.analysis.chief_problem,
-        ...analysis.analysis.hypotheses.map((item) => item.label),
+        ...analysis.analysis.hypotheses.map((item: { label: string }) => item.label),
       ]
         .map((value) => this.nullableText(value))
         .filter((value): value is string => Boolean(value));
@@ -1071,39 +993,17 @@ export class OrdonnanceRecommendationService {
     context: ClinicalContext,
     safeCandidates: CandidateMedication[],
   ): Promise<z.infer<typeof aiResponseSchema>> {
-    const rawText =
-      provider.name === "openrouter"
-        ? await this.generateWithOpenRouter(
-            provider,
-            clinicalProblemBasis,
-            context,
-            safeCandidates,
-          )
-        : provider.name === "together"
-          ? await this.generateWithTogether(
-              provider,
-              clinicalProblemBasis,
-              context,
-              safeCandidates,
-            )
-        : provider.name === "mistral"
-          ? await this.generateWithMistral(
-              provider,
-              clinicalProblemBasis,
-              context,
-              safeCandidates,
-            )
-          : await this.generateWithGemini(
-              provider,
-              clinicalProblemBasis,
-              context,
-              safeCandidates,
-            );
+    const rawText = await this.generateWithGemini(
+      provider,
+      clinicalProblemBasis,
+      context,
+      safeCandidates,
+    );
 
     if (!rawText) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Reponse vide du modele AI.",
+        message: "Réponse vide du modèle AI.",
       });
     }
 
@@ -1111,7 +1011,7 @@ export class OrdonnanceRecommendationService {
     if (!parsedResponse) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "La reponse du modele AI n'est pas un JSON valide.",
+        message: "La réponse du modèle AI n'est pas un JSON valide.",
       });
     }
 
@@ -1122,8 +1022,8 @@ export class OrdonnanceRecommendationService {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: firstIssue
-          ? `La reponse du modele AI ne respecte pas le schema attendu: ${firstIssue.path.join(".") || "racine"} - ${firstIssue.message}.`
-          : "La reponse du modele AI ne respecte pas le schema attendu.",
+          ? `La réponse du modèle AI ne respecte pas le format attendu : ${firstIssue.path.join(".") || "racine"} - ${firstIssue.message}.`
+          : "La réponse du modèle AI ne respecte pas le format attendu.",
       });
     }
 
@@ -1131,39 +1031,7 @@ export class OrdonnanceRecommendationService {
   }
 
   private parseModelJson(rawText: string): unknown | null {
-    const normalized = rawText.trim();
-    if (!normalized) {
-      return null;
-    }
-
-    const candidates = [
-      normalized,
-      normalized
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim(),
-    ];
-
-    const firstBraceIndex = normalized.indexOf("{");
-    const lastBraceIndex = normalized.lastIndexOf("}");
-    if (firstBraceIndex >= 0 && lastBraceIndex > firstBraceIndex) {
-      candidates.push(normalized.slice(firstBraceIndex, lastBraceIndex + 1).trim());
-    }
-
-    for (const candidate of candidates) {
-      if (!candidate) {
-        continue;
-      }
-
-      try {
-        return JSON.parse(candidate);
-      } catch {
-        continue;
-      }
-    }
-
-    return null;
+    return parseSharedModelJson(rawText);
   }
 
   private postValidateRecommendations(
@@ -1223,6 +1091,48 @@ export class OrdonnanceRecommendationService {
           },
         };
       });
+  }
+
+  private shapeRecommendationsForMode(
+    responseMode: RecommendationResponseMode,
+    recommendations: z.infer<typeof recommendationSchema>[],
+  ): Array<z.infer<typeof recommendationSchema> | MedicationRecommendationSuggestion> {
+    if (responseMode === "medicaments") {
+      return this.buildMedicationSuggestions(recommendations);
+    }
+
+    return recommendations;
+  }
+
+  private buildMedicationSuggestions(
+    recommendations: z.infer<typeof recommendationSchema>[],
+  ): MedicationRecommendationSuggestion[] {
+    const suggestions: MedicationRecommendationSuggestion[] = [];
+    const seenIds = new Set<string>();
+
+    for (const recommendation of recommendations.slice().sort((a, b) => a.rank - b.rank)) {
+      for (const medicament of recommendation.ordonnance_draft.medicaments) {
+        if (seenIds.has(medicament.medicament_externe_id)) {
+          continue;
+        }
+
+        seenIds.add(medicament.medicament_externe_id);
+        suggestions.push({
+          rank: suggestions.length + 1,
+          medicament_externe_id: medicament.medicament_externe_id,
+          nom_medicament: medicament.nom_medicament,
+          dci: medicament.dci,
+          dosage: medicament.dosage,
+          posologie: medicament.posologie,
+          duree_traitement: medicament.duree_traitement,
+          instructions: medicament.instructions,
+          justification: medicament.justification,
+          warnings: [...new Set(recommendation.warnings)].slice(0, 6),
+        });
+      }
+    }
+
+    return suggestions;
   }
 
   private buildDeterministicFallbackRecommendations(
@@ -1481,15 +1391,7 @@ export class OrdonnanceRecommendationService {
   }
 
   private buildProviderFallbackWarning(error: unknown, stage: string): string {
-    if (error instanceof TRPCError) {
-      return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message}`;
-    }
-
-    if (error instanceof Error && error.message.trim()) {
-      return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee. Detail: ${error.message.trim()}`;
-    }
-
-    return `Le provider AI n'a pas pu finaliser le ${stage}; une logique locale de secours a ete utilisee.`;
+    return `Le service AI n'a pas pu finaliser le ${stage}. Une logique locale de secours a été utilisée. ${toSimpleFrenchAiMessage(error)}`.trim();
   }
 
   private buildProviderPrompt(
@@ -1654,386 +1556,38 @@ export class OrdonnanceRecommendationService {
     ].join("\n");
   }
 
-  private async generateWithOpenRouter(
-    provider: AIProviderConfig,
-    clinicalProblemBasis: ClinicalProblemBasis,
-    context: ClinicalContext,
-    safeCandidates: CandidateMedication[],
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": env.CORS_ORIGIN,
-            "X-Title": "doctor-com-backend",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant de brouillon d'ordonnance. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildProviderPrompt(
-                  clinicalProblemBasis,
-                  context,
-                  safeCandidates,
-                ),
-              },
-            ],
-            response_format: {
-              type: "json_object",
-            },
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
   private async generateWithGemini(
     provider: AIProviderConfig,
     clinicalProblemBasis: ClinicalProblemBasis,
     context: ClinicalContext,
     safeCandidates: CandidateMedication[],
   ): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: provider.apiKey });
-
-    let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
     try {
-      response = await this.withProviderTimeout(
-        ai.models.generateContent({
-          model: provider.model,
-          contents: this.buildProviderPrompt(
-            clinicalProblemBasis,
-            context,
-            safeCandidates,
-          ),
-          config: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-          },
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
+      const response = await generateGeminiText({
+        provider,
+        prompt: this.buildProviderPrompt(
+          clinicalProblemBasis,
+          context,
+          safeCandidates,
+        ),
+        system:
+          "Tu es un assistant de brouillon d'ordonnance. Tu réponds uniquement avec un JSON valide correspondant au format demandé.",
+        temperature: 0.2,
+        timeoutMs: providerTimeoutMs,
+      });
 
-    return response.text?.trim() ?? "";
+      return response.text.trim();
+    } catch (error) {
+      throw this.mapAiProviderError(error);
+    }
   }
 
-  private async generateWithTogether(
-    provider: AIProviderConfig,
-    clinicalProblemBasis: ClinicalProblemBasis,
-    context: ClinicalContext,
-    safeCandidates: CandidateMedication[],
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://api.together.xyz/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant de brouillon d'ordonnance. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildProviderPrompt(
-                  clinicalProblemBasis,
-                  context,
-                  safeCandidates,
-                ),
-              },
-            ],
-            response_format: {
-              type: "json_object",
-            },
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
-  private async generateWithMistral(
-    provider: AIProviderConfig,
-    clinicalProblemBasis: ClinicalProblemBasis,
-    context: ClinicalContext,
-    safeCandidates: CandidateMedication[],
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await this.withProviderTimeout(
-        fetch("https://api.mistral.ai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un assistant de brouillon d'ordonnance. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-              },
-              {
-                role: "user",
-                content: this.buildProviderPrompt(
-                  clinicalProblemBasis,
-                  context,
-                  safeCandidates,
-                ),
-              },
-            ],
-          }),
-        }),
-      );
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  private mapAiProviderHttpError(
-    provider: AIProviderName,
-    status: number,
-    errorText: string,
-  ): TRPCError {
-    const providerLabel = this.providerLabel(provider);
-    const normalizedText = errorText.toLowerCase();
-    const detail = this.buildProviderErrorDetail(errorText);
-
-    if (
-      status === 429 ||
-      normalizedText.includes("quota") ||
-      normalizedText.includes("rate") ||
-      normalizedText.includes("resource_exhausted")
-    ) {
-      return new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message: `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
-      });
-    }
-
-    if (
-      status === 401 ||
-      status === 403 ||
-      normalizedText.includes("api key") ||
-      normalizedText.includes("permission") ||
-      normalizedText.includes("unauthorized") ||
-      normalizedText.includes("forbidden")
-    ) {
-      return new TRPCError({
-        code: "UNAUTHORIZED",
-        message: `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-      });
-    }
-
-    if (status === 400 && normalizedText.includes("model")) {
-      return new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Le modele ${providerLabel} configure est introuvable ou invalide. Verifie la variable de modele dans apps/server/.env.`,
-      });
-    }
-
+  private mapAiProviderError(error: unknown): TRPCError {
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${providerLabel}.${detail ? ` Detail provider: ${detail}` : ""}`,
+      message: toSimpleFrenchAiMessage(error),
+      cause: error,
     });
-  }
-
-  private mapAiProviderError(
-    provider: AIProviderName,
-    error: unknown,
-  ): TRPCError {
-    if (error instanceof Error) {
-      const message = error.message;
-      const providerLabel = this.providerLabel(provider);
-
-      if (
-        message.includes("RESOURCE_EXHAUSTED") ||
-        message.includes("\"code\":429") ||
-        message.includes("rate-limits") ||
-        message.includes("quota")
-      ) {
-        return new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
-        });
-      }
-
-      if (
-        message.includes("AbortError") ||
-        message.includes("__PROVIDER_TIMEOUT__") ||
-        message.includes("aborted")
-      ) {
-        return new TRPCError({
-          code: "TIMEOUT",
-          message: `Le provider ${providerLabel} a mis trop de temps a repondre. Reessaie avec un contexte plus simple ou un modele plus rapide.`,
-        });
-      }
-
-      if (
-        message.includes("API key not valid") ||
-        message.includes("API_KEY_INVALID") ||
-        message.includes("PERMISSION_DENIED") ||
-        message.includes("Unauthorized") ||
-        message.includes("Forbidden")
-      ) {
-        return new TRPCError({
-          code: "UNAUTHORIZED",
-          message: `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-        });
-      }
-
-      if (message.includes("model") && message.includes("not found")) {
-        return new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Le modele ${providerLabel} configure est introuvable. Verifie la variable de modele dans apps/server/.env.`,
-        });
-      }
-
-      if (
-        message.includes("too many states for serving") ||
-        message.includes("specified schema produces a constraint")
-      ) {
-        return new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Le schema JSON demande a ${providerLabel} est trop complexe pour ce modele. Le backend va continuer sans schema strict provider pour cette route.`,
-        });
-      }
-
-      const detail = this.buildProviderErrorDetail(message);
-      return new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: `Echec de l'appel au provider AI ${providerLabel}.${detail ? ` Detail provider: ${detail}` : ""}`,
-      });
-    }
-
-    return new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${this.providerLabel(provider)}.`,
-    });
-  }
-
-  private providerLabel(provider: AIProviderName): string {
-    if (provider === "openrouter") {
-      return "OpenRouter";
-    }
-
-    if (provider === "together") {
-      return "Together AI";
-    }
-
-    if (provider === "mistral") {
-      return "Mistral";
-    }
-
-    return "Gemini";
   }
 
   private buildRetrievalTerms(
@@ -2492,21 +2046,6 @@ export class OrdonnanceRecommendationService {
     return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
   }
 
-  private withProviderTimeout<T>(promise: Promise<T>): Promise<T> {
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-
-    const timeoutPromise = new Promise<T>((_, reject) => {
-      timeoutHandle = setTimeout(() => {
-        reject(new Error("__PROVIDER_TIMEOUT__"));
-      }, providerTimeoutMs);
-    });
-
-    return Promise.race([promise, timeoutPromise]).finally(() => {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-    });
-  }
 
   private normalizeAiRecommendationResponse(raw: unknown): unknown {
     if (!raw || typeof raw !== "object") {
@@ -2632,19 +2171,6 @@ export class OrdonnanceRecommendationService {
     return null;
   }
 
-  private buildProviderErrorDetail(value: string): string | null {
-    const normalized = value
-      .replace(/\s+/g, " ")
-      .replace(/https?:\/\/\S+/gi, "[url]")
-      .replace(/AIza[0-9A-Za-z\-_]+/g, "[redacted-api-key]")
-      .trim();
-
-    if (!normalized) {
-      return null;
-    }
-
-    return this.truncateText(normalized, 240);
-  }
 }
 
 export const ordonnanceRecommendationService =

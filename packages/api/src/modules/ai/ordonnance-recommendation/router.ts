@@ -10,6 +10,7 @@ const generateOrdonnanceRecommendationInputSchema = z.object({
   max_historical_suivis: z.number().int().min(0).max(10).optional(),
   max_historical_treatments: z.number().int().min(1).max(15).optional(),
   clinical_problem_override: z.string().trim().min(1).max(280).nullable().optional(),
+  response_mode: z.enum(["ordonnance", "medicaments"]).optional(),
 });
 
 export const ordonnanceRecommendationRouter = createTRPCRouter({

@@ -1,10 +1,13 @@
 import { TRPCError } from "@trpc/server";
-import { GoogleGenAI } from "@google/genai";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
-import { z } from "zod";
 
+import { parseModelJson as parseSharedModelJson } from "../shared/json";
+import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
 import type { SessionUtilisateur } from "../../../trpc/context";
+import {
+  aiResponseSchema,
+  type HypotheseAiResponse,
+} from "./schema";
 import {
   hypotheseDiagnosticRepository,
   type AntecedentFamilialRecord,
@@ -22,42 +25,13 @@ import {
 
 type DatabaseClient = typeof databaseClient;
 type HypotheseDiagnosticSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName =
-  | "openrouter"
-  | "together"
-  | "mistral"
-  | "google-ai-studio";
+type AIProviderName = "google-ai-studio";
 
 interface AIProviderConfig {
   name: AIProviderName;
   model: string;
   apiKey: string;
 }
-
-const aiHypothesisSchema = z.object({
-  label: z.string().trim().min(1).max(180),
-  confidence: z.number().min(0).max(1),
-  reasoning: z.string().trim().min(1).max(1200),
-  evidence_for: z.array(z.string().trim().min(1).max(280)).max(8),
-  evidence_against: z.array(z.string().trim().min(1).max(280)).max(8),
-  missing_information: z.array(z.string().trim().min(1).max(280)).max(8),
-  recommended_next_questions: z.array(z.string().trim().min(1).max(280)).max(8),
-  recommended_next_checks: z.array(z.string().trim().min(1).max(280)).max(8),
-});
-
-const aiResponseSchema = z.object({
-  recommendation_readiness: z.enum([
-    "ready_for_recommendation",
-    "needs_more_information",
-    "urgent_medical_review",
-  ]),
-  chief_problem: z.string().trim().min(1).max(280),
-  diagnostic_summary: z.string().trim().min(1).max(1600),
-  hypotheses: z.array(aiHypothesisSchema).min(1).max(5),
-  red_flags: z.array(z.string().trim().min(1).max(280)).max(8),
-  caution_notes: z.array(z.string().trim().min(1).max(280)).max(8),
-  global_missing_information: z.array(z.string().trim().min(1).max(280)).max(10),
-});
 
 interface GenerateHypothesesInput {
   suivi_id: string;
@@ -156,190 +130,9 @@ export interface HypotheseDiagnosticResult {
     current_hypothese_diagnostic: string | null;
     current_conclusion: string | null;
   };
-  analysis: z.infer<typeof aiResponseSchema>;
+  analysis: HypotheseAiResponse;
   disclaimer: string;
 }
-
-const aiResponseJsonSchema = {
-  type: "object",
-  required: [
-    "recommendation_readiness",
-    "chief_problem",
-    "diagnostic_summary",
-    "hypotheses",
-    "red_flags",
-    "caution_notes",
-    "global_missing_information",
-  ],
-  propertyOrdering: [
-    "recommendation_readiness",
-    "chief_problem",
-    "diagnostic_summary",
-    "hypotheses",
-    "red_flags",
-    "caution_notes",
-    "global_missing_information",
-  ],
-  properties: {
-    recommendation_readiness: {
-      type: "string",
-      enum: [
-        "ready_for_recommendation",
-        "needs_more_information",
-        "urgent_medical_review",
-      ],
-    },
-    chief_problem: { type: "string" },
-    diagnostic_summary: { type: "string" },
-    hypotheses: {
-      type: "array",
-      minItems: 1,
-      maxItems: 5,
-      items: {
-        type: "object",
-        required: [
-          "label",
-          "confidence",
-          "reasoning",
-          "evidence_for",
-          "evidence_against",
-          "missing_information",
-          "recommended_next_questions",
-          "recommended_next_checks",
-        ],
-        propertyOrdering: [
-          "label",
-          "confidence",
-          "reasoning",
-          "evidence_for",
-          "evidence_against",
-          "missing_information",
-          "recommended_next_questions",
-          "recommended_next_checks",
-        ],
-        properties: {
-          label: { type: "string" },
-          confidence: { type: "number" },
-          reasoning: { type: "string" },
-          evidence_for: {
-            type: "array",
-            items: { type: "string" },
-          },
-          evidence_against: {
-            type: "array",
-            items: { type: "string" },
-          },
-          missing_information: {
-            type: "array",
-            items: { type: "string" },
-          },
-          recommended_next_questions: {
-            type: "array",
-            items: { type: "string" },
-          },
-          recommended_next_checks: {
-            type: "array",
-            items: { type: "string" },
-          },
-        },
-      },
-    },
-    red_flags: {
-      type: "array",
-      items: { type: "string" },
-    },
-    caution_notes: {
-      type: "array",
-      items: { type: "string" },
-    },
-    global_missing_information: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-} as const;
-
-const openRouterResponseJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "recommendation_readiness",
-    "chief_problem",
-    "diagnostic_summary",
-    "hypotheses",
-    "red_flags",
-    "caution_notes",
-    "global_missing_information",
-  ],
-  properties: {
-    recommendation_readiness: {
-      type: "string",
-      enum: [
-        "ready_for_recommendation",
-        "needs_more_information",
-        "urgent_medical_review",
-      ],
-    },
-    chief_problem: { type: "string" },
-    diagnostic_summary: { type: "string" },
-    hypotheses: {
-      type: "array",
-      minItems: 1,
-      maxItems: 5,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: [
-          "label",
-          "confidence",
-          "reasoning",
-          "evidence_for",
-          "evidence_against",
-          "missing_information",
-          "recommended_next_questions",
-          "recommended_next_checks",
-        ],
-        properties: {
-          label: { type: "string" },
-          confidence: { type: "number" },
-          reasoning: { type: "string" },
-          evidence_for: {
-            type: "array",
-            items: { type: "string" },
-          },
-          evidence_against: {
-            type: "array",
-            items: { type: "string" },
-          },
-          missing_information: {
-            type: "array",
-            items: { type: "string" },
-          },
-          recommended_next_questions: {
-            type: "array",
-            items: { type: "string" },
-          },
-          recommended_next_checks: {
-            type: "array",
-            items: { type: "string" },
-          },
-        },
-      },
-    },
-    red_flags: {
-      type: "array",
-      items: { type: "string" },
-    },
-    caution_notes: {
-      type: "array",
-      items: { type: "string" },
-    },
-    global_missing_information: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-} as const;
 
 const diagnosisDisclaimer =
   "Aide au raisonnement clinique uniquement. Ne remplace pas le jugement du medecin ni un diagnostic final.";
@@ -430,70 +223,7 @@ export class HypotheseDiagnosticService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    const providerConfigs: Record<AIProviderName, AIProviderConfig | null> = {
-      openrouter: env.OPENROUTER_API_KEY
-        ? {
-            name: "openrouter",
-            model: env.OPENROUTER_MODEL,
-            apiKey: env.OPENROUTER_API_KEY,
-          }
-        : null,
-      together: env.TOGETHER_API_KEY
-        ? {
-            name: "together",
-            model: env.TOGETHER_MODEL,
-            apiKey: env.TOGETHER_API_KEY,
-          }
-        : null,
-      mistral: env.MISTRAL_API_KEY
-        ? {
-            name: "mistral",
-            model: env.MISTRAL_MODEL,
-            apiKey: env.MISTRAL_API_KEY,
-          }
-        : null,
-      "google-ai-studio": env.GEMINI_API_KEY
-        ? {
-            name: "google-ai-studio",
-            model: env.GEMINI_MODEL,
-            apiKey: env.GEMINI_API_KEY,
-          }
-        : null,
-    };
-
-    if (env.AI_PROVIDER) {
-      const selectedProvider = providerConfigs[env.AI_PROVIDER];
-      if (!selectedProvider) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `AI_PROVIDER=${env.AI_PROVIDER} est configure, mais la cle API correspondante est absente dans apps/server/.env.`,
-        });
-      }
-
-      return selectedProvider;
-    }
-
-    if (providerConfigs.openrouter) {
-      return providerConfigs.openrouter;
-    }
-
-    if (providerConfigs.together) {
-      return providerConfigs.together;
-    }
-
-    if (providerConfigs.mistral) {
-      return providerConfigs.mistral;
-    }
-
-    if (providerConfigs["google-ai-studio"]) {
-      return providerConfigs["google-ai-studio"];
-    }
-
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message:
-        "Aucune cle AI n'est configuree. Ajoute OPENROUTER_API_KEY, TOGETHER_API_KEY, MISTRAL_API_KEY ou GEMINI_API_KEY dans apps/server/.env. Tu peux aussi forcer le provider avec AI_PROVIDER.",
-    });
+    return resolveGeminiProvider();
   }
 
   private async resolveUtilisateur(
@@ -849,15 +579,8 @@ export class HypotheseDiagnosticService {
   private async generateAiAnalysis(
     provider: AIProviderConfig,
     context: ClinicalContext,
-  ): Promise<z.infer<typeof aiResponseSchema>> {
-    const rawText =
-      provider.name === "openrouter"
-        ? await this.generateWithOpenRouter(provider, context)
-        : provider.name === "together"
-          ? await this.generateWithTogether(provider, context)
-        : provider.name === "mistral"
-          ? await this.generateWithMistral(provider, context)
-          : await this.generateWithGemini(provider, context);
+  ): Promise<HypotheseAiResponse> {
+    const rawText = await this.generateWithGemini(provider, context);
 
     if (!rawText) {
       throw new TRPCError({
@@ -890,39 +613,7 @@ export class HypotheseDiagnosticService {
   }
 
   private parseModelJson(rawText: string): unknown | null {
-    const normalized = rawText.trim();
-    if (!normalized) {
-      return null;
-    }
-
-    const candidates = [
-      normalized,
-      normalized
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim(),
-    ];
-
-    const firstBraceIndex = normalized.indexOf("{");
-    const lastBraceIndex = normalized.lastIndexOf("}");
-    if (firstBraceIndex >= 0 && lastBraceIndex > firstBraceIndex) {
-      candidates.push(normalized.slice(firstBraceIndex, lastBraceIndex + 1).trim());
-    }
-
-    for (const candidate of candidates) {
-      if (!candidate) {
-        continue;
-      }
-
-      try {
-        return JSON.parse(candidate);
-      } catch {
-        continue;
-      }
-    }
-
-    return null;
+    return parseSharedModelJson(rawText);
   }
 
   private normalizeAiAnalysisResponse(raw: unknown): unknown {
@@ -978,7 +669,7 @@ export class HypotheseDiagnosticService {
   private normalizeHypotheses(
     rawValue: unknown,
     fallbackReasoning: string,
-  ): Array<z.infer<typeof aiHypothesisSchema>> {
+  ): HypotheseAiResponse["hypotheses"] {
     const items = Array.isArray(rawValue)
       ? rawValue
       : rawValue && typeof rawValue === "object"
@@ -1025,7 +716,7 @@ export class HypotheseDiagnosticService {
       .filter(
         (
           value,
-        ): value is z.infer<typeof aiHypothesisSchema> => value !== null,
+        ): value is HypotheseAiResponse["hypotheses"][number] => value !== null,
       )
       .slice(0, 5);
   }
@@ -1033,7 +724,7 @@ export class HypotheseDiagnosticService {
   private normalizeRecommendationReadiness(
     rawValue: unknown,
     hasRedFlags: boolean,
-  ): z.infer<typeof aiResponseSchema>["recommendation_readiness"] {
+  ): HypotheseAiResponse["recommendation_readiness"] {
     const normalized = this.toNullableString(rawValue)?.toLowerCase();
 
     if (normalized) {
@@ -1099,357 +790,77 @@ export class HypotheseDiagnosticService {
       .slice(0, maxItems);
   }
 
-  private async generateWithOpenRouter(
-    provider: AIProviderConfig,
-    context: ClinicalContext,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": env.CORS_ORIGIN,
-          "X-Title": "doctor-com-backend",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.2,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un assistant de raisonnement clinique. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-            },
-            {
-              role: "user",
-              content: this.buildProviderPrompt(context),
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "hypothese_diagnostic",
-              strict: true,
-              schema: openRouterResponseJsonSchema,
-            },
-          },
-        }),
-      });
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
-  private buildProviderPrompt(context: ClinicalContext): string {
-    return [
-      "Tu es un assistant de raisonnement clinique pour un cabinet medical.",
-      "Ta mission est de proposer des hypotheses diagnostiques plausibles et structurees.",
-      "Contraintes absolues:",
-      "- Tu ne poses jamais un diagnostic final.",
-      "- Tu ne proposes jamais de medicaments ni d'ordonnance.",
-      "- Tu ne dois utiliser que les informations cliniques fournies.",
-      "- Si l'information est insuffisante, tu dois le dire clairement.",
-      "- Si un risque serieux apparait, tu dois le remonter dans red_flags et recommendation_readiness.",
-      "- confidence est un score relatif entre 0 et 1.",
-      "- reasoning doit etre concis, clinique, et justifie uniquement par les donnees disponibles.",
-      "- Retourne exclusivement un JSON valide, sans markdown ni texte additionnel.",
-      "",
-      "Contexte clinique JSON:",
-      JSON.stringify(context, null, 2),
-    ].join("\n");
-  }
-
   private async generateWithGemini(
     provider: AIProviderConfig,
     context: ClinicalContext,
   ): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: provider.apiKey });
+    const response = await generateGeminiText({
+      provider,
+      prompt: this.buildProviderPrompt(context),
+      system:
+        "Tu es un assistant de raisonnement clinique. Tu réponds uniquement avec un JSON valide correspondant au schéma demandé.",
+    });
 
-    let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
-    try {
-      response = await ai.models.generateContent({
-        model: provider.model,
-        contents: this.buildProviderPrompt(context),
-        config: {
-          temperature: 0.2,
-          responseMimeType: "application/json",
-          responseJsonSchema: aiResponseJsonSchema,
-        },
-      });
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    return response.text?.trim() ?? "";
+    return response.text.trim();
   }
 
-  private async generateWithTogether(
-    provider: AIProviderConfig,
-    context: ClinicalContext,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await fetch("https://api.together.xyz/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.2,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un assistant de raisonnement clinique. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-            },
-            {
-              role: "user",
-              content: this.buildProviderPrompt(context),
-            },
-          ],
-          response_format: {
-            type: "json_object",
-          },
-        }),
-      });
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?:
-            | string
-            | Array<{
-                type?: string;
-                text?: string;
-              }>;
-        };
-      }>;
+  private buildProviderPrompt(context: ClinicalContext): string {
+    const compactContext = {
+      patient: {
+        age: context.patient.age,
+        sexe: context.patient.sexe,
+        profession: context.patient.profession,
+        habitudes_toxiques: context.patient.habitudes_toxiques,
+        female_context: context.patient.female_context,
+      },
+      current_consultation: {
+        motif: context.current_consultation.motif,
+        hypothese_diagnostic: context.current_consultation.hypothese_diagnostic,
+        historique: this.nullableText(context.current_consultation.historique),
+        examen: context.current_consultation.examen
+          ? {
+              description_consultation: this.nullableText(
+                context.current_consultation.examen.description_consultation,
+              ),
+              aspect_general: this.nullableText(
+                context.current_consultation.examen.aspect_general,
+              ),
+              examen_respiratoire: this.nullableText(
+                context.current_consultation.examen.examen_respiratoire,
+              ),
+              examen_cardiovasculaire: this.nullableText(
+                context.current_consultation.examen.examen_cardiovasculaire,
+              ),
+              examen_orl: this.nullableText(
+                context.current_consultation.examen.examen_orl,
+              ),
+              conclusion: this.nullableText(
+                context.current_consultation.examen.conclusion,
+              ),
+            }
+          : null,
+      },
+      antecedents: context.antecedents,
+      treatments: {
+        active: context.treatments.active.slice(0, 8),
+        recent: context.treatments.recent.slice(0, 6),
+      },
+      historical_consultations: context.historical_consultations.slice(0, 3),
+      recent_travels: context.recent_travels.slice(0, 3),
+      recent_vaccinations: context.recent_vaccinations.slice(0, 3),
+      deterministic_red_flags: context.deterministic_red_flags.slice(0, 6),
     };
 
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      return content
-        .map((item) => item.text ?? "")
-        .join("")
-        .trim();
-    }
-
-    return "";
-  }
-
-  private async generateWithMistral(
-    provider: AIProviderConfig,
-    context: ClinicalContext,
-  ): Promise<string> {
-    let response: Response;
-
-    try {
-      response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          temperature: 0.2,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu es un assistant de raisonnement clinique. Tu reponds uniquement avec un JSON valide correspondant au schema demande.",
-            },
-            {
-              role: "user",
-              content: this.buildProviderPrompt(context),
-            },
-          ],
-        }),
-      });
-    } catch (error) {
-      throw this.mapAiProviderError(provider.name, error);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw this.mapAiProviderHttpError(provider.name, response.status, errorText);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-
-    return payload.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-
-  private mapAiProviderHttpError(
-    provider: AIProviderName,
-    status: number,
-    errorText: string,
-  ): TRPCError {
-    const providerLabel = this.providerLabel(provider);
-    const normalizedText = errorText.toLowerCase();
-
-    if (
-      status === 429 ||
-      normalizedText.includes("quota") ||
-      normalizedText.includes("rate") ||
-      normalizedText.includes("resource_exhausted")
-    ) {
-      return new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message: `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
-      });
-    }
-
-    if (
-      status === 401 ||
-      status === 403 ||
-      normalizedText.includes("api key") ||
-      normalizedText.includes("permission") ||
-      normalizedText.includes("unauthorized") ||
-      normalizedText.includes("forbidden")
-    ) {
-      return new TRPCError({
-        code: "UNAUTHORIZED",
-        message: `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-      });
-    }
-
-    if (
-      status === 400 &&
-      normalizedText.includes("model")
-    ) {
-      return new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Le modele ${providerLabel} configure est introuvable ou invalide. Verifie la variable de modele dans apps/server/.env.`,
-      });
-    }
-
-    return new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${providerLabel}.`,
-    });
-  }
-
-  private mapAiProviderError(
-    provider: AIProviderName,
-    error: unknown,
-  ): TRPCError {
-    if (error instanceof Error) {
-      const message = error.message;
-      const providerLabel = this.providerLabel(provider);
-
-      if (
-        message.includes("RESOURCE_EXHAUSTED") ||
-        message.includes("\"code\":429") ||
-        message.includes("rate-limits") ||
-        message.includes("quota")
-      ) {
-        return new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message:
-            `Le quota ${providerLabel} est epuise pour cette cle API. Verifie le plan gratuit, les limites d'usage ou la facturation du provider.`,
-        });
-      }
-
-      if (
-        message.includes("API key not valid") ||
-        message.includes("API_KEY_INVALID") ||
-        message.includes("PERMISSION_DENIED") ||
-        message.includes("Unauthorized") ||
-        message.includes("Forbidden")
-      ) {
-        return new TRPCError({
-          code: "UNAUTHORIZED",
-          message:
-            `La cle ${providerLabel} est invalide ou n'a pas les droits necessaires pour cette requete.`,
-        });
-      }
-
-      if (message.includes("model") && message.includes("not found")) {
-        return new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            `Le modele ${providerLabel} configure est introuvable. Verifie la variable de modele dans apps/server/.env.`,
-        });
-      }
-    }
-
-    return new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Echec de l'appel au provider AI ${this.providerLabel(provider)}.`,
-    });
-  }
-
-  private providerLabel(provider: AIProviderName): string {
-    if (provider === "openrouter") {
-      return "OpenRouter";
-    }
-
-    if (provider === "together") {
-      return "Together AI";
-    }
-
-    if (provider === "mistral") {
-      return "Mistral";
-    }
-
-    return "Gemini";
+    return [
+      "Tu es un assistant de raisonnement clinique pour un medecin.",
+      "Tu analyses uniquement le contexte clinique fourni.",
+      "Tu n'inventes aucune donnee absente.",
+      "Tu retournes exclusivement un JSON valide sans markdown.",
+      "Le JSON doit contenir recommendation_readiness, chief_problem, diagnostic_summary, hypotheses, red_flags, caution_notes et global_missing_information.",
+      "Chaque hypothese doit contenir label, confidence, reasoning, evidence_for, evidence_against, missing_information, recommended_next_questions et recommended_next_checks.",
+      "Contexte clinique:",
+      JSON.stringify(compactContext),
+    ].join("\n");
   }
 
   private computeAge(dateNaissance: string | null): number | null {

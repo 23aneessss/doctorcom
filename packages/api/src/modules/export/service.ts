@@ -7,6 +7,33 @@ import { exportRepository } from "./repo";
 type DB = NodePgDatabase<any>;
 
 export class ExportService {
+  private async resolveUtilisateurIdByEmail(
+    db: DB,
+    email: string,
+  ): Promise<string> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Session invalide: email utilisateur manquant.",
+      });
+    }
+
+    const utilisateur = await exportRepository.findUtilisateurByEmail(
+      db,
+      normalizedEmail,
+    );
+
+    if (!utilisateur) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Utilisateur introuvable pour cette session.",
+      });
+    }
+
+    return utilisateur.id;
+  }
+
   private createPDFHeader(
     doc: PDFKit.PDFDocument,
     doctorName: string,
@@ -542,9 +569,10 @@ export class ExportService {
 
   async exporterAgenda(
     db: DB,
-    utilisateurId: string,
+    userEmail: string,
     date: string,
   ): Promise<Buffer> {
+    const utilisateurId = await this.resolveUtilisateurIdByEmail(db, userEmail);
     const data = await exportRepository.getAgendaForExport(db, utilisateurId, date);
     if (!data) {
       throw new TRPCError({
