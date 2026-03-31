@@ -49,6 +49,7 @@
     "@doctor.com/config": "workspace:*",
     "@types/bun": "catalog:",
     "turbo": "^2.6.3",
+    "turbo-windows-64": "2.6.3",
     "typescript": "catalog:"
   },
   "packageManager": "bun@1.2.20"
