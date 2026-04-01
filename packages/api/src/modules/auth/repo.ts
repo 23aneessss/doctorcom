@@ -1,17 +1,22 @@
 import type { db as databaseClient } from "@doctor.com/db";
 import { utilisateurs } from "@doctor.com/db/schema";
-import { eq } from "drizzle-orm";
+import { account } from "@doctor.com/db/schema/auth";
+import { and, eq } from "drizzle-orm";
 
 type DatabaseClient = typeof databaseClient;
 
 export interface UpdateMyProfileInput {
   nom?: string;
   prenom?: string;
+  titre?: string;
+  specialite?: string | null;
+  avatar_url?: string | null;
   telephone?: string;
   adresse?: string;
 }
 
 export type UtilisateurProfile = typeof utilisateurs.$inferSelect;
+export type AuthAccountRecord = typeof account.$inferSelect;
 
 export class AuthRepository {
   async findUtilisateurByEmail(
@@ -46,6 +51,18 @@ export class AuthRepository {
       updateData.telephone = input.telephone;
     }
 
+    if (input.titre !== undefined) {
+      updateData.titre = input.titre;
+    }
+
+    if (input.specialite !== undefined) {
+      updateData.specialite = input.specialite;
+    }
+
+    if (input.avatar_url !== undefined) {
+      updateData.avatar_url = input.avatar_url;
+    }
+
     if (input.adresse !== undefined) {
       updateData.adresse = input.adresse;
     }
@@ -61,6 +78,33 @@ export class AuthRepository {
       .returning();
 
     return updatedUtilisateur ?? null;
+  }
+
+  async findCredentialAccountByUserId(
+    database: DatabaseClient,
+    userId: string,
+  ): Promise<AuthAccountRecord | null> {
+    const [credentialAccount] = await database
+      .select()
+      .from(account)
+      .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
+      .limit(1);
+
+    return credentialAccount ?? null;
+  }
+
+  async updateCredentialPasswordByAccountId(
+    database: DatabaseClient,
+    accountId: string,
+    passwordHash: string,
+  ): Promise<AuthAccountRecord | null> {
+    const [updatedAccount] = await database
+      .update(account)
+      .set({ password: passwordHash })
+      .where(eq(account.id, accountId))
+      .returning();
+
+    return updatedAccount ?? null;
   }
 }
 

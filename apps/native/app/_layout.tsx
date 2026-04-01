@@ -1,38 +1,95 @@
-import "@/global.css";
-import { QueryClientProvider } from "@tanstack/react-query";
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Stack } from "expo-router";
-import { HeroUINativeProvider } from "heroui-native";
+import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AppThemeProvider } from "@/contexts/app-theme-context";
-import { queryClient } from "@/utils/trpc";
+import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/src/api/trpc";
+import { TRPCProvider } from "@/src/api/provider";
+import { useAuthStore } from "@/src/stores/authStore";
+import { colors } from "@/src/utils/colors";
 
-export const unstable_settings = {
-  initialRouteName: "(drawer)",
-};
+function AuthBootstrap() {
+  const { data: session, isPending } = authClient.useSession();
+  const setUser = useAuthStore((state) => state.setUser);
+  const finishLoading = useAuthStore((state) => state.finishLoading);
 
-function StackLayout() {
+  const profileQuery = trpc.auth.getMobileProfile.useQuery(undefined, {
+    enabled: !!session?.user,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (isPending) {
+      return;
+    }
+
+    if (!session?.user) {
+      setUser(null);
+      finishLoading();
+      return;
+    }
+
+    if (profileQuery.data) {
+      setUser(profileQuery.data);
+      return;
+    }
+
+    if (profileQuery.isError) {
+      finishLoading();
+    }
+  }, [
+    finishLoading,
+    isPending,
+    profileQuery.data,
+    profileQuery.isError,
+    session?.user,
+    setUser,
+  ]);
+
+  const isBooting = isPending || (!!session?.user && profileQuery.isPending);
+
+  if (isBooting) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[800]} />
+      </View>
+    );
+  }
+
   return (
-    <Stack screenOptions={{}}>
-      <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
-      <Stack.Screen name="modal" options={{ title: "Modal", presentation: "modal" }} />
-    </Stack>
+    <>
+      <StatusBar style="light" backgroundColor={colors.primary[800]} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background.secondary },
+          animation: "slide_from_right",
+        }}
+      />
+    </>
   );
 }
 
-export default function Layout() {
+export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <KeyboardProvider>
-          <AppThemeProvider>
-            <HeroUINativeProvider>
-              <StackLayout />
-            </HeroUINativeProvider>
-          </AppThemeProvider>
-        </KeyboardProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <TRPCProvider>
+          <AuthBootstrap />
+        </TRPCProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background.secondary,
+  },
+});

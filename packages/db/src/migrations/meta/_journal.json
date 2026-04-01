@@ -36,6 +36,13 @@
       "when": 1773539456273,
       "tag": "0004_external_medications_bridge",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775085905072,
+      "tag": "0005_condemned_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

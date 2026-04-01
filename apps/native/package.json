@@ -12,6 +12,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@better-auth/expo": "catalog:",
     "@doctor.com/api": "workspace:*",
     "@doctor.com/env": "workspace:*",
@@ -23,6 +24,7 @@
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
+    "@trpc/react-query": "^11.7.2",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "catalog:",
     "better-auth": "catalog:",
@@ -31,6 +33,7 @@
     "expo-constants": "~55.0.7",
     "expo-font": "~55.0.4",
     "expo-haptics": "~55.0.8",
+    "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~55.0.7",
     "expo-network": "~55.0.8",
     "expo-router": "~55.0.2",
@@ -53,7 +56,8 @@
     "tailwind-variants": "^3.2.2",
     "tailwindcss": "^4.1.18",
     "uniwind": "^1.4.0",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@doctor.com/config": "workspace:*",

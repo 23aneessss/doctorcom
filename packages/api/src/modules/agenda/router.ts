@@ -1,4 +1,5 @@
-import { rendez_vous_statut_values } from "@doctor.com/db/schema";import { z } from "zod";
+import { rendez_vous_statut_values } from "@doctor.com/db/schema";
+import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "../../trpc/init";
 import { agendaService } from "./service";
@@ -11,6 +12,13 @@ const heureSchema = z
   .string()
   .regex(/^\d{2}:\d{2}(?::\d{2})?$/, "Heure invalide. Format attendu: HH:MM ou HH:MM:SS.");
 const rendezVousStatutSchema = z.enum(rendez_vous_statut_values);
+const mobileSlotStatusSchema = z.enum([
+  "booked",
+  "pending",
+  "completed",
+  "cancelled",
+  "blocked",
+]);
 const nullableOptionalTextSchema = z
   .union([z.string().trim().min(1).max(128), z.null()])
   .optional();
@@ -31,6 +39,20 @@ const updateRendezVousInputSchema = createRendezVousInputSchema
   .refine((value) => Object.keys(value).length > 0, {
     message: "Au moins un champ doit etre fourni pour modifier le rendez-vous.",
   });
+
+const mobileSlotInputSchema = z.object({
+  date: isoDateSchema,
+  startTime: heureSchema,
+  endTime: heureSchema,
+  status: mobileSlotStatusSchema,
+  slotType: z.string().trim().min(1).max(64),
+  patientInitials: z.string().trim().min(1).max(16).optional(),
+  patientLabel: z.string().trim().min(1).max(255).optional(),
+  notes: z.string().trim().min(1).max(5000).optional(),
+  color: z.string().trim().min(1).max(32).optional().nullable(),
+});
+
+const mobileSlotUpdateSchema = mobileSlotInputSchema.partial();
 
 export const agendaRouter = createTRPCRouter({
   planifierRDV: protectedProcedure
@@ -210,6 +232,89 @@ export const agendaRouter = createTRPCRouter({
         session: ctx.session,
         rdv_id: input.rdv_id,
         important: input.important,
+      });
+    }),
+  getSlots: protectedProcedure
+    .input(
+      z.object({
+        startDate: isoDateSchema,
+        endDate: isoDateSchema,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return agendaService.getSlots({
+        db: ctx.db,
+        session: ctx.session,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+    }),
+  getDaySlots: protectedProcedure
+    .input(
+      z.object({
+        date: isoDateSchema,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return agendaService.getDaySlots({
+        db: ctx.db,
+        session: ctx.session,
+        date: input.date,
+      });
+    }),
+  getSlot: protectedProcedure
+    .input(
+      z.object({
+        id: uuidSchema,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return agendaService.getSlot({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
+      });
+    }),
+  createSlot: protectedProcedure
+    .input(mobileSlotInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      return agendaService.createSlot({
+        db: ctx.db,
+        session: ctx.session,
+        input,
+      });
+    }),
+  updateSlot: protectedProcedure
+    .input(
+      z
+        .object({
+          id: uuidSchema,
+        })
+        .merge(mobileSlotUpdateSchema)
+        .refine((value) => Object.keys(value).length > 1, {
+          message: "Au moins un champ doit etre fourni pour mettre a jour le rendez-vous.",
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...changes } = input;
+      return agendaService.updateSlot({
+        db: ctx.db,
+        session: ctx.session,
+        id,
+        input: changes,
+      });
+    }),
+  deleteSlot: protectedProcedure
+    .input(
+      z.object({
+        id: uuidSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return agendaService.deleteSlot({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
       });
     }),
 });

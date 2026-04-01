@@ -9,7 +9,7 @@ import {
   effets_indesirables,
   presentations,
 } from "@doctor.com/medications-db/schema";
-import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 
 type RootDatabaseClient = typeof medicationsDatabaseClient;
 type DatabaseTransaction = Parameters<Parameters<RootDatabaseClient["transaction"]>[0]>[0];
@@ -171,6 +171,10 @@ export class MedicamentsRepository {
       .orderBy(asc(substances_actives.id));
   }
 
+  async listAllSubstances(database: DatabaseClient): Promise<SubstanceActiveRecord[]> {
+    return database.select().from(substances_actives).orderBy(asc(substances_actives.id));
+  }
+
   async replaceSubstances(
     database: DatabaseClient,
     medicamentId: number,
@@ -198,6 +202,10 @@ export class MedicamentsRepository {
       .orderBy(asc(indications.id));
   }
 
+  async listAllIndications(database: DatabaseClient): Promise<IndicationRecord[]> {
+    return database.select().from(indications).orderBy(asc(indications.id));
+  }
+
   async replaceIndications(
     database: DatabaseClient,
     medicamentId: number,
@@ -222,6 +230,13 @@ export class MedicamentsRepository {
       .select()
       .from(contre_indications)
       .where(eq(contre_indications.medicament_id, medicamentId))
+      .orderBy(asc(contre_indications.id));
+  }
+
+  async listAllContreIndications(database: DatabaseClient): Promise<ContreIndicationRecord[]> {
+    return database
+      .select()
+      .from(contre_indications)
       .orderBy(asc(contre_indications.id));
   }
 
@@ -254,6 +269,10 @@ export class MedicamentsRepository {
       .orderBy(asc(precautions.id));
   }
 
+  async listAllPrecautions(database: DatabaseClient): Promise<PrecautionRecord[]> {
+    return database.select().from(precautions).orderBy(asc(precautions.id));
+  }
+
   async replacePrecautions(
     database: DatabaseClient,
     medicamentId: number,
@@ -279,6 +298,10 @@ export class MedicamentsRepository {
       .from(interactions)
       .where(eq(interactions.medicament_id, medicamentId))
       .orderBy(asc(interactions.id));
+  }
+
+  async listAllInteractions(database: DatabaseClient): Promise<InteractionRecord[]> {
+    return database.select().from(interactions).orderBy(asc(interactions.id));
   }
 
   async replaceInteractions(
@@ -310,6 +333,13 @@ export class MedicamentsRepository {
       .select()
       .from(effets_indesirables)
       .where(eq(effets_indesirables.medicament_id, medicamentId))
+      .orderBy(asc(effets_indesirables.id));
+  }
+
+  async listAllEffetsIndesirables(database: DatabaseClient): Promise<EffetIndesirableRecord[]> {
+    return database
+      .select()
+      .from(effets_indesirables)
       .orderBy(asc(effets_indesirables.id));
   }
 
@@ -348,6 +378,10 @@ export class MedicamentsRepository {
       .orderBy(asc(presentations.id));
   }
 
+  async listAllPresentations(database: DatabaseClient): Promise<PresentationRecord[]> {
+    return database.select().from(presentations).orderBy(asc(presentations.id));
+  }
+
   async replacePresentations(
     database: DatabaseClient,
     medicamentId: number,
@@ -374,18 +408,19 @@ export class MedicamentsRepository {
     database: DatabaseClient,
     filters: MedicamentSearchFilters,
   ): Promise<PaginatedMedicaments> {
-    const conditions = [];
+    const conditions: SQL<unknown>[] = [];
 
     if (filters.query) {
       const pattern = `%${filters.query}%`;
-      conditions.push(
-        or(
-          ilike(medicaments.nom_medicament, pattern),
-          ilike(medicaments.nom_generique, pattern),
-          ilike(medicaments.classe_therapeutique, pattern),
-          ilike(medicaments.famille_pharmacologique, pattern),
-        ),
+      const searchCondition = or(
+        ilike(medicaments.nom_medicament, pattern),
+        ilike(medicaments.nom_generique, pattern),
+        ilike(medicaments.classe_therapeutique, pattern),
+        ilike(medicaments.famille_pharmacologique, pattern),
       );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     if (filters.classe_therapeutique) {
@@ -463,7 +498,7 @@ export class MedicamentsRepository {
         .select({ medicament_id: presentations.medicament_id })
         .from(presentations);
 
-      const presentationConditions = [];
+      const presentationConditions: SQL<unknown>[] = [];
       if (filters.forme) {
         presentationConditions.push(ilike(presentations.forme, `%${filters.forme}%`));
       }
@@ -508,6 +543,10 @@ export class MedicamentsRepository {
       page_size: filters.page_size,
       page_count: Math.max(1, Math.ceil(total / filters.page_size)),
     };
+  }
+
+  async listAllMedicaments(database: DatabaseClient): Promise<MedicamentRecord[]> {
+    return database.select().from(medicaments).orderBy(asc(medicaments.nom_medicament));
   }
 }
 
