@@ -75,6 +75,13 @@ const searchMedicamentsSchema = z.object({
   page_size: z.coerce.number().int().positive().max(100).default(20),
 });
 
+const mobileCatalogSearchSchema = z.object({
+  query: optionalTrimmedStringSchema,
+  starts_with: z.string().trim().length(1).optional().nullable(),
+  category: optionalTrimmedStringSchema,
+  limit: z.coerce.number().int().positive().max(200).default(80),
+});
+
 export const medicamentsRouter = createTRPCRouter({
   creerMedicament: protectedProcedure
     .input(medicamentBaseSchema)
@@ -124,5 +131,26 @@ export const medicamentsRouter = createTRPCRouter({
         page: input.page,
         page_size: input.page_size,
       });
+    }),
+
+  getMobileCatalogFilters: protectedProcedure.query(async () => {
+    return medicamentsService.getMobileMedicationCategories();
+  }),
+
+  searchMobileCatalog: protectedProcedure
+    .input(mobileCatalogSearchSchema)
+    .query(async ({ input }) => {
+      return medicamentsService.searchMobileMedicationCatalog({
+        query: input.query ?? undefined,
+        startsWith: input.starts_with ?? undefined,
+        category: input.category ?? undefined,
+        limit: input.limit,
+      });
+    }),
+
+  getMobileMedicamentById: protectedProcedure
+    .input(z.object({ id: positiveIntSchema }))
+    .query(async ({ input }) => {
+      return medicamentsService.getMobileMedicationById(input.id);
     }),
 });

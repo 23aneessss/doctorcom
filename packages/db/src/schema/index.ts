@@ -1,5 +1,6 @@
 export * from "./documents";
 export * from "./enums";
+export * from "./mobile";
 export * from "./ordonnances";
 export * from "./patients";
 export * from "./suivi";

@@ -8,6 +8,7 @@ export const rendez_vous_statut_values = [
   "termine",
   "annule",
   "non_present",
+  "bloque",
 ] as const;
 export const lettre_orientation_urgence_values = [
   "normale",
