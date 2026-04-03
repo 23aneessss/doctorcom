@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-import { createPatientSchema, updatePatientSchema, uuidSchema } from "@doctor.com/shared/schemas";
+import {
+	createPatientSchema,
+	emailSchema,
+	numericSchema,
+	optionalTrimmedStringSchema,
+	telephoneSchema,
+	updatePatientSchema,
+	uuidSchema,
+} from "@doctor.com/shared/schemas";
 
 import { createTRPCRouter, protectedProcedure } from "../../trpc/init";
 import { patientService } from "./service";
@@ -26,6 +34,13 @@ const createPatientInputSchema = z.object({
 const updatePatientDataSchema = updatePatientSchema
 	.omit({ id: true, cree_par_utilisateur: true })
 	.extend({
+		telephone: telephoneSchema.nullable().optional(),
+		email: emailSchema.nullable().optional(),
+		nationalite: optionalTrimmedStringSchema.nullable(),
+		adresse: optionalTrimmedStringSchema.nullable(),
+		profession: optionalTrimmedStringSchema.nullable(),
+		situation_familiale: optionalTrimmedStringSchema.nullable(),
+		revenu_mensuel: numericSchema.nullable().optional(),
 		female_data: femalePatientInfoSchema.optional(),
 	})
 	.refine((value) => Object.keys(value).length > 0, {

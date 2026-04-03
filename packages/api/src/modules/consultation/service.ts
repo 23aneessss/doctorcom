@@ -224,6 +224,13 @@ export class ConsultationService {
       });
     }
 
+    if (!existingSuivi.est_actif) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Impossible de creer un examen sur un suivi cloture.",
+      });
+    }
+
     const payload = this.normalizeCreateExamenInput(data.input);
     return consultationRepository.createExamen(data.db, payload);
   }
@@ -244,6 +251,23 @@ export class ConsultationService {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Examen de consultation introuvable.",
+      });
+    }
+
+    const linkedSuivi = await consultationRepository.getSuiviById(
+      data.db,
+      existingExamen.suivi_id,
+    );
+    if (!linkedSuivi) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Suivi lie a cet examen introuvable.",
+      });
+    }
+    if (!linkedSuivi.est_actif) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Modification impossible: le suivi est cloture.",
       });
     }
 

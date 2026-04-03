@@ -22,6 +22,7 @@ import { Route as PatientsIdRouteImport } from './routes/patients.$id'
 import { Route as AideFaqRouteImport } from './routes/aide/faq'
 import { Route as AgendaModifierRouteImport } from './routes/agenda/modifier'
 import { Route as AgendaAjouterRouteImport } from './routes/agenda/ajouter'
+import { Route as PatientsIdIndexRouteImport } from './routes/patients.$id/index'
 import { Route as PatientsIdVoyageRouteImport } from './routes/patients.$id/voyage'
 import { Route as PatientsIdVaccinationRouteImport } from './routes/patients.$id/vaccination'
 import { Route as PatientsIdTraitementRouteImport } from './routes/patients.$id/traitement'
@@ -97,6 +98,11 @@ const AgendaAjouterRoute = AgendaAjouterRouteImport.update({
   path: '/agenda/ajouter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PatientsIdIndexRoute = PatientsIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
 const PatientsIdVoyageRoute = PatientsIdVoyageRouteImport.update({
   id: '/voyage',
   path: '/voyage',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -175,7 +182,6 @@ export interface FileRoutesByTo {
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
-  '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda': typeof AgendaIndexRoute
   '/aide': typeof AideIndexRoute
   '/medicament': typeof MedicamentIndexRoute
@@ -190,6 +196,7 @@ export interface FileRoutesByTo {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -215,6 +222,7 @@ export interface FileRoutesById {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -241,6 +249,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -250,7 +259,6 @@ export interface FileRouteTypes {
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
-    | '/patients/$id'
     | '/agenda'
     | '/aide'
     | '/medicament'
@@ -265,6 +273,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id'
   id:
     | '__root__'
     | '/'
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -400,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgendaAjouterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/patients/$id/': {
+      id: '/patients/$id/'
+      path: '/'
+      fullPath: '/patients/$id/'
+      preLoaderRoute: typeof PatientsIdIndexRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
     '/patients/$id/voyage': {
       id: '/patients/$id/voyage'
       path: '/voyage'
@@ -476,6 +493,7 @@ interface PatientsIdRouteChildren {
   PatientsIdTraitementRoute: typeof PatientsIdTraitementRoute
   PatientsIdVaccinationRoute: typeof PatientsIdVaccinationRoute
   PatientsIdVoyageRoute: typeof PatientsIdVoyageRoute
+  PatientsIdIndexRoute: typeof PatientsIdIndexRoute
 }
 
 const PatientsIdRouteChildren: PatientsIdRouteChildren = {
@@ -488,6 +506,7 @@ const PatientsIdRouteChildren: PatientsIdRouteChildren = {
   PatientsIdTraitementRoute: PatientsIdTraitementRoute,
   PatientsIdVaccinationRoute: PatientsIdVaccinationRoute,
   PatientsIdVoyageRoute: PatientsIdVoyageRoute,
+  PatientsIdIndexRoute: PatientsIdIndexRoute,
 }
 
 const PatientsIdRouteWithChildren = PatientsIdRoute._addFileChildren(
