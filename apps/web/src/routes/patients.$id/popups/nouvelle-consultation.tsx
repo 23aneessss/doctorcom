@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Calendar, ChevronDown, Stethoscope, X } from "lucide-react";
+import { Calendar, ChevronDown, Stethoscope, X, CircleHelp } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { toast } from "sonner";
@@ -8,8 +8,6 @@ import { z } from "zod";
 
 import { trpc, trpcClient } from "@/utils/trpc";
 
-const helpIcon =
-  "http://localhost:3845/assets/2ad13c7bb378cd49f58079c0dcd63cb842cb8f1e.svg";
 
 type ConsultationDialogValues = {
   suivi_id?: string;
@@ -311,7 +309,7 @@ export function NouvelleConsultationDialog({
               className="flex size-5 items-center justify-center text-[#0f3460]"
               type="button"
             >
-              <img alt="" className="size-5" src={helpIcon} />
+              <CircleHelp className="size-5" />
             </button>
             <button
               className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460]"

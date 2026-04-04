@@ -8,15 +8,20 @@ import {
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
+  Activity,
   ArrowLeft,
   Briefcase,
   Calendar,
   Droplets,
+  History,
   Home,
+  HeartPulse,
+  LayoutDashboard,
   Users,
   CalendarDays,
   HelpCircle,
   FileText,
+  Plane,
   Settings,
   Mail,
   MapPin,
@@ -24,8 +29,12 @@ import {
   Pill,
   Plus,
   ShieldCheck,
+  Syringe,
   User,
   Wallet,
+  TrendingUp, 
+  Package, 
+  House, 
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -34,6 +43,12 @@ import { z } from "zod";
 import { authClient } from "@/lib/auth-client";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
 import { NouveauSuiviDialog } from "@/routes/patients.$id/popups/nouveau-suivi";
+import { ModifierAntecedentFamilialDialog } from "@/routes/patients.$id/popups/modifier-antecedent-familial";
+import { ModifierAntecedentPersonnelDialog } from "@/routes/patients.$id/popups/modifier-antecedent-personnel";
+import { NouvelAntecedentFamilialDialog } from "@/routes/patients.$id/popups/nouvel-antecedent-familial";
+import { NouvelAntecedentPersonnelDialog } from "@/routes/patients.$id/popups/nouvel-antecedent-personnel";
+import { AjouterTraitementDialog } from "@/routes/patients.$id/popups/ajouter-traitement";
+import { ModifierTraitementDialog } from "@/routes/patients.$id/popups/modifier-traitement";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -68,12 +83,49 @@ type ConsultationDialogValues = {
   examen_digestif?: string;
 };
 
+type AntecedentPersonnelDialogValues = {
+  description?: string;
+  type?: string;
+  details?: string;
+  est_actif?: boolean;
+};
+
+type AntecedentFamilialDialogValues = {
+  description?: string;
+  details?: string;
+  lien_parente?: string;
+};
+
+type TraitementDialogValues = {
+  medicament_externe_id?: string;
+  nom_medicament?: string;
+  indication?: string;
+  dosage?: string;
+  posologie?: string;
+  contre_indications?: string;
+  effets_indesirables?: string;
+  date_prescription?: string;
+  est_actif?: boolean;
+};
+
 type PatientPopupEventDetail = {
-  type: "suivi" | "consultation";
+  type:
+    | "suivi"
+    | "consultation"
+    | "antecedent-personnel"
+    | "antecedent-familial"
+    | "traitement";
   mode?: "create" | "edit";
   suiviId?: string;
   examenId?: string;
-  initialValues?: SuiviDialogValues | ConsultationDialogValues;
+  antecedentId?: string;
+  traitementId?: string;
+  initialValues?:
+    | SuiviDialogValues
+    | ConsultationDialogValues
+    | AntecedentPersonnelDialogValues
+    | AntecedentFamilialDialogValues
+    | TraitementDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -88,15 +140,15 @@ export const Route = createFileRoute("/patients/$id")({
 });
 
 const tabs = [
-  { label: "Vue d'ensemble", to: "/patients/$id/general" },
-  { label: "Suivis", to: "/patients/$id/suivi" },
-  { label: "Antécédents", to: "/patients/$id/antecedent" },
-  { label: "Traitements", to: "/patients/$id/traitement" },
-  { label: "Documents", to: "/patients/$id/document" },
-  { label: "Vaccinations", to: "/patients/$id/vaccination" },
-  { label: "Santé Féminine", to: "/patients/$id/sante-feminine" },
-  { label: "Infos Sociales", to: "/patients/$id/info-sociale" },
-  { label: "Voyages", to: "/patients/$id/voyage" },
+  { label: "Vue d'ensemble", to: "/patients/$id/general", icon: LayoutDashboard },
+  { label: "Suivis", to: "/patients/$id/suivi", icon: TrendingUp },
+  { label: "Antécédents", to: "/patients/$id/antecedent", icon: History },
+  { label: "Traitements", to: "/patients/$id/traitement", icon: Package },
+  { label: "Documents", to: "/patients/$id/document", icon: FileText },
+  { label: "Vaccinations", to: "/patients/$id/vaccination", icon: Syringe },
+  { label: "Santé Féminine", to: "/patients/$id/sante-feminine", icon: User },
+  { label: "Infos Sociales", to: "/patients/$id/info-sociale", icon: House },
+  { label: "Voyages", to: "/patients/$id/voyage", icon: MapPin },
 ] as const;
 
 function PatientLayout() {
@@ -119,6 +171,32 @@ function PatientLayout() {
   const [consultationDialogValues, setConsultationDialogValues] = useState<
     ConsultationDialogValues | undefined
   >(undefined);
+  const [isAntecedentPersonnelOpen, setIsAntecedentPersonnelOpen] = useState(false);
+  const [isAntecedentFamilialOpen, setIsAntecedentFamilialOpen] = useState(false);
+  const [antecedentPersonnelMode, setAntecedentPersonnelMode] = useState<
+    "create" | "edit"
+  >("create");
+  const [antecedentFamilialMode, setAntecedentFamilialMode] = useState<
+    "create" | "edit"
+  >("create");
+  const [antecedentPersonnelId, setAntecedentPersonnelId] = useState<
+    string | undefined
+  >(undefined);
+  const [antecedentFamilialId, setAntecedentFamilialId] = useState<
+    string | undefined
+  >(undefined);
+  const [antecedentPersonnelValues, setAntecedentPersonnelValues] = useState<
+    AntecedentPersonnelDialogValues | undefined
+  >(undefined);
+  const [antecedentFamilialValues, setAntecedentFamilialValues] = useState<
+    AntecedentFamilialDialogValues | undefined
+  >(undefined);
+  const [isTraitementOpen, setIsTraitementOpen] = useState(false);
+  const [traitementMode, setTraitementMode] = useState<"create" | "edit">("create");
+  const [traitementId, setTraitementId] = useState<string | undefined>(undefined);
+  const [traitementValues, setTraitementValues] = useState<TraitementDialogValues | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -147,6 +225,37 @@ function PatientLayout() {
           Object.keys(initial).length > 0 ? initial : undefined
         );
         setIsNouvelleConsultationOpen(true);
+      }
+
+      if (customEvent.detail?.type === "antecedent-personnel") {
+        setAntecedentPersonnelMode(customEvent.detail.mode ?? "create");
+        setAntecedentPersonnelId(customEvent.detail.antecedentId);
+        setAntecedentPersonnelValues(
+          (customEvent.detail.initialValues as
+            | AntecedentPersonnelDialogValues
+            | undefined) ?? undefined
+        );
+        setIsAntecedentPersonnelOpen(true);
+      }
+
+      if (customEvent.detail?.type === "antecedent-familial") {
+        setAntecedentFamilialMode(customEvent.detail.mode ?? "create");
+        setAntecedentFamilialId(customEvent.detail.antecedentId);
+        setAntecedentFamilialValues(
+          (customEvent.detail.initialValues as
+            | AntecedentFamilialDialogValues
+            | undefined) ?? undefined
+        );
+        setIsAntecedentFamilialOpen(true);
+      }
+
+      if (customEvent.detail?.type === "traitement") {
+        setTraitementMode(customEvent.detail.mode ?? "create");
+        setTraitementId(customEvent.detail.traitementId);
+        setTraitementValues(
+          (customEvent.detail.initialValues as TraitementDialogValues | undefined) ?? undefined
+        );
+        setIsTraitementOpen(true);
       }
     };
 
@@ -337,6 +446,31 @@ function PatientLayout() {
     ]);
   };
 
+  const handleAntecedentChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.medicalHistory.getAntecedentsPatient.queryFilter({ patient_id: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id })
+      ),
+    ]);
+  };
+
+  const handleTraitementChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.treatment.getActivePatientTreatments.queryFilter({ patient_id: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id })
+      ),
+    ]);
+  };
+
   return (
     <div className="flex h-screen">
       {/* Sidebar Placeholder */}
@@ -381,7 +515,7 @@ function PatientLayout() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-[#f8fafc] p-6 overflow-auto">
+      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden">
         <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px]">
           {/* Back Link */}
           <Link
@@ -779,8 +913,8 @@ function PatientLayout() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="bg-white border-[0.8px] border-[#c2e0ef] rounded-[14px] p-[10px]">
-            <div className="flex gap-[18px] items-center px-[3px]">
+          <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
+            <div className="scrollbar-hide flex w-full max-w-full items-center justify-start gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1 md:justify-start md:gap-1">
               {tabs.map((tab) => {
                 const tabPath = tab.to.replace("$id", id);
                 const isActive = location.pathname === tabPath;
@@ -790,13 +924,14 @@ function PatientLayout() {
                     to={tab.to}
                     params={{ id }}
                     className={cn(
-                      "flex items-center gap-[6px] px-[10px] py-[5px] rounded-[14px] font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] transition-colors whitespace-nowrap",
+                      "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
                       isActive
                         ? "bg-[#f97316] text-white"
                         : "text-[#0f3460] hover:bg-[#f8fafc]"
                     )}
                   >
-                    {tab.label}
+                    <tab.icon className="size-4 shrink-0 text-current" strokeWidth={1.75} />
+                    <span>{tab.label}</span>
                   </Link>
                 );
               })}
@@ -839,6 +974,102 @@ function PatientLayout() {
             patientId={id}
             values={consultationDialogValues}
           />
+
+          {antecedentPersonnelMode === "create" ? (
+            <NouvelAntecedentPersonnelDialog
+              onCreated={handleAntecedentChanged}
+              onOpenChange={(nextOpen) => {
+                setIsAntecedentPersonnelOpen(nextOpen);
+                if (!nextOpen) {
+                  setAntecedentPersonnelMode("create");
+                  setAntecedentPersonnelId(undefined);
+                  setAntecedentPersonnelValues(undefined);
+                }
+              }}
+              open={isAntecedentPersonnelOpen}
+              patientId={id}
+              values={antecedentPersonnelValues}
+            />
+          ) : (
+            <ModifierAntecedentPersonnelDialog
+              antecedentId={antecedentPersonnelId}
+              onCreated={handleAntecedentChanged}
+              onOpenChange={(nextOpen) => {
+                setIsAntecedentPersonnelOpen(nextOpen);
+                if (!nextOpen) {
+                  setAntecedentPersonnelMode("create");
+                  setAntecedentPersonnelId(undefined);
+                  setAntecedentPersonnelValues(undefined);
+                }
+              }}
+              open={isAntecedentPersonnelOpen}
+              values={antecedentPersonnelValues}
+            />
+          )}
+
+          {antecedentFamilialMode === "create" ? (
+            <NouvelAntecedentFamilialDialog
+              onCreated={handleAntecedentChanged}
+              onOpenChange={(nextOpen) => {
+                setIsAntecedentFamilialOpen(nextOpen);
+                if (!nextOpen) {
+                  setAntecedentFamilialMode("create");
+                  setAntecedentFamilialId(undefined);
+                  setAntecedentFamilialValues(undefined);
+                }
+              }}
+              open={isAntecedentFamilialOpen}
+              patientId={id}
+              values={antecedentFamilialValues}
+            />
+          ) : (
+            <ModifierAntecedentFamilialDialog
+              antecedentId={antecedentFamilialId}
+              onCreated={handleAntecedentChanged}
+              onOpenChange={(nextOpen) => {
+                setIsAntecedentFamilialOpen(nextOpen);
+                if (!nextOpen) {
+                  setAntecedentFamilialMode("create");
+                  setAntecedentFamilialId(undefined);
+                  setAntecedentFamilialValues(undefined);
+                }
+              }}
+              open={isAntecedentFamilialOpen}
+              values={antecedentFamilialValues}
+            />
+          )}
+
+          {traitementMode === "create" ? (
+            <AjouterTraitementDialog
+              onCreated={handleTraitementChanged}
+              onOpenChange={(nextOpen) => {
+                setIsTraitementOpen(nextOpen);
+                if (!nextOpen) {
+                  setTraitementMode("create");
+                  setTraitementId(undefined);
+                  setTraitementValues(undefined);
+                }
+              }}
+              open={isTraitementOpen}
+              patientId={id}
+              values={traitementValues}
+            />
+          ) : (
+            <ModifierTraitementDialog
+              onCreated={handleTraitementChanged}
+              onOpenChange={(nextOpen) => {
+                setIsTraitementOpen(nextOpen);
+                if (!nextOpen) {
+                  setTraitementMode("create");
+                  setTraitementId(undefined);
+                  setTraitementValues(undefined);
+                }
+              }}
+              open={isTraitementOpen}
+              traitementId={traitementId}
+              values={traitementValues}
+            />
+          )}
         </div>
       </div>
     </div>

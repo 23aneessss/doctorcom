@@ -6,6 +6,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
 
+import { GlobalAIAssistant } from "@/components/ai-assistant/GlobalAIAssistant";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -48,6 +49,7 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <Outlet />
+        <GlobalAIAssistant />
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />

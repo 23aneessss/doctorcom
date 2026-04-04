@@ -1,16 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { X, CircleHelp, ClipboardList } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { trpcClient } from "@/utils/trpc";
 
-const nouveauSuiviHeaderIcon =
-  "http://localhost:3845/assets/7c0c1a36b9ab3a3ed3c41d3b66e21ef9c3a1212a.svg";
-const helpIcon =
-  "http://localhost:3845/assets/2ad13c7bb378cd49f58079c0dcd63cb842cb8f1e.svg";
 
 type SuiviDialogValues = {
   motif?: string;
@@ -185,7 +181,7 @@ export function NouveauSuiviDialog({
       <div className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
         <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 pb-[0.8px]">
           <div className="flex items-center gap-2">
-            <img alt="" className="size-5" src={nouveauSuiviHeaderIcon} />
+            <ClipboardList className="size-5 "  color="#0f3460"/>
             <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]">
               {mode === "edit" ? "Modifier suivi" : "Nouveau suivi"}
             </h3>
@@ -197,7 +193,7 @@ export function NouveauSuiviDialog({
               className="flex size-5 items-center justify-center text-[#0f3460]"
               type="button"
             >
-              <img alt="" className="size-5" src={helpIcon} />
+              <CircleHelp className="size-5" />
             </button>
             <button
               className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460]"
