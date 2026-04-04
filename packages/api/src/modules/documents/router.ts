@@ -144,7 +144,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerDocument({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -223,6 +223,26 @@ export const documentsRouter = createTRPCRouter({
 			});
 		}),
 
+	envoyerLettreParEmail: protectedProcedure
+		.input(z.object({ lettreId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerLettreParEmail({
+				db: ctx.db,
+				lettreId: input.lettreId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
+	envoyerCertificatParEmail: protectedProcedure
+		.input(z.object({ certificatId: uuidSchema }))
+		.mutation(async ({ ctx, input }) => {
+			return documentsService.envoyerCertificatParEmail({
+				db: ctx.db,
+				certificatId: input.certificatId,
+				userId: ctx.session.user.id,
+			});
+		}),
+
 	creerLettre: protectedProcedure
 		.input(
 			z.object({
@@ -234,7 +254,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerLettre({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -250,7 +270,7 @@ export const documentsRouter = createTRPCRouter({
 				db: ctx.db,
 				id: input.id,
 				input: input.data,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -301,7 +321,7 @@ export const documentsRouter = createTRPCRouter({
 			return documentsService.creerCertificat({
 				db: ctx.db,
 				input,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 
@@ -317,7 +337,7 @@ export const documentsRouter = createTRPCRouter({
 				db: ctx.db,
 				id: input.id,
 				input: input.data,
-				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email,
 			});
 		}),
 

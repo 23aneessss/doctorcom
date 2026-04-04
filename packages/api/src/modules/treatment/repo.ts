@@ -1,27 +1,39 @@
 import type { db as databaseClient } from "@doctor.com/db";
 import { historique_traitements, utilisateurs } from "@doctor.com/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 
-type DatabaseClient = typeof databaseClient;
+type RootDatabaseClient = typeof databaseClient;
+type DatabaseTransaction = Parameters<Parameters<RootDatabaseClient["transaction"]>[0]>[0];
+type DatabaseClient = RootDatabaseClient | DatabaseTransaction;
 type NewTreatmentRecord = typeof historique_traitements.$inferInsert;
 
 export type TreatmentRecord = typeof historique_traitements.$inferSelect;
 export type UtilisateurRecord = typeof utilisateurs.$inferSelect;
+export type TreatmentSourceType = TreatmentRecord["source_type"];
 
 export interface CreateTreatmentInput {
   patient_id: string;
-  medicament_id: string;
+  medicament_externe_id: string;
+  nom_medicament: string;
+  dosage?: string | null;
   posologie: string;
   date_prescription: string;
   prescrit_par_utilisateur: string;
   est_actif?: boolean;
+  source_type?: TreatmentSourceType;
+  ordonnance_id?: string | null;
+  ordonnance_medicament_id?: string | null;
 }
 
 export interface UpdateTreatmentInput {
-  medicament_id?: string;
+  medicament_externe_id?: string;
+  nom_medicament?: string;
+  dosage?: string | null;
   posologie?: string;
   date_prescription?: string;
   est_actif?: boolean;
+  ordonnance_id?: string | null;
+  ordonnance_medicament_id?: string | null;
 }
 
 export class TreatmentRepository {
@@ -44,11 +56,16 @@ export class TreatmentRepository {
   ): Promise<TreatmentRecord> {
     const values: NewTreatmentRecord = {
       patient_id: input.patient_id,
-      medicament_id: input.medicament_id,
+      medicament_externe_id: input.medicament_externe_id,
+      nom_medicament: input.nom_medicament,
+      dosage: input.dosage ?? null,
       posologie: input.posologie,
       est_actif: input.est_actif ?? true,
       date_prescription: input.date_prescription,
       prescrit_par_utilisateur: input.prescrit_par_utilisateur,
+      source_type: input.source_type ?? "manuel",
+      ordonnance_id: input.ordonnance_id ?? null,
+      ordonnance_medicament_id: input.ordonnance_medicament_id ?? null,
     };
 
     const [createdTreatment] = await database
@@ -68,28 +85,13 @@ export class TreatmentRepository {
     treatmentId: string,
     input: UpdateTreatmentInput,
   ): Promise<TreatmentRecord | null> {
-    const updateData: UpdateTreatmentInput = {};
-
-    if (input.medicament_id !== undefined) {
-      updateData.medicament_id = input.medicament_id;
-    }
-    if (input.posologie !== undefined) {
-      updateData.posologie = input.posologie;
-    }
-    if (input.date_prescription !== undefined) {
-      updateData.date_prescription = input.date_prescription;
-    }
-    if (input.est_actif !== undefined) {
-      updateData.est_actif = input.est_actif;
-    }
-
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(input).length === 0) {
       return this.getTreatmentById(database, treatmentId);
     }
 
     const [updatedTreatment] = await database
       .update(historique_traitements)
-      .set(updateData)
+      .set(input)
       .where(eq(historique_traitements.id, treatmentId))
       .returning();
 
@@ -109,6 +111,106 @@ export class TreatmentRepository {
     return stoppedTreatment ?? null;
   }
 
+  async stopTreatmentsByOrdonnanceId(
+    database: DatabaseClient,
+    ordonnanceId: string,
+  ): Promise<TreatmentRecord[]> {
+    return database
+      .update(historique_traitements)
+      .set({ est_actif: false })
+      .where(eq(historique_traitements.ordonnance_id, ordonnanceId))
+      .returning();
+  }
+
+  async detachTreatmentsByOrdonnanceId(
+    database: DatabaseClient,
+    ordonnanceId: string,
+  ): Promise<TreatmentRecord[]> {
+    return database
+      .update(historique_traitements)
+      .set({
+        est_actif: false,
+        ordonnance_id: null,
+        ordonnance_medicament_id: null,
+      })
+      .where(eq(historique_traitements.ordonnance_id, ordonnanceId))
+      .returning();
+  }
+
+  async updateTreatmentsByOrdonnanceId(
+    database: DatabaseClient,
+    ordonnanceId: string,
+    input: Partial<
+      Pick<TreatmentRecord, "patient_id" | "date_prescription" | "prescrit_par_utilisateur">
+    >,
+  ): Promise<TreatmentRecord[]> {
+    if (Object.keys(input).length === 0) {
+      return [];
+    }
+
+    return database
+      .update(historique_traitements)
+      .set(input)
+      .where(eq(historique_traitements.ordonnance_id, ordonnanceId))
+      .returning();
+  }
+
+  async stopTreatmentByOrdonnanceMedicamentId(
+    database: DatabaseClient,
+    ordonnanceMedicamentId: string,
+  ): Promise<TreatmentRecord[]> {
+    return database
+      .update(historique_traitements)
+      .set({ est_actif: false })
+      .where(eq(historique_traitements.ordonnance_medicament_id, ordonnanceMedicamentId))
+      .returning();
+  }
+
+  async detachTreatmentByOrdonnanceMedicamentId(
+    database: DatabaseClient,
+    ordonnanceMedicamentId: string,
+  ): Promise<TreatmentRecord[]> {
+    return database
+      .update(historique_traitements)
+      .set({
+        est_actif: false,
+        ordonnance_medicament_id: null,
+      })
+      .where(eq(historique_traitements.ordonnance_medicament_id, ordonnanceMedicamentId))
+      .returning();
+  }
+
+  async deactivateActiveDerivedTreatmentsForPatientMedication(
+    database: DatabaseClient,
+    params: {
+      patient_id: string;
+      medicament_externe_id: string;
+      exclude_ordonnance_medicament_id?: string;
+    },
+  ): Promise<TreatmentRecord[]> {
+    const conditions = [
+      eq(historique_traitements.patient_id, params.patient_id),
+      eq(historique_traitements.medicament_externe_id, params.medicament_externe_id),
+      eq(historique_traitements.source_type, "ordonnance"),
+      eq(historique_traitements.est_actif, true),
+    ];
+
+    if (params.exclude_ordonnance_medicament_id) {
+      conditions.push(
+        ne(
+          historique_traitements.ordonnance_medicament_id,
+          params.exclude_ordonnance_medicament_id,
+        ),
+      );
+    }
+
+    return database
+      .update(historique_traitements)
+      .set({ est_actif: false })
+      .where(and(...conditions))
+      .returning();
+  }
+
   async getTreatmentById(
     database: DatabaseClient,
     treatmentId: string,
@@ -122,6 +224,19 @@ export class TreatmentRepository {
     return treatment ?? null;
   }
 
+  async getTreatmentByOrdonnanceMedicamentId(
+    database: DatabaseClient,
+    ordonnanceMedicamentId: string,
+  ): Promise<TreatmentRecord | null> {
+    const [treatment] = await database
+      .select()
+      .from(historique_traitements)
+      .where(eq(historique_traitements.ordonnance_medicament_id, ordonnanceMedicamentId))
+      .limit(1);
+
+    return treatment ?? null;
+  }
+
   async getTreatmentsByPatient(
     database: DatabaseClient,
     patientId: string,
@@ -130,7 +245,10 @@ export class TreatmentRepository {
       .select()
       .from(historique_traitements)
       .where(eq(historique_traitements.patient_id, patientId))
-      .orderBy(desc(historique_traitements.date_prescription));
+      .orderBy(
+        desc(historique_traitements.date_prescription),
+        desc(historique_traitements.id),
+      );
   }
 
   async getActiveTreatmentsByPatient(
@@ -146,7 +264,10 @@ export class TreatmentRepository {
           eq(historique_traitements.est_actif, true),
         ),
       )
-      .orderBy(desc(historique_traitements.date_prescription));
+      .orderBy(
+        desc(historique_traitements.date_prescription),
+        desc(historique_traitements.id),
+      );
   }
 }
 

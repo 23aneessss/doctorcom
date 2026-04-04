@@ -29,6 +29,13 @@
       "when": 1773473124502,
       "tag": "0003_medical_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773539456273,
+      "tag": "0004_external_medications_bridge",
+      "breakpoints": true
     }
   ]
 }

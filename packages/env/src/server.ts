@@ -5,6 +5,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
+    MEDICATIONS_DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
@@ -15,6 +16,22 @@ export const env = createEnv({
     MINIO_ROOT_USER: z.string().min(1),
     MINIO_ROOT_PASSWORD: z.string().min(1),
     MINIO_BUCKET: z.string().min(1),
+    AI_PROVIDER: z
+      .enum(["openrouter", "together", "mistral", "google-ai-studio"])
+      .optional(),
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_MODEL: z.string().min(1).default("openrouter/free"),
+    TOGETHER_API_KEY: z.string().min(1).optional(),
+    TOGETHER_MODEL: z.string().min(1).default("Qwen/Qwen3-Next-80B-A3B-Instruct"),
+    MISTRAL_API_KEY: z.string().min(1).optional(),
+    MISTRAL_MODEL: z.string().min(1).default("mistral-small-latest"),
+    GEMINI_API_KEY: z.string().min(1).optional(),
+    GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().positive(),
+    SMTP_USER: z.string().min(1),
+    SMTP_PASS: z.string().min(1),
+    SMTP_FROM: z.string().email(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

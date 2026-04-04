@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 
 import type { SessionUtilisateur } from "../../trpc/context";
+import { medicamentsService } from "../medicaments/service";
 import {
   treatmentRepository,
   type CreateTreatmentInput,
@@ -15,14 +16,16 @@ type TreatmentSession = Exclude<SessionUtilisateur, null>;
 
 export interface StartTreatmentServiceInput {
   patient_id: string;
-  medicament_id: string;
+  medicament_externe_id: string;
+  dosage?: string | null;
   posologie: string;
   date_prescription: string;
   est_actif?: boolean;
 }
 
 export interface UpdateTreatmentServiceInput {
-  medicament_id?: string;
+  medicament_externe_id?: string;
+  dosage?: string | null;
   posologie?: string;
   date_prescription?: string;
   est_actif?: boolean;
@@ -35,7 +38,7 @@ export class TreatmentService {
     input: StartTreatmentServiceInput;
   }): Promise<TreatmentRecord> {
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
-    const payload = this.normalizeCreateInput(data.input, utilisateur.id);
+    const payload = await this.normalizeCreateInput(data.input, utilisateur.id);
     return treatmentRepository.createTreatment(data.db, payload);
   }
 
@@ -58,7 +61,14 @@ export class TreatmentService {
       });
     }
 
-    const payload = this.normalizeUpdateInput(data.input);
+    if (existingTreatment.source_type === "ordonnance") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
+      });
+    }
+
+    const payload = await this.normalizeUpdateInput(data.input);
     if (Object.keys(payload).length === 0) {
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -97,6 +107,13 @@ export class TreatmentService {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Traitement introuvable.",
+      });
+    }
+
+    if (existingTreatment.source_type === "ordonnance") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
       });
     }
 
@@ -160,10 +177,10 @@ export class TreatmentService {
     return email;
   }
 
-  private normalizeCreateInput(
+  private async normalizeCreateInput(
     input: StartTreatmentServiceInput,
     utilisateurId: string,
-  ): CreateTreatmentInput {
+  ): Promise<CreateTreatmentInput> {
     const posologie = input.posologie.trim();
     if (!posologie) {
       throw new TRPCError({
@@ -172,21 +189,34 @@ export class TreatmentService {
       });
     }
 
+    const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
+
     return {
       patient_id: input.patient_id,
-      medicament_id: input.medicament_id,
+      medicament_externe_id: snapshot.medicament_externe_id,
+      nom_medicament: snapshot.nom_medicament,
+      dosage: input.dosage?.trim() || null,
       posologie,
       date_prescription: input.date_prescription,
       prescrit_par_utilisateur: utilisateurId,
       est_actif: input.est_actif ?? true,
+      source_type: "manuel",
     };
   }
 
-  private normalizeUpdateInput(input: UpdateTreatmentServiceInput): UpdateTreatmentInput {
+  private async normalizeUpdateInput(
+    input: UpdateTreatmentServiceInput,
+  ): Promise<UpdateTreatmentInput> {
     const payload: UpdateTreatmentInput = {};
 
-    if (input.medicament_id !== undefined) {
-      payload.medicament_id = input.medicament_id;
+    if (input.medicament_externe_id !== undefined) {
+      const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
+      payload.medicament_externe_id = snapshot.medicament_externe_id;
+      payload.nom_medicament = snapshot.nom_medicament;
+    }
+
+    if (input.dosage !== undefined) {
+      payload.dosage = input.dosage?.trim() || null;
     }
 
     if (input.posologie !== undefined) {
@@ -209,6 +239,18 @@ export class TreatmentService {
     }
 
     return payload;
+  }
+
+  private async resolveMedicamentSnapshot(medicamentExterneId: string) {
+    const parsedId = Number.parseInt(medicamentExterneId.trim(), 10);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "medicament_externe_id invalide.",
+      });
+    }
+
+    return medicamentsService.getMedicamentSnapshot(parsedId);
   }
 }
 

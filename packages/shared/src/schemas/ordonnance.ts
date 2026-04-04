@@ -8,7 +8,8 @@ import {
 } from "./common";
 
 const ordonnanceMedicamentMutationShape = {
-  medicament_id: uuidSchema,
+  medicament_externe_id: trimmedStringSchema,
+  dosage: trimmedStringSchema,
   posologie: trimmedStringSchema,
   duree_traitement: optionalTrimmedStringSchema,
   instructions: optionalTrimmedStringSchema,
@@ -18,6 +19,7 @@ const ordonnanceMutationShape = {
   rendez_vous_id: uuidSchema,
   patient_id: uuidSchema,
   utilisateur_id: uuidSchema,
+  pre_rempli_origine_id: uuidSchema.optional().nullable(),
   remarques: optionalTrimmedStringSchema,
   date_prescription: isoDateSchema,
 } satisfies z.ZodRawShape;
@@ -25,6 +27,8 @@ const ordonnanceMutationShape = {
 export const ordonnanceMedicamentSchema = z.object({
   id: uuidSchema,
   ordonnance_id: uuidSchema,
+  nom_medicament: trimmedStringSchema,
+  dci: optionalTrimmedStringSchema,
   ...ordonnanceMedicamentMutationShape,
 });
 

@@ -155,11 +155,27 @@ export class PatientService {
       });
     }
 
-    const deleted = await patientRepository.deletePatient(data.db, data.id);
-    if (!deleted) {
+    try {
+      const deleted = await data.db.transaction(async (tx) => {
+        await patientRepository.deleteFemalePatientInfo(tx, data.id);
+        return patientRepository.deletePatient(tx, data.id);
+      });
+
+      if (!deleted) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Echec de suppression du patient.",
+        });
+      }
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
       throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Echec de suppression du patient.",
+        code: "CONFLICT",
+        message:
+          "Impossible de supprimer ce patient: des donnees liees existent encore dans le systeme.",
       });
     }
 

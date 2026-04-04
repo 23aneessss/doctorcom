@@ -13,6 +13,7 @@ build
 .env*.local
 
 # IDEs and editors
+.opencode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

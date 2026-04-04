@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Client } from "minio";
 import { env } from "@doctor.com/env/server";
 
@@ -26,5 +28,45 @@ export async function ensureBucketExists(): Promise<void> {
     }
   } catch (err) {
     console.error(`❌ MinIO bucket check failed:`, err);
+    throw err;
   }
+}
+
+export async function uploadFile(params: {
+  file: Express.Multer.File;
+  folder?: string;
+}): Promise<{ url: string; objectName: string; size: number; mimeType: string }> {
+  const objectName = `${params.folder ?? "documents"}/${randomUUID()}-${params.file.originalname}`;
+
+  await minioClient.putObject(
+    storageConfig.bucket,
+    objectName,
+    params.file.buffer,
+    params.file.size,
+    {
+      "Content-Type": params.file.mimetype,
+    },
+  );
+
+  return {
+    url: `http://${storageConfig.endpoint}:${storageConfig.port}/${storageConfig.bucket}/${objectName}`,
+    objectName,
+    size: params.file.size,
+    mimeType: params.file.mimetype,
+  };
+}
+
+export async function deleteFile(objectName: string): Promise<void> {
+  await minioClient.removeObject(storageConfig.bucket, objectName);
+}
+
+export function getObjectNameFromUrl(url: string): string {
+  const parsedUrl = new URL(url);
+  const pathPrefix = `/${storageConfig.bucket}/`;
+
+  if (!parsedUrl.pathname.startsWith(pathPrefix)) {
+    throw new Error("Invalid MinIO URL format.");
+  }
+
+  return decodeURIComponent(parsedUrl.pathname.slice(pathPrefix.length));
 }

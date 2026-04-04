@@ -11,7 +11,6 @@ import {
   historique_traitements,
   lettres_orientation,
   logs,
-  medicaments,
   ordonnance,
   ordonnance_medicaments,
   patients,
@@ -48,8 +47,6 @@ export type RendezVous = InferSelectModel<typeof rendez_vous>;
 export type NewRendezVous = InferInsertModel<typeof rendez_vous>;
 export type ExamenConsultation = InferSelectModel<typeof examen_consultation>;
 export type NewExamenConsultation = InferInsertModel<typeof examen_consultation>;
-export type Medicament = InferSelectModel<typeof medicaments>;
-export type NewMedicament = InferInsertModel<typeof medicaments>;
 export type HistoriqueTraitement = InferSelectModel<typeof historique_traitements>;
 export type NewHistoriqueTraitement = InferInsertModel<typeof historique_traitements>;
 export type Ordonnance = InferSelectModel<typeof ordonnance>;

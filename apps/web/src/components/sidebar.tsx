@@ -487,7 +487,7 @@ function SidebarUserCard({ currentUser }: { currentUser: NonNullable<SidebarProp
 	);
 }
 
-export default function Sidebar({ className, currentUser = DEFAULT_USER, ...props }: SidebarProps) {
+function Sidebar({ className, currentUser = DEFAULT_USER, ...props }: SidebarProps) {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { style, ...asideProps } = props;
@@ -555,3 +555,6 @@ export default function Sidebar({ className, currentUser = DEFAULT_USER, ...prop
 		</aside>
 	);
 }
+
+export { Sidebar };
+export default Sidebar;

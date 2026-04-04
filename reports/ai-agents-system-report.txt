@@ -1,0 +1,1422 @@
+DOCTOR.COM
+RAPPORT TECHNIQUE COMPLET - AGENTS AI CLINIQUES ET MEDICAMENTS
+Date: 2026-03-23
+
+Auteur du rapport:
+- Synthese technique du comportement reel implemente dans le backend
+- Portee: 3 modules AI
+  1. hypotheseDiagnostic
+  2. ordonnanceRecommendation
+  3. medicationAssistant
+
+
+========================================================================
+1. OBJECTIF DU RAPPORT
+========================================================================
+
+Ce rapport explique, de maniere lisible et exploitable, le fonctionnement
+des 3 agents AI actuellement presents dans le backend de doctor.com.
+
+L'objectif est de remplacer la lecture brute de plusieurs milliers de lignes
+de code par une vue claire de:
+
+- l'architecture globale
+- les endpoints exposes
+- le pipeline runtime de chaque agent
+- la logique metier / backend
+- les systemes de filtrage et de garde-fous
+- la place reelle du LLM
+- les limites actuelles
+- les choix techniques ajoutes pendant l'implementation
+
+Ce rapport decrit le comportement implemente dans les fichiers suivants:
+
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/router.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/hypothese-diagnostic/router.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/hypothese-diagnostic/service.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/hypothese-diagnostic/repo.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/ordonnance-recommendation/router.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/ordonnance-recommendation/service.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/ordonnance-recommendation/repo.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/medication-assistant/router.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/medication-assistant/service.ts
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/medication-assistant/repo.ts
+
+
+========================================================================
+2. PHOTO D'ENSEMBLE
+========================================================================
+
+Les 3 agents sont branches sous le routeur TRPC racine:
+
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/router.ts
+
+Routeur AI racine:
+
+  ai
+  |
+  +-- hypotheseDiagnostic.generate
+  +-- ordonnanceRecommendation.generate
+  +-- medicationAssistant.chat
+
+Ces agents suivent tous le meme pattern structurel:
+
+  Router -> Service -> Repo -> DB / Provider AI
+
+Ou:
+
+- Router:
+  valide l'input et expose la mutation protegee
+
+- Service:
+  contient la logique metier principale
+  construit le contexte
+  appelle la DB
+  appelle le provider AI si necessaire
+  normalise et valide la sortie
+
+- Repo:
+  fait les lectures DB
+  ne porte pas de logique AI
+
+
+========================================================================
+3. TAILLE ET COMPLEXITE DES MODULES
+========================================================================
+
+Taille mesuree au moment du rapport:
+
+- hypothese-diagnostic/service.ts               1536 lignes
+- ordonnance-recommendation/service.ts          2651 lignes
+- medication-assistant/service.ts               3122 lignes
+- hypothese-diagnostic/repo.ts                   250 lignes
+- ordonnance-recommendation/repo.ts              249 lignes
+- medication-assistant/repo.ts                   313 lignes
+
+Pourquoi ces modules sont longs:
+
+1. Le contexte clinique est riche.
+2. Il y a plusieurs providers AI supportes.
+3. Chaque provider demande un traitement specifique.
+4. Les sorties doivent etre normalisees et validees.
+5. Il y a des garde-fous metier et de securite.
+6. Les fallbacks locaux ont ete renforces pour limiter la dependance
+   a la qualite variable des LLM gratuits / generalistes.
+
+
+========================================================================
+4. ARCHITECTURE COMMUNE AUX 3 AGENTS
+========================================================================
+
+4.1. Entree
+
+Les 3 agents sont des routes protegees:
+- un utilisateur connecte est requis
+- le backend relit ensuite l'utilisateur metier depuis la DB
+
+Ce pattern garantit:
+- pas d'appel anonyme
+- pas d'utilisation d'un suivi / patient qui n'appartient pas a
+  l'utilisateur connecte
+
+
+4.2. Providers AI supportes
+
+Les 3 modules supportent la meme famille de providers:
+
+- openrouter
+- together
+- mistral
+- google-ai-studio (Gemini)
+
+Selection:
+- si AI_PROVIDER est force dans apps/server/.env, ce provider est utilise
+- sinon fallback interne:
+  openrouter -> together -> mistral -> google-ai-studio
+
+
+4.3. Strategie generale de robustesse
+
+Les 3 modules suivent cette strategie:
+
+  Input valide
+      ->
+  Recuperation du contexte local
+      ->
+  Logique backend / retrieval / filtrage
+      ->
+  Appel LLM si utile
+      ->
+  Parsing JSON
+      ->
+  Normalisation
+      ->
+  Validation Zod
+      ->
+  Retour final protege
+
+Important:
+
+- le backend ne fait pas confiance aveuglement au modele
+- le modele n'est pas la source de verite
+- la DB locale reste la source verifiable
+
+
+4.4. Types de garde-fous utilises
+
+Garde-fous techniques:
+- timeout provider
+- mapping des erreurs HTTP / quota / auth
+- parsing JSON robuste
+- nettoyage des fences markdown
+- validation schema de sortie
+
+Garde-fous metier:
+- verification de l'utilisateur
+- verification d'appartenance du suivi
+- exclusion de medicaments hors shortlist
+- refus des questions necessitant un contexte patient dans le chat catalogue
+- fallback local quand le LLM est vide ou non fiable
+
+
+========================================================================
+5. AGENT 1 - HYPOTHESE DIAGNOSTIC
+========================================================================
+
+5.1. Role fonctionnel
+
+But:
+- aider au raisonnement clinique initial
+- proposer une synthese diagnostique structuree
+- produire des hypotheses, red flags, questions et examens a envisager
+
+Endpoint:
+- POST /trpc/ai.hypotheseDiagnostic.generate
+
+Router:
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/hypothese-diagnostic/router.ts
+
+Input:
+- suivi_id
+- examen_id optionnel
+- include_historical_context
+- max_historical_suivis
+- max_historical_treatments
+
+Output principal:
+- provider
+- model
+- source
+- context_summary
+- analysis
+- disclaimer
+
+
+5.2. Pipeline runtime
+
+Schema global:
+
+  Requete frontend
+      ->
+  Validation input Zod
+      ->
+  Resolve session / utilisateur
+      ->
+  Resolve suivi
+      ->
+  Resolve examen courant (ou dernier examen du suivi)
+      ->
+  Resolve patient
+      ->
+  Build clinical context
+      ->
+  Build prompt provider
+      ->
+  Call LLM
+      ->
+  Parse JSON
+      ->
+  Normalize response
+      ->
+  Validate schema
+      ->
+  Return analysis
+
+
+5.3. Construction du contexte clinique
+
+La construction du contexte est le coeur du module.
+
+Le service recupere:
+
+- patient de base
+  age calcule
+  sexe
+  profession
+  groupe sanguin
+  habitudes saines
+  habitudes toxiques
+  environnement animal
+
+- contexte femme si present
+  menopause
+  contraception
+  nombre de grossesses
+  symptomes menopause
+
+- consultation courante
+  motif
+  hypothese_diagnostic du suivi
+  historique
+
+- examen courant
+  description_consultation
+  aspect_general
+  examen respiratoire
+  examen cardiovasculaire
+  examen ORL
+  examen digestif
+  examen neurologique
+  conclusion
+  traitement_prescrit
+  poids
+  taille
+
+- antecedents
+  antecedents personnels actifs
+  antecedents familiaux
+  signaux d'allergie deduits du texte
+
+- traitements
+  actifs
+  recents
+
+- historique clinique
+  suivis recents
+  dernier examen de chaque suivi
+
+- contexte additionnel
+  voyages recents
+  vaccinations recentes
+
+- red flags deterministes
+  detects par regex dans le suivi / examen
+
+
+5.4. Repo de hypotheseDiagnostic
+
+Repo:
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/hypothese-diagnostic/repo.ts
+
+Le repo lit les tables suivantes:
+- utilisateurs
+- suivi
+- examen_consultation
+- patients
+- patients_femmes
+- antecedents
+- antecedents_personnels
+- antecedents_familiaux
+- historique_traitements
+- voyages_recents
+- vaccinations_patient
+
+Le repo ne contient pas de logique AI.
+Il fournit:
+- findUtilisateurByEmail
+- getSuiviById
+- getExamenById
+- getLatestExamenBySuivi
+- getPatientById
+- getFemalePatientInfo
+- getAntecedentsByPatient
+- getPersonalAntecedentsByAntecedentIds
+- getFamilyAntecedentsByAntecedentIds
+- getActiveTreatmentsByPatient
+- getRecentTreatmentsByPatient
+- getRecentSuivisByPatient
+- getLatestExamensBySuiviIds
+- getRecentVoyagesByPatient
+- getRecentVaccinationsByPatient
+
+
+5.5. Red flags deterministes
+
+Le module ne depend pas uniquement du modele pour la securite.
+
+Des motifs regex detectent explicitement:
+- douleur thoracique
+- gene / detresse respiratoire
+- syncope
+- convulsions
+- saignement / hemoptysie
+- confusion / alteration neurologique
+
+Ces signaux alimentent:
+- les warnings
+- la recommendation_readiness
+
+
+5.6. Prompting
+
+Le provider recoit un prompt structure contenant:
+- contexte patient
+- consultation courante
+- historique utile
+- traitements
+- antecedents
+- red flags
+
+Le modele doit retourner un JSON structure avec:
+- recommendation_readiness
+- chief_problem
+- diagnostic_summary
+- hypotheses[]
+- red_flags[]
+- caution_notes[]
+- global_missing_information[]
+
+
+5.7. Normalisation et validation
+
+Apres retour du modele:
+
+1. parsing JSON
+2. normalisation:
+   - nettoyage des strings
+   - fallback de valeurs manquantes
+   - normalisation de confidence
+   - bornage des tableaux
+3. validation Zod stricte
+
+Correction importante ajoutee:
+- les champs texte trop longs sont maintenant tronques avant validation
+- cela evite les erreurs du type:
+  caution_notes.0 too big
+
+Impact:
+- Gemini peut repondre plus librement
+- le backend garde une sortie valide
+
+
+5.8. Place reelle du LLM
+
+Dans ce module, le LLM reste central pour:
+- la synthese clinique
+- les hypotheses
+- la formulation
+
+Mais le backend garde la maitrise sur:
+- le contexte fourni
+- les red flags deterministes
+- la validation finale
+
+
+5.9. Niveau de maturite
+
+Etat actuel:
+- techniquement valide
+- fonctionnellement utilisable
+- le plus stable des 3 agents a ce stade
+
+
+========================================================================
+6. AGENT 2 - ORDONNANCE RECOMMENDATION
+========================================================================
+
+6.1. Role fonctionnel
+
+But:
+- generer un brouillon d'ordonnance recommande
+- a partir d'un contexte patient reel et d'une shortlist medicamenteuse locale
+
+Endpoint:
+- POST /trpc/ai.ordonnanceRecommendation.generate
+
+Router:
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/ordonnance-recommendation/router.ts
+
+Input:
+- suivi_id
+- examen_id optionnel
+- include_historical_context
+- max_historical_suivis
+- max_historical_treatments
+- clinical_problem_override optionnel
+
+Output principal:
+- provider
+- model
+- source
+- clinical_problem_basis
+- candidate_summary
+- recommendations
+- excluded_candidates
+- global_warnings
+- disclaimer
+
+
+6.2. Intention produit
+
+Ce module n'est pas un prescripteur autonome.
+
+Il est concu comme:
+- un assistant de brouillon d'ordonnance
+- base sur la DB locale medicaments
+- avec verification backend
+- et validation humaine finale par le medecin
+
+
+6.3. Pipeline runtime
+
+Schema global:
+
+  Requete frontend
+      ->
+  Validation input Zod
+      ->
+  Resolve session / utilisateur
+      ->
+  Resolve suivi
+      ->
+  Resolve examen
+      ->
+  Resolve patient
+      ->
+  Build clinical context
+      ->
+  Resolve clinical problem basis
+      ->
+  Retrieve medication candidates
+      ->
+  Filter + score candidates
+      ->
+  LLM draft (si utile)
+      ->
+  Post-validation
+      ->
+  Fallback deterministe si besoin
+      ->
+  Return result
+
+
+6.4. Clinical problem basis
+
+Le module ne doit pas "deviner" librement la pathologie.
+
+Ordre de priorite implemente:
+
+1. clinical_problem_override
+2. suivi.hypothese_diagnostic
+3. hypotheseDiagnostic.generate en interne
+4. fallback sur motif / conclusion / description_consultation
+
+Impact:
+- on ne part pas d'un prompt vide
+- on essaie toujours de fonder la recommandation sur un probleme clinique
+  explicite
+
+
+6.5. Contexte clinique
+
+Le contexte clinique reconstruit est proche de celui de hypotheseDiagnostic:
+- patient
+- contexte femme
+- consultation courante
+- examen courant
+- antecedents
+- traitements
+- historique
+- voyages
+- vaccinations
+- red flags deterministes
+
+La difference:
+- ici, ce contexte sert a filtrer et evaluer des candidats medicamenteux
+
+
+6.6. Retrieval medicaments
+
+Le module utilise:
+- medicamentsService.rechercherMedicaments(...)
+- medicamentsService.getMedicamentById(...)
+
+Strategies de retrieval:
+- query
+- indication
+- nom_substance
+
+Le service construit des termes de retrieval a partir:
+- chief_problem
+- hypotheses
+- motif
+- hypothese_diagnostic
+- conclusion examen
+- description_consultation
+- expansions metier backend ajoutees
+
+Correction ajoutee:
+- expansion specifique selon un profil clinique backend
+  exemple:
+  antipyretic_simple -> antipyretique / fievre / paracetamol / doliprane
+
+
+6.7. Profils metier backend
+
+Un profil metier est derive du probleme clinique:
+
+- antipyretic_simple
+- analgesic_simple
+- bronchodilator_inhaled
+- antibiotic_general
+- generic
+
+Ce profil sert a:
+- enrichir le retrieval
+- scorer les candidats
+- poser un gate clinique
+- construire un fallback deterministe
+
+
+6.8. Filtrage de securite backend
+
+Ce module contient un filtrage dur AVANT la generation finale.
+
+Exclusions automatiques:
+
+1. Allergie / hypersensibilite
+- tokens extraits depuis les signaux d'allergie du patient
+- comparaison avec nom + DCI + substances + corpus de securite du medicament
+
+2. Interactions avec traitements actifs
+- tokens extraits depuis les traitements actifs
+- comparaison avec le corpus interactions du candidat
+
+Si exclusion:
+- le medicament sort de la shortlist
+- il va dans excluded_candidates avec une raison explicite
+
+
+6.9. Warnings backend
+
+Pour les candidats non exclus, le backend ajoute des warnings si:
+- antecedents du patient a confronter avec precautions / CI
+- pas de posologie adulte exploitable
+- pas de presentation exploitable
+- produit repere comme supprime
+
+
+6.10. Scoring clinique backend
+
+Le score final ne vient pas du LLM.
+
+Le backend score selon:
+- retrieval_score initial
+- match du probleme clinique avec indications
+- posologie adulte presente
+- presentations presentes
+- policy scoring specifique au profil
+- penalites si warnings
+- penalite si produit supprime
+
+Exemples de policy scoring:
+
+antipyretic_simple:
+- bonus fort pour paracetamol
+- bonus pour indication fievre / antipyretique
+- bonus pour monotherapie
+- malus pour aspirine
+- malus pour AINS non necessaires
+
+bronchodilator_inhaled:
+- bonus bronchodilatateur
+- bonus forme inalee
+- malus forme non inalee
+
+antibiotic_general:
+- bonus antibiotique
+- malus hors classe
+
+
+6.11. Gate clinique
+
+Le gate clinique est un filtre "must-match".
+
+Exemple:
+
+Pour antipyretic_simple, un candidat doit matcher:
+- paracetamol-like
+OU
+- indication / classe liee a la fievre
+
+Sinon:
+- il est exclu
+- meme si son retrieval lexical etait correct
+
+Pourquoi c'est important:
+- eviter les faux positifs absurdes
+- ne pas laisser survivre un medicament hors sujet juste parce qu'il a
+  une posologie adulte ou une monotherapie
+
+
+6.12. LLM dans ordonnanceRecommendation
+
+Le LLM recoit:
+- le probleme clinique
+- le contexte compact
+- la shortlist validee
+
+Le prompt a ete compactee pour Gemini:
+- moins d'historique
+- shortlist reduite
+- champs tronques
+- JSON compacte
+
+Correction provider importante:
+- Gemini refusait initialement le responseJsonSchema complexe
+- il a donc ete retire uniquement sur cette route pour Gemini
+- le backend garde la validation locale derriere
+
+
+6.13. Post-validation
+
+Apres sortie du modele:
+- parse JSON
+- normalisation
+- validation Zod
+- verification que chaque medicament retourne appartient a la shortlist
+- refus des doublons dans une meme recommandation
+
+Le modele ne peut donc pas inventer librement:
+- ni un medicament absent
+- ni un id arbitraire
+
+
+6.14. Fallback deterministe backend
+
+Changement majeur ajoute:
+
+Si:
+- le modele echoue
+OU
+- retourne recommendations: []
+
+Alors:
+- le backend peut construire un brouillon minimal local
+
+Ce fallback:
+- choisit le meilleur candidat selon le profil
+- exige une posologie adulte exploitable
+- construit 1 recommandation locale
+- remplit:
+  rank
+  label
+  rationale
+  warnings
+  ordonnance_draft
+  justification
+
+Exemples:
+- option antalgique / antipyretique simple
+- option bronchodilatatrice inalee
+- option antibiotique de reference
+
+
+6.15. Limite actuelle
+
+Ce module est le plus difficile des 3.
+
+Pourquoi:
+- il doit faire du raisonnement therapeutique
+- il depend beaucoup de la qualite du retrieval
+- il reste sensible a la qualite de la DB scrapee
+- les LLM generalistes sont inegaux sur ce genre de sortie
+
+Etat actuel:
+- techniquement branche
+- beaucoup plus robuste qu'au debut
+- mais encore plus experimental que hypotheseDiagnostic
+
+
+========================================================================
+7. AGENT 3 - MEDICATION ASSISTANT
+========================================================================
+
+7.1. Role fonctionnel
+
+But:
+- fournir un chat global dans la page catalogue medicaments
+- faire de la recherche naturelle
+- expliquer un medicament
+- comparer des medicaments
+- faire une lecture securite globale
+
+Endpoint:
+- POST /trpc/ai.medicationAssistant.chat
+
+Router:
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/medication-assistant/router.ts
+
+Input:
+- messages[]
+- selected_medicament_ids optionnel
+- max_candidates optionnel
+- max_history_messages optionnel
+
+Output:
+- provider
+- model
+- generated_at
+- intent
+- answer
+- referenced_medicaments
+- comparison
+- warnings
+- follow_up_suggestions
+- requires_patient_context
+
+
+7.2. Position produit
+
+Ce module est volontairement:
+- global au catalogue
+- non patient-specifique
+
+Si la question demande:
+- prescription pour un patient reel
+- adaptation a un terrain
+- validation selon allergies / traitements du patient
+
+Le module doit refuser et signaler:
+- requires_patient_context = true
+
+
+7.3. Pipeline runtime
+
+Schema complet:
+
+  Requete chat frontend
+      ->
+  Validation input Zod
+      ->
+  Resolve session / utilisateur
+      ->
+  Normalisation messages
+      ->
+  Detect last user message
+      ->
+  Heuristic intent
+      ->
+  Structured query builder (LLM pass 1)
+      ->
+  Policy profile
+      ->
+  Search terms + identity terms
+      ->
+  Direct name search
+      ->
+  Broad recall search
+      ->
+  Aggregate loading
+      ->
+  Candidate feature extraction
+      ->
+  Scoring backend
+      ->
+  Clinical gate
+      ->
+  Shortlist
+      ->
+  Optional LLM answer synthesis (pass 2)
+      ->
+  Post-validation
+      ->
+  Deterministic fallback / preference
+      ->
+  Return result
+
+
+7.4. Repo medicaments
+
+Repo:
+- /Users/mac/Desktop/doctor.com/packages/api/src/modules/ai/medication-assistant/repo.ts
+
+Le repo lit:
+- utilisateurs depuis la DB principale
+- medicaments depuis @doctor.com/medications-db
+
+Tables lues:
+- medicaments
+- substances_actives
+- indications
+- contre_indications
+- precautions
+- interactions
+- effets_indesirables
+- presentations
+
+
+7.5. Retrieval accent-insensitive
+
+Une partie importante a ete ajoutee ici:
+
+- normalisation accent-insensitive SQL
+- transliteration simple
+- comparison en lower-case
+
+Exemple:
+- antipyretique
+- antipyretique
+- antipyrétique
+- paracetamol
+- paracétamol
+
+peuvent converger plus proprement.
+
+Le repo expose:
+
+- searchMedicamentsByNames
+  recherche plus directe
+  nom medicament / nom generique / substance active
+
+- searchMedicamentsBroadRecall
+  rappel large sur:
+  nom
+  generique
+  classe therapeutique
+  famille pharmacologique
+  posologie
+  grossesse
+  allaitement
+  substances
+  indications
+  contre-indications
+  precautions
+  interactions
+  presentations
+
+- getMedicationAggregatesByIds
+  reconstruction de la fiche riche du medicament
+
+
+7.6. Detection d'intention
+
+Intent possibles:
+- search
+- explain
+- compare
+- safety
+- out_of_scope
+
+Detection:
+1. heuristique locale rapide
+2. structured query builder LLM
+3. resolution finale backend
+
+Exemple:
+- compare paracetamol et ibuprofene -> compare
+- quelles sont les interactions de l'amoxicilline -> safety
+- avec 1 medicament selectionne + demande floue -> explain
+
+
+7.7. Structured query builder (LLM pass 1)
+
+Le premier appel LLM ne repond pas au medecin.
+Il transforme la demande en objet structure:
+
+- intent
+- normalized_user_goal
+- requires_patient_context
+- medication_names_mentioned
+- substances_mentioned
+- therapeutic_classes_mentioned
+- clinical_uses_mentioned
+- safety_topics_requested
+- requested_constraints
+- comparison_requested
+- response_style
+- confidence
+
+Si cette passe echoue:
+- fallback heuristique local
+
+Donc:
+- le systeme ne depend pas completement du provider
+
+
+7.8. Policy profiles
+
+Profils metier supportes:
+- generic
+- antipyretic_simple
+- analgesic_simple
+- cough_wet
+- cough_dry
+- nasal_congestion
+- bronchodilator_inhaled
+- antibiotic_general
+- safety_lookup
+- comparison_general
+
+Le profil est derive du contenu normalise de la requete.
+
+
+7.9. Search terms et identity terms
+
+Le moteur construit 2 familles de termes:
+
+1. search terms
+- phrases et concepts de retrieval
+- expansions metier
+
+2. identity terms
+- substances / noms de reference a forte valeur clinique
+
+Exemples ajoutes:
+
+antipyretic_simple:
+- paracetamol
+- paracétamol
+- doliprane
+- dafalgan
+
+analgesic_simple:
+- paracetamol
+- ibuprofene
+- doliprane
+- dafalgan
+
+bronchodilator_inhaled:
+- salbutamol
+- ventoline
+- terbutaline
+- bricanyl
+
+Ainsi, le backend ne depend plus seulement de mots-clés tres pauvres.
+
+
+7.10. Candidate features backend
+
+Pour chaque candidat, le service calcule un grand set de features:
+
+- nombre de substances actives
+- monotherapie / combinaison
+- statut supprime
+- association type rhume
+- aspirin-like
+- nsaid-like
+- paracetamol-like
+- antipyretic-like
+- analgesic-like
+- indication fievre
+- indication douleur
+- toux grasse
+- toux seche
+- congestion nasale
+- bronchodilatateur
+- forme inalee
+- antibiotique
+- posologie adulte disponible
+- contenu securite disponible
+
+Ces features permettent un ranking metier deterministe.
+
+
+7.11. Scoring backend
+
+Le score d'un candidat combine:
+- matches lexicaux sur champs riches
+- bonus de posologie adulte
+- bonus si monotherapie
+- bonus de profil metier
+- malus si combinaison
+- malus si aspirine / AINS selon le profil
+- malus si association type rhume dans un cas generique
+- malus si forme non inalee alors que la demande est inalee
+- malus si produit supprime
+
+Exemple sur antipyretic_simple:
+- gros bonus pour paracetamol-like
+- bonus pour indication fievre
+- bonus pour monotherapie
+- fort malus pour association rhume
+- malus pour aspirine
+- malus pour AINS si non prioritaires
+
+
+7.12. Clinical gate
+
+Apres scoring, il existe un gate clinique.
+
+Exemple:
+
+antipyretic_simple:
+- doit etre paracetamol-like
+OU
+- doit avoir une indication fievre / antipyretique
+
+bronchodilator_inhaled:
+- doit etre bronchodilatateur-like
+ET
+- inaled-like
+
+safety_lookup:
+- doit avoir du contenu securite
+OU
+- de vrais match_reasons
+
+Ce gate est critique:
+- il elimine les faux positifs absurdes
+
+
+7.13. Fallback et preference deterministe
+
+Evolution importante implemente:
+
+Le module ne se contente plus d'attendre une belle reponse LLM.
+
+Il construit un fallback local complet:
+- referenced_medicaments
+- comparison de secours
+- answer de secours
+- warnings
+- suggestions
+
+Et surtout, pour plusieurs intents metier, le fallback est maintenant
+prioritaire ou au minimum pleinement exploitable:
+
+- compare
+- explain
+- safety
+- search metier non generic
+
+Exemple antipyretic_simple:
+- le backend peut renvoyer directement une phrase du style
+  "Antipyretique usuel: X. Verifier age, poids, grossesse..."
+
+Donc:
+- le LLM devient une couche de formulation
+- pas le moteur unique de priorisation clinique
+
+
+7.14. Post-validation
+
+Le modele peut proposer:
+- answer
+- referenced_medicaments
+- comparison
+- warnings
+- suggestions
+
+Mais apres reponse:
+- seuls les medicaments presents dans la shortlist sont acceptes
+- la comparison est rejetee si les items ne correspondent pas
+- un fallback local remplit les trous si besoin
+
+
+7.15. Refus du contexte patient
+
+Le chat catalogue ne doit pas faire de pseudo-validation patient.
+
+Donc si la demande ressemble a:
+- mon patient
+- sa grossesse
+- ses traitements
+- puis-je lui prescrire
+
+Le module retourne:
+- une reponse expliquant que cela releve du futur assistant contextuel
+- requires_patient_context = true
+
+
+7.16. Niveau de maturite
+
+Etat actuel:
+- techniquement solide
+- pipeline riche
+- logique backend bien plus fiable qu'au debut
+- mais toujours plus complexe a stabiliser qu'un simple search classique
+
+
+========================================================================
+8. COMPARAISON DES 3 AGENTS
+========================================================================
+
+Tableau de synthese:
+
+Agent: hypotheseDiagnostic
+- Type: raisonnement clinique
+- Entree principale: suivi + examen
+- Source verite: dossier patient clinique
+- Place du LLM: forte
+- Fallback backend: moyen
+- Maturite: la plus stable
+
+Agent: ordonnanceRecommendation
+- Type: brouillon therapeutique
+- Entree principale: patient + contexte clinique + candidats medicaments
+- Source verite: dossier patient + DB medicaments
+- Place du LLM: moyenne a forte
+- Fallback backend: important
+- Maturite: la plus delicate
+
+Agent: medicationAssistant
+- Type: assistant global catalogue medicaments
+- Entree principale: messages + selection medicaments optionnelle
+- Source verite: DB medicaments
+- Place du LLM: moyenne
+- Fallback backend: tres important
+- Maturite: intermediaire, de plus en plus backend-first
+
+
+========================================================================
+9. SCHEMAS VISUELS
+========================================================================
+
+9.1. Vue systeme
+
+  Frontend
+     |
+     v
+  TRPC Router
+     |
+     v
+  Service
+     |\
+     | \__ Provider AI
+     |
+     \____ Repo -> DB
+
+
+9.2. hypotheseDiagnostic
+
+  suivi_id / examen_id
+        |
+        v
+  session + utilisateur
+        |
+        v
+  suivi / examen / patient
+        |
+        v
+  buildClinicalContext
+        |
+        v
+  deterministic_red_flags
+        |
+        v
+  buildProviderPrompt
+        |
+        v
+  LLM
+        |
+        v
+  parse + normalize + validate
+        |
+        v
+  hypotheses / red_flags / caution_notes
+
+
+9.3. ordonnanceRecommendation
+
+  suivi_id / examen_id
+        |
+        v
+  resolve patient context
+        |
+        v
+  resolve clinical problem basis
+        |
+        v
+  retrieval medicaments
+        |
+        v
+  allergy / interaction exclusions
+        |
+        v
+  policy scoring + clinical gate
+        |
+        +------> no safe candidate -> early return
+        |
+        v
+  shortlist
+        |
+        v
+  LLM draft (optional useful layer)
+        |
+        v
+  post-validation
+        |
+        +------> if empty / invalid -> deterministic fallback
+        |
+        v
+  recommendations
+
+
+9.4. medicationAssistant
+
+  messages + selected ids
+        |
+        v
+  normalize messages
+        |
+        v
+  heuristic intent
+        |
+        v
+  structured query builder (LLM pass 1)
+        |
+        +------> failure -> heuristic fallback
+        |
+        v
+  policy profile
+        |
+        v
+  direct name search + broad recall
+        |
+        v
+  aggregate loading
+        |
+        v
+  feature extraction
+        |
+        v
+  backend scoring + clinical gate
+        |
+        v
+  shortlist
+        |
+        v
+  answer synthesis (LLM pass 2)
+        |
+        +------> failure -> deterministic fallback
+        |
+        v
+  validated response
+
+
+========================================================================
+10. POURQUOI LE SYSTEME A EVOLUE VERS PLUS DE BACKEND
+========================================================================
+
+Constat observe pendant les tests:
+
+1. Les providers generalistes sont inegaux.
+2. Les outputs JSON varient.
+3. Les taches medicamenteuses generiques demandent une priorisation
+   clinique stable.
+4. La DB medicaments scrapee est semi-structuree et bruyante.
+
+Conclusion technique:
+
+- plus la tache est "deterministe metier", moins il faut laisser le LLM
+  choisir seul
+- plus la tache est "synthese / reformulation", plus le LLM est utile
+
+Donc le systeme a ete pousse vers:
+
+- backend-first
+- retrieval local
+- ranking clinique deterministic
+- LLM comme couche de formulation / synthese / remplissage quand utile
+
+
+========================================================================
+11. CE QUI A ETE CORRIGE / AJOUTE PENDANT LE TRAVAIL
+========================================================================
+
+Corrections majeures faites:
+
+1. hypotheseDiagnostic
+- tolerance aux champs Gemini trop longs
+- troncature avant validation
+
+2. ordonnanceRecommendation
+- prompt Gemini compact
+- suppression du responseJsonSchema trop complexe pour Gemini
+- meilleur detail d'erreur provider
+- profils backend
+- expansion des termes
+- gate clinique
+- fallback deterministe
+
+3. medicationAssistant
+- retrieval accent-insensitive
+- structured query builder
+- policy profiles
+- scoring clinique
+- clinical gate
+- identity search terms
+- fallback deterministe fort
+- preference backend-first sur les intents metier
+
+
+========================================================================
+12. ETAT FINAL RECOMMANDE
+========================================================================
+
+Position technique honnete a retenir:
+
+1. hypotheseDiagnostic
+- valide pour une V1
+- le plus presentable et le plus stable
+
+2. medicationAssistant
+- techniquement solide
+- utile en interface catalogue
+- encore perfectible, mais deja defensable si presente comme
+  assistant de recherche / comparaison / resume catalogue
+
+3. ordonnanceRecommendation
+- techniquement branche et beaucoup plus robuste qu'au debut
+- mais reste le module le plus sensible
+- a presenter comme:
+  assistant de brouillon therapeutique avec logique backend forte
+  et validation medicale imperative
+
+
+========================================================================
+13. PROCHAINES AMELIORATIONS SI LE PROJET CONTINUE
+========================================================================
+
+Pour hypotheseDiagnostic:
+- enrichir les patterns deterministes
+- ajouter une strategie de resume clinique compact avant prompt
+
+Pour ordonnanceRecommendation:
+- renforcer encore le mapping classe therapeutique -> usages
+- ajouter une mini ontologie medicamenteuse locale
+- lier plus fort les classes / substances a des first-line policies
+
+Pour medicationAssistant:
+- index de recherche dedie
+- synonymes medicaux maintenus localement
+- comparaison plus structuree en tableau
+- resumer plus fort les fiches medicaments
+
+
+========================================================================
+14. CONCLUSION
+========================================================================
+
+La logique actuelle des 3 agents n'est pas:
+- "on envoie tout au LLM et on espere"
+
+C'est au contraire une architecture mixte:
+
+- contexte structure localement
+- retrieval local
+- regles backend
+- filtrage / exclusion
+- scoring metier
+- validation de sortie
+- fallback deterministe
+- LLM uniquement la ou il apporte vraiment de la valeur
+
+Autrement dit:
+
+- hypotheseDiagnostic = AI-clinical reasoning encadre
+- ordonnanceRecommendation = therapeutic drafting sous fortes contraintes
+- medicationAssistant = assistant catalogue backend-first avec support AI
+
+Fin du rapport.

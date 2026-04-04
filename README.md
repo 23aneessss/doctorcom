@@ -99,6 +99,16 @@ URLs utiles:
 
 ## Commandes racine a connaitre
 
+## Storage (MinIO)
+
+```bash
+bun run minio:up
+```
+Demarre MinIO via Docker Compose (`minio`), avec:
+
+- API S3: `http://localhost:9000`
+- Console: `http://localhost:9001`
+
 ## Qualite / Build
 
 ```bash

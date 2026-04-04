@@ -22,6 +22,7 @@ export const certificat_medical_type_values = [
   "deces",
 ] as const;
 export const certificat_medical_statut_values = ["brouillon", "emis", "annule"] as const;
+export const historique_traitement_source_values = ["manuel", "ordonnance"] as const;
 
 export const utilisateur_role_enum = pgEnum("utilisateur_role", utilisateur_role_values);
 export const antecedent_type_enum = pgEnum("antecedent_type", antecedent_type_values);
@@ -40,4 +41,8 @@ export const certificat_medical_type_enum = pgEnum(
 export const certificat_medical_statut_enum = pgEnum(
   "certificat_medical_statut",
   certificat_medical_statut_values,
+);
+export const historique_traitement_source_enum = pgEnum(
+  "historique_traitement_source",
+  historique_traitement_source_values,
 );

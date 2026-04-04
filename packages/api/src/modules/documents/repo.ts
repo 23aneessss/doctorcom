@@ -6,6 +6,7 @@ import {
   lettres_orientation,
   patients,
   suivi,
+  utilisateurs,
 } from "@doctor.com/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 
@@ -20,6 +21,7 @@ export type CategorieDocumentRecord = typeof categories_documents.$inferSelect;
 export type DocumentPatientRecord = typeof documents_patient.$inferSelect;
 export type LettreOrientationRecord = typeof lettres_orientation.$inferSelect;
 export type CertificatMedicalRecord = typeof certificats_medicaux.$inferSelect;
+export type UtilisateurRecord = typeof utilisateurs.$inferSelect;
 
 export type CreateCategorieInput = Omit<NewCategorieDocumentRecord, "id">;
 export type UpdateCategorieInput = Partial<CreateCategorieInput>;
@@ -43,6 +45,19 @@ export type UpdateCertificatInput = Partial<
 >;
 
 export class DocumentsRepository {
+  async findUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<UtilisateurRecord | null> {
+    const [item] = await database
+      .select()
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return item ?? null;
+  }
+
   async createCategorie(
     database: DatabaseClient,
     data: CreateCategorieInput,
@@ -570,6 +585,31 @@ export class DocumentsRepository {
       .limit(1);
 
     return item ?? null;
+  }
+
+  async getUtilisateurByEmail(
+    database: DatabaseClient,
+    email: string,
+  ): Promise<{
+    id: string;
+    nom: string;
+    prenom: string;
+    telephone: string | null;
+    adresse: string | null;
+  } | null> {
+    const [result] = await database
+      .select({
+        id: utilisateurs.id,
+        nom: utilisateurs.nom,
+        prenom: utilisateurs.prenom,
+        telephone: utilisateurs.telephone,
+        adresse: utilisateurs.adresse,
+      })
+      .from(utilisateurs)
+      .where(eq(utilisateurs.email, email))
+      .limit(1);
+
+    return result ?? null;
   }
 }
 

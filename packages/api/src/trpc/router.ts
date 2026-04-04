@@ -4,6 +4,7 @@ import { consultationRouter } from "../modules/consultation/router";
 import { ordonnanceRouter } from "../modules/ordonnance/router";
 import { agendaRouter } from "../modules/agenda/router";
 import { medicalHistoryRouter } from "../modules/medical-history/router";
+import { medicamentsRouter } from "../modules/medicaments/router";
 import { vaccinationRouter } from "../modules/vaccination/router";
 import { travelRouter } from "../modules/travel/router";
 import { documentsRouter } from "../modules/documents/router";
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   documents: documentsRouter,
   export: exportRouter,
   medicalHistory: medicalHistoryRouter,
+  medicaments: medicamentsRouter,
   ordonnance: ordonnanceRouter,
   patient: patientRouter,
   travel: travelRouter,
