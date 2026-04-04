@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PremiumHeader } from '../components/shared/PremiumHeader';
-import { EmptyState } from '../components/ui';
+import { EmptyState, LoadingSpinner } from '../components/ui';
 import { trpc } from '../api/trpc';
 
 const joinWithBullet = (items: string[]) => items.filter(Boolean).join(' • ');
@@ -12,10 +12,49 @@ const renderValue = (value: string | null | undefined) => value || 'Non renseign
 
 export default function MedicationDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
-  const medicationQuery = trpc.medicaments.getMobileMedicamentById.useQuery({
-    id: Number(params.id),
-  });
+  const medicationId = useMemo(() => Number(params.id), [params.id]);
+  const hasValidMedicationId = Number.isInteger(medicationId) && medicationId > 0;
+  const medicationQuery = trpc.medicaments.getMobileMedicamentById.useQuery(
+    { id: medicationId },
+    { enabled: hasValidMedicationId }
+  );
   const medication = medicationQuery.data;
+
+  if (!hasValidMedicationId) {
+    return (
+      <View style={styles.emptyContainer}>
+        <EmptyState
+          icon="medkit-outline"
+          title="Médicament introuvable"
+          description="L’identifiant de cette fiche est invalide."
+          actionLabel="Retour"
+          onAction={() => router.back()}
+        />
+      </View>
+    );
+  }
+
+  if (medicationQuery.isLoading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <LoadingSpinner />
+      </View>
+    );
+  }
+
+  if (medicationQuery.isError) {
+    return (
+      <View style={styles.emptyContainer}>
+        <EmptyState
+          icon="medkit-outline"
+          title="Impossible de charger ce médicament"
+          description={medicationQuery.error.message || 'La fiche n’a pas pu être récupérée depuis le backend.'}
+          actionLabel="Retour"
+          onAction={() => router.back()}
+        />
+      </View>
+    );
+  }
 
   if (!medication) {
     return (
@@ -23,7 +62,7 @@ export default function MedicationDetailsScreen() {
         <EmptyState
           icon="medkit-outline"
           title="Médicament introuvable"
-          description="Impossible de retrouver cette fiche dans le dataset local."
+          description="Impossible de retrouver cette fiche dans la base médicaments."
           actionLabel="Retour"
           onAction={() => router.back()}
         />

@@ -317,6 +317,10 @@ export class MedicamentsService {
     return medication;
   }
 
+  private normalizeMedicamentId(value: number | string): number {
+    return typeof value === "number" ? value : Number(value);
+  }
+
   private normalizeCreateInput(input: CreateMedicamentAggregateInput): NormalizedCreatePayload {
     return {
       medicament: {
@@ -512,13 +516,14 @@ export class MedicamentsService {
       medicamentsRepository.listAllSubstances(medicationsDb),
     ]);
 
-    const groupByMedicament = <T extends { medicament_id: number }>(rows: T[]) => {
+    const groupByMedicament = <T extends { medicament_id: number | string }>(rows: T[]) => {
       const map = new Map<number, T[]>();
 
       for (const row of rows) {
-        const current = map.get(row.medicament_id) ?? [];
+        const medicamentId = this.normalizeMedicamentId(row.medicament_id);
+        const current = map.get(medicamentId) ?? [];
         current.push(row);
-        map.set(row.medicament_id, current);
+        map.set(medicamentId, current);
       }
 
       return map;
@@ -538,34 +543,35 @@ export class MedicamentsService {
     const byId = new Map<number, MobileMedicationDetail>();
 
     for (const medicament of medicaments) {
+      const medicamentId = this.normalizeMedicamentId(medicament.id);
       const category = this.getPrimaryCategory(medicament);
       const medicationIndications = unique(
-        (indicationsMap.get(medicament.id) ?? [])
+        (indicationsMap.get(medicamentId) ?? [])
           .map((row) => row.indication.trim())
           .filter(Boolean),
       );
       const medicationPrecautions = unique(
-        (precautionsMap.get(medicament.id) ?? [])
+        (precautionsMap.get(medicamentId) ?? [])
           .map((row) => row.description.trim())
           .filter(Boolean),
       );
       const medicationContraIndications = unique(
-        (contreIndicationsMap.get(medicament.id) ?? [])
+        (contreIndicationsMap.get(medicamentId) ?? [])
           .map((row) => row.description.trim())
           .filter(Boolean),
       );
       const medicationInteractions = unique(
-        (interactionsMap.get(medicament.id) ?? [])
+        (interactionsMap.get(medicamentId) ?? [])
           .map((row) => row.medicament_interaction.trim())
           .filter(Boolean),
       );
       const medicationSubstances = unique(
-        (substancesMap.get(medicament.id) ?? [])
+        (substancesMap.get(medicamentId) ?? [])
           .map((row) => row.nom_substance.trim())
           .filter(Boolean),
       );
       const medicationPresentations = unique(
-        (presentationsMap.get(medicament.id) ?? []).map((row) =>
+        (presentationsMap.get(medicamentId) ?? []).map((row) =>
           JSON.stringify({
             forme: row.forme?.trim() ?? null,
             dosage: row.dosage?.trim() ?? null,
@@ -573,13 +579,13 @@ export class MedicamentsService {
         ),
       ).map((value) => JSON.parse(value) as { forme: string | null; dosage: string | null });
 
-      const medicationSideEffects = (sideEffectsMap.get(medicament.id) ?? []).map((row) => ({
+      const medicationSideEffects = (sideEffectsMap.get(medicamentId) ?? []).map((row) => ({
         effect: row.effet.trim(),
         frequency: row.frequence?.trim() ?? null,
       }));
 
       const summary: MobileMedicationSummary = {
-        id: medicament.id,
+        id: medicamentId,
         name: medicament.nom_medicament,
         genericName: medicament.nom_generique,
         category,
@@ -606,7 +612,7 @@ export class MedicamentsService {
       };
 
       summaries.push(summary);
-      byId.set(medicament.id, {
+      byId.set(medicamentId, {
         ...summary,
         adultDosage: medicament.posologie_adulte,
         childDosage: medicament.posologie_enfant,
