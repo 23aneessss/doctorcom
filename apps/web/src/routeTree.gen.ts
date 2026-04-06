@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SidebarTestRouteImport } from './routes/sidebar-test'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -22,6 +23,7 @@ import { Route as PatientsIdRouteImport } from './routes/patients.$id'
 import { Route as AideFaqRouteImport } from './routes/aide/faq'
 import { Route as AgendaModifierRouteImport } from './routes/agenda/modifier'
 import { Route as AgendaAjouterRouteImport } from './routes/agenda/ajouter'
+import { Route as PatientsIdIndexRouteImport } from './routes/patients.$id/index'
 import { Route as PatientsIdVoyageRouteImport } from './routes/patients.$id/voyage'
 import { Route as PatientsIdVaccinationRouteImport } from './routes/patients.$id/vaccination'
 import { Route as PatientsIdTraitementRouteImport } from './routes/patients.$id/traitement'
@@ -32,6 +34,11 @@ import { Route as PatientsIdGeneralRouteImport } from './routes/patients.$id/gen
 import { Route as PatientsIdDocumentRouteImport } from './routes/patients.$id/document'
 import { Route as PatientsIdAntecedentRouteImport } from './routes/patients.$id/antecedent'
 
+const SidebarTestRoute = SidebarTestRouteImport.update({
+  id: '/sidebar-test',
+  path: '/sidebar-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
@@ -97,6 +104,11 @@ const AgendaAjouterRoute = AgendaAjouterRouteImport.update({
   path: '/agenda/ajouter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PatientsIdIndexRoute = PatientsIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
 const PatientsIdVoyageRoute = PatientsIdVoyageRouteImport.update({
   id: '/voyage',
   path: '/voyage',
@@ -148,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
@@ -166,16 +179,17 @@ export interface FileRoutesByFullPath {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
-  '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda': typeof AgendaIndexRoute
   '/aide': typeof AideIndexRoute
   '/medicament': typeof MedicamentIndexRoute
@@ -190,6 +204,7 @@ export interface FileRoutesByTo {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,6 +212,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
@@ -215,6 +231,7 @@ export interface FileRoutesById {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -223,6 +240,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
@@ -241,16 +259,17 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
-    | '/patients/$id'
     | '/agenda'
     | '/aide'
     | '/medicament'
@@ -265,12 +284,14 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
@@ -289,6 +310,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -296,6 +318,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   ParametresRoute: typeof ParametresRoute
+  SidebarTestRoute: typeof SidebarTestRoute
   AgendaAjouterRoute: typeof AgendaAjouterRoute
   AgendaModifierRoute: typeof AgendaModifierRoute
   AideFaqRoute: typeof AideFaqRoute
@@ -309,6 +332,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sidebar-test': {
+      id: '/sidebar-test'
+      path: '/sidebar-test'
+      fullPath: '/sidebar-test'
+      preLoaderRoute: typeof SidebarTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametres': {
       id: '/parametres'
       path: '/parametres'
@@ -400,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgendaAjouterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/patients/$id/': {
+      id: '/patients/$id/'
+      path: '/'
+      fullPath: '/patients/$id/'
+      preLoaderRoute: typeof PatientsIdIndexRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
     '/patients/$id/voyage': {
       id: '/patients/$id/voyage'
       path: '/voyage'
@@ -476,6 +513,7 @@ interface PatientsIdRouteChildren {
   PatientsIdTraitementRoute: typeof PatientsIdTraitementRoute
   PatientsIdVaccinationRoute: typeof PatientsIdVaccinationRoute
   PatientsIdVoyageRoute: typeof PatientsIdVoyageRoute
+  PatientsIdIndexRoute: typeof PatientsIdIndexRoute
 }
 
 const PatientsIdRouteChildren: PatientsIdRouteChildren = {
@@ -488,6 +526,7 @@ const PatientsIdRouteChildren: PatientsIdRouteChildren = {
   PatientsIdTraitementRoute: PatientsIdTraitementRoute,
   PatientsIdVaccinationRoute: PatientsIdVaccinationRoute,
   PatientsIdVoyageRoute: PatientsIdVoyageRoute,
+  PatientsIdIndexRoute: PatientsIdIndexRoute,
 }
 
 const PatientsIdRouteWithChildren = PatientsIdRoute._addFileChildren(
@@ -499,6 +538,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   ParametresRoute: ParametresRoute,
+  SidebarTestRoute: SidebarTestRoute,
   AgendaAjouterRoute: AgendaAjouterRoute,
   AgendaModifierRoute: AgendaModifierRoute,
   AideFaqRoute: AideFaqRoute,

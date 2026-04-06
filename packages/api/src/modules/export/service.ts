@@ -151,7 +151,8 @@ export class ExportService {
     yPos += 15;
 
     medicaments.forEach((med, index) => {
-      doc.fontSize(10).font("Helvetica-Bold").text(`${index + 1}. ${med.dci}`, 50, yPos);
+      const medicationLabel = med.nom_medicament || med.dci || "Médicament";
+      doc.fontSize(10).font("Helvetica-Bold").text(`${index + 1}. ${medicationLabel}`, 50, yPos);
       yPos += 15;
       doc
         .fontSize(9)

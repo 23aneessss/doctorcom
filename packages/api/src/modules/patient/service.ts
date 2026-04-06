@@ -707,7 +707,12 @@ export class PatientService {
       return value;
     }
 
-    return typeof value === "number" ? String(value) : value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed.length === 0 ? null : trimmed;
+    }
+
+    return String(value);
   }
 }
 

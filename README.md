@@ -53,7 +53,7 @@ Variables principales a connaitre:
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/doctor_com`
   - `BETTER_AUTH_SECRET=...` (minimum 32 caracteres)
   - `BETTER_AUTH_URL=http://localhost:3000`
-  - `CORS_ORIGIN=http://localhost:5173`
+  - `CORS_ORIGIN=http://localhost:3001`
 - `apps/web/.env`
   - `VITE_SERVER_URL=http://localhost:3000`
 
@@ -95,7 +95,7 @@ URLs utiles:
 - Health texte placeholder: `GET /` -> `server running`
 - tRPC mount: `http://localhost:3000/trpc`
 - Auth Better-Auth: `http://localhost:3000/api/auth/*`
-- Web: `http://localhost:5173`
+- Web: `http://localhost:3001`
 
 ## Commandes racine a connaitre
 
