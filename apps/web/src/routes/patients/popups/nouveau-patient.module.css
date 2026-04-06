@@ -1,0 +1,387 @@
+.backdrop {
+  --sidebar-width: clamp(210px, 12vw, 230px);
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 1rem;
+  padding-left: calc(var(--sidebar-width) + 0.5rem);
+  padding-right: 1.5rem;
+  background: rgba(15, 52, 96, 0.28);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  width: min(43rem, calc(100vw - var(--sidebar-width) - 3.5rem));
+  max-height: min(96vh, 46rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  border: 1px solid #d4deea;
+  background: #f8fafc;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.62rem 0.95rem;
+  background: #0f3460;
+  color: #ffffff;
+}
+
+.headerTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.24rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.closeButton {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.18s ease;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.stepRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  padding: 0.52rem 0.95rem 0.15rem;
+  background: #ffffff;
+  border-bottom: 1.6px solid #e5e7eb;
+}
+
+.stepItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.25rem;
+  min-height: 3.05rem;
+}
+
+.stepDot {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #c2e0ef;
+}
+
+.stepDotActive {
+  background: linear-gradient(135deg, #265284 0%, #0f3460 100%);
+  box-shadow: 0 8px 14px rgba(38, 82, 132, 0.3);
+}
+
+.stepLabel {
+  margin: 0;
+  max-width: 6.6rem;
+  color: #6a7282;
+  font-size: 0.64rem;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.stepLabelActive {
+  color: #0f3460;
+  font-weight: 700;
+}
+
+.stepConnector {
+  position: absolute;
+  top: 0.77rem;
+  left: calc(50% + 1.1rem);
+  width: calc(100% - 2.2rem);
+  height: 0.2rem;
+  background: #c2e0ef;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.noticeBox {
+  margin: 0.45rem 0.95rem 0.5rem;
+  border: 1.6px solid #c2e0ef;
+  border-radius: 0.72rem;
+  background: #f8fafc;
+  color: #052ca0;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.noticeBox p {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.validationHint,
+.submitError {
+  margin: 0 0.95rem 0.45rem;
+  border-radius: 0.65rem;
+  padding: 0.42rem 0.58rem;
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.validationHint {
+  border: 1.6px solid #f8d1af;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.submitError {
+  border: 1.6px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.formGrid {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.56rem;
+  padding: 0 0.95rem 1rem;
+}
+
+.formGrid::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+
+.fieldLabel {
+  color: #64748b;
+  font-size: 0.62rem;
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.requiredMark {
+  color: #ff6467;
+}
+
+.input {
+  width: 100%;
+  min-height: 2.02rem;
+  border-radius: 0.55rem;
+  border: 1.6px solid #c2e0ef;
+  background: #ffffff;
+  color: #0f3460;
+  padding: 0.34rem 0.52rem;
+  font-size: 0.8rem;
+  outline: none;
+  transition: box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.input::placeholder {
+  color: color-mix(in srgb, #0f3460 78%, white);
+}
+
+.input:hover,
+.input:focus,
+.input:focus-visible {
+  border-color: #76bbdd;
+  box-shadow: inset 0 0 0 1px #76bbdd;
+}
+
+.footer {
+  border-top: 1.6px solid #e5e7eb;
+  background: linear-gradient(90deg, #f9fafb 0%, #ffffff 100%);
+  padding: 0.58rem 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.cancelButton,
+.addNowButton,
+.continueButton {
+  min-height: 2.05rem;
+  border-radius: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0.36rem 0.72rem;
+  transition: filter 0.16s ease, box-shadow 0.16s ease;
+}
+
+.cancelButton {
+  border: 1.6px solid #c2e0ef;
+  color: #64748b;
+  background: #ffffff;
+}
+
+.footerActionsRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.56rem;
+}
+
+.addNowButton {
+  min-width: 10.8rem;
+  color: #ffffff;
+  background: #00a63e;
+}
+
+.addNowButton:hover:not(:disabled) {
+  filter: brightness(0.96);
+  box-shadow: 0 8px 14px rgba(0, 166, 62, 0.22);
+}
+
+.addNowButton:disabled {
+  opacity: 0.5;
+}
+
+.continueButton {
+  min-width: 7.2rem;
+  color: #ffffff;
+  background: linear-gradient(90deg, #265284 0%, #0f3460 100%);
+}
+
+.continueButton:hover {
+  filter: brightness(0.96);
+  box-shadow: 0 10px 16px rgba(15, 52, 96, 0.24);
+}
+
+@media (max-width: 62rem) {
+  .backdrop {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .modal {
+    width: min(43rem, calc(100vw - 2rem));
+  }
+
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stepRail {
+    gap: 0.5rem;
+  }
+
+  .stepLabel {
+    max-width: 6.8rem;
+    font-size: 0.72rem;
+  }
+
+  .stepConnector {
+    left: calc(50% + 1.25rem);
+    width: calc(100% - 2.5rem);
+  }
+}
+
+@media (max-width: 50rem) {
+  .backdrop {
+    inset: 0;
+    padding-inline: 0.75rem;
+  }
+
+  .modal {
+    width: min(43rem, calc(100vw - 1.5rem));
+    max-height: 96vh;
+  }
+
+  .title {
+    font-size: 1.14rem;
+  }
+
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cancelButton,
+  .footerActionsRight,
+  .addNowButton,
+  .continueButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 38rem) {
+  .header,
+  .stepRail,
+  .noticeBox,
+  .validationHint,
+  .submitError,
+  .formGrid,
+  .footer {
+    padding-left: 0.95rem;
+    padding-right: 0.95rem;
+  }
+
+  .stepRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 1rem;
+  }
+
+  .stepConnector {
+    display: none;
+  }
+}

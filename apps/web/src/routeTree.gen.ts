@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SidebarTestRouteImport } from './routes/sidebar-test'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -33,6 +34,11 @@ import { Route as PatientsIdGeneralRouteImport } from './routes/patients.$id/gen
 import { Route as PatientsIdDocumentRouteImport } from './routes/patients.$id/document'
 import { Route as PatientsIdAntecedentRouteImport } from './routes/patients.$id/antecedent'
 
+const SidebarTestRoute = SidebarTestRouteImport.update({
+  id: '/sidebar-test',
+  path: '/sidebar-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
+  '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/parametres'
+    | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
@@ -306,6 +318,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   ParametresRoute: typeof ParametresRoute
+  SidebarTestRoute: typeof SidebarTestRoute
   AgendaAjouterRoute: typeof AgendaAjouterRoute
   AgendaModifierRoute: typeof AgendaModifierRoute
   AideFaqRoute: typeof AideFaqRoute
@@ -319,6 +332,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sidebar-test': {
+      id: '/sidebar-test'
+      path: '/sidebar-test'
+      fullPath: '/sidebar-test'
+      preLoaderRoute: typeof SidebarTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametres': {
       id: '/parametres'
       path: '/parametres'
@@ -518,6 +538,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   ParametresRoute: ParametresRoute,
+  SidebarTestRoute: SidebarTestRoute,
   AgendaAjouterRoute: AgendaAjouterRoute,
   AgendaModifierRoute: AgendaModifierRoute,
   AideFaqRoute: AideFaqRoute,
