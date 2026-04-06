@@ -14,19 +14,13 @@ import {
   Calendar,
   Droplets,
   History,
-  Home,
   HeartPulse,
   LayoutDashboard,
-  Users,
-  CalendarDays,
-  HelpCircle,
   FileText,
   Plane,
-  Settings,
   Mail,
   MapPin,
   Phone,
-  Pill,
   Plus,
   ShieldCheck,
   Syringe,
@@ -40,6 +34,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Sidebar } from "@/components/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { requireSession } from "@/lib/require-session";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
 import { NouveauSuiviDialog } from "@/routes/patients.$id/popups/nouveau-suivi";
@@ -132,6 +128,8 @@ type PatientPopupEventDetail = {
 
 export const Route = createFileRoute("/patients/$id")({
   component: PatientLayout,
+  pendingComponent: PatientLayoutSkeleton,
+  pendingMs: 0,
   beforeLoad: async () => {
     const session = await requireSession();
     return { session };
@@ -152,7 +150,17 @@ const tabs = [
 
 function PatientLayout() {
   const { id } = Route.useParams();
+  const { session } = Route.useRouteContext();
   const location = useLocation();
+  const sessionUser = session?.data?.user;
+  const sidebarUser =
+    sessionUser && typeof sessionUser.email === "string"
+      ? {
+          name: sessionUser.name?.trim() || sessionUser.email,
+          email: sessionUser.email,
+          avatarUrl: sessionUser.image ?? undefined,
+        }
+      : undefined;
   const [isEditing, setIsEditing] = useState(false);
   const [isNouveauSuiviOpen, setIsNouveauSuiviOpen] = useState(false);
   const [isNouvelleConsultationOpen, setIsNouvelleConsultationOpen] = useState(false);
@@ -502,47 +510,8 @@ function PatientLayout() {
   };
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar Placeholder */}
-      <div className="w-[260px] shrink-0 bg-gradient-to-b from-[#0f3460] from-[30%] via-[#123865] via-[65%] to-[#285487] flex flex-col items-center pt-[34px]">
-        {/* Logo placeholder */}
-        <div className="w-[176px] h-[71px] flex items-center justify-center">
-          <span className="font-['Plus_Jakarta_Sans'] font-bold text-[22px] text-white leading-tight text-center">
-            doctor<br />.com
-          </span>
-        </div>
-
-        {/* Nav items placeholder */}
-        <div className="mt-[60px] flex flex-col items-center gap-[2px] w-[213px]">
-          <SidebarItem icon={<Home className="size-5" />} label="Accueil" active />
-          <SidebarItem icon={<Users className="size-5" />} label="Patients" />
-          <SidebarItem icon={<Pill className="size-5" />} label="Médicament" />
-          <SidebarItem icon={<CalendarDays className="size-5" />} label="Agenda" />
-          <SidebarItem icon={<FileText className="size-5" />} label="Ordonnance" />
-        </div>
-
-        {/* Divider */}
-        <div className="w-full h-px bg-white/70 mt-[30px]" />
-
-        {/* Lower nav */}
-        <div className="mt-[25px] flex flex-col items-center gap-[2px] w-[203px]">
-          <SidebarItem icon={<HelpCircle className="size-5" />} label="Aide" />
-          <SidebarItem icon={<Settings className="size-5" />} label="Paramètres" />
-        </div>
-
-        {/* Doctor profile placeholder (bottom) */}
-        <div className="mt-auto mb-[30px] bg-[#0f3460] rounded-xl p-[10px] flex items-center gap-[10px] w-[230px] shadow-[0px_4px_20px_0px_rgba(194,224,239,0.3)]">
-          <div className="size-[36px] rounded-full bg-[#d9d9d9] shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <span className="font-['Plus_Jakarta_Sans'] font-bold text-[14px] text-white truncate">
-              Dr. Benmoussa Karim
-            </span>
-            <span className="font-['Plus_Jakarta_Sans'] text-[12px] text-white/80 truncate">
-              tbib@doctorcom.com
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="flex h-svh">
+      <Sidebar currentUser={sidebarUser} />
 
       {/* Main Content */}
       <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden">
@@ -1116,35 +1085,37 @@ function PatientLayout() {
   );
 }
 
-function SidebarItem({
-  icon,
-  label,
-  active = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-}) {
+function PatientLayoutSkeleton() {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-[18px] h-[48px] px-[12px] py-[11px] rounded-[15px] w-[213px] shrink-0",
-        active
-          ? "bg-[rgba(118,187,221,0.4)] shadow-[0px_10px_3.9px_-4px_rgba(0,0,0,0.15)]"
-          : ""
-      )}
-    >
-      <div className={cn("size-5", active ? "text-white" : "text-white/70")}>
-        {icon}
+    <div className="flex h-svh">
+      <Sidebar />
+
+      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px]">
+          <Skeleton className="h-7 w-56 rounded-md" />
+
+          <Skeleton className="h-[360px] rounded-[20px]" />
+
+          <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
+            <div className="flex w-full items-center gap-2 overflow-hidden px-1">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <Skeleton key={index} className="h-8 w-28 shrink-0 rounded-[14px]" />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-6">
+            <div className="flex flex-1 flex-col gap-6">
+              <Skeleton className="h-[298px] rounded-[14px]" />
+              <Skeleton className="h-[360px] rounded-[14px]" />
+            </div>
+            <div className="w-[360px] space-y-6">
+              <Skeleton className="h-[286px] rounded-[14px]" />
+              <Skeleton className="h-[286px] rounded-[14px]" />
+            </div>
+          </div>
+        </div>
       </div>
-      <span
-        className={cn(
-          "font-['Plus_Jakarta_Sans'] text-[14px] leading-[28px]",
-          active ? "text-white font-medium" : "text-white/70 font-semibold"
-        )}
-      >
-        {label}
-      </span>
     </div>
   );
 }

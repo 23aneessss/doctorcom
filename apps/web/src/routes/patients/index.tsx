@@ -40,7 +40,7 @@ function PatientsPage() {
   const navigate = useNavigate();
   const { session } = Route.useRouteContext();
   const { trpc } = Route.useRouteContext();
-  const sessionUser = session.data?.user;
+  const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
       ? {
@@ -83,11 +83,11 @@ function PatientsPage() {
   const hasActiveFilters = searchValue.trim().length > 0 || filterValue !== "all";
 
   const handleSeePatient = (patientId: string) => {
-    void navigate({ to: "/patients/$id", params: { id: patientId } });
+    void navigate({ to: "/patients/$id/general", params: { id: patientId } });
   };
 
   const handleEditPatient = (patientId: string) => {
-    void navigate({ to: "/patients/$id", params: { id: patientId } });
+    void navigate({ to: "/patients/$id/general", params: { id: patientId } });
   };
 
   const handleAddPatient = () => {
@@ -148,7 +148,7 @@ function PatientsPage() {
 
   return (
     <div className={styles.pageShell}>
-      <Sidebar currentUser={sidebarUser} />
+      <Sidebar currentUser={sidebarUser}  />
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
