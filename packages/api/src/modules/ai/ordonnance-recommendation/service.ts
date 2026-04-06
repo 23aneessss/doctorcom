@@ -1144,12 +1144,19 @@ export class OrdonnanceRecommendationService {
       safeCandidates,
       policyProfile,
     );
+    const genericCandidates = safeCandidates.filter((candidate) =>
+      Boolean(candidate.aggregate.medicament.posologie_adulte?.trim()),
+    );
+    const fallbackPolicyProfile =
+      preferredCandidates.length > 0 ? policyProfile : "generic";
+    const candidatesPool =
+      preferredCandidates.length > 0 ? preferredCandidates : genericCandidates;
 
-    if (preferredCandidates.length === 0) {
+    if (candidatesPool.length === 0) {
       return [];
     }
 
-    const primary = preferredCandidates[0];
+    const primary = candidatesPool[0];
     if (!primary) {
       return [];
     }
@@ -1163,22 +1170,22 @@ export class OrdonnanceRecommendationService {
     const dosage = this.extractPrimaryDosage(primary.aggregate);
     const instructions = this.buildDeterministicInstructions(
       primary,
-      policyProfile,
+      fallbackPolicyProfile,
     );
     const warnings = [...new Set(primary.warnings)].slice(0, 6);
 
     return [
       {
         rank: 1,
-        label: this.buildDeterministicLabel(policyProfile),
+        label: this.buildDeterministicLabel(fallbackPolicyProfile),
         rationale: this.buildDeterministicRationale(
           primary,
           clinicalProblemBasis,
-          policyProfile,
+          fallbackPolicyProfile,
         ),
         warnings,
         ordonnance_draft: {
-          remarques: this.buildDeterministicRemarks(policyProfile),
+          remarques: this.buildDeterministicRemarks(fallbackPolicyProfile),
           medicaments: [
             {
               medicament_externe_id: String(primary.aggregate.medicament.id),
@@ -1190,7 +1197,7 @@ export class OrdonnanceRecommendationService {
               instructions,
               justification: this.buildDeterministicJustification(
                 primary,
-                policyProfile,
+                fallbackPolicyProfile,
               ),
             },
           ],

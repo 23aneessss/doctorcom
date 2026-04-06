@@ -105,6 +105,21 @@ type TraitementDialogValues = {
   est_actif?: boolean;
 };
 
+type OrdonnanceDialogValues = {
+  mode?: "manuel" | "pre-remplie";
+  suivi_id?: string;
+  rendez_vous_id?: string;
+  remarques?: string | null;
+  medicaments?: Array<{
+    medicament_externe_id: string;
+    nom_medicament: string;
+    dosage?: string;
+    posologie: string;
+    duree_traitement?: string;
+    instructions?: string;
+  }>;
+};
+
 type PatientPopupEventDetail = {
   type:
     | "suivi"
@@ -123,7 +138,8 @@ type PatientPopupEventDetail = {
     | ConsultationDialogValues
     | AntecedentPersonnelDialogValues
     | AntecedentFamilialDialogValues
-    | TraitementDialogValues;
+    | TraitementDialogValues
+    | OrdonnanceDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -205,6 +221,9 @@ function PatientLayout() {
   const [traitementValues, setTraitementValues] = useState<TraitementDialogValues | undefined>(
     undefined
   );
+  const [ordonnanceValues, setOrdonnanceValues] = useState<
+    OrdonnanceDialogValues | undefined
+  >(undefined);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -267,6 +286,10 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "ordonnance") {
+        setOrdonnanceValues(
+          (customEvent.detail.initialValues as OrdonnanceDialogValues | undefined) ??
+            undefined,
+        );
         setIsNouvelleOrdonnanceOpen(true);
       }
     };
@@ -1075,9 +1098,15 @@ function PatientLayout() {
 
           <NouvelleOrdonnanceDialog
             onCreated={handleOrdonnanceChanged}
-            onOpenChange={setIsNouvelleOrdonnanceOpen}
+            onOpenChange={(nextOpen) => {
+              setIsNouvelleOrdonnanceOpen(nextOpen);
+              if (!nextOpen) {
+                setOrdonnanceValues(undefined);
+              }
+            }}
             open={isNouvelleOrdonnanceOpen}
             patientId={id}
+            values={ordonnanceValues}
           />
         </div>
       </div>

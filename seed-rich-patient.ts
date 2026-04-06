@@ -54,14 +54,17 @@ const PAT = "b0000000-0000-4000-a000-000000000001";
 const SUIVI_1 = "b1000000-0000-4000-a000-000000000001";
 const SUIVI_2 = "b1000000-0000-4000-a000-000000000002";
 const SUIVI_3 = "b1000000-0000-4000-a000-000000000003";
+const SUIVI_4 = "b1000000-0000-4000-a000-000000000004";
 const RDV_1 = "b2000000-0000-4000-a000-000000000001";
 const RDV_2 = "b2000000-0000-4000-a000-000000000002";
 const RDV_3 = "b2000000-0000-4000-a000-000000000003";
 const RDV_4 = "b2000000-0000-4000-a000-000000000004";
 const RDV_5 = "b2000000-0000-4000-a000-000000000005";
+const RDV_6 = "b2000000-0000-4000-a000-000000000006";
 const EXAM_1 = "b3000000-0000-4000-a000-000000000001";
 const EXAM_2 = "b3000000-0000-4000-a000-000000000002";
 const EXAM_3 = "b3000000-0000-4000-a000-000000000003";
+const EXAM_4 = "b3000000-0000-4000-a000-000000000004";
 const ORD_1 = "b4000000-0000-4000-a000-000000000001";
 const ORD_2 = "b4000000-0000-4000-a000-000000000002";
 const ORD_3 = "b4000000-0000-4000-a000-000000000003";
@@ -86,13 +89,13 @@ async function seedRichPatient() {
   // Delete existing rich patient data (idempotent)
   await db.delete(documents_patient).where(eq(documents_patient.patient_id, PAT));
   await db.delete(vaccinations_patient).where(eq(vaccinations_patient.patient_id, PAT));
+  await db.delete(historique_traitements).where(eq(historique_traitements.patient_id, PAT));
   await db.delete(ordonnance_medicaments).where(
     inArray(ordonnance_medicaments.ordonnance_id, [ORD_1, ORD_2, ORD_3])
   );
   await db.delete(ordonnance).where(eq(ordonnance.patient_id, PAT));
-  await db.delete(historique_traitements).where(eq(historique_traitements.patient_id, PAT));
   await db.delete(examen_consultation).where(
-    inArray(examen_consultation.suivi_id, [SUIVI_1, SUIVI_2, SUIVI_3])
+    inArray(examen_consultation.suivi_id, [SUIVI_1, SUIVI_2, SUIVI_3, SUIVI_4])
   );
   await db.delete(rendez_vous).where(eq(rendez_vous.patient_id, PAT));
   await db.delete(suivi).where(eq(suivi.patient_id, PAT));
@@ -302,8 +305,20 @@ async function seedRichPatient() {
       date_fermeture: null,
       est_actif: true,
     },
+    {
+      id: SUIVI_4,
+      patient_id: PAT,
+      utilisateur_id: UTILISATEUR_ID,
+      hypothese_diagnostic: "Fièvre simple avec douleurs diffuses sans signe de gravité",
+      motif: "Suivi fièvre et douleurs simples",
+      historique:
+        "Episode aigu simple avec fièvre modérée et douleurs diffuses, sans signe de gravité ni point d'appel infectieux sévère.",
+      date_ouverture: "2025-06-20",
+      date_fermeture: null,
+      est_actif: true,
+    },
   ]);
-  console.log("  3 suivis inserted.");
+  console.log("  4 suivis inserted.");
 
   // --- Rendez-vous ---
   const today = new Date();
@@ -373,8 +388,20 @@ async function seedRichPatient() {
       frequence_rappel: "3 mois",
       periode_rappel: "trimestriel",
     },
+    {
+      id: RDV_6,
+      patient_id: PAT,
+      suivi_id: SUIVI_4,
+      utilisateur_id: UTILISATEUR_ID,
+      date: "2025-06-20",
+      heure: "16:00",
+      statut: "termine",
+      important: false,
+      frequence_rappel: null,
+      periode_rappel: null,
+    },
   ]);
-  console.log("  5 rendez-vous inserted (3 past + 2 future).");
+  console.log("  6 rendez-vous inserted (4 past + 2 future).");
 
   // --- Examens de consultation ---
   await db.insert(examen_consultation).values([
@@ -462,8 +489,40 @@ async function seedRichPatient() {
       examen_endocrinien: null,
       conclusion: "Exacerbation asthmatique printanière. Ajout de Flixotide 250mcg 2x/j au traitement de fond. Contrôle dans 1 mois.",
     },
+    {
+      id: EXAM_4,
+      rendez_vous_id: RDV_6,
+      suivi_id: SUIVI_4,
+      date: "2025-06-20",
+      taille: "178",
+      poids: "74",
+      tension_arterielle: "118/76",
+      frequence_cardiaque: 78,
+      temperature: "38.1",
+      spo2: "98",
+      imc: "23.4",
+      traitement_prescrit:
+        "Antalgique / antipyrétique simple si besoin, hydratation, repos et surveillance clinique",
+      description_consultation:
+        "Patient vu pour fièvre modérée avec céphalées et douleurs diffuses depuis 24h. Pas de dyspnée, pas de douleur thoracique, pas de signe de gravité.",
+      aspect_general:
+        "Etat général conservé, patient conscient, stable hémodynamiquement, sans altération majeure de l'état général",
+      examen_respiratoire: "Auscultation pulmonaire libre, pas de sibilants, SpO2 98%",
+      examen_cardiovasculaire: "BDC réguliers, 78/min, TA 118/76, pas de signe de gravité",
+      examen_cutane_muqueux: "Pas d'éruption, pas de déshydratation clinique",
+      examen_orl: "Gorge discrètement congestive sans exsudat, rhinorrhée légère",
+      examen_digestif: "Abdomen souple, non douloureux",
+      examen_neurologique: "Pas de syndrome méningé, examen neurologique rassurant",
+      examen_locomoteur: "Courbatures diffuses sans déficit focal",
+      examen_genital: null,
+      examen_urinaire: null,
+      examen_ganglionnaire: "Pas d'adénopathie significative",
+      examen_endocrinien: null,
+      conclusion:
+        "Fièvre simple avec douleurs diffuses sans signe de gravité. Traitement symptomatique et surveillance.",
+    },
   ]);
-  console.log("  3 examens inserted.");
+  console.log("  4 examens inserted.");
 
   // --- Ordonnances ---
   await db.insert(ordonnance).values([
@@ -693,9 +752,9 @@ async function seedRichPatient() {
   console.log(`\nSummary:`);
   console.log(`  - 1 patient (all 28 fields filled)`);
   console.log(`  - 5 antécédents (3 personnel + 2 familial) with details`);
-  console.log(`  - 3 suivis actifs`);
-  console.log(`  - 5 rendez-vous (3 completed, 2 upcoming)`);
-  console.log(`  - 3 examens de consultation (all vital signs filled)`);
+  console.log(`  - 4 suivis actifs`);
+  console.log(`  - 6 rendez-vous (4 completed, 2 upcoming)`);
+  console.log(`  - 4 examens de consultation (all vital signs filled)`);
   console.log(`  - 3 ordonnances with 6 medicaments`);
   console.log(`  - 3 historique traitements`);
   console.log(`  - 4 vaccinations`);
