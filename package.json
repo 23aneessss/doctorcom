@@ -47,6 +47,7 @@
     "medications-db:seed": "bun seed-medications.ts",
     "db:reset": "bun reset.ts",
     "db:seed": "bun seed.ts",
+    "db:seed:pre-remplis": "bun seed-pre-remplis.ts",
     "ai:anomaly:test": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --prepare",
     "ai:anomaly:test:reseed": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --reseed --prepare"
   },

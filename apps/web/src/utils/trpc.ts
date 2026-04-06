@@ -9,12 +9,19 @@ import { toast } from "sonner";
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
-      toast.error(error.message, {
+      const networkError = error.message === "Failed to fetch";
+
+      toast.error(
+        networkError
+          ? `Connexion API impossible (${env.VITE_SERVER_URL}). Vérifiez le serveur et le CORS.`
+          : error.message,
+        {
         action: {
           label: "retry",
           onClick: query.invalidate,
         },
-      });
+        },
+      );
     },
   }),
 });

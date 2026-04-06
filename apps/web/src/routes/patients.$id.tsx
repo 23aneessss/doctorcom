@@ -40,7 +40,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { authClient } from "@/lib/auth-client";
+import { requireSession } from "@/lib/require-session";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
 import { NouveauSuiviDialog } from "@/routes/patients.$id/popups/nouveau-suivi";
 import { ModifierAntecedentFamilialDialog } from "@/routes/patients.$id/popups/modifier-antecedent-familial";
@@ -49,6 +49,7 @@ import { NouvelAntecedentFamilialDialog } from "@/routes/patients.$id/popups/nou
 import { NouvelAntecedentPersonnelDialog } from "@/routes/patients.$id/popups/nouvel-antecedent-personnel";
 import { AjouterTraitementDialog } from "@/routes/patients.$id/popups/ajouter-traitement";
 import { ModifierTraitementDialog } from "@/routes/patients.$id/popups/modifier-traitement";
+import { NouvelleOrdonnanceDialog } from "@/routes/patients.$id/popups/nouvelle-ordonnance";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -114,7 +115,8 @@ type PatientPopupEventDetail = {
     | "consultation"
     | "antecedent-personnel"
     | "antecedent-familial"
-    | "traitement";
+    | "traitement"
+    | "ordonnance";
   mode?: "create" | "edit";
   suiviId?: string;
   examenId?: string;
@@ -131,10 +133,7 @@ type PatientPopupEventDetail = {
 export const Route = createFileRoute("/patients/$id")({
   component: PatientLayout,
   beforeLoad: async () => {
-    const session = await authClient.getSession();
-    if (!session.data) {
-      redirect({ to: "/login", throw: true });
-    }
+    const session = await requireSession();
     return { session };
   },
 });
@@ -192,6 +191,7 @@ function PatientLayout() {
     AntecedentFamilialDialogValues | undefined
   >(undefined);
   const [isTraitementOpen, setIsTraitementOpen] = useState(false);
+  const [isNouvelleOrdonnanceOpen, setIsNouvelleOrdonnanceOpen] = useState(false);
   const [traitementMode, setTraitementMode] = useState<"create" | "edit">("create");
   const [traitementId, setTraitementId] = useState<string | undefined>(undefined);
   const [traitementValues, setTraitementValues] = useState<TraitementDialogValues | undefined>(
@@ -256,6 +256,10 @@ function PatientLayout() {
           (customEvent.detail.initialValues as TraitementDialogValues | undefined) ?? undefined
         );
         setIsTraitementOpen(true);
+      }
+
+      if (customEvent.detail?.type === "ordonnance") {
+        setIsNouvelleOrdonnanceOpen(true);
       }
     };
 
@@ -467,6 +471,32 @@ function PatientLayout() {
       ),
       queryClient.invalidateQueries(
         trpc.patient.getPatientFullRecord.queryFilter({ id })
+      ),
+    ]);
+  };
+
+  const handleOrdonnanceChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.ordonnance.getOrdonnancesByPatient.queryFilter({ patientId: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.treatment.getActivePatientTreatments.queryFilter({ patient_id: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.documents.getLettresByPatient.queryFilter({ patientId: id })
+      ),
+      queryClient.invalidateQueries(
+        trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id })
       ),
     ]);
   };
@@ -902,6 +932,9 @@ function PatientLayout() {
                   label="Ajouter documents"
                   layout="centered"
                   specialIcon={<DocumentsIcon />}
+                  onClick={() => {
+                    setIsNouvelleOrdonnanceOpen(true);
+                  }}
                 />
                 <ActionButton
                   label="Ajouter rendez-vous"
@@ -1070,6 +1103,13 @@ function PatientLayout() {
               values={traitementValues}
             />
           )}
+
+          <NouvelleOrdonnanceDialog
+            onCreated={handleOrdonnanceChanged}
+            onOpenChange={setIsNouvelleOrdonnanceOpen}
+            open={isNouvelleOrdonnanceOpen}
+            patientId={id}
+          />
         </div>
       </div>
     </div>
