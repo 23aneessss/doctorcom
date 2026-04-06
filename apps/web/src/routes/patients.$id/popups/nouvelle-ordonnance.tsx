@@ -79,11 +79,26 @@ export function NouvelleOrdonnanceDialog({
   onOpenChange,
   patientId,
   onCreated,
+  values,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patientId: string;
   onCreated?: () => void;
+  values?: {
+    mode?: OrdonnanceMode;
+    suivi_id?: string;
+    rendez_vous_id?: string;
+    remarques?: string | null;
+    medicaments?: Array<{
+      medicament_externe_id: string;
+      nom_medicament: string;
+      dosage?: string;
+      posologie: string;
+      duree_traitement?: string;
+      instructions?: string;
+    }>;
+  };
 }) {
   const [mode, setMode] = useState<OrdonnanceMode>("manuel");
   const [selectedSuiviId, setSelectedSuiviId] = useState("");
@@ -318,6 +333,39 @@ export function NouvelleOrdonnanceDialog({
 
     return () => window.clearTimeout(timeout);
   }, [open, mode, searchTerm]);
+
+  useEffect(() => {
+    if (!open || !values) return;
+
+    setMode(values.mode ?? "manuel");
+    setSelectedSuiviId(values.suivi_id ?? "");
+    setSelectedRendezVousId(values.rendez_vous_id ?? "");
+    setRows(
+      values.medicaments?.length
+        ? values.medicaments.map((item) => ({
+            id: crypto.randomUUID(),
+            medicament_externe_id: item.medicament_externe_id,
+            nom_medicament: item.nom_medicament,
+            dosage: item.dosage ?? "",
+            posologie: item.posologie,
+            duree_traitement: item.duree_traitement ?? "",
+            instructions: item.instructions ?? "",
+          }))
+        : [createEmptyRow()],
+    );
+    setRemarques(values.remarques ?? "");
+    setCreatedOrdonnanceId(null);
+    setShowMedicationAiPanel(false);
+    setSelectedCategorieId("");
+    setSelectedPreRempliId("");
+    setSelectedSpecialite("");
+    setTemplateSearch("");
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setAppliedTemplateId(null);
+    setTemplateActionLoadingId(null);
+    setIsRowsDirty(Boolean(values.medicaments?.length));
+  }, [open, values]);
 
   useEffect(() => {
     if (!open || mode !== "pre-remplie") return;

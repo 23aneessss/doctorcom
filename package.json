@@ -54,6 +54,8 @@
   "dependencies": {
     "@doctor.com/env": "workspace:*",
     "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
