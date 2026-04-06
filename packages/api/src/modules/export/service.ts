@@ -77,22 +77,20 @@ export class ExportService {
   ) {
     const now = new Date();
     const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
-    doc.moveTo(50, doc.page.height - 60).lineTo(550, doc.page.height - 60).stroke();
+    doc
+      .moveTo(50, doc.page.height - 60)
+      .lineTo(550, doc.page.height - 60)
+      .stroke();
     doc.fontSize(9).font("Helvetica");
-    doc.text(
-      `Page ${currentPage} / ${totalPages}`,
-      50,
-      doc.page.height - 50,
-    );
-    doc.text(
-      `Document généré le ${dateStr}`,
-      50,
-      doc.page.height - 35,
-    );
+    doc.text(`Page ${currentPage} / ${totalPages}`, 50, doc.page.height - 50);
+    doc.text(`Document généré le ${dateStr}`, 50, doc.page.height - 35);
   }
 
   async exporterOrdonnance(db: DB, ordonnanceId: string): Promise<Buffer> {
-    const data = await exportRepository.getOrdonnanceForExport(db, ordonnanceId);
+    const data = await exportRepository.getOrdonnanceForExport(
+      db,
+      ordonnanceId,
+    );
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -104,84 +102,332 @@ export class ExportService {
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 0,
+      bufferPages: true,
+    });
     const chunks: Buffer[] = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
 
     const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
-    let yPos = this.createPDFHeader(
-      doc,
-      doctorName,
-      utilisateur.adresse || "",
-      utilisateur.telephone || "",
-    );
-
-    doc
-      .fontSize(16)
-      .font("Helvetica-Bold")
-      .text("ORDONNANCE MÉDICALE", { align: "center" });
-    yPos += 30;
-
     const prescDate = new Date(ord.date_prescription);
-    const dateStr = `${prescDate.getDate()}/${prescDate.getMonth() + 1}/${prescDate.getFullYear()}`;
-    doc.fontSize(11).font("Helvetica").text(`Alger, le ${dateStr}`, 50, yPos);
-    yPos += 25;
+    const formatDate = (value: Date | string | null | undefined) => {
+      if (!value) return "Non renseignée";
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat("fr-DZ", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(date);
+    };
+    const cleanText = (value: unknown, fallback = "Non renseigné") => {
+      if (value === null || value === undefined) return fallback;
+      const normalized = String(value).replace(/\s+/g, " ").trim();
+      return normalized || fallback;
+    };
+    const colors = {
+      primary: "#123F6D",
+      primarySoft: "#EAF6FF",
+      border: "#B8DBEF",
+      borderStrong: "#78BDE3",
+      text: "#102A43",
+      muted: "#5D7285",
+      pale: "#F7FCFF",
+    };
+    const page = {
+      left: 54,
+      right: doc.page.width - 54,
+      top: 42,
+      bottom: doc.page.height - 78,
+    };
+    const contentWidth = page.right - page.left;
 
-    doc.fontSize(11).font("Helvetica-Bold").text("Patient:", 50, yPos);
-    yPos += 15;
+    const drawContinuationHeader = () => {
+      doc
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text("ORDONNANCE MÉDICALE - SUITE", page.left, page.top, {
+          width: contentWidth,
+          align: "center",
+        });
+      doc
+        .moveTo(page.left, page.top + 22)
+        .lineTo(page.right, page.top + 22)
+        .lineWidth(1)
+        .strokeColor(colors.border)
+        .stroke();
+    };
+
+    let yPos = page.top;
+    const ensureSpace = (height: number) => {
+      if (yPos + height <= page.bottom) return;
+      doc.addPage();
+      drawContinuationHeader();
+      yPos = page.top + 46;
+    };
+
     doc
-      .fontSize(10)
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(17)
+      .text(doctorName, page.left, yPos, { width: 300 });
+    yPos += 24;
+    doc
+      .fillColor(colors.text)
       .font("Helvetica")
-      .text(`${patient.prenom} ${patient.nom}`, 70, yPos);
+      .fontSize(9.5)
+      .text(`Adresse : ${cleanText(utilisateur.adresse)}`, page.left, yPos, {
+        width: 310,
+      });
     yPos += 15;
     doc.text(
-      `Date de naissance: ${patient.date_naissance}`,
-      70,
+      `Téléphone : ${cleanText(utilisateur.telephone)}`,
+      page.left,
       yPos,
+      {
+        width: 310,
+      },
     );
-    yPos += 15;
-    doc.text(`Matricule: ${patient.matricule}`, 70, yPos);
-    yPos += 20;
 
-    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
-    yPos += 15;
+    doc
+      .roundedRect(page.right - 170, page.top, 170, 58, 12)
+      .fillAndStroke(colors.primarySoft, colors.border);
+    doc
+      .fillColor(colors.muted)
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .text("DATE DE PRESCRIPTION", page.right - 154, page.top + 13, {
+        width: 138,
+        align: "center",
+      });
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(formatDate(prescDate), page.right - 154, page.top + 31, {
+        width: 138,
+        align: "center",
+      });
 
-    doc.fontSize(11).font("Helvetica-Bold").text("Médicaments:", 50, yPos);
-    yPos += 15;
+    yPos = 120;
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(18)
+      .text("ORDONNANCE MÉDICALE", page.left, yPos, {
+        width: contentWidth,
+        align: "center",
+      });
+    yPos += 34;
+    doc
+      .moveTo(page.left, yPos)
+      .lineTo(page.right, yPos)
+      .lineWidth(1.2)
+      .strokeColor(colors.borderStrong)
+      .stroke();
+    yPos += 22;
+
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica")
+      .fontSize(10.5)
+      .text(`Alger, le ${formatDate(prescDate)}`, page.left, yPos);
+    yPos += 28;
+
+    const patientCardHeight = 78;
+    doc
+      .roundedRect(page.left, yPos, contentWidth, patientCardHeight, 14)
+      .fillAndStroke(colors.pale, colors.border);
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .text("PATIENT", page.left + 18, yPos + 14);
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica-Bold")
+      .fontSize(11.5)
+      .text(`${patient.prenom} ${patient.nom}`, page.left + 18, yPos + 34, {
+        width: 220,
+      });
+    doc
+      .fillColor(colors.muted)
+      .font("Helvetica")
+      .fontSize(9.5)
+      .text(
+        `Date de naissance : ${formatDate(patient.date_naissance)}`,
+        page.left + 270,
+        yPos + 30,
+        {
+          width: 200,
+        },
+      )
+      .text(
+        `Matricule : ${cleanText(patient.matricule)}`,
+        page.left + 270,
+        yPos + 47,
+        {
+          width: 200,
+        },
+      );
+    yPos += patientCardHeight + 26;
+
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text("Médicaments prescrits", page.left, yPos);
+    yPos += 18;
 
     medicaments.forEach((med, index) => {
-      const medicationLabel = med.nom_medicament || med.dci || "Médicament";
-      doc.fontSize(10).font("Helvetica-Bold").text(`${index + 1}. ${medicationLabel}`, 50, yPos);
-      yPos += 15;
+      const medicationLabel = cleanText(
+        med.nom_medicament || med.dci,
+        "Médicament",
+      );
+      const details = [
+        ["Posologie", med.posologie],
+        ["Durée", med.duree_traitement],
+        ["Instructions", med.instructions],
+      ].filter(([, value]) => cleanText(value, "") !== "");
+      const detailWidth = contentWidth - 46;
+      const detailsHeight = details.reduce((total, [label, value]) => {
+        doc.font("Helvetica").fontSize(9.5);
+        return (
+          total +
+          doc.heightOfString(`${label} : ${cleanText(value)}`, {
+            width: detailWidth,
+            lineGap: 2,
+          }) +
+          5
+        );
+      }, 0);
+      const cardHeight = Math.max(74, 42 + detailsHeight);
+
+      ensureSpace(cardHeight + 12);
       doc
+        .roundedRect(page.left, yPos, contentWidth, cardHeight, 12)
+        .fillAndStroke("#FFFFFF", colors.border);
+      doc
+        .circle(page.left + 18, yPos + 21, 10)
+        .fillAndStroke(colors.primarySoft, colors.borderStrong);
+      doc
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
         .fontSize(9)
-        .font("Helvetica")
-        .text(`Posologie: ${med.posologie}`, 70, yPos);
-      yPos += 12;
-      if (med.duree_traitement) {
-        doc.text(`Durée: ${med.duree_traitement}`, 70, yPos);
-        yPos += 12;
-      }
-      if (med.instructions) {
-        doc.text(`Instructions: ${med.instructions}`, 70, yPos);
-        yPos += 12;
-      }
-      yPos += 5;
+        .text(String(index + 1), page.left + 12.5, yPos + 15.5, {
+          width: 11,
+          align: "center",
+        });
+      doc
+        .fillColor(colors.text)
+        .font("Helvetica-Bold")
+        .fontSize(11.5)
+        .text(medicationLabel, page.left + 38, yPos + 14, {
+          width: contentWidth - 54,
+        });
+
+      let detailY = yPos + 38;
+      details.forEach(([label, value]) => {
+        const text = `${label} : ${cleanText(value)}`;
+        const height = doc
+          .font("Helvetica")
+          .fontSize(9.5)
+          .heightOfString(text, { width: detailWidth, lineGap: 2 });
+        doc
+          .fillColor(colors.text)
+          .font("Helvetica")
+          .fontSize(9.5)
+          .text(text, page.left + 38, detailY, {
+            width: detailWidth,
+            lineGap: 2,
+          });
+        detailY += height + 5;
+      });
+
+      yPos += cardHeight + 12;
     });
 
     if (ord.remarques) {
-      yPos += 10;
-      doc.fontSize(10).font("Helvetica-Bold").text("Remarques:", 50, yPos);
-      yPos += 12;
-      doc.fontSize(9).font("Helvetica").text(ord.remarques, 70, yPos);
-      yPos += 15;
+      const remarks = cleanText(ord.remarques);
+      const remarksHeight =
+        doc
+          .font("Helvetica")
+          .fontSize(9.5)
+          .heightOfString(remarks, {
+            width: contentWidth - 36,
+            lineGap: 2,
+          }) + 46;
+      ensureSpace(remarksHeight + 18);
+      doc
+        .roundedRect(page.left, yPos, contentWidth, remarksHeight, 12)
+        .fillAndStroke(colors.pale, colors.border);
+      doc
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text("Remarques", page.left + 18, yPos + 14);
+      doc
+        .fillColor(colors.text)
+        .font("Helvetica")
+        .fontSize(9.5)
+        .text(remarks, page.left + 18, yPos + 32, {
+          width: contentWidth - 36,
+          lineGap: 2,
+        });
+      yPos += remarksHeight + 18;
     }
 
-    yPos += 30;
-    doc.fontSize(10).font("Helvetica").text("Signature et cachet du médecin", 50, yPos);
+    ensureSpace(118);
+    yPos = Math.max(yPos + 18, doc.page.height - 202);
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica")
+      .fontSize(10)
+      .text("Signature et cachet du médecin", page.right - 210, yPos, {
+        width: 210,
+        align: "center",
+      });
+    doc
+      .moveTo(page.right - 210, yPos + 58)
+      .lineTo(page.right, yPos + 58)
+      .lineWidth(1)
+      .strokeColor(colors.text)
+      .stroke();
 
-    this.createPDFFooter(doc, 1, 1);
+    const pageRange = doc.bufferedPageRange();
+    for (
+      let pageIndex = pageRange.start;
+      pageIndex < pageRange.start + pageRange.count;
+      pageIndex += 1
+    ) {
+      doc.switchToPage(pageIndex);
+      doc
+        .moveTo(page.left, doc.page.height - 54)
+        .lineTo(page.right, doc.page.height - 54)
+        .lineWidth(0.8)
+        .strokeColor(colors.border)
+        .stroke();
+      doc
+        .fillColor(colors.muted)
+        .font("Helvetica")
+        .fontSize(8)
+        .text(
+          "Document généré par doctor.com - à vérifier et signer par le médecin.",
+          page.left,
+          doc.page.height - 40,
+          { width: contentWidth - 90 },
+        )
+        .text(
+          `Page ${pageIndex - pageRange.start + 1} / ${pageRange.count}`,
+          page.right - 80,
+          doc.page.height - 40,
+          { width: 80, align: "right" },
+        );
+    }
     doc.end();
 
     return new Promise((resolve, reject) => {
@@ -194,7 +440,10 @@ export class ExportService {
     db: DB,
     certificatId: string,
   ): Promise<Buffer> {
-    const data = await exportRepository.getCertificatForExport(db, certificatId);
+    const data = await exportRepository.getCertificatForExport(
+      db,
+      certificatId,
+    );
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -243,11 +492,7 @@ export class ExportService {
       .font("Helvetica")
       .text(`${patient.prenom} ${patient.nom}`, 70, yPos);
     yPos += 12;
-    doc.text(
-      `Date de naissance: ${patient.date_naissance}`,
-      70,
-      yPos,
-    );
+    doc.text(`Date de naissance: ${patient.date_naissance}`, 70, yPos);
     yPos += 12;
     doc.text(`Matricule: ${patient.matricule}`, 70, yPos);
     yPos += 20;
@@ -267,11 +512,7 @@ export class ExportService {
     }
 
     if (cert.date_debut && cert.date_fin) {
-      doc.text(
-        `Période: du ${cert.date_debut} au ${cert.date_fin}`,
-        70,
-        yPos,
-      );
+      doc.text(`Période: du ${cert.date_debut} au ${cert.date_fin}`, 70, yPos);
       yPos += 15;
     }
 
@@ -292,7 +533,10 @@ export class ExportService {
       .text(`Statut: ${cert.statut.toUpperCase()}`, 50, yPos);
     yPos += 25;
 
-    doc.fontSize(10).font("Helvetica").text("Signature et cachet du médecin", 50, yPos);
+    doc
+      .fontSize(10)
+      .font("Helvetica")
+      .text("Signature et cachet du médecin", 50, yPos);
 
     this.createPDFFooter(doc, 1, 1);
     doc.end();
@@ -303,10 +547,7 @@ export class ExportService {
     });
   }
 
-  async exporterLettreOrientation(
-    db: DB,
-    lettreId: string,
-  ): Promise<Buffer> {
+  async exporterLettreOrientation(db: DB, lettreId: string): Promise<Buffer> {
     const data = await exportRepository.getLettreForExport(db, lettreId);
     if (!data) {
       throw new TRPCError({
@@ -374,11 +615,7 @@ export class ExportService {
       .font("Helvetica")
       .text(`${patient.prenom} ${patient.nom}`, 70, yPos);
     yPos += 12;
-    doc.text(
-      `Date de naissance: ${patient.date_naissance}`,
-      70,
-      yPos,
-    );
+    doc.text(`Date de naissance: ${patient.date_naissance}`, 70, yPos);
     yPos += 12;
     doc.text(`Matricule: ${patient.matricule}`, 70, yPos);
     yPos += 20;
@@ -389,7 +626,11 @@ export class ExportService {
     doc
       .fontSize(10)
       .font("Helvetica")
-      .text(`Je vous adresse mon patient(e) ${patient.prenom} ${patient.nom} pour:`, 50, yPos);
+      .text(
+        `Je vous adresse mon patient(e) ${patient.prenom} ${patient.nom} pour:`,
+        50,
+        yPos,
+      );
     yPos += 20;
 
     if (lettre.type_exploration) {
@@ -416,7 +657,10 @@ export class ExportService {
     }
 
     yPos += 15;
-    doc.fontSize(10).font("Helvetica").text("Signature et cachet du médecin", 50, yPos);
+    doc
+      .fontSize(10)
+      .font("Helvetica")
+      .text("Signature et cachet du médecin", 50, yPos);
 
     this.createPDFFooter(doc, 1, 1);
     doc.end();
@@ -427,11 +671,11 @@ export class ExportService {
     });
   }
 
-  async exporterDossierPatient(
-    db: DB,
-    patientId: string,
-  ): Promise<Buffer> {
-    const data = await exportRepository.getDossierPatientForExport(db, patientId);
+  async exporterDossierPatient(db: DB, patientId: string): Promise<Buffer> {
+    const data = await exportRepository.getDossierPatientForExport(
+      db,
+      patientId,
+    );
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -460,7 +704,10 @@ export class ExportService {
       .text("DOSSIER MÉDICAL PATIENT", { align: "center" });
     yPos += 30;
 
-    doc.fontSize(11).font("Helvetica-Bold").text("Informations Personnelles:", 50, yPos);
+    doc
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text("Informations Personnelles:", 50, yPos);
     yPos += 15;
     doc.fontSize(10).font("Helvetica");
     doc.text(`Nom: ${patient.nom}`, 70, yPos);
@@ -501,7 +748,10 @@ export class ExportService {
       doc.fontSize(11).font("Helvetica-Bold").text("Info Femme:", 50, yPos);
       yPos += 12;
       if (patientFemme.menarche) {
-        doc.fontSize(10).font("Helvetica").text(`Ménarche: ${patientFemme.menarche}`, 70, yPos);
+        doc
+          .fontSize(10)
+          .font("Helvetica")
+          .text(`Ménarche: ${patientFemme.menarche}`, 70, yPos);
         yPos += 12;
       }
       if (patientFemme.nb_grossesses !== null) {
@@ -516,20 +766,30 @@ export class ExportService {
 
     if (antecedentsPersonnels.length > 0) {
       yPos += 15;
-      doc.fontSize(11).font("Helvetica-Bold").text("Antécédents Personnels:", 50, yPos);
+      doc
+        .fontSize(11)
+        .font("Helvetica-Bold")
+        .text("Antécédents Personnels:", 50, yPos);
       yPos += 12;
       antecedentsPersonnels.forEach((ant) => {
         doc
           .fontSize(10)
           .font("Helvetica")
-          .text(`• ${ant.type}${ant.details ? `: ${ant.details}` : ""}`, 70, yPos);
+          .text(
+            `• ${ant.type}${ant.details ? `: ${ant.details}` : ""}`,
+            70,
+            yPos,
+          );
         yPos += 12;
       });
     }
 
     if (antecedentsFamiliaux.length > 0) {
       yPos += 10;
-      doc.fontSize(11).font("Helvetica-Bold").text("Antécédents Familiaux:", 50, yPos);
+      doc
+        .fontSize(11)
+        .font("Helvetica-Bold")
+        .text("Antécédents Familiaux:", 50, yPos);
       yPos += 12;
       antecedentsFamiliaux.forEach((ant) => {
         doc
@@ -563,7 +823,10 @@ export class ExportService {
 
     if (historiqueTraitements.length > 0) {
       yPos += 10;
-      doc.fontSize(11).font("Helvetica-Bold").text("Traitements Actifs:", 50, yPos);
+      doc
+        .fontSize(11)
+        .font("Helvetica-Bold")
+        .text("Traitements Actifs:", 50, yPos);
       yPos += 12;
       historiqueTraitements.forEach((trt) => {
         doc
@@ -593,7 +856,11 @@ export class ExportService {
     date: string,
   ): Promise<Buffer> {
     const utilisateurId = await this.resolveUtilisateurIdByEmail(db, userEmail);
-    const data = await exportRepository.getAgendaForExport(db, utilisateurId, date);
+    const data = await exportRepository.getAgendaForExport(
+      db,
+      utilisateurId,
+      date,
+    );
     if (!data) {
       throw new TRPCError({
         code: "NOT_FOUND",
