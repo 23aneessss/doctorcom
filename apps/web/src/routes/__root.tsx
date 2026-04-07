@@ -39,6 +39,8 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  const showDevtools = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
+
   return (
     <>
       <HeadContent />
@@ -52,8 +54,12 @@ function RootComponent() {
         <GlobalAIAssistant />
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="top-right" />
-      <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
+      {showDevtools ? (
+        <>
+          <TanStackRouterDevtools position="top-right" />
+          <ReactQueryDevtools position="bottom" buttonPosition="bottom-left" />
+        </>
+      ) : null}
     </>
   );
 }

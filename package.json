@@ -48,6 +48,8 @@
     "db:reset": "bun reset.ts",
     "db:seed": "bun seed.ts",
     "db:seed:pre-remplis": "bun seed-pre-remplis.ts",
+    "db:seed:demo-female": "bun seed-demo-female-patient.ts",
+    "db:seed:mobile-demo": "bun seed-mobile-demo.ts",
     "ai:anomaly:test": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --prepare",
     "ai:anomaly:test:reseed": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --reseed --prepare"
   },

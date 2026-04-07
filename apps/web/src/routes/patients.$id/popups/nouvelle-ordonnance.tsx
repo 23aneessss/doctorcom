@@ -241,23 +241,6 @@ export function NouvelleOrdonnanceDialog({
     ? `${selectedSuivi.motif} (${selectedSuivi.date_ouverture})`
     : undefined;
 
-  const templateItemsByExternalId = useMemo(() => {
-    const templateItems = preRempliDetailQuery.data?.medicaments ?? [];
-    return new Map(
-      templateItems.map((item) => [item.medicament_externe_id, item]),
-    );
-  }, [preRempliDetailQuery.data]);
-
-  const preRempliHasExtras = useMemo(() => {
-    if (mode !== "pre-remplie") return false;
-
-    return rows.some(
-      (row) =>
-        Boolean(row.medicament_externe_id) &&
-        !templateItemsByExternalId.has(row.medicament_externe_id),
-    );
-  }, [mode, rows, templateItemsByExternalId]);
-
   const rendezVousTerminesForSuivi = useMemo(() => {
     return rendezVous
       .filter(
@@ -735,7 +718,7 @@ export function NouvelleOrdonnanceDialog({
               <div className="flex items-center gap-2">
                 <FileText className="size-5 text-[#0f3460]" />
                 <p className="font-['Plus_Jakarta_Sans'] text-[18px] font-medium text-[#0f3460]">
-                  Choisir une ordonnace pré remplies
+                  Créer une ordonnance
                 </p>
               </div>
 
@@ -903,14 +886,9 @@ export function NouvelleOrdonnanceDialog({
                           >
                             <div className="grid grid-cols-[1fr_auto] gap-3">
                               <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="font-['Inter'] text-[14px] font-semibold text-[#0f3460]">
-                                    {preRempli.nom}
-                                  </p>
-                                  <span className="rounded-[8px] border-[0.8px] border-[#c2e0ef] bg-[#f0f6ff] px-2 py-0.5 font-['Inter'] text-[10px] font-medium text-[#265284]">
-                                    Modèle
-                                  </span>
-                                </div>
+                                <p className="font-['Inter'] text-[14px] font-semibold text-[#0f3460]">
+                                  {preRempli.nom}
+                                </p>
                                 <p className="font-['Inter'] text-[12px] text-[#415c7b]">
                                   {preRempli.description ||
                                     "Modèle pré-rempli de prescription médicale"}
@@ -960,14 +938,6 @@ export function NouvelleOrdonnanceDialog({
                       })
                     )}
                   </div>
-                </div>
-              ) : null}
-
-              {showManualEditor ? (
-                <div className="mt-3 rounded-[10px] border border-[#c2e0ef] bg-[#eef6fb] px-3 py-2 font-['Inter'] text-[12px] text-[#265284]">
-                  {preRempliHasExtras
-                    ? "Des médicaments hors modèle ont été ajoutés: l'enregistrement utilisera le mode manuel avec origine pré-remplie."
-                    : "Aucun médicament hors modèle: l'enregistrement utilisera le module pré-rempli du backend."}
                 </div>
               ) : null}
 
