@@ -109,8 +109,8 @@ type PatientPopupEventDetail = {
   type:
     | "suivi"
     | "consultation"
-    | "antecedent-personnel"
-    | "antecedent-familial"
+    | "Antécédent-personnel"
+    | "Antécédent-familial"
     | "traitement"
     | "ordonnance";
   mode?: "create" | "edit";
@@ -143,8 +143,8 @@ const tabs = [
   { label: "Traitements", to: "/patients/$id/traitement", icon: Package },
   { label: "Documents", to: "/patients/$id/document", icon: FileText },
   { label: "Vaccinations", to: "/patients/$id/vaccination", icon: Syringe },
-  { label: "Santé Féminine", to: "/patients/$id/sante-feminine", icon: User },
-  { label: "Infos Sociales", to: "/patients/$id/info-sociale", icon: House },
+  { label: "Santé féminine", to: "/patients/$id/sante-feminine", icon: User },
+  { label: "Infos sociales", to: "/patients/$id/info-sociale", icon: House },
   { label: "Voyages", to: "/patients/$id/voyage", icon: MapPin },
 ] as const;
 
@@ -235,7 +235,7 @@ function PatientLayout() {
         setIsNouvelleConsultationOpen(true);
       }
 
-      if (customEvent.detail?.type === "antecedent-personnel") {
+      if (customEvent.detail?.type === "Antécédent-personnel") {
         setAntecedentPersonnelMode(customEvent.detail.mode ?? "create");
         setAntecedentPersonnelId(customEvent.detail.antecedentId);
         setAntecedentPersonnelValues(
@@ -246,7 +246,7 @@ function PatientLayout() {
         setIsAntecedentPersonnelOpen(true);
       }
 
-      if (customEvent.detail?.type === "antecedent-familial") {
+      if (customEvent.detail?.type === "Antécédent-familial") {
         setAntecedentFamilialMode(customEvent.detail.mode ?? "create");
         setAntecedentFamilialId(customEvent.detail.antecedentId);
         setAntecedentFamilialValues(
@@ -302,7 +302,7 @@ function PatientLayout() {
         queryClient.invalidateQueries(trpc.patient.getPatientAge.queryFilter({ id })),
       ]);
       setIsEditing(false);
-      toast.success("Données patient mises à jour");
+      toast.success("Données du patient mises à jour");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -343,7 +343,7 @@ function PatientLayout() {
     validators: {
       onSubmit: z.object({
         nom: z.string().trim().min(1, "Le nom est requis").max(255),
-        prenom: z.string().trim().min(1, "Le prenom est requis").max(255),
+        prenom: z.string().trim().min(1, "Le prénom est requis").max(255),
         telephone: z.string().max(32),
         email: z.union([z.literal(""), z.string().email()]),
         adresse: z.string().max(255),
