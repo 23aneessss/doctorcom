@@ -18,7 +18,7 @@ This file documents the exact seeded dataset from `seed-rich-patient.ts` for man
 - `prenom`: `Walid`
 - `telephone`: `0551234567`
 - `email`: `walid.amara@mail.dz`
-- `matricule`: `PAT-2025-RICH01`
+- `matricule`: `AW-2025-001`
 - `date_naissance`: `1992-06-15`
 - `nss`: `192061501`
 - `lieu_naissance`: `Alger`

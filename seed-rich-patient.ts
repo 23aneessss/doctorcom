@@ -87,24 +87,41 @@ async function seedRichPatient() {
   console.log("Seeding rich patient...\n");
 
   // Delete existing rich patient data (idempotent)
-  await db.delete(documents_patient).where(eq(documents_patient.patient_id, PAT));
-  await db.delete(vaccinations_patient).where(eq(vaccinations_patient.patient_id, PAT));
-  await db.delete(historique_traitements).where(eq(historique_traitements.patient_id, PAT));
-  await db.delete(ordonnance_medicaments).where(
-    inArray(ordonnance_medicaments.ordonnance_id, [ORD_1, ORD_2, ORD_3])
-  );
+  await db
+    .delete(documents_patient)
+    .where(eq(documents_patient.patient_id, PAT));
+  await db
+    .delete(vaccinations_patient)
+    .where(eq(vaccinations_patient.patient_id, PAT));
+  await db
+    .delete(historique_traitements)
+    .where(eq(historique_traitements.patient_id, PAT));
+  await db
+    .delete(ordonnance_medicaments)
+    .where(
+      inArray(ordonnance_medicaments.ordonnance_id, [ORD_1, ORD_2, ORD_3]),
+    );
   await db.delete(ordonnance).where(eq(ordonnance.patient_id, PAT));
-  await db.delete(examen_consultation).where(
-    inArray(examen_consultation.suivi_id, [SUIVI_1, SUIVI_2, SUIVI_3, SUIVI_4])
-  );
+  await db
+    .delete(examen_consultation)
+    .where(
+      inArray(examen_consultation.suivi_id, [
+        SUIVI_1,
+        SUIVI_2,
+        SUIVI_3,
+        SUIVI_4,
+      ]),
+    );
   await db.delete(rendez_vous).where(eq(rendez_vous.patient_id, PAT));
   await db.delete(suivi).where(eq(suivi.patient_id, PAT));
-  await db.delete(antecedents_personnels).where(
-    inArray(antecedents_personnels.antecedent_id, [ANT_1, ANT_2, ANT_3])
-  );
-  await db.delete(antecedents_familiaux).where(
-    inArray(antecedents_familiaux.antecedent_id, [ANT_4, ANT_5])
-  );
+  await db
+    .delete(antecedents_personnels)
+    .where(
+      inArray(antecedents_personnels.antecedent_id, [ANT_1, ANT_2, ANT_3]),
+    );
+  await db
+    .delete(antecedents_familiaux)
+    .where(inArray(antecedents_familiaux.antecedent_id, [ANT_4, ANT_5]));
   await db.delete(antecedents).where(eq(antecedents.patient_id, PAT));
   await db.delete(voyages_recents).where(eq(voyages_recents.patient_id, PAT));
   await db.delete(patients).where(eq(patients.id, PAT));
@@ -139,9 +156,21 @@ async function seedRichPatient() {
 
   // --- Find or create document categories ---
   const catDefs = [
-    { name: "Analyses de laboratoire", desc: "Résultats d'analyses sanguines, urinaires et biochimiques", var: "lab" as const },
-    { name: "Imagerie médicale", desc: "Radiographies, échographies, IRM, scanner", var: "imaging" as const },
-    { name: "Courrier médical", desc: "Lettres d'orientation, certificats médicaux, correspondance", var: "courrier" as const },
+    {
+      name: "Analyses de laboratoire",
+      desc: "Résultats d'analyses sanguines, urinaires et biochimiques",
+      var: "lab" as const,
+    },
+    {
+      name: "Imagerie médicale",
+      desc: "Radiographies, échographies, IRM, scanner",
+      var: "imaging" as const,
+    },
+    {
+      name: "Courrier médical",
+      desc: "Lettres d'orientation, certificats médicaux, correspondance",
+      var: "courrier" as const,
+    },
   ];
   for (const cat of catDefs) {
     const existing = await db
@@ -174,7 +203,7 @@ async function seedRichPatient() {
     prenom: "Walid",
     telephone: "0551234567",
     email: "walid.amara@mail.dz",
-    matricule: "PAT-2025-RICH01",
+    matricule: "AW-2025-001",
     date_naissance: "1992-06-15",
     nss: 192061501,
     lieu_naissance: "Alger",
@@ -183,7 +212,8 @@ async function seedRichPatient() {
     groupe_sanguin: "O+",
     adresse: "12 Rue Didouche Mourad, Alger Centre",
     profession: "Médecin généraliste",
-    habitudes_saines: "Course à pied 3x/semaine, alimentation méditerranéenne, 7h de sommeil",
+    habitudes_saines:
+      "Course à pied 3x/semaine, alimentation méditerranéenne, 7h de sommeil",
     habitudes_toxiques: "Ex-fumeur (arrêt Janvier 2024), café 2 tasses/jour",
     nb_enfants: 1,
     situation_familiale: "Marié",
@@ -228,11 +258,36 @@ async function seedRichPatient() {
 
   // --- Antécédents ---
   await db.insert(antecedents).values([
-    { id: ANT_1, patient_id: PAT, type: "personnel", description: "Asthme allergique depuis l'enfance" },
-    { id: ANT_2, patient_id: PAT, type: "personnel", description: "Appendicectomie en 2010" },
-    { id: ANT_3, patient_id: PAT, type: "personnel", description: "Hypertension artérielle diagnostiquée en 2023" },
-    { id: ANT_4, patient_id: PAT, type: "familial", description: "Père: diabète de type 2, dyslipidémie" },
-    { id: ANT_5, patient_id: PAT, type: "familial", description: "Mère: hypothyroïdie, polyarthrite rhumatoïde" },
+    {
+      id: ANT_1,
+      patient_id: PAT,
+      type: "personnel",
+      description: "Asthme allergique depuis l'enfance",
+    },
+    {
+      id: ANT_2,
+      patient_id: PAT,
+      type: "personnel",
+      description: "Appendicectomie en 2010",
+    },
+    {
+      id: ANT_3,
+      patient_id: PAT,
+      type: "personnel",
+      description: "Hypertension artérielle diagnostiquée en 2023",
+    },
+    {
+      id: ANT_4,
+      patient_id: PAT,
+      type: "familial",
+      description: "Père: diabète de type 2, dyslipidémie",
+    },
+    {
+      id: ANT_5,
+      patient_id: PAT,
+      type: "familial",
+      description: "Mère: hypothyroïdie, polyarthrite rhumatoïde",
+    },
   ]);
   console.log("  5 antécédents inserted.");
 
@@ -240,31 +295,36 @@ async function seedRichPatient() {
     {
       antecedent_id: ANT_1,
       type: "Respiratoire",
-      details: "Asthme allergique intermittent. Utilisation de Ventoline à la demande. Dernière crise il y a 3 mois au printemps.",
+      details:
+        "Asthme allergique intermittent. Utilisation de Ventoline à la demande. Dernière crise il y a 3 mois au printemps.",
       est_actif: true,
     },
     {
       antecedent_id: ANT_2,
       type: "Chirurgical",
-      details: "Appendicectomie par laparoscopie en 2010. Suites opératoires simples.",
+      details:
+        "Appendicectomie par laparoscopie en 2010. Suites opératoires simples.",
       est_actif: false,
     },
     {
       antecedent_id: ANT_3,
       type: "Cardiovasculaire",
-      details: "HTA diagnostiquée en 2023. Traitement par Amlodipine 5mg 1/j. TA bien contrôlée autour de 125/80.",
+      details:
+        "HTA diagnostiquée en 2023. Traitement par Amlodipine 5mg 1/j. TA bien contrôlée autour de 125/80.",
       est_actif: true,
     },
   ]);
   await db.insert(antecedents_familiaux).values([
     {
       antecedent_id: ANT_4,
-      details: "Diabète de type 2 depuis 2015, sous Metformine. Dyslipidémie sous statine.",
+      details:
+        "Diabète de type 2 depuis 2015, sous Metformine. Dyslipidémie sous statine.",
       lien_parente: "Père",
     },
     {
       antecedent_id: ANT_5,
-      details: "Hypothyroïdie sous Levothyrox. Polyarthrite rhumatoïde traitée par Methotrexate.",
+      details:
+        "Hypothyroïdie sous Levothyrox. Polyarthrite rhumatoïde traitée par Methotrexate.",
       lien_parente: "Mère",
     },
   ]);
@@ -278,7 +338,8 @@ async function seedRichPatient() {
       utilisateur_id: UTILISATEUR_ID,
       hypothese_diagnostic: "Asthme allergique avec rhinite associée",
       motif: "Suivi asthme et rhinite allergique",
-      historique: "Patient suivi depuis 2024 pour asthme allergique. Exacerbations printanières.",
+      historique:
+        "Patient suivi depuis 2024 pour asthme allergique. Exacerbations printanières.",
       date_ouverture: "2025-01-15",
       date_fermeture: null,
       est_actif: true,
@@ -289,7 +350,8 @@ async function seedRichPatient() {
       utilisateur_id: UTILISATEUR_ID,
       hypothese_diagnostic: "HTA essentielle stade 1",
       motif: "Suivi hypertension artérielle",
-      historique: "HTA diagnostiquée en 2023. Traitement par Amlodipine 5mg. Contrôle régulier tous les 3 mois.",
+      historique:
+        "HTA diagnostiquée en 2023. Traitement par Amlodipine 5mg. Contrôle régulier tous les 3 mois.",
       date_ouverture: "2025-02-01",
       date_fermeture: null,
       est_actif: true,
@@ -300,7 +362,8 @@ async function seedRichPatient() {
       utilisateur_id: UTILISATEUR_ID,
       hypothese_diagnostic: "Lombalgie chronique mécanique",
       motif: "Lombalgies récurrentes",
-      historique: "Douleurs lombaires depuis 6 mois, aggravées par la position assise prolongée.",
+      historique:
+        "Douleurs lombaires depuis 6 mois, aggravées par la position assise prolongée.",
       date_ouverture: "2025-03-10",
       date_fermeture: null,
       est_actif: true,
@@ -309,7 +372,8 @@ async function seedRichPatient() {
       id: SUIVI_4,
       patient_id: PAT,
       utilisateur_id: UTILISATEUR_ID,
-      hypothese_diagnostic: "Fièvre simple avec douleurs diffuses sans signe de gravité",
+      hypothese_diagnostic:
+        "Fièvre simple avec douleurs diffuses sans signe de gravité",
       motif: "Suivi fièvre et douleurs simples",
       historique:
         "Episode aigu simple avec fièvre modérée et douleurs diffuses, sans signe de gravité ni point d'appel infectieux sévère.",
@@ -417,21 +481,28 @@ async function seedRichPatient() {
       temperature: "36.8",
       spo2: "98",
       imc: "23.4",
-      traitement_prescrit: "Ventoline 100mcg 2 bouffées à la demande, Desloratadine 5mg 1/j",
-      description_consultation: "Patient vu pour suivi asthme. Symptômes bien contrôlés. Rhinite intermittente.",
+      traitement_prescrit:
+        "Ventoline 100mcg 2 bouffées à la demande, Desloratadine 5mg 1/j",
+      description_consultation:
+        "Patient vu pour suivi asthme. Symptômes bien contrôlés. Rhinite intermittente.",
       aspect_general: "Bon état général, conscient et coopérant, bien hydraté",
-      examen_respiratoire: "Poumons clairs à l'auscultation, pas de sibilants, FR 16/min, SpO2 98%",
-      examen_cardiovasculaire: "BDC réguliers, 72/min, TA 125/80, pas de souffle, pas d'œdème",
-      examen_cutane_muqueux: "Peau et muqueuses normo-colorées, pas de rash, pas de purpura",
+      examen_respiratoire:
+        "Poumons clairs à l'auscultation, pas de sibilants, FR 16/min, SpO2 98%",
+      examen_cardiovasculaire:
+        "BDC réguliers, 72/min, TA 125/80, pas de souffle, pas d'œdème",
+      examen_cutane_muqueux:
+        "Peau et muqueuses normo-colorées, pas de rash, pas de purpura",
       examen_orl: "Muqueuse nasale pale, rhinite allergique, tympanes normaux",
       examen_digestif: null,
       examen_neurologique: null,
       examen_locomoteur: null,
       examen_genital: null,
       examen_urinaire: null,
-      examen_ganglionnaire: "Pas d'adénopathie cervicale, axillaire ou inguinale",
+      examen_ganglionnaire:
+        "Pas d'adénopathie cervicale, axillaire ou inguinale",
       examen_endocrinien: null,
-      conclusion: "Asthme allergique stable sous traitement. Poursuite du traitement. Contrôle dans 3 mois.",
+      conclusion:
+        "Asthme allergique stable sous traitement. Poursuite du traitement. Contrôle dans 3 mois.",
     },
     {
       id: EXAM_2,
@@ -446,10 +517,12 @@ async function seedRichPatient() {
       spo2: "97",
       imc: "23.7",
       traitement_prescrit: "Amlodipine 5mg 1/j (maintien), régime hyposodé",
-      description_consultation: "Contrôle HTA. Patient signale quelques céphalées matinales occasionnelles.",
+      description_consultation:
+        "Contrôle HTA. Patient signale quelques céphalées matinales occasionnelles.",
       aspect_general: "Bon état général, IMC 23.7, pas de surpoids",
       examen_respiratoire: "Normal",
-      examen_cardiovasculaire: "TA 130/85 mmHg (limite). BDC réguliers 76/min, pas de souffle, pas de triple temps.",
+      examen_cardiovasculaire:
+        "TA 130/85 mmHg (limite). BDC réguliers 76/min, pas de souffle, pas de triple temps.",
       examen_cutane_muqueux: "Normo-coloré",
       examen_orl: null,
       examen_digestif: "Abdomen souple, non sensible, péristaltisme normal",
@@ -459,7 +532,8 @@ async function seedRichPatient() {
       examen_urinaire: null,
       examen_ganglionnaire: null,
       examen_endocrinien: null,
-      conclusion: "HTA limite sous Amlodipine 5mg. Renforcement des mesures hygiéno-diététiques. Bilan lipidique et glycémique demandé. Revoir dans 3 mois.",
+      conclusion:
+        "HTA limite sous Amlodipine 5mg. Renforcement des mesures hygiéno-diététiques. Bilan lipidique et glycémique demandé. Revoir dans 3 mois.",
     },
     {
       id: EXAM_3,
@@ -473,10 +547,13 @@ async function seedRichPatient() {
       temperature: "36.6",
       spo2: "99",
       imc: "23.0",
-      traitement_prescrit: "Ventoline 100mcg PRN, Flixotide 250mcg 2x/j (nouveau)",
-      description_consultation: "Rechute asthmatique au printemps. Épisodes nocturnes. Augmentation du traitement de fond.",
+      traitement_prescrit:
+        "Ventoline 100mcg PRN, Flixotide 250mcg 2x/j (nouveau)",
+      description_consultation:
+        "Rechute asthmatique au printemps. Épisodes nocturnes. Augmentation du traitement de fond.",
       aspect_general: "Bon état général, léger sifflement expiratoire",
-      examen_respiratoire: "Sibilants expiratoires diffus bilatéraux, FR 18/min, SpO2 99%",
+      examen_respiratoire:
+        "Sibilants expiratoires diffus bilatéraux, FR 18/min, SpO2 99%",
       examen_cardiovasculaire: "BDC réguliers, 70/min, TA 120/78",
       examen_cutane_muqueux: "Normal",
       examen_orl: "Rhinite allergique en poussée",
@@ -487,7 +564,8 @@ async function seedRichPatient() {
       examen_urinaire: null,
       examen_ganglionnaire: null,
       examen_endocrinien: null,
-      conclusion: "Exacerbation asthmatique printanière. Ajout de Flixotide 250mcg 2x/j au traitement de fond. Contrôle dans 1 mois.",
+      conclusion:
+        "Exacerbation asthmatique printanière. Ajout de Flixotide 250mcg 2x/j au traitement de fond. Contrôle dans 1 mois.",
     },
     {
       id: EXAM_4,
@@ -507,12 +585,16 @@ async function seedRichPatient() {
         "Patient vu pour fièvre modérée avec céphalées et douleurs diffuses depuis 24h. Pas de dyspnée, pas de douleur thoracique, pas de signe de gravité.",
       aspect_general:
         "Etat général conservé, patient conscient, stable hémodynamiquement, sans altération majeure de l'état général",
-      examen_respiratoire: "Auscultation pulmonaire libre, pas de sibilants, SpO2 98%",
-      examen_cardiovasculaire: "BDC réguliers, 78/min, TA 118/76, pas de signe de gravité",
+      examen_respiratoire:
+        "Auscultation pulmonaire libre, pas de sibilants, SpO2 98%",
+      examen_cardiovasculaire:
+        "BDC réguliers, 78/min, TA 118/76, pas de signe de gravité",
       examen_cutane_muqueux: "Pas d'éruption, pas de déshydratation clinique",
-      examen_orl: "Gorge discrètement congestive sans exsudat, rhinorrhée légère",
+      examen_orl:
+        "Gorge discrètement congestive sans exsudat, rhinorrhée légère",
       examen_digestif: "Abdomen souple, non douloureux",
-      examen_neurologique: "Pas de syndrome méningé, examen neurologique rassurant",
+      examen_neurologique:
+        "Pas de syndrome méningé, examen neurologique rassurant",
       examen_locomoteur: "Courbatures diffuses sans déficit focal",
       examen_genital: null,
       examen_urinaire: null,
@@ -539,7 +621,8 @@ async function seedRichPatient() {
       rendez_vous_id: RDV_2,
       patient_id: PAT,
       utilisateur_id: UTILISATEUR_ID,
-      remarques: "Bilan biologique de contrôle: NFS, glycémie à jeun, HbA1c, bilan lipidique, créatinine, ionogramme.",
+      remarques:
+        "Bilan biologique de contrôle: NFS, glycémie à jeun, HbA1c, bilan lipidique, créatinine, ionogramme.",
       date_prescription: "2025-02-05",
     },
     {
@@ -547,7 +630,8 @@ async function seedRichPatient() {
       rendez_vous_id: RDV_3,
       patient_id: PAT,
       utilisateur_id: UTILISATEUR_ID,
-      remarques: "Renforcer le traitement de fond de l'asthme. Revoir dans 1 mois.",
+      remarques:
+        "Renforcer le traitement de fond de l'asthme. Revoir dans 1 mois.",
       date_prescription: "2025-04-15",
     },
   ]);
@@ -564,7 +648,8 @@ async function seedRichPatient() {
       dosage: "100mcg",
       posologie: "2 bouffées à la demande (max 8/jour)",
       duree_traitement: "Continu (renouvellement trimestriel)",
-      instructions: "Bien agiter avant usage. Espacer de 4-6h minimum entre les prises.",
+      instructions:
+        "Bien agiter avant usage. Espacer de 4-6h minimum entre les prises.",
     },
     {
       id: OM_2,
@@ -575,7 +660,8 @@ async function seedRichPatient() {
       dosage: "5mg",
       posologie: "1 comprimé le matin",
       duree_traitement: "30 jours",
-      instructions: "Peut provoquer une somnolence. Éviter la conduite si sensation de fatigue.",
+      instructions:
+        "Peut provoquer une somnolence. Éviter la conduite si sensation de fatigue.",
     },
     // Ordonnance 2: HTA
     {
@@ -587,7 +673,8 @@ async function seedRichPatient() {
       dosage: "5mg",
       posologie: "1 comprimé le matin",
       duree_traitement: "3 mois (renouvellement)",
-      instructions: "Surveiller les œdèmes des chevilles. Prendre à heure régulière.",
+      instructions:
+        "Surveiller les œdèmes des chevilles. Prendre à heure régulière.",
     },
     // Ordonnance 3: Asthme renforcé
     {
@@ -610,7 +697,8 @@ async function seedRichPatient() {
       dosage: "250mcg",
       posologie: "2 bouffées matin et soir",
       duree_traitement: "Continu (réévaluation dans 1 mois)",
-      instructions: "NOUVEAU. Se rincer la bouche après inhalation pour éviter la candidose orale.",
+      instructions:
+        "NOUVEAU. Se rincer la bouche après inhalation pour éviter la candidose orale.",
     },
     {
       id: OM_6,
@@ -710,7 +798,8 @@ async function seedRichPatient() {
       chemin_fichier: "/uploads/patients/b0000001/bilan_2025_02.pdf",
       type_fichier: "application/pdf",
       taille_fichier: 320000,
-      description: "Bilan biologique complet: NFS, glycémie à jeun (5.2 mmol/L), HbA1c (5.4%), créatinine (82 µmol/L), bilan lipidique (CT 4.8, LDL 3.1, HDL 1.2, TG 1.1), ionogramme normal.",
+      description:
+        "Bilan biologique complet: NFS, glycémie à jeun (5.2 mmol/L), HbA1c (5.4%), créatinine (82 µmol/L), bilan lipidique (CT 4.8, LDL 3.1, HDL 1.2, TG 1.1), ionogramme normal.",
       date_upload: "2025-02-10T09:00:00+01:00",
       uploade_par_utilisateur: UTILISATEUR_ID,
       est_archive: false,
@@ -724,7 +813,8 @@ async function seedRichPatient() {
       chemin_fichier: "/uploads/patients/b0000001/radio_thorax_2025_01.pdf",
       type_fichier: "application/pdf",
       taille_fichier: 2100000,
-      description: "Radiographie thoracique de face: pas d'anomalie, pas d'infiltrat, médiastin normal, cœur taille normale.",
+      description:
+        "Radiographie thoracique de face: pas d'anomalie, pas d'infiltrat, médiastin normal, cœur taille normale.",
       date_upload: "2025-01-18T14:30:00+01:00",
       uploade_par_utilisateur: UTILISATEUR_ID,
       est_archive: false,
@@ -738,7 +828,8 @@ async function seedRichPatient() {
       chemin_fichier: "/uploads/patients/b0000001/certificat_2025_04.pdf",
       type_fichier: "application/pdf",
       taille_fichier: 95000,
-      description: "Certificat médical de continuité de traitement pour asthme allergique et HTA.",
+      description:
+        "Certificat médical de continuité de traitement pour asthme allergique et HTA.",
       date_upload: "2025-04-16T10:00:00+01:00",
       uploade_par_utilisateur: UTILISATEUR_ID,
       est_archive: false,

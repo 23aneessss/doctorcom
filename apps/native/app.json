@@ -7,7 +7,7 @@
       "bundler": "metro"
     },
     "name": "doctor.com",
-    "slug": "doctor.com",
+    "slug": "doctorcom",
     "plugins": ["expo-font"],
     "experiments": {
       "typedRoutes": true,
