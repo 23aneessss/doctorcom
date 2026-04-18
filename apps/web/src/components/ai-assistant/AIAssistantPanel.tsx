@@ -128,6 +128,21 @@ interface OrdonnanceGenerationResult {
   disclaimer: string;
 }
 
+interface AssistantChatMessageInput {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface AssistantChatResult {
+  resolved_intent:
+    | "patient_qna"
+    | "medication_qna"
+    | "patient_context_required";
+  answer: string;
+  warnings: string[];
+  follow_up_suggestions: string[];
+}
+
 interface MedicationSuggestionResultItem {
   rank: number;
   medicament_externe_id: string;
@@ -215,93 +230,6 @@ const responses: Record<
     },
   },
 };
-
-function getFreeTextResponse(text: string): {
-  thinking: string;
-  done: string;
-  card?: ResultCard;
-} {
-  const lower = text.toLowerCase();
-
-  if (
-    lower.includes("douleur") ||
-    lower.includes("fievre") ||
-    lower.includes("symptom") ||
-    lower.includes("mal") ||
-    lower.includes("toux") ||
-    lower.includes("diagnostic")
-  ) {
-    return {
-      thinking:
-        "Analyse des symptomes decrits et croisement avec les antecedents du patient...",
-      done: "Voici une analyse basee sur les symptomes mentionnes.",
-      card: {
-        title: "Analyse symptomatique",
-        description: "Evaluation des symptomes avec recommandations cliniques",
-        icon: Stethoscope,
-      },
-    };
-  }
-
-  if (
-    lower.includes("ordonnance") ||
-    lower.includes("prescrire") ||
-    lower.includes("prescription") ||
-    lower.includes("traitement")
-  ) {
-    return {
-      thinking:
-        "Preparation de la prescription en tenant compte du profil du patient...",
-      done: "Proposition de traitement generee selon les donnees cliniques.",
-      card: {
-        title: "Proposition de traitement",
-        description:
-          "Traitement adapte au profil et aux contraintes du patient",
-        icon: FileText,
-      },
-    };
-  }
-
-  if (
-    lower.includes("medicament") ||
-    lower.includes("interaction") ||
-    lower.includes("allergie") ||
-    lower.includes("compatib")
-  ) {
-    return {
-      thinking:
-        "Verification des interactions medicamenteuses et contre-indications...",
-      done: "Analyse de compatibilite terminee.",
-      card: {
-        title: "Rapport de compatibilite",
-        description: "Aucune interaction majeure detectee",
-        icon: ShieldCheck,
-      },
-    };
-  }
-
-  if (
-    lower.includes("patient") ||
-    lower.includes("dossier") ||
-    lower.includes("antecedent") ||
-    lower.includes("historique")
-  ) {
-    return {
-      thinking: "Recherche dans le dossier medical du patient en cours...",
-      done: "Informations pertinentes extraites du dossier patient.",
-      card: {
-        title: "Resume du dossier",
-        description: "Synthese des informations cles du patient",
-        icon: FileText,
-      },
-    };
-  }
-
-  return {
-    thinking: "Analyse de votre demande en cours...",
-    done: "Je peux vous aider avec cette demande. Essayez de decrire des symptomes, un traitement ou un medicament pour obtenir une reponse plus detaillee.",
-  };
-}
 
 const springPop = {
   type: "spring" as const,
@@ -968,6 +896,23 @@ export function AIAssistantPanel() {
     });
   };
 
+  const buildAssistantChatHistory = (userText: string): AssistantChatMessageInput[] => {
+    const recentMessages = messages
+      .filter(
+        (message) =>
+          message.status !== "thinking" &&
+          message.text.trim().length > 0 &&
+          (message.type === "user" || message.type === "assistant"),
+      )
+      .slice(-7)
+      .map((message) => ({
+        role: message.type,
+        content: message.text.trim(),
+      }));
+
+    return [...recentMessages, { role: "user", content: userText }];
+  };
+
   const handleDiagnosticAction = () => {
     void runAssistantTask({
       userText: diagnosticActionLabel,
@@ -1082,40 +1027,6 @@ export function AIAssistantPanel() {
     });
   };
 
-  const inferActionFromText = (text: string) => {
-    const lower = text.toLowerCase();
-
-    if (
-      lower.includes("hypothese") ||
-      lower.includes("diagnostic") ||
-      lower.includes("symptom") ||
-      lower.includes("douleur") ||
-      lower.includes("fievre")
-    ) {
-      return diagnosticActionLabel;
-    }
-
-    if (
-      lower.includes("ordonnance") ||
-      lower.includes("prescription") ||
-      lower.includes("traitement") ||
-      lower.includes("prescrire")
-    ) {
-      return ordonnanceActionLabel;
-    }
-
-    if (
-      lower.includes("document") ||
-      lower.includes("analyse") ||
-      lower.includes("compte rendu") ||
-      lower.includes("scanner")
-    ) {
-      return documentActionLabel;
-    }
-
-    return null;
-  };
-
   const handleAction = (label: string) => {
     if (label === diagnosticActionLabel) {
       handleDiagnosticAction();
@@ -1151,13 +1062,23 @@ export function AIAssistantPanel() {
       return;
     }
 
-    const inferredAction = inferActionFromText(text);
-    if (inferredAction) {
-      handleAction(inferredAction);
-      return;
-    }
+    void runAssistantTask({
+      userText: text,
+      thinkingText: "Analyse de votre demande en cours...",
+      task: async () => {
+        const result = await trpcClient.ai.assistant.chat.mutate({
+          messages: buildAssistantChatHistory(text),
+          patient_id: currentPatientId ?? undefined,
+          max_history_messages: 8,
+        });
 
-    sendWithResponse(text, getFreeTextResponse(text));
+        const chatResult = result as AssistantChatResult;
+
+        return {
+          done: chatResult.answer,
+        };
+      },
+    });
   };
 
   const hasMessages = messages.length > 0;
@@ -1173,9 +1094,7 @@ export function AIAssistantPanel() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="pointer-events-none fixed inset-0 z-[60]"
-              style={{
-                background: `radial-gradient(circle at bottom right, ${cChipActiveBg} 0%, transparent 70%)`,
-              }}
+              style={{ background: "transparent" }}
             />
 
             <motion.div
@@ -1189,8 +1108,7 @@ export function AIAssistantPanel() {
                 height: hasMessages ? 530 : "auto",
                 maxHeight: "calc(100vh - 130px)",
                 background: `linear-gradient(160deg, ${cSidebarGradStart} 0%, ${cSidebarGradMid} 60%, ${cSidebarGradEnd} 100%)`,
-                boxShadow:
-                  "0 10px 45px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.18)",
+                boxShadow: "none",
               }}
             >
               <div
@@ -1780,23 +1698,28 @@ function DoneBlock({
   }, [text]);
 
   const textDone = displayedText.length >= text.length;
+  const parsedText = useMemo(() => parseAssistantStructuredText(text), [text]);
 
   return (
     <div className="flex flex-col gap-3">
       <ThoughtCollapsed />
 
-      <p style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.55" }}>
-        {displayedText}
-        {!textDone && (
-          <motion.span
-            animate={{ opacity: [1, 0] }}
-            transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY }}
-            style={{ color: cSky }}
-          >
-            |
-          </motion.span>
-        )}
-      </p>
+      {textDone && parsedText.hasStructure ? (
+        <StructuredAssistantText parsed={parsedText} />
+      ) : (
+        <p style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.55" }}>
+          {displayedText}
+          {!textDone && (
+            <motion.span
+              animate={{ opacity: [1, 0] }}
+              transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY }}
+              style={{ color: cSky }}
+            >
+              |
+            </motion.span>
+          )}
+        </p>
+      )}
 
       {card && textDone && (
         <motion.div
@@ -1893,6 +1816,184 @@ function DoneBlock({
       )}
     </div>
   );
+}
+
+interface ParsedAssistantSection {
+  title: string;
+  items: string[];
+  paragraphs: string[];
+}
+
+interface ParsedAssistantText {
+  intro: string[];
+  sections: ParsedAssistantSection[];
+  hasStructure: boolean;
+}
+
+function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
+  return (
+    <div className="space-y-3">
+      {parsed.intro.length > 0 ? (
+        <div className="space-y-2">
+          {parsed.intro.map((paragraph, index) => (
+            <p
+              key={`assistant-intro-${index}`}
+              style={{
+                fontSize: 13,
+                color: cDiscussionText,
+                lineHeight: "1.6",
+              }}
+            >
+              {paragraph}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      {parsed.sections.map((section, index) => (
+        <div
+          key={`${section.title}-${index}`}
+          className="rounded-2xl border px-4 py-3"
+          style={{
+            borderColor: cDiscussionBorder,
+            background: cDiscussionCardBg,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: cDiscussionMuted,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {section.title}
+          </p>
+
+          {section.paragraphs.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              {section.paragraphs.map((paragraph, paragraphIndex) => (
+                <p
+                  key={`${section.title}-paragraph-${paragraphIndex}`}
+                  style={{
+                    fontSize: 13,
+                    color: cDiscussionText,
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          {section.items.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {section.items.map((item, itemIndex) => (
+                <li
+                  key={`${section.title}-item-${itemIndex}`}
+                  className="flex items-start gap-2"
+                  style={{
+                    fontSize: 13,
+                    color: cDiscussionText,
+                    lineHeight: "1.55",
+                  }}
+                >
+                  <span
+                    className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: cSky }}
+                  />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function parseAssistantStructuredText(text: string): ParsedAssistantText {
+  const normalized = text
+    .replace(/\r/g, "")
+    .replace(/\*\*\s*/g, "**")
+    .trim();
+
+  const headingRegex = /\*\*([^*]+?)\*\*/g;
+  const matches = [...normalized.matchAll(headingRegex)];
+
+  if (matches.length === 0) {
+    return {
+      intro: splitParagraphs(cleanAssistantText(normalized)),
+      sections: [],
+      hasStructure: false,
+    };
+  }
+
+  const intro = cleanAssistantText(
+    normalized.slice(0, matches[0]?.index ?? 0),
+  );
+  const sections: ParsedAssistantSection[] = [];
+
+  for (let index = 0; index < matches.length; index += 1) {
+    const current = matches[index];
+    const next = matches[index + 1];
+    const rawTitle = cleanAssistantText(current?.[1] ?? "");
+    const title = rawTitle.replace(/:\s*$/, "").trim();
+    const chunk = normalized
+      .slice(
+        (current?.index ?? 0) + (current?.[0]?.length ?? 0),
+        next?.index ?? normalized.length,
+      )
+      .trim();
+
+    const bulletMatches = [
+      ...chunk.matchAll(/(?:^|\s)\*\s+(.+?)(?=(?:\s+\*\s+)|$)/gs),
+    ];
+    const items = bulletMatches
+      .map((match) => cleanAssistantText(match[1] ?? ""))
+      .filter(Boolean);
+
+    const chunkWithoutBullets = cleanAssistantText(
+      chunk.replace(/(?:^|\s)\*\s+(.+?)(?=(?:\s+\*\s+)|$)/gs, " "),
+    );
+
+    sections.push({
+      title: title || `Section ${index + 1}`,
+      items,
+      paragraphs: splitParagraphs(chunkWithoutBullets),
+    });
+  }
+
+  const hasStructure = sections.some(
+    (section) => section.items.length > 0 || section.paragraphs.length > 0,
+  );
+
+  return {
+    intro: splitParagraphs(intro),
+    sections,
+    hasStructure,
+  };
+}
+
+function cleanAssistantText(value: string): string {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitParagraphs(value: string): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(/\n{2,}|(?<=\.)\s+(?=[A-ZÀ-ÖØ-Ý])/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 }
 
 function AssistantResultModal({
