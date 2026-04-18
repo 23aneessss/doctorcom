@@ -1367,7 +1367,7 @@ export function AIAssistantPanel() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.2 }}
-                      className="flex flex-col gap-5 px-4 py-4"
+                      className="flex flex-col gap-4 px-4 py-4"
                     >
                       {messages.map((message) => (
                         <motion.div
@@ -1379,7 +1379,7 @@ export function AIAssistantPanel() {
                           {message.type === "user" ? (
                             <div className="flex justify-end">
                               <motion.div
-                                className="max-w-[85%] rounded-2xl rounded-br-lg px-4 py-3"
+                                className="max-w-[85%] rounded-2xl rounded-br-lg px-4 py-[10px]"
                                 style={{
                                   background: "rgba(118,187,221,0.22)",
                                   border: `1px solid ${cDiscussionBorder}`,
@@ -1389,9 +1389,9 @@ export function AIAssistantPanel() {
                               >
                                 <span
                                   style={{
-                                    fontSize: 13,
+                                    fontSize: 12.75,
                                     color: cDiscussionText,
-                                    lineHeight: "1.45",
+                                    lineHeight: "1.5",
                                   }}
                                 >
                                   {message.text}
@@ -1707,18 +1707,7 @@ function DoneBlock({
       {textDone && parsedText.hasStructure ? (
         <StructuredAssistantText parsed={parsedText} />
       ) : (
-        <p style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.55" }}>
-          {displayedText}
-          {!textDone && (
-            <motion.span
-              animate={{ opacity: [1, 0] }}
-              transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY }}
-              style={{ color: cSky }}
-            >
-              |
-            </motion.span>
-          )}
-        </p>
+        <SimpleAssistantText text={displayedText} textDone={textDone} />
       )}
 
       {card && textDone && (
@@ -1832,16 +1821,23 @@ interface ParsedAssistantText {
 
 function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {parsed.intro.length > 0 ? (
-        <div className="space-y-2">
+        <div
+          className="rounded-2xl border px-4 py-3"
+          style={{
+            borderColor: cDiscussionBorder,
+            background: "rgba(118,187,221,0.08)",
+          }}
+        >
           {parsed.intro.map((paragraph, index) => (
             <p
               key={`assistant-intro-${index}`}
               style={{
-                fontSize: 13,
+                fontSize: 12.5,
                 color: cDiscussionText,
                 lineHeight: "1.6",
+                marginTop: index === 0 ? 0 : 8,
               }}
             >
               {paragraph}
@@ -1853,51 +1849,61 @@ function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
       {parsed.sections.map((section, index) => (
         <div
           key={`${section.title}-${index}`}
-          className="rounded-2xl border px-4 py-3"
+          className="overflow-hidden rounded-2xl border"
           style={{
             borderColor: cDiscussionBorder,
             background: cDiscussionCardBg,
           }}
         >
-          <p
+          <div
+            className="px-4 py-2.5"
             style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: cDiscussionMuted,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
+              borderBottom:
+                section.paragraphs.length > 0 || section.items.length > 0
+                  ? `1px solid ${cDiscussionBorder}`
+                  : undefined,
+              background: "rgba(255,255,255,0.72)",
             }}
           >
-            {section.title}
-          </p>
+            <p
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: cDiscussionMuted,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {section.title}
+            </p>
+          </div>
 
-          {section.paragraphs.length > 0 ? (
-            <div className="mt-2 space-y-2">
-              {section.paragraphs.map((paragraph, paragraphIndex) => (
+          <div className="space-y-2 px-4 py-3">
+            {section.paragraphs.length > 0 ? (
+              section.paragraphs.map((paragraph, paragraphIndex) => (
                 <p
                   key={`${section.title}-paragraph-${paragraphIndex}`}
                   style={{
-                    fontSize: 13,
+                    fontSize: 12.5,
                     color: cDiscussionText,
-                    lineHeight: "1.6",
+                    lineHeight: "1.65",
                   }}
                 >
                   {paragraph}
                 </p>
-              ))}
-            </div>
-          ) : null}
+              ))
+            ) : null}
 
-          {section.items.length > 0 ? (
-            <ul className="mt-3 space-y-2">
+            {section.items.length > 0 ? (
+              <ul className="space-y-2">
               {section.items.map((item, itemIndex) => (
                 <li
                   key={`${section.title}-item-${itemIndex}`}
                   className="flex items-start gap-2"
                   style={{
-                    fontSize: 13,
+                    fontSize: 12.5,
                     color: cDiscussionText,
-                    lineHeight: "1.55",
+                    lineHeight: "1.6",
                   }}
                 >
                   <span
@@ -1907,8 +1913,9 @@ function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
                   <span>{item}</span>
                 </li>
               ))}
-            </ul>
-          ) : null}
+              </ul>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
@@ -1916,20 +1923,13 @@ function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
 }
 
 function parseAssistantStructuredText(text: string): ParsedAssistantText {
-  const normalized = text
-    .replace(/\r/g, "")
-    .replace(/\*\*\s*/g, "**")
-    .trim();
+  const normalized = normalizeAssistantStructuredSource(text);
 
   const headingRegex = /\*\*([^*]+?)\*\*/g;
   const matches = [...normalized.matchAll(headingRegex)];
 
   if (matches.length === 0) {
-    return {
-      intro: splitParagraphs(cleanAssistantText(normalized)),
-      sections: [],
-      hasStructure: false,
-    };
+    return parseAssistantLineStructuredText(normalized);
   }
 
   const intro = cleanAssistantText(
@@ -1981,6 +1981,8 @@ function parseAssistantStructuredText(text: string): ParsedAssistantText {
 function cleanAssistantText(value: string): string {
   return value
     .replace(/\*\*/g, "")
+    .replace(/(^|\s)\*(?=\s|$)/g, " ")
+    .replace(/\s+:\s*$/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1994,6 +1996,210 @@ function splitParagraphs(value: string): string[] {
     .split(/\n{2,}|(?<=\.)\s+(?=[A-ZÀ-ÖØ-Ý])/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
+}
+
+function normalizeAssistantStructuredSource(text: string): string {
+  return text
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\*\*\s*/g, "**")
+    .replace(/\s+\*\s+(?=[A-ZÀ-ÖØ-Ý(])/g, "\n")
+    .replace(/\s+\*\s*$/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function parseAssistantLineStructuredText(text: string): ParsedAssistantText {
+  const lines = text
+    .split(/\n+/)
+    .map((line) => cleanAssistantText(line))
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return { intro: [], sections: [], hasStructure: false };
+  }
+
+  const sections: ParsedAssistantSection[] = [];
+  const intro: string[] = [];
+  let currentSection: ParsedAssistantSection | null = null;
+
+  for (const line of lines) {
+    if (isAssistantSectionHeading(line)) {
+      currentSection = {
+        title: line.replace(/:\s*$/, ""),
+        items: [],
+        paragraphs: [],
+      };
+      sections.push(currentSection);
+      continue;
+    }
+
+    if (!currentSection) {
+      intro.push(line);
+      continue;
+    }
+
+    if (line.startsWith("- ") || line.startsWith("• ")) {
+      currentSection.items.push(cleanAssistantText(line.slice(2)));
+      continue;
+    }
+
+    currentSection.paragraphs.push(line);
+  }
+
+  const hasStructure =
+    sections.length > 0 &&
+    sections.some(
+      (section) => section.items.length > 0 || section.paragraphs.length > 0,
+    );
+
+  return {
+    intro,
+    sections,
+    hasStructure,
+  };
+}
+
+function isAssistantSectionHeading(line: string): boolean {
+  const normalized = line.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  const normalizedWithoutColon = normalized.replace(/:\s*$/, "");
+  const sectionKeywords = [
+    "historique",
+    "antécédents personnels",
+    "antécédents familiaux",
+    "allergies",
+    "traitements actuels",
+    "suivis médicaux actifs",
+    "suivis medicaux actifs",
+    "red flags",
+    "points de prudence",
+    "informations manquantes",
+    "arguments en faveur",
+    "points de reserve",
+    "questions a poser",
+    "verifications conseillees",
+  ];
+
+  if (
+    sectionKeywords.some(
+      (keyword) => keyword === normalizedWithoutColon.toLowerCase(),
+    )
+  ) {
+    return true;
+  }
+
+  const words = normalizedWithoutColon.split(/\s+/);
+  const isCompactHeading = words.length <= 8 && normalizedWithoutColon.length <= 60;
+  const hasSentencePunctuation = /[.!?]$/.test(normalizedWithoutColon);
+  const uppercaseRatio =
+    normalizedWithoutColon.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, "").length > 0
+      ? normalizedWithoutColon
+          .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, "")
+          .split("")
+          .filter((char) => char === char.toUpperCase()).length /
+        normalizedWithoutColon.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, "").length
+      : 0;
+
+  return isCompactHeading && !hasSentencePunctuation && uppercaseRatio > 0.45;
+}
+
+function SimpleAssistantText({
+  text,
+  textDone,
+}: {
+  text: string;
+  textDone: boolean;
+}) {
+  const tone = classifyAssistantTextTone(text);
+
+  if (!textDone) {
+    return (
+      <p style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.55" }}>
+        {text}
+        <motion.span
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY }}
+          style={{ color: cSky }}
+        >
+          |
+        </motion.span>
+      </p>
+    );
+  }
+
+  if (tone === "notice" || tone === "warning") {
+    const Icon = tone === "warning" ? AlertTriangle : Sparkles;
+    return (
+      <div
+        className="rounded-2xl border px-4 py-3"
+        style={{
+          borderColor: tone === "warning" ? "#f7cba8" : cDiscussionBorder,
+          background:
+            tone === "warning"
+              ? "rgba(249,115,22,0.06)"
+              : "rgba(118,187,221,0.08)",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
+            style={{
+              background:
+                tone === "warning"
+                  ? "rgba(249,115,22,0.12)"
+                  : "rgba(118,187,221,0.16)",
+            }}
+          >
+            <Icon
+              size={14}
+              style={{ color: tone === "warning" ? "#f97316" : cSky }}
+            />
+          </div>
+          <p
+            style={{
+              fontSize: 12.5,
+              color: cDiscussionText,
+              lineHeight: "1.65",
+            }}
+          >
+            {text}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <p style={{ fontSize: 12.75, color: cDiscussionText, lineHeight: "1.62" }}>
+      {text}
+    </p>
+  );
+}
+
+function classifyAssistantTextTone(text: string): "plain" | "notice" | "warning" {
+  const normalized = text.trim().toLowerCase();
+
+  if (
+    normalized.startsWith("pour répondre à cette question sur un patient précis") ||
+    normalized.startsWith("pour repondre a cette question sur un patient precis")
+  ) {
+    return "notice";
+  }
+
+  if (
+    normalized.startsWith("je n'ai pas pu") ||
+    normalized.startsWith("aucune ") ||
+    normalized.startsWith("ce cas necessite")
+  ) {
+    return "warning";
+  }
+
+  return "plain";
 }
 
 function AssistantResultModal({
