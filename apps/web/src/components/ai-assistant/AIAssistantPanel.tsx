@@ -1814,56 +1814,76 @@ interface ParsedAssistantSection {
 }
 
 interface ParsedAssistantText {
+  heading: string | null;
   intro: string[];
+  items: string[];
   sections: ParsedAssistantSection[];
   hasStructure: boolean;
 }
 
 function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
+  const hasBodyContent =
+    parsed.intro.length > 0 || parsed.items.length > 0 || parsed.sections.length > 0;
+
   return (
-    <div className="space-y-2.5">
-      {parsed.intro.length > 0 ? (
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        borderColor: cDiscussionBorder,
+        background: cDiscussionCardBg,
+      }}
+    >
+      {parsed.heading ? (
         <div
-          className="rounded-2xl border px-4 py-3"
+          className="px-4 py-3"
           style={{
-            borderColor: cDiscussionBorder,
+            borderBottom: hasBodyContent ? `1px solid ${cDiscussionBorder}` : undefined,
             background: "rgba(118,187,221,0.08)",
           }}
         >
-          {parsed.intro.map((paragraph, index) => (
-            <p
-              key={`assistant-intro-${index}`}
-              style={{
-                fontSize: 12.5,
-                color: cDiscussionText,
-                lineHeight: "1.6",
-                marginTop: index === 0 ? 0 : 8,
-              }}
-            >
-              {paragraph}
-            </p>
-          ))}
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: cDiscussionText,
+              lineHeight: "1.45",
+            }}
+          >
+            {parsed.heading}
+          </p>
         </div>
       ) : null}
 
-      {parsed.sections.map((section, index) => (
-        <div
-          key={`${section.title}-${index}`}
-          className="overflow-hidden rounded-2xl border"
-          style={{
-            borderColor: cDiscussionBorder,
-            background: cDiscussionCardBg,
-          }}
-        >
+      <div className="space-y-3 px-4 py-3">
+        {parsed.intro.length > 0 ? (
+          <div className="space-y-2">
+            {parsed.intro.map((paragraph, index) => (
+              <p
+                key={`assistant-intro-${index}`}
+                style={{
+                  fontSize: 12.5,
+                  color: cDiscussionText,
+                  lineHeight: "1.65",
+                }}
+              >
+                {paragraph}
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {parsed.items.length > 0 ? (
+          <AssistantBulletList
+            items={parsed.items}
+            itemKeyPrefix="assistant-top-item"
+          />
+        ) : null}
+
+        {parsed.sections.map((section, index) => (
           <div
-            className="px-4 py-2.5"
-            style={{
-              borderBottom:
-                section.paragraphs.length > 0 || section.items.length > 0
-                  ? `1px solid ${cDiscussionBorder}`
-                  : undefined,
-              background: "rgba(255,255,255,0.72)",
-            }}
+            key={`${section.title}-${index}`}
+            className="space-y-2 border-t pt-3 first:border-t-0 first:pt-0"
+            style={{ borderColor: cDiscussionBorder }}
           >
             <p
               style={{
@@ -1876,48 +1896,33 @@ function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
             >
               {section.title}
             </p>
-          </div>
 
-          <div className="space-y-2 px-4 py-3">
             {section.paragraphs.length > 0 ? (
-              section.paragraphs.map((paragraph, paragraphIndex) => (
-                <p
-                  key={`${section.title}-paragraph-${paragraphIndex}`}
-                  style={{
-                    fontSize: 12.5,
-                    color: cDiscussionText,
-                    lineHeight: "1.65",
-                  }}
-                >
-                  {paragraph}
-                </p>
-              ))
+              <div className="space-y-2">
+                {section.paragraphs.map((paragraph, paragraphIndex) => (
+                  <p
+                    key={`${section.title}-paragraph-${paragraphIndex}`}
+                    style={{
+                      fontSize: 12.5,
+                      color: cDiscussionText,
+                      lineHeight: "1.65",
+                    }}
+                  >
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
             ) : null}
 
             {section.items.length > 0 ? (
-              <ul className="space-y-2">
-              {section.items.map((item, itemIndex) => (
-                <li
-                  key={`${section.title}-item-${itemIndex}`}
-                  className="flex items-start gap-2"
-                  style={{
-                    fontSize: 12.5,
-                    color: cDiscussionText,
-                    lineHeight: "1.6",
-                  }}
-                >
-                  <span
-                    className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: cSky }}
-                  />
-                  <span>{item}</span>
-                </li>
-              ))}
-              </ul>
+              <AssistantBulletList
+                items={section.items}
+                itemKeyPrefix={`${section.title}-item`}
+              />
             ) : null}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -1971,8 +1976,12 @@ function parseAssistantStructuredText(text: string): ParsedAssistantText {
     (section) => section.items.length > 0 || section.paragraphs.length > 0,
   );
 
+  const introParagraphs = splitParagraphs(intro);
+
   return {
-    intro: splitParagraphs(intro),
+    heading: deriveStructuredHeading(introParagraphs, sections.length > 0),
+    intro: normalizeStructuredIntro(introParagraphs, sections.length > 0),
+    items: [],
     sections,
     hasStructure,
   };
@@ -2004,6 +2013,8 @@ function normalizeAssistantStructuredSource(text: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\*\*\s*/g, "**")
+    .replace(/:\s+[-•]\s+/g, ":\n- ")
+    .replace(/([.;])\s+[-•]\s+/g, "$1\n- ")
     .replace(/\s+\*\s+(?=[A-ZÀ-ÖØ-Ý(])/g, "\n")
     .replace(/\s+\*\s*$/g, "")
     .replace(/\n{3,}/g, "\n\n")
@@ -2017,11 +2028,18 @@ function parseAssistantLineStructuredText(text: string): ParsedAssistantText {
     .filter(Boolean);
 
   if (lines.length === 0) {
-    return { intro: [], sections: [], hasStructure: false };
+    return {
+      heading: null,
+      intro: [],
+      items: [],
+      sections: [],
+      hasStructure: false,
+    };
   }
 
   const sections: ParsedAssistantSection[] = [];
   const intro: string[] = [];
+  const items: string[] = [];
   let currentSection: ParsedAssistantSection | null = null;
 
   for (const line of lines) {
@@ -2035,13 +2053,18 @@ function parseAssistantLineStructuredText(text: string): ParsedAssistantText {
       continue;
     }
 
-    if (!currentSection) {
-      intro.push(line);
+    if (line.startsWith("- ") || line.startsWith("• ")) {
+      const item = cleanAssistantText(line.slice(2));
+      if (currentSection) {
+        currentSection.items.push(item);
+      } else {
+        items.push(item);
+      }
       continue;
     }
 
-    if (line.startsWith("- ") || line.startsWith("• ")) {
-      currentSection.items.push(cleanAssistantText(line.slice(2)));
+    if (!currentSection) {
+      intro.push(line);
       continue;
     }
 
@@ -2049,16 +2072,96 @@ function parseAssistantLineStructuredText(text: string): ParsedAssistantText {
   }
 
   const hasStructure =
-    sections.length > 0 &&
-    sections.some(
-      (section) => section.items.length > 0 || section.paragraphs.length > 0,
-    );
+    items.length > 0 ||
+    (sections.length > 0 &&
+      sections.some(
+        (section) => section.items.length > 0 || section.paragraphs.length > 0,
+      ));
 
   return {
-    intro,
+    heading: deriveStructuredHeading(
+      intro,
+      items.length > 0 || sections.length > 0,
+    ),
+    intro: normalizeStructuredIntro(intro, items.length > 0 || sections.length > 0),
+    items,
     sections,
     hasStructure,
   };
+}
+
+function deriveStructuredHeading(
+  intro: string[],
+  hasStructuredBody: boolean,
+): string | null {
+  if (!hasStructuredBody || intro.length === 0) {
+    return null;
+  }
+
+  const first = intro[0]?.replace(/:\s*$/, "").trim();
+  if (!first) {
+    return null;
+  }
+
+  if (intro.length === 1) {
+    return first;
+  }
+
+  if (first.length <= 90 && !/[.!?]$/.test(first)) {
+    return first;
+  }
+
+  return null;
+}
+
+function normalizeStructuredIntro(
+  intro: string[],
+  hasStructuredBody: boolean,
+): string[] {
+  if (!hasStructuredBody || intro.length === 0) {
+    return intro;
+  }
+
+  if (intro.length === 1) {
+    return [];
+  }
+
+  const first = intro[0]?.replace(/:\s*$/, "").trim();
+  if (first && first.length <= 90 && !/[.!?]$/.test(first)) {
+    return intro.slice(1);
+  }
+
+  return intro;
+}
+
+function AssistantBulletList({
+  items,
+  itemKeyPrefix,
+}: {
+  items: string[];
+  itemKeyPrefix: string;
+}) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item, index) => (
+        <li
+          key={`${itemKeyPrefix}-${index}`}
+          className="flex items-start gap-2"
+          style={{
+            fontSize: 12.5,
+            color: cDiscussionText,
+            lineHeight: "1.6",
+          }}
+        >
+          <span
+            className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: cSky }}
+          />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function isAssistantSectionHeading(line: string): boolean {
@@ -2076,6 +2179,9 @@ function isAssistantSectionHeading(line: string): boolean {
     "traitements actuels",
     "suivis médicaux actifs",
     "suivis medicaux actifs",
+    "vaccinations",
+    "vaccinations de la patiente",
+    "vaccinations du patient",
     "red flags",
     "points de prudence",
     "informations manquantes",
