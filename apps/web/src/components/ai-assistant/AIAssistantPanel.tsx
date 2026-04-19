@@ -1111,17 +1111,24 @@ export function AIAssistantPanel() {
                 boxShadow: "none",
               }}
             >
-              <div
+              <motion.div
+                layout
+                transition={springGentle}
                 className="flex flex-shrink-0 items-start justify-between gap-3 px-5 py-4"
                 style={{
                   background: `linear-gradient(135deg, ${cSidebarGradStart} 0%, ${cSidebarGradMid} 65%, ${cSidebarGradEnd} 100%)`,
                   borderBottom: `1px solid ${cDivider}`,
                 }}
               >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+                <motion.div
+                  layout
+                  transition={springGentle}
+                  className="flex min-w-0 flex-1 items-center gap-3"
+                >
                   <AnimatePresence mode="wait">
                     {hasMessages && (
                       <motion.button
+                        layout
                         initial={{ opacity: 0, x: -8, scale: 0.8 }}
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: -8, scale: 0.8 }}
@@ -1136,7 +1143,9 @@ export function AIAssistantPanel() {
                     )}
                   </AnimatePresence>
 
-                  <div
+                  <motion.div
+                    layout
+                    transition={springGentle}
                     className="flex h-9 w-9 shrink-0 aspect-square items-center justify-center rounded-xl"
                     style={{
                       background: cChipHoverBg,
@@ -1144,9 +1153,13 @@ export function AIAssistantPanel() {
                     }}
                   >
                     <Sparkles size={17} style={{ color: cWhite }} />
-                  </div>
+                  </motion.div>
 
-                  <div className="min-w-0">
+                  <motion.div
+                    layout
+                    transition={springGentle}
+                    className="min-w-0"
+                  >
                     <span
                       style={{
                         fontSize: 15,
@@ -1177,13 +1190,18 @@ export function AIAssistantPanel() {
                             : "Ouvrez un dossier patient pour lancer une action clinique"}
                       </motion.p>
                     </AnimatePresence>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
 
-                <div className="flex items-center gap-1">
+                <motion.div
+                  layout
+                  transition={springGentle}
+                  className="flex items-center gap-1"
+                >
                   <AnimatePresence>
                     {hasMessages && (
                       <motion.button
+                        layout
                         initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
                         animate={{ opacity: 1, scale: 1, rotate: 0 }}
                         exit={{ opacity: 0, scale: 0.5, rotate: 90 }}
@@ -1205,8 +1223,8 @@ export function AIAssistantPanel() {
                   >
                     <X size={14} style={{ color: cTextDefault }} />
                   </motion.button>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
               <div
                 ref={scrollRef}
