@@ -1112,13 +1112,13 @@ export function AIAssistantPanel() {
               }}
             >
               <div
-                className="flex flex-shrink-0 items-center justify-between px-5 py-4"
+                className="flex flex-shrink-0 items-start justify-between gap-3 px-5 py-4"
                 style={{
                   background: `linear-gradient(135deg, ${cSidebarGradStart} 0%, ${cSidebarGradMid} 65%, ${cSidebarGradEnd} 100%)`,
                   borderBottom: `1px solid ${cDivider}`,
                 }}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <AnimatePresence mode="wait">
                     {hasMessages && (
                       <motion.button
@@ -1146,7 +1146,7 @@ export function AIAssistantPanel() {
                     <Sparkles size={17} style={{ color: cWhite }} />
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <span
                       style={{
                         fontSize: 15,
@@ -1179,6 +1179,45 @@ export function AIAssistantPanel() {
                     </AnimatePresence>
                   </div>
                 </div>
+
+                {!hasMessages ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ ...springBouncy, delay: 0.1 }}
+                    className="mt-1 inline-flex max-w-[132px] shrink-0 items-center gap-2 self-start rounded-full px-3 py-1.5"
+                    style={{
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      backdropFilter: "blur(10px)",
+                    }}
+                  >
+                    <motion.div
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: cSky }}
+                      animate={{
+                        scale: [1, 1.25, 1],
+                        opacity: [0.75, 1, 0.75],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Number.POSITIVE_INFINITY,
+                        ease: "easeInOut",
+                      }}
+                    />
+                    <span
+                      className="truncate"
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        color: cWhite,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {currentContextLabel}
+                    </span>
+                  </motion.div>
+                ) : null}
 
                 <div className="flex items-center gap-1">
                   <AnimatePresence>
@@ -1226,43 +1265,7 @@ export function AIAssistantPanel() {
                       exit={{ opacity: 0, x: -30, filter: "blur(4px)" }}
                       transition={{ duration: 0.25 }}
                     >
-                      <div className="px-5 pb-2 pt-5">
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ ...springBouncy, delay: 0.15 }}
-                          className="inline-flex items-center gap-2 rounded-full px-3.5 py-2"
-                          style={{
-                            background: cDiscussionCardBg,
-                            border: `1px solid ${cDiscussionBorder}`,
-                          }}
-                        >
-                          <motion.div
-                            className="h-2 w-2 rounded-full"
-                            style={{ background: cSky }}
-                            animate={{
-                              scale: [1, 1.3, 1],
-                              opacity: [0.7, 1, 0.7],
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Number.POSITIVE_INFINITY,
-                              ease: "easeInOut",
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 500,
-                              color: cDiscussionText,
-                            }}
-                          >
-                            {currentContextLabel}
-                          </span>
-                        </motion.div>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 px-4 pb-3 pt-3">
+                      <div className="flex flex-col gap-1.5 px-4 pb-3 pt-5">
                         <motion.p
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -1452,20 +1455,41 @@ export function AIAssistantPanel() {
               </div>
 
               <motion.div
-                className="flex-shrink-0 px-4 py-3.5"
+                className="relative flex-shrink-0 overflow-hidden px-4 py-3.5"
                 style={{
                   borderTop: `1px solid ${cDivider}`,
-                  background: cSidebarGradMid,
+                  background: `linear-gradient(180deg, rgba(14,49,88,0.98) 0%, ${cSidebarGradMid} 58%, rgba(26,76,126,0.98) 100%)`,
                 }}
               >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 18%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0.45) 82%, transparent 100%)",
+                  }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-6 right-6 top-2 h-12 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle at center, rgba(118,187,221,0.22) 0%, rgba(118,187,221,0.1) 38%, rgba(118,187,221,0) 78%)",
+                    filter: "blur(10px)",
+                  }}
+                />
                 <motion.div
-                  className="flex items-end gap-2 rounded-2xl px-3.5 py-2.5 transition-all duration-200"
+                  className="relative flex items-end gap-2 rounded-[22px] px-3.5 py-2.5 transition-all duration-200"
                   animate={{
                     boxShadow: inputFocused
-                      ? `0 0 0 2px ${cSky}, 0 2px 12px rgba(0,0,0,0.3)`
-                      : `0 0 0 1px ${cDivider}, 0 1px 3px rgba(0,0,0,0.2)`,
+                      ? `0 0 0 2px ${cSky}, 0 10px 24px rgba(7, 29, 53, 0.32)`
+                      : `0 0 0 1px rgba(255,255,255,0.62), 0 10px 24px rgba(7, 29, 53, 0.22)`,
                   }}
-                  style={{ background: "rgba(255,255,255,0.98)" }}
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(247,251,255,0.97) 100%)",
+                    backdropFilter: "blur(10px)",
+                  }}
                 >
                   <textarea
                     value={inputValue}
@@ -2352,7 +2376,7 @@ function AssistantResultModal({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 10, scale: 0.98 }}
         transition={springGentle}
-        className="flex max-h-[min(82vh,760px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[24px] border"
+        className="flex max-h-[min(84vh,780px)] w-full max-w-[860px] flex-col overflow-hidden rounded-[24px] border"
         style={{
           background: cWhite,
           borderColor: cDiscussionBorder,
@@ -2459,12 +2483,13 @@ function AssistantResultModal({
 
 function HypothesisResultView({ payload }: { payload: HypothesisViewPayload }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div
-        className="rounded-2xl border px-4 py-4"
+        className="rounded-[22px] border px-5 py-5"
         style={{
           borderColor: cDiscussionBorder,
-          background: cDiscussionCardBg,
+          background:
+            "linear-gradient(180deg, rgba(248,250,252,1) 0%, rgba(240,246,255,0.9) 100%)",
         }}
       >
         <div className="flex flex-wrap items-center gap-3">
@@ -2479,62 +2504,116 @@ function HypothesisResultView({ payload }: { payload: HypothesisViewPayload }) {
           >
             {formatReadiness(payload.recommendationReadiness)}
           </span>
-          <span style={{ fontSize: 12, color: cDiscussionMuted }}>
-            Probleme principal : {payload.chiefProblem}
+          <span
+            className="rounded-full px-3 py-1"
+            style={{
+              background: "rgba(15,52,96,0.06)",
+              color: cDiscussionMuted,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            Probleme principal
           </span>
         </div>
-        <p
-          style={{
-            marginTop: 12,
-            fontSize: 14,
-            color: cDiscussionText,
-            lineHeight: "1.65",
-          }}
-        >
-          {payload.diagnosticSummary}
-        </p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]">
+          <KeyValue label="Contexte principal" value={payload.chiefProblem} />
+          <div
+            className="rounded-2xl px-4 py-3"
+            style={{ background: "rgba(255,255,255,0.78)" }}
+          >
+            <p style={{ fontSize: 12, fontWeight: 700, color: cDiscussionMuted }}>
+              Synthese clinique
+            </p>
+            <p
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                color: cDiscussionText,
+                lineHeight: "1.7",
+              }}
+            >
+              {payload.diagnosticSummary}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {payload.hypotheses.map((hypothesis, index) => (
           <div
             key={`${hypothesis.label}-${index}`}
-            className="rounded-2xl border px-4 py-4"
-            style={{ borderColor: cDiscussionBorder }}
+            className="rounded-[22px] border px-5 py-5"
+            style={{
+              borderColor: cDiscussionBorder,
+              background: "#fffdfb",
+            }}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: cDiscussionText,
-                }}
-              >
-                {hypothesis.label}
-              </p>
+              <div className="space-y-1">
+                <p
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: cDiscussionMuted,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  Hypothese {index + 1}
+                </p>
+                <p
+                  style={{
+                    fontSize: 19,
+                    fontWeight: 700,
+                    color: cDiscussionText,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {hypothesis.label}
+                </p>
+              </div>
               <span
-                className="rounded-full px-3 py-1"
+                className="rounded-full px-3 py-1.5"
                 style={{
-                  background: "rgba(118,187,221,0.16)",
+                  background: "rgba(118,187,221,0.14)",
                   color: cDiscussionText,
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}
               >
                 Confiance {Math.round(hypothesis.confidence * 100)}%
               </span>
             </div>
 
-            <p
+            <div
+              className="mt-4 rounded-2xl border px-4 py-3"
               style={{
-                marginTop: 10,
-                fontSize: 13,
-                color: cDiscussionMuted,
-                lineHeight: "1.6",
+                borderColor: cDiscussionBorder,
+                background: cDiscussionCardBg,
               }}
             >
-              {hypothesis.reasoning}
-            </p>
+              <p
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: cDiscussionMuted,
+                }}
+              >
+                Lecture clinique
+              </p>
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  color: cDiscussionText,
+                  lineHeight: "1.7",
+                }}
+              >
+                {hypothesis.reasoning}
+              </p>
+            </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <ListSection
@@ -2776,18 +2855,26 @@ function ListSection({
       style={{
         borderColor:
           tone === "warning" ? "rgba(249,115,22,0.28)" : cDiscussionBorder,
-        background: tone === "warning" ? "#fff7ed" : "transparent",
+        background: tone === "warning" ? "#fff7ed" : cDiscussionCardBg,
       }}
     >
-      <p style={{ fontSize: 12, fontWeight: 700, color: cDiscussionMuted }}>
+      <p
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: cDiscussionMuted,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+        }}
+      >
         {title}
       </p>
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3 space-y-2.5">
         {items.map((item, index) => (
           <li
             key={`${title}-${index}-${item}`}
             className="flex items-start gap-2"
-            style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.5" }}
+            style={{ fontSize: 12.5, color: cDiscussionText, lineHeight: "1.65" }}
           >
             {tone === "warning" ? (
               <AlertTriangle
