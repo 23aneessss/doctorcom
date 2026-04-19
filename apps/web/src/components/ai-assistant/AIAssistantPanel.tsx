@@ -1811,6 +1811,11 @@ function DoneBlock({
               transition={{ delay: 0.25 }}
             >
               <motion.div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{
+                  background: "rgba(118,187,221,0.08)",
+                  border: `1px solid ${cDiscussionBorder}`,
+                }}
                 animate={{ y: [0, -3, 0] }}
                 transition={{
                   duration: 3,
@@ -1818,7 +1823,7 @@ function DoneBlock({
                   ease: "easeInOut",
                 }}
               >
-                <card.icon size={20} style={{ color: cSky }} />
+                <card.icon size={18} strokeWidth={2.15} style={{ color: cSky }} />
               </motion.div>
             </motion.div>
           </div>
