@@ -1804,7 +1804,7 @@ function DoneBlock({
               ) : null}
             </div>
             <motion.div
-              className="flex w-16 flex-shrink-0 items-center justify-center"
+              className="flex w-[72px] flex-shrink-0 items-center justify-center pr-2"
               style={{ background: cDiscussionCardBg }}
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1818,7 +1818,7 @@ function DoneBlock({
                   ease: "easeInOut",
                 }}
               >
-                <card.icon size={22} style={{ color: cSky }} />
+                <card.icon size={20} style={{ color: cSky }} />
               </motion.div>
             </motion.div>
           </div>
