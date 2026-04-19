@@ -1137,7 +1137,7 @@ export function AIAssistantPanel() {
                   </AnimatePresence>
 
                   <div
-                    className="flex h-9 w-9 items-center justify-center rounded-xl"
+                    className="flex h-9 w-9 shrink-0 aspect-square items-center justify-center rounded-xl"
                     style={{
                       background: cChipHoverBg,
                       backdropFilter: "blur(12px)",
