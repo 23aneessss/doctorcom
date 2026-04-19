@@ -2517,10 +2517,42 @@ function HypothesisResultView({ payload }: { payload: HypothesisViewPayload }) {
           </span>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)]">
-          <KeyValue label="Contexte principal" value={payload.chiefProblem} />
+        <div className="mt-4 space-y-3">
           <div
-            className="rounded-2xl px-4 py-3"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-4 py-3"
+            style={{
+              background: "rgba(255,255,255,0.72)",
+              border: `1px solid ${cDiscussionBorder}`,
+            }}
+          >
+            <span
+              className="rounded-full px-2.5 py-1"
+              style={{
+                background: "rgba(15,52,96,0.08)",
+                color: cDiscussionMuted,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+              }}
+            >
+              Contexte principal
+            </span>
+            <p
+              className="min-w-0 flex-1"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: cDiscussionText,
+                lineHeight: "1.6",
+              }}
+            >
+              {payload.chiefProblem}
+            </p>
+          </div>
+
+          <div
+            className="rounded-2xl px-4 py-3.5"
             style={{ background: "rgba(255,255,255,0.78)" }}
           >
             <p style={{ fontSize: 12, fontWeight: 700, color: cDiscussionMuted }}>
