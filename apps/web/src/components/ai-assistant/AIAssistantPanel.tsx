@@ -1180,45 +1180,6 @@ export function AIAssistantPanel() {
                   </div>
                 </div>
 
-                {!hasMessages ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ ...springBouncy, delay: 0.1 }}
-                    className="mt-1 inline-flex max-w-[132px] shrink-0 items-center gap-2 self-start rounded-full px-3 py-1.5"
-                    style={{
-                      background: "rgba(255,255,255,0.08)",
-                      border: "1px solid rgba(255,255,255,0.14)",
-                      backdropFilter: "blur(10px)",
-                    }}
-                  >
-                    <motion.div
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: cSky }}
-                      animate={{
-                        scale: [1, 1.25, 1],
-                        opacity: [0.75, 1, 0.75],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Number.POSITIVE_INFINITY,
-                        ease: "easeInOut",
-                      }}
-                    />
-                    <span
-                      className="truncate"
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 500,
-                        color: cWhite,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {currentContextLabel}
-                    </span>
-                  </motion.div>
-                ) : null}
-
                 <div className="flex items-center gap-1">
                   <AnimatePresence>
                     {hasMessages && (
@@ -1266,6 +1227,42 @@ export function AIAssistantPanel() {
                       transition={{ duration: 0.25 }}
                     >
                       <div className="flex flex-col gap-1.5 px-4 pb-3 pt-5">
+                        <motion.div
+                          initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ ...springBouncy, delay: 0.1 }}
+                          className="mb-2 inline-flex w-fit max-w-[160px] items-center gap-2 self-start rounded-full px-3 py-1.5"
+                          style={{
+                            background: "rgba(118,187,221,0.08)",
+                            border: `1px solid ${cDiscussionBorder}`,
+                          }}
+                        >
+                          <motion.div
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ background: cSky }}
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.75, 1, 0.75],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Number.POSITIVE_INFINITY,
+                              ease: "easeInOut",
+                            }}
+                          />
+                          <span
+                            className="truncate"
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              color: cDiscussionText,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {currentContextLabel}
+                          </span>
+                        </motion.div>
+
                         <motion.p
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
