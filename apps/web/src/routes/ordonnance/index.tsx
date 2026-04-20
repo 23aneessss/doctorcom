@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
+import { ModifierOrdonnanceDialog } from "@/routes/ordonnance/popups/modifier-ordonnance";
+import { NouveauOrdonnanceDialog } from "@/routes/ordonnance/popups/nouveau-ordonnance";
 import { trpcClient } from "@/utils/trpc";
 
 export const Route = createFileRoute("/ordonnance/")({
@@ -70,6 +72,10 @@ function RouteComponent() {
       : undefined;
 
   const [searchValue, setSearchValue] = useState("");
+  const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    null,
+  );
   const normalizedSearch = searchValue.trim().toLowerCase();
 
   const patientsQuery = useQuery({
@@ -197,6 +203,11 @@ function RouteComponent() {
     );
   }, [normalizedSearch, recentOrdonnances]);
 
+  const visibleRecentOrdonnances = useMemo(
+    () => filteredRecentOrdonnances.slice(0, 6),
+    [filteredRecentOrdonnances],
+  );
+
   const filteredPreRemplis = useMemo(() => {
     if (!normalizedSearch) {
       return preRempliCards;
@@ -223,6 +234,16 @@ function RouteComponent() {
 
   const retryFailedQueries = async () => {
     await Promise.all(failedQueries.map((query) => query.refetch()));
+  };
+
+  const refreshOrdonnancePageData = async () => {
+    await Promise.all([
+      patientsQuery.refetch(),
+      categoriesQuery.refetch(),
+      ...ordonnancesByPatientQueries.map((query) => query.refetch()),
+      ...preRemplisByCategoryQueries.map((query) => query.refetch()),
+      ...preRempliDetailQueries.map((query) => query.refetch()),
+    ]);
   };
 
   const handleViewOrdonnance = async (ordonnanceId: string) => {
@@ -265,7 +286,7 @@ function RouteComponent() {
   };
 
   const handleCreateNewTemplate = () => {
-    toast.info("Le frame de création de modèle sera intégré ensuite.");
+    setIsCreateTemplateOpen(true);
   };
 
   const handleUseTemplate = () => {
@@ -274,8 +295,8 @@ function RouteComponent() {
     );
   };
 
-  const handleEditTemplate = () => {
-    toast.info("Le frame de modification du modèle arrive ensuite.");
+  const handleEditTemplate = (templateId: string) => {
+    setEditingTemplateId(templateId);
   };
 
   return (
@@ -387,10 +408,10 @@ function RouteComponent() {
                       </div>
                     ))}
                   </div>
-                ) : filteredRecentOrdonnances.length === 0 ? (
+                ) : visibleRecentOrdonnances.length === 0 ? (
                   <EmptySectionState text="Aucune ordonnance récente ne correspond à cette recherche." />
                 ) : (
-                  filteredRecentOrdonnances.map((ordonnance) => (
+                  visibleRecentOrdonnances.map((ordonnance) => (
                     <div
                       key={ordonnance.id}
                       className="grid grid-cols-[minmax(0,1.3fr)_150px_170px_170px] items-center gap-[50px] border-t border-[#dbeaf4] px-4 py-[14px] transition-colors hover:bg-[#fbfdff]"
@@ -495,7 +516,7 @@ function RouteComponent() {
                         </button>
                         <button
                           className="h-[29.6px] rounded-[12px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-medium text-[#f77a21] transition-colors hover:bg-[#fff7ed]"
-                          onClick={handleEditTemplate}
+                          onClick={() => handleEditTemplate(item.id)}
                           type="button"
                         >
                           Modifier
@@ -509,6 +530,22 @@ function RouteComponent() {
           </div>
         </main>
       </div>
+
+      <NouveauOrdonnanceDialog
+        onOpenChange={setIsCreateTemplateOpen}
+        onSaved={refreshOrdonnancePageData}
+        open={isCreateTemplateOpen}
+      />
+      <ModifierOrdonnanceDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingTemplateId(null);
+          }
+        }}
+        onSaved={refreshOrdonnancePageData}
+        open={Boolean(editingTemplateId)}
+        templateId={editingTemplateId}
+      />
     </div>
   );
 }
