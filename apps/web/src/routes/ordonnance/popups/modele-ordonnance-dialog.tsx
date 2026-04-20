@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 
 import { trpc, trpcClient } from "@/utils/trpc";
@@ -388,9 +389,34 @@ export function ModeleOrdonnanceDialog({
     categoriesQuery.isLoading || (mode === "edit" && templateDetailQuery.isLoading);
 
   return (
-    <div className="fixed inset-0 z-[140] bg-[rgba(10,35,65,0.2)] px-4 py-8">
+    <>
+      <style>
+        {`
+          @keyframes ordonnanceOverlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes ordonnanceDialogIn {
+            from {
+              opacity: 0;
+              transform: translateY(18px) scale(0.985);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}
+      </style>
+    <div
+      className="fixed inset-0 z-[140] bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+      style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+    >
       <div className="mx-auto flex min-h-full max-w-[760px] items-center justify-center">
-        <div className="w-full overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
+        <div
+          className="w-full overflow-hidden rounded-[18px] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]"
+          style={{ animation: "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+        >
           <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
             <div className="flex items-center gap-2">
               <FileStack className="size-5 text-[#0f3460]" strokeWidth={1.9} />
@@ -619,6 +645,7 @@ export function ModeleOrdonnanceDialog({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -629,7 +656,7 @@ function Field({
 }: {
   label: string;
   required?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="flex w-full flex-col gap-1">

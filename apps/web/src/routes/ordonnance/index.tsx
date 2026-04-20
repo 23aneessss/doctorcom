@@ -4,7 +4,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import {
   CalendarDays,
-  CircleUserRound,
   Download,
   Eye,
   FilePlus2,
@@ -47,6 +46,7 @@ type RecentOrdonnanceItem = {
   id: string;
   patientId: string;
   patientName: string;
+  patientMatricule: string;
   date: string;
   type: "ia" | "preRemplie" | "manuel";
   medicaments: OrdonnanceRow["medicaments"];
@@ -143,6 +143,7 @@ function RouteComponent() {
             id: ordonnance.id,
             patientId: ordonnance.patient_id,
             patientName: fullName,
+            patientMatricule: patient.matricule ?? "",
             date: ordonnance.date_prescription,
             type: inferOrdonnanceType(ordonnance),
             medicaments: ordonnance.medicaments,
@@ -390,84 +391,112 @@ function RouteComponent() {
             </div>
 
             <section className="flex flex-col gap-4">
-              <SectionHeading
-                icon={<Files className="size-[17px] text-[#265284]" />}
-                title="Ordonnances récentes"
-              />
+              <div className="flex items-end justify-between gap-4">
+                <SectionHeading
+                  icon={<Files className="size-[17px] text-[#265284]" />}
+                  title="Ordonnances récentes"
+                />
+                <span className="rounded-full border border-[#d9edf7] bg-[#f8fbff] px-3 py-1 font-['Inter'] text-[12px] font-medium text-[#5d7b96]">
+                  {visibleRecentOrdonnances.length} affichées
+                </span>
+              </div>
 
-              <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white shadow-[0px_4px_20px_0px_rgba(194,224,239,0.22)]">
-                <div className="grid grid-cols-[minmax(0,1.3fr)_150px_170px_170px] items-center gap-[50px] bg-[#f8fbff] px-4 py-[14px]">
+              <div className="overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
+                <div className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
                   <TableHeadCell>PATIENT</TableHeadCell>
-                  <TableHeadCell>DATE</TableHeadCell>
-                  <TableHeadCell>TYPE</TableHeadCell>
-                  <TableHeadCell>ACTIONS</TableHeadCell>
+                  <TableHeadCell className="text-center">DATE</TableHeadCell>
+                  <TableHeadCell className="text-center">TYPE</TableHeadCell>
+                  <TableHeadCell className="text-center">ACTIONS</TableHeadCell>
                 </div>
 
                 {isInitialLoading ? (
-                  <div className="flex flex-col">
+                  <div className="mt-3 flex flex-col gap-3">
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-[minmax(0,1.3fr)_150px_170px_170px] items-center gap-[50px] border-t border-[#e7f2f8] px-4 py-[16px]"
+                        className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[16px] border border-[#e6f1f8] bg-white px-4 py-[11px]"
                       >
-                        <div className="h-4 w-[150px] rounded-full bg-[#edf5fb]" />
+                        <div className="flex items-center gap-3">
+                          <div className="size-[46px] rounded-full bg-[#edf5fb]" />
+                          <div className="space-y-2">
+                            <div className="h-4 w-[138px] rounded-full bg-[#edf5fb]" />
+                            <div className="h-3 w-[80px] rounded-full bg-[#edf5fb]" />
+                          </div>
+                        </div>
                         <div className="h-4 w-[92px] rounded-full bg-[#edf5fb]" />
                         <div className="h-4 w-[74px] rounded-full bg-[#edf5fb]" />
-                        <div className="h-8 w-[110px] rounded-full bg-[#edf5fb]" />
+                        <div className="h-9 w-[126px] rounded-[12px] bg-[#edf5fb]" />
                       </div>
                     ))}
                   </div>
                 ) : visibleRecentOrdonnances.length === 0 ? (
-                  <EmptySectionState text="Aucune ordonnance récente ne correspond à cette recherche." />
+                  <div className="pt-3">
+                    <EmptySectionState text="Aucune ordonnance récente ne correspond à cette recherche." />
+                  </div>
                 ) : (
-                  visibleRecentOrdonnances.map((ordonnance) => (
-                    <div
-                      key={ordonnance.id}
-                      className="grid grid-cols-[minmax(0,1.3fr)_150px_170px_170px] items-center gap-[50px] border-t border-[#dbeaf4] px-4 py-[14px] transition-colors hover:bg-[#fbfdff]"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <CircleUserRound
-                          className="size-8 shrink-0 text-[#0f3460]"
-                          strokeWidth={1.8}
-                        />
-                        <span className="truncate font-['Poppins'] text-[14px] leading-[20px] text-[#0f3460]">
-                          {ordonnance.patientName}
-                        </span>
-                      </div>
+                  <div className="mt-3 flex flex-col gap-3">
+                    {visibleRecentOrdonnances.map((ordonnance) => (
+                      <article
+                        key={ordonnance.id}
+                        className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[16px] border border-[#dbeaf4] bg-white px-4 py-[11px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="inline-flex size-[46px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[16px] font-bold tracking-[-0.03em] text-[#5b84a0]">
+                            {buildInitials(ordonnance.patientName)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-['Poppins'] text-[16px] font-semibold leading-[22px] text-[#0f3460]">
+                              {ordonnance.patientName}
+                            </p>
+                            <p className="mt-0.5 truncate font-['Inter'] text-[12px] font-semibold leading-[17px] text-[#365a78]">
+                              #{ordonnance.patientMatricule || "Sans matricule"}
+                            </p>
+                            <p className="mt-1 truncate font-['Inter'] text-[11px] leading-[16px] text-[#6d879d]">
+                              {ordonnance.medicaments.length} médicament
+                              {ordonnance.medicaments.length > 1 ? "s" : ""}
+                              {ordonnance.medicaments[0]?.nom_medicament
+                                ? ` · ${ordonnance.medicaments[0].nom_medicament}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center gap-2 font-['Poppins'] text-[14px] leading-[20px] text-[#64748b]">
-                        <CalendarDays className="size-[14px] text-[#64748b]" />
-                        <span>{ordonnance.date}</span>
-                      </div>
+                        <div className="mx-auto inline-flex w-fit items-center gap-2 rounded-full border border-[#dcecf6] bg-[#f8fbff] px-2.5 py-1.5 font-['Poppins'] text-[12px] font-medium leading-[18px] text-[#5d728a]">
+                          <CalendarDays className="size-[14px] text-[#6d8297]" />
+                          <span>{formatDisplayDate(ordonnance.date)}</span>
+                        </div>
 
-                      <OrdonnanceTypeBadge type={ordonnance.type} />
+                        <div className="flex justify-center">
+                          <OrdonnanceTypeBadge type={ordonnance.type} />
+                        </div>
 
-                      <div className="flex items-center gap-2">
-                        <ActionIconButton
-                          ariaLabel="Voir l'ordonnance"
-                          icon={<Eye className="size-[13px]" strokeWidth={1.9} />}
-                          onClick={() => void handleViewOrdonnance(ordonnance.id)}
-                        />
-                        <ActionIconButton
-                          ariaLabel="Modifier l'ordonnance"
-                          icon={<Pencil className="size-[13px]" strokeWidth={1.9} />}
-                          onClick={handleEditOrdonnance}
-                        />
-                        <ActionIconButton
-                          ariaLabel="Imprimer l'ordonnance"
-                          icon={<Printer className="size-[13px]" strokeWidth={1.9} />}
-                          onClick={() => void handleViewOrdonnance(ordonnance.id)}
-                        />
-                        <ActionIconButton
-                          ariaLabel="Télécharger l'ordonnance"
-                          icon={<Download className="size-[13px]" strokeWidth={1.9} />}
-                          onClick={() =>
-                            void handleDownloadOrdonnance(ordonnance.id)
-                          }
-                        />
-                      </div>
-                    </div>
-                  ))
+                        <div className="flex items-center justify-center gap-2 rounded-[14px] border border-[#e4eef5] bg-[#fbfdff] px-2.5 py-1.5">
+                          <ActionIconButton
+                            ariaLabel="Voir l'ordonnance"
+                            icon={<Eye className="size-[13px]" strokeWidth={1.9} />}
+                            onClick={() => void handleViewOrdonnance(ordonnance.id)}
+                          />
+                          <ActionIconButton
+                            ariaLabel="Modifier l'ordonnance"
+                            icon={<Pencil className="size-[13px]" strokeWidth={1.9} />}
+                            onClick={handleEditOrdonnance}
+                          />
+                          <ActionIconButton
+                            ariaLabel="Imprimer l'ordonnance"
+                            icon={<Printer className="size-[13px]" strokeWidth={1.9} />}
+                            onClick={() => void handleViewOrdonnance(ordonnance.id)}
+                          />
+                          <ActionIconButton
+                            ariaLabel="Télécharger l'ordonnance"
+                            icon={<Download className="size-[13px]" strokeWidth={1.9} />}
+                            onClick={() =>
+                              void handleDownloadOrdonnance(ordonnance.id)
+                            }
+                          />
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 )}
               </div>
             </section>
@@ -490,46 +519,55 @@ function RouteComponent() {
               ) : filteredPreRemplis.length === 0 ? (
                 <EmptySectionState text="Aucun modèle pré-rempli ne correspond à cette recherche." />
               ) : (
-                <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {filteredPreRemplis.map((item) => (
                     <article
                       key={item.id}
-                      className="flex min-h-[176px] flex-col rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-5 pb-[18px] pt-5 shadow-[0px_4px_20px_0px_rgba(194,224,239,0.22)]"
+                      className="group flex min-h-[184px] flex-col overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-white shadow-[0px_14px_30px_-26px_rgba(15,52,96,0.3)] transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#b7d8ea] hover:shadow-[0px_20px_34px_-28px_rgba(15,52,96,0.34)]"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="pr-2 font-['Inter'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
-                          {item.nom}
-                        </h3>
-                        <span className="inline-flex h-[20.6px] items-center rounded-[8px] border-[0.8px] border-[#c2e0ef] bg-[#f0f6ff] px-[8px] font-['Inter'] text-[10px] font-medium text-[#265284]">
-                          Modèle
-                        </span>
-                      </div>
+                      <div className="flex h-full flex-col px-4 pb-4 pt-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="pr-2 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-[22px] text-[#0f3460]">
+                              {item.nom}
+                            </h3>
+                            {item.specialite ? (
+                              <p className="mt-1 font-['Inter'] text-[11px] font-medium uppercase tracking-[0.08em] text-[#6d879d]">
+                                {item.specialite}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="inline-flex h-[22px] items-center rounded-full border border-[#cfe6f3] bg-[#f0f8ff] px-[9px] font-['Inter'] text-[10px] font-semibold text-[#265284]">
+                            Modèle
+                          </span>
+                        </div>
 
-                      <p className="mt-2 min-h-[32px] font-['Inter'] text-[12px] leading-[16px] text-[#415c7b]">
-                        {item.description ||
-                          "Modèle pré-rempli de prescription médicale"}
-                      </p>
+                        <p className="mt-2.5 min-h-[46px] font-['Inter'] text-[12px] leading-[18px] text-[#4f6d87]">
+                          {item.description ||
+                            "Modèle pré-rempli de prescription médicale"}
+                        </p>
 
-                      <p className="mt-3 font-['Inter'] text-[12px] leading-[16px] text-[rgba(100,116,139,0.79)]">
-                        {item.medicationCount} médicament
-                        {item.medicationCount > 1 ? "s" : ""}
-                      </p>
+                        <div className="mt-3 inline-flex w-fit items-center rounded-full border border-[#dcecf6] bg-[#f8fbff] px-3 py-1 font-['Inter'] text-[11px] font-medium text-[#62819b]">
+                          {item.medicationCount} médicament
+                          {item.medicationCount > 1 ? "s" : ""}
+                        </div>
 
-                      <div className="mt-auto flex items-center gap-[10px] pt-6">
+                        <div className="mt-auto flex items-center gap-[10px] pt-5">
                         <button
-                          className="h-[29.6px] w-full rounded-[12px] bg-[#76bbdd] font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#69b2d6]"
+                          className="h-[36px] w-full rounded-[13px] bg-[#76bbdd] font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-white shadow-[0px_8px_16px_-10px_rgba(118,187,221,0.72)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#69b2d6] hover:shadow-[0px_14px_22px_-14px_rgba(118,187,221,0.78)]"
                           onClick={handleUseTemplate}
                           type="button"
                         >
                           Utiliser
                         </button>
                         <button
-                          className="h-[29.6px] rounded-[12px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-medium text-[#f77a21] transition-colors hover:bg-[#fff7ed]"
+                          className="h-[36px] rounded-[13px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#f77a21] transition-[background-color,border-color] duration-200 ease-out hover:bg-[#fff7ed]"
                           onClick={() => handleEditTemplate(item.id)}
                           type="button"
                         >
                           Modifier
                         </button>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -573,9 +611,14 @@ function SectionHeading(props: {
   );
 }
 
-function TableHeadCell(props: { children: React.ReactNode }) {
+function TableHeadCell(props: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <p className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#265284]">
+    <p
+      className={`font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#265284] ${props.className ?? ""}`}
+    >
       {props.children}
     </p>
   );
@@ -589,7 +632,7 @@ function ActionIconButton(props: {
   return (
     <button
       aria-label={props.ariaLabel}
-      className="inline-flex size-[27.6px] items-center justify-center rounded-[4px] border-[0.8px] border-[#052ca0] text-[#f77a21] transition-colors hover:bg-[#f8fbff]"
+      className="inline-flex size-[31px] items-center justify-center rounded-[9px] border border-[#d7e7f2] bg-white text-[#f77a21] shadow-[0px_6px_12px_-12px_rgba(15,52,96,0.24)] transition-[transform,background-color,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#c0d9e8] hover:bg-[#f8fbff] hover:shadow-[0px_12px_18px_-16px_rgba(15,52,96,0.32)]"
       onClick={props.onClick}
       type="button"
     >
@@ -625,7 +668,7 @@ function OrdonnanceTypeBadge(props: {
 
   return (
     <span
-      className={`inline-flex h-[20.6px] w-fit items-center gap-1 rounded-[8px] border-[0.8px] px-[8px] font-['Inter'] text-[10px] font-medium ${config.className}`}
+      className={`inline-flex h-[28px] w-fit items-center gap-1.5 rounded-full border px-[11px] font-['Inter'] text-[10.5px] font-semibold ${config.className}`}
     >
       {config.icon}
       <span>{config.label}</span>
@@ -643,6 +686,39 @@ function EmptySectionState(props: { text: string }) {
 
 function buildFullName(patient: PatientSearchRow) {
   return [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
+}
+
+function buildInitials(fullName: string) {
+  const parts = fullName
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) {
+    return "PT";
+  }
+
+  return parts
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function formatDisplayDate(date: string) {
+  if (!date) {
+    return "Date inconnue";
+  }
+
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return date;
+  }
+
+  return parsedDate.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function inferOrdonnanceType(ordonnance: OrdonnanceRow): "ia" | "preRemplie" | "manuel" {
