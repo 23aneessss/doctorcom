@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "../../trpc/init";
+import { assistantRouter } from "./assistant/router";
 import { anomalyFlagRouter } from "./anomaly-flag/router";
 import { documentAnomalyRouter } from "./document-anomaly/router";
 import { hypotheseDiagnosticRouter } from "./hypothese-diagnostic/router";
@@ -7,6 +8,7 @@ import { ordonnanceRecommendationRouter } from "./ordonnance-recommendation/rout
 import { qnaRouter } from "./qna/router";
 
 export const aiRouter = createTRPCRouter({
+  assistant: assistantRouter,
   anomalyFlag: anomalyFlagRouter,
   documentAnomaly: documentAnomalyRouter,
   hypotheseDiagnostic: hypotheseDiagnosticRouter,
