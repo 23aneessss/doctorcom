@@ -1249,14 +1249,14 @@ export function AIAssistantPanel() {
                           initial={{ opacity: 0, y: 4, scale: 0.96 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           transition={{ ...springBouncy, delay: 0.1 }}
-                          className="mb-2 inline-flex w-fit max-w-[160px] items-center gap-2 self-start rounded-full px-3 py-1.5"
+                          className="mb-2 inline-flex w-fit max-w-[240px] items-start gap-2 self-start rounded-[22px] px-3 py-2"
                           style={{
                             background: "rgba(118,187,221,0.08)",
                             border: `1px solid ${cDiscussionBorder}`,
                           }}
                         >
                           <motion.div
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{ background: cSky }}
                             animate={{
                               scale: [1, 1.2, 1],
@@ -1269,12 +1269,17 @@ export function AIAssistantPanel() {
                             }}
                           />
                           <span
-                            className="truncate"
                             style={{
                               fontSize: 11.5,
                               fontWeight: 600,
                               color: cDiscussionText,
-                              lineHeight: 1.2,
+                              lineHeight: 1.25,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
                             }}
                           >
                             {currentContextLabel}
