@@ -11,15 +11,17 @@ import {
   FileStack,
   Files,
   Pencil,
-  Plus,
   Printer,
   Search,
   Sparkles,
   SquarePen,
 } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import plusIcon from "@/assets/icons/+.svg";
+import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
@@ -299,6 +301,10 @@ function RouteComponent() {
     setEditingTemplateId(templateId);
   };
 
+  const heroStyle = {
+    "--ordonnance-hero-texture": `url(${headerTexture})`,
+  } as CSSProperties;
+
   return (
     <div className="min-h-screen bg-[#f8fbff]">
       <div className="flex min-h-screen">
@@ -323,44 +329,47 @@ function RouteComponent() {
             ) : null}
 
             <section
-              className="relative overflow-hidden rounded-[22px] border border-[#d9edf7] px-6 py-6 shadow-[0px_8px_28px_0px_rgba(194,224,239,0.35)]"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(239,249,255,0.96) 0%, rgba(249,253,255,1) 100%)",
-              }}
+              aria-labelledby="ordonnances-page-title"
+              className="relative overflow-hidden rounded-[15px] border border-[color:color-mix(in_srgb,#c2e0ef_68%,white)] bg-[linear-gradient(97.5deg,color-mix(in_srgb,#c2e0ef_87%,white_13%)_0%,#ffffff_99.9%)] px-6 py-4 shadow-[0_4px_20px_rgba(118,187,221,0.5)]"
+              style={heroStyle}
             >
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 right-0 w-[58%] opacity-70"
+                className="pointer-events-none absolute left-[-5%] right-[-9%] top-[-205%] bottom-[-70%] opacity-20"
                 style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 20% 30%, rgba(194,224,239,0.45) 0, rgba(194,224,239,0.45) 1px, transparent 1px)",
-                  backgroundSize: "18px 18px",
-                  maskImage:
-                    "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 14%, rgba(0,0,0,1) 100%)",
-                  WebkitMaskImage:
-                    "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 14%, rgba(0,0,0,1) 100%)",
+                  backgroundImage: "var(--ordonnance-hero-texture)",
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
                 }}
               />
 
-              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-[560px]">
-                  <h1 className="font-['Plus_Jakarta_Sans'] text-[23px] font-semibold leading-[30px] text-[#0f3460]">
+              <div className="relative z-[1] flex min-h-[104px] flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+                <div className="min-w-0">
+                  <h1
+                    className="m-0 font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-[1.1] text-[#0f3460]"
+                    id="ordonnances-page-title"
+                  >
                     Ordonnances
                   </h1>
-                  <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-[20px] text-[#052ca0]">
+                  <p className="mt-[3px] font-['Plus_Jakarta_Sans'] text-[17px] font-semibold leading-[1.2] text-[#052ca0]">
                     Consultez vos ordonnances récentes et créez de nouveaux
-                    modèles.
+                    modèles
                   </p>
                 </div>
 
                 <button
-                  className="inline-flex h-[69px] w-full max-w-[245px] items-center justify-center gap-4 self-start rounded-[15px] bg-[#c2e0ef] px-8 py-[15px] font-['Plus_Jakarta_Sans'] text-[18px] font-semibold tracking-[-0.18px] text-[#0f3460] transition-colors hover:bg-[#b5d9eb]"
+                  className="inline-flex min-h-[60px] min-w-[222px] items-center justify-center gap-3 rounded-[15px] border-0 bg-[#c2e0ef] px-6 py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-bold tracking-[-0.01em] text-[#0f3460] whitespace-nowrap transition-[background-color,box-shadow] duration-150 ease-out hover:bg-[color:color-mix(in_srgb,#c2e0ef_88%,white_12%)] hover:shadow-[0_6px_16px_rgba(15,52,96,0.14)]"
                   onClick={handleCreateNewTemplate}
                   type="button"
                 >
-                  <Plus className="size-[30px] stroke-[2.2]" />
-                  <span>Nouveau modèle</span>
+                  <img
+                    alt=""
+                    aria-hidden="true"
+                    className="block h-[24px] w-[24px] shrink-0"
+                    src={plusIcon}
+                  />
+                  <span className="block leading-[1.15]">Nouveau modèle</span>
                 </button>
               </div>
             </section>
