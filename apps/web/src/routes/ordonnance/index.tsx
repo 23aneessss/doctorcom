@@ -20,7 +20,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { trpcClient } from "@/utils/trpc";

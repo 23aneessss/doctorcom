@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
+import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
-import { Sidebar } from "@/components/sidebar";
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,

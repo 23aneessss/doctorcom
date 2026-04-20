@@ -34,7 +34,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireSession } from "@/lib/require-session";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";

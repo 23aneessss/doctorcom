@@ -6,7 +6,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { PatientHeader } from "@/components/patients/patient-header";
 import { PatientList } from "@/components/patients/patient-list";
 import { PatientTableHeader } from "@/components/patients/patient-table-header";
