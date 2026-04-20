@@ -54,13 +54,19 @@ function PatientsPage() {
   const [filterValue, setFilterValue] = useState<PatientsFilter>("all");
   const [viewMode, setViewMode] = useState<PatientsViewMode>("vertical");
   const [isNouveauPatientOpen, setIsNouveauPatientOpen] = useState(false);
-  const [nouveauPatientError, setNouveauPatientError] = useState<string | null>(null);
+  const [nouveauPatientError, setNouveauPatientError] = useState<string | null>(
+    null,
+  );
 
   const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
-  const createPatientMutation = useMutation(trpc.patient.createPatient.mutationOptions());
+  const createPatientMutation = useMutation(
+    trpc.patient.createPatient.mutationOptions(),
+  );
 
   const patients = useMemo<PatientViewModel[]>(() => {
-    return (patientsQuery.data ?? []).map((patient) => mapPatientRecord(patient));
+    return (patientsQuery.data ?? []).map((patient) =>
+      mapPatientRecord(patient),
+    );
   }, [patientsQuery.data]);
 
   const filteredPatients = useMemo(() => {
@@ -68,19 +74,23 @@ function PatientsPage() {
 
     return patients.filter((patient) => {
       const matchesSearch =
-        normalizedSearch.length === 0 || patient.searchableText.includes(normalizedSearch);
+        normalizedSearch.length === 0 ||
+        patient.searchableText.includes(normalizedSearch);
 
       const matchesFilter =
         filterValue === "all" ||
         (filterValue === "female" && isFemale(patient.sexeText)) ||
         (filterValue === "male" && isMale(patient.sexeText)) ||
-        (filterValue === "other" && !isFemale(patient.sexeText) && !isMale(patient.sexeText));
+        (filterValue === "other" &&
+          !isFemale(patient.sexeText) &&
+          !isMale(patient.sexeText));
 
       return matchesSearch && matchesFilter;
     });
   }, [patients, searchValue, filterValue]);
 
-  const hasActiveFilters = searchValue.trim().length > 0 || filterValue !== "all";
+  const hasActiveFilters =
+    searchValue.trim().length > 0 || filterValue !== "all";
 
   const handleSeePatient = (patientId: string) => {
     void navigate({ to: "/patients/$id/general", params: { id: patientId } });
@@ -109,7 +119,9 @@ function PatientsPage() {
 
     const dateNaissanceIso = toIsoDate(values.dateNaissance);
     if (!dateNaissanceIso) {
-      setNouveauPatientError("Date de naissance invalide. Utilisez le format JJ/MM/AAAA.");
+      setNouveauPatientError(
+        "Date de naissance invalide. Utilisez le format JJ/MM/AAAA.",
+      );
       return;
     }
 
@@ -120,7 +132,11 @@ function PatientsPage() {
           prenom: values.prenom.trim(),
           telephone: toOptionalText(values.telephone),
           email: toOptionalText(values.email),
-          matricule: buildMatricule(values.nom, values.prenom),
+          matricule: buildMatricule(
+            values.nom,
+            values.prenom,
+            (patientsQuery.data?.length ?? 0) + 1,
+          ),
           date_naissance: dateNaissanceIso,
           nss: toOptionalInteger(values.nss),
           lieu_naissance: toOptionalText(values.lieuNaissance),
@@ -136,7 +152,10 @@ function PatientsPage() {
       setIsNouveauPatientOpen(false);
       await patientsQuery.refetch();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Impossible d'ajouter le patient.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossible d'ajouter le patient.";
       setNouveauPatientError(message);
     }
   };
@@ -148,7 +167,7 @@ function PatientsPage() {
 
   return (
     <div className={styles.pageShell}>
-      <Sidebar currentUser={sidebarUser}  />
+      <Sidebar currentUser={sidebarUser} />
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
@@ -172,8 +191,12 @@ function PatientsPage() {
           ) : patientsQuery.isError ? (
             <div className={styles.statusBox}>
               <AlertCircle size={22} aria-hidden="true" />
-              <p className={styles.statusTitle}>Impossible de charger la liste des patients</p>
-              <p className={styles.statusDescription}>{patientsQuery.error.message}</p>
+              <p className={styles.statusTitle}>
+                Impossible de charger la liste des patients
+              </p>
+              <p className={styles.statusDescription}>
+                {patientsQuery.error.message}
+              </p>
             </div>
           ) : filteredPatients.length === 0 ? (
             <div className={styles.statusBox}>
@@ -254,20 +277,33 @@ function toIsoDate(value: string) {
   return "";
 }
 
-function buildMatricule(nom: string, prenom: string) {
-  const cleanBase = `${nom}${prenom}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toUpperCase();
+function buildMatricule(nom: string, prenom: string, patientNumber: number) {
+  const nomInitial = getMatriculeInitial(nom);
+  const prenomInitial = getMatriculeInitial(prenom);
+  const initials = `${nomInitial}${prenomInitial}` || "PT";
+  const year = new Date().getFullYear();
+  const sequence = Math.max(1, patientNumber).toString().padStart(3, "0");
 
-  const prefix = cleanBase.slice(0, 8) || "PAT";
-  const suffix = Date.now().toString().slice(-6);
-  return `${prefix}-${suffix}`;
+  return `${initials}-${year}-${sequence}`;
+}
+
+function getMatriculeInitial(value: string) {
+  return (
+    value
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 1)
+      .toUpperCase() || ""
+  );
 }
 
 function mapPatientRecord(patient: PatientRecord): PatientViewModel {
-  const fullName = [patient.nom, patient.prenom].filter(Boolean).join(" ").trim();
+  const fullName = [patient.nom, patient.prenom]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   const sexeText = formatSexLabel(patient.sexe);
   const ageText = `${computeAge(patient.date_naissance)} ans`;
   const conditionsText = extractConditionsText(patient);
@@ -316,7 +352,10 @@ function computeAge(dateNaissance: string) {
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
     age -= 1;
   }
 
@@ -330,7 +369,11 @@ function formatSexLabel(sexe: string | null) {
     return "Femme";
   }
 
-  if (normalized === "m" || normalized.startsWith("mas") || normalized.startsWith("hom")) {
+  if (
+    normalized === "m" ||
+    normalized.startsWith("mas") ||
+    normalized.startsWith("hom")
+  ) {
     return "Homme";
   }
 
@@ -338,9 +381,14 @@ function formatSexLabel(sexe: string | null) {
 }
 
 function extractConditionsText(patient: PatientRecord) {
-  const withConditions = patient as PatientRecord & { conditions?: string[] | null };
+  const withConditions = patient as PatientRecord & {
+    conditions?: string[] | null;
+  };
 
-  if (Array.isArray(withConditions.conditions) && withConditions.conditions.length > 0) {
+  if (
+    Array.isArray(withConditions.conditions) &&
+    withConditions.conditions.length > 0
+  ) {
     return withConditions.conditions.join(", ");
   }
 

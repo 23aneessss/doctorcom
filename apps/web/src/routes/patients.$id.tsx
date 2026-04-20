@@ -26,9 +26,9 @@ import {
   Syringe,
   User,
   Wallet,
-  TrendingUp, 
-  Package, 
-  House, 
+  TrendingUp,
+  Package,
+  House,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -105,6 +105,21 @@ type TraitementDialogValues = {
   est_actif?: boolean;
 };
 
+type OrdonnanceDialogValues = {
+  mode?: "manuel" | "pre-remplie";
+  suivi_id?: string;
+  rendez_vous_id?: string;
+  remarques?: string | null;
+  medicaments?: Array<{
+    medicament_externe_id: string;
+    nom_medicament: string;
+    dosage?: string;
+    posologie: string;
+    duree_traitement?: string;
+    instructions?: string;
+  }>;
+};
+
 type PatientPopupEventDetail = {
   type:
     | "suivi"
@@ -123,7 +138,8 @@ type PatientPopupEventDetail = {
     | ConsultationDialogValues
     | AntecedentPersonnelDialogValues
     | AntecedentFamilialDialogValues
-    | TraitementDialogValues;
+    | TraitementDialogValues
+    | OrdonnanceDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -137,7 +153,11 @@ export const Route = createFileRoute("/patients/$id")({
 });
 
 const tabs = [
-  { label: "Vue d'ensemble", to: "/patients/$id/general", icon: LayoutDashboard },
+  {
+    label: "Vue d'ensemble",
+    to: "/patients/$id/general",
+    icon: LayoutDashboard,
+  },
   { label: "Suivis", to: "/patients/$id/suivi", icon: TrendingUp },
   { label: "Antécédents", to: "/patients/$id/antecedent", icon: History },
   { label: "Traitements", to: "/patients/$id/traitement", icon: Package },
@@ -163,23 +183,30 @@ function PatientLayout() {
       : undefined;
   const [isEditing, setIsEditing] = useState(false);
   const [isNouveauSuiviOpen, setIsNouveauSuiviOpen] = useState(false);
-  const [isNouvelleConsultationOpen, setIsNouvelleConsultationOpen] = useState(false);
-  const [suiviDialogMode, setSuiviDialogMode] = useState<"create" | "edit">("create");
-  const [suiviDialogId, setSuiviDialogId] = useState<string | undefined>(undefined);
-  const [suiviDialogValues, setSuiviDialogValues] = useState<SuiviDialogValues | undefined>(
-    undefined
+  const [isNouvelleConsultationOpen, setIsNouvelleConsultationOpen] =
+    useState(false);
+  const [suiviDialogMode, setSuiviDialogMode] = useState<"create" | "edit">(
+    "create",
   );
-  const [consultationDialogMode, setConsultationDialogMode] = useState<"create" | "edit">(
-    "create"
+  const [suiviDialogId, setSuiviDialogId] = useState<string | undefined>(
+    undefined,
   );
-  const [consultationDialogId, setConsultationDialogId] = useState<string | undefined>(
-    undefined
-  );
+  const [suiviDialogValues, setSuiviDialogValues] = useState<
+    SuiviDialogValues | undefined
+  >(undefined);
+  const [consultationDialogMode, setConsultationDialogMode] = useState<
+    "create" | "edit"
+  >("create");
+  const [consultationDialogId, setConsultationDialogId] = useState<
+    string | undefined
+  >(undefined);
   const [consultationDialogValues, setConsultationDialogValues] = useState<
     ConsultationDialogValues | undefined
   >(undefined);
-  const [isAntecedentPersonnelOpen, setIsAntecedentPersonnelOpen] = useState(false);
-  const [isAntecedentFamilialOpen, setIsAntecedentFamilialOpen] = useState(false);
+  const [isAntecedentPersonnelOpen, setIsAntecedentPersonnelOpen] =
+    useState(false);
+  const [isAntecedentFamilialOpen, setIsAntecedentFamilialOpen] =
+    useState(false);
   const [antecedentPersonnelMode, setAntecedentPersonnelMode] = useState<
     "create" | "edit"
   >("create");
@@ -199,12 +226,20 @@ function PatientLayout() {
     AntecedentFamilialDialogValues | undefined
   >(undefined);
   const [isTraitementOpen, setIsTraitementOpen] = useState(false);
-  const [isNouvelleOrdonnanceOpen, setIsNouvelleOrdonnanceOpen] = useState(false);
-  const [traitementMode, setTraitementMode] = useState<"create" | "edit">("create");
-  const [traitementId, setTraitementId] = useState<string | undefined>(undefined);
-  const [traitementValues, setTraitementValues] = useState<TraitementDialogValues | undefined>(
-    undefined
+  const [isNouvelleOrdonnanceOpen, setIsNouvelleOrdonnanceOpen] =
+    useState(false);
+  const [traitementMode, setTraitementMode] = useState<"create" | "edit">(
+    "create",
   );
+  const [traitementId, setTraitementId] = useState<string | undefined>(
+    undefined,
+  );
+  const [traitementValues, setTraitementValues] = useState<
+    TraitementDialogValues | undefined
+  >(undefined);
+  const [ordonnanceValues, setOrdonnanceValues] = useState<
+    OrdonnanceDialogValues | undefined
+  >(undefined);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -213,7 +248,8 @@ function PatientLayout() {
         setSuiviDialogMode(customEvent.detail.mode ?? "create");
         setSuiviDialogId(customEvent.detail.suiviId);
         setSuiviDialogValues(
-          (customEvent.detail.initialValues as SuiviDialogValues | undefined) ?? undefined
+          (customEvent.detail.initialValues as SuiviDialogValues | undefined) ??
+            undefined,
         );
         setIsNouveauSuiviOpen(true);
       }
@@ -221,7 +257,9 @@ function PatientLayout() {
         setConsultationDialogMode(customEvent.detail.mode ?? "create");
         setConsultationDialogId(customEvent.detail.examenId);
         const initial =
-          (customEvent.detail.initialValues as ConsultationDialogValues | undefined) ?? {};
+          (customEvent.detail.initialValues as
+            | ConsultationDialogValues
+            | undefined) ?? {};
         if (
           customEvent.detail.mode !== "edit" &&
           customEvent.detail.suiviId &&
@@ -230,7 +268,7 @@ function PatientLayout() {
           initial.suivi_id = customEvent.detail.suiviId;
         }
         setConsultationDialogValues(
-          Object.keys(initial).length > 0 ? initial : undefined
+          Object.keys(initial).length > 0 ? initial : undefined,
         );
         setIsNouvelleConsultationOpen(true);
       }
@@ -241,7 +279,7 @@ function PatientLayout() {
         setAntecedentPersonnelValues(
           (customEvent.detail.initialValues as
             | AntecedentPersonnelDialogValues
-            | undefined) ?? undefined
+            | undefined) ?? undefined,
         );
         setIsAntecedentPersonnelOpen(true);
       }
@@ -252,7 +290,7 @@ function PatientLayout() {
         setAntecedentFamilialValues(
           (customEvent.detail.initialValues as
             | AntecedentFamilialDialogValues
-            | undefined) ?? undefined
+            | undefined) ?? undefined,
         );
         setIsAntecedentFamilialOpen(true);
       }
@@ -261,25 +299,36 @@ function PatientLayout() {
         setTraitementMode(customEvent.detail.mode ?? "create");
         setTraitementId(customEvent.detail.traitementId);
         setTraitementValues(
-          (customEvent.detail.initialValues as TraitementDialogValues | undefined) ?? undefined
+          (customEvent.detail.initialValues as
+            | TraitementDialogValues
+            | undefined) ?? undefined,
         );
         setIsTraitementOpen(true);
       }
 
       if (customEvent.detail?.type === "ordonnance") {
+        setOrdonnanceValues(
+          (customEvent.detail.initialValues as
+            | OrdonnanceDialogValues
+            | undefined) ?? undefined,
+        );
         setIsNouvelleOrdonnanceOpen(true);
       }
     };
 
     window.addEventListener("patient-popup-open", handler as EventListener);
-    return () => window.removeEventListener("patient-popup-open", handler as EventListener);
+    return () =>
+      window.removeEventListener(
+        "patient-popup-open",
+        handler as EventListener,
+      );
   }, []);
 
   const { data: patient } = useSuspenseQuery(
-    trpc.patient.getPatient.queryOptions({ id })
+    trpc.patient.getPatient.queryOptions({ id }),
   );
   const { data: ageData } = useSuspenseQuery(
-    trpc.patient.getPatientAge.queryOptions({ id })
+    trpc.patient.getPatientAge.queryOptions({ id }),
   );
 
   const updatePatientMutation = useMutation({
@@ -298,8 +347,12 @@ function PatientLayout() {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries(trpc.patient.getPatient.queryFilter({ id })),
-        queryClient.invalidateQueries(trpc.patient.getPatientAge.queryFilter({ id })),
+        queryClient.invalidateQueries(
+          trpc.patient.getPatient.queryFilter({ id }),
+        ),
+        queryClient.invalidateQueries(
+          trpc.patient.getPatientAge.queryFilter({ id }),
+        ),
       ]);
       setIsEditing(false);
       toast.success("Données du patient mises à jour");
@@ -316,7 +369,11 @@ function PatientLayout() {
   const patientAge = ageData.age;
   const fullName = `${patient.prenom} ${patient.nom}`;
   const sexeLabel =
-    patient.sexe === "M" ? "Homme" : patient.sexe === "F" ? "Femme" : (patient.sexe ?? "");
+    patient.sexe === "M"
+      ? "Homme"
+      : patient.sexe === "F"
+        ? "Femme"
+        : (patient.sexe ?? "");
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -372,7 +429,10 @@ function PatientLayout() {
       const changedValue = (next: string, current: string | null | undefined) =>
         next.trim() !== (current ?? "").trim();
 
-      const normalizeOptionalField = (next: string, current: string | null | undefined) => {
+      const normalizeOptionalField = (
+        next: string,
+        current: string | null | undefined,
+      ) => {
         if (!changedValue(next, current)) return undefined;
         const trimmed = next.trim();
         return trimmed.length > 0 ? trimmed : null;
@@ -385,7 +445,10 @@ function PatientLayout() {
         nextData.prenom = value.prenom.trim();
       }
 
-      const telephone = normalizeOptionalField(value.telephone, patient.telephone);
+      const telephone = normalizeOptionalField(
+        value.telephone,
+        patient.telephone,
+      );
       if (telephone !== undefined) {
         nextData.telephone = telephone;
       }
@@ -400,25 +463,34 @@ function PatientLayout() {
         nextData.adresse = adresse;
       }
 
-      const profession = normalizeOptionalField(value.profession, patient.profession);
+      const profession = normalizeOptionalField(
+        value.profession,
+        patient.profession,
+      );
       if (profession !== undefined) {
         nextData.profession = profession;
       }
 
-      const nationalite = normalizeOptionalField(value.nationalite, patient.nationalite);
+      const nationalite = normalizeOptionalField(
+        value.nationalite,
+        patient.nationalite,
+      );
       if (nationalite !== undefined) {
         nextData.nationalite = nationalite;
       }
 
       const situationFamiliale = normalizeOptionalField(
         value.situation_familiale,
-        patient.situation_familiale
+        patient.situation_familiale,
       );
       if (situationFamiliale !== undefined) {
         nextData.situation_familiale = situationFamiliale;
       }
 
-      const revenu = normalizeOptionalField(value.revenu_mensuel, patient.revenu_mensuel);
+      const revenu = normalizeOptionalField(
+        value.revenu_mensuel,
+        patient.revenu_mensuel,
+      );
       if (revenu !== undefined) {
         nextData.revenu_mensuel = revenu;
       }
@@ -436,10 +508,10 @@ function PatientLayout() {
   const handleSuiviCreated = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
-        trpc.consultation.getPatientSuivis.queryFilter({ patient_id: id })
+        trpc.consultation.getPatientSuivis.queryFilter({ patient_id: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.patient.getPatientFullRecord.queryFilter({ id })
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
     ]);
   };
@@ -447,13 +519,13 @@ function PatientLayout() {
   const handleConsultationCreated = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
-        trpc.patient.getPatientFullRecord.queryFilter({ id })
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
       queryClient.invalidateQueries(
-        trpc.consultation.getPatientSuivis.queryFilter({ patient_id: id })
+        trpc.consultation.getPatientSuivis.queryFilter({ patient_id: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.consultation.getExamensPatient.queryFilter({ patient_id: id })
+        trpc.consultation.getExamensPatient.queryFilter({ patient_id: id }),
       ),
     ]);
   };
@@ -461,10 +533,12 @@ function PatientLayout() {
   const handleAntecedentChanged = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
-        trpc.medicalHistory.getAntecedentsPatient.queryFilter({ patient_id: id })
+        trpc.medicalHistory.getAntecedentsPatient.queryFilter({
+          patient_id: id,
+        }),
       ),
       queryClient.invalidateQueries(
-        trpc.patient.getPatientFullRecord.queryFilter({ id })
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
     ]);
   };
@@ -472,13 +546,15 @@ function PatientLayout() {
   const handleTraitementChanged = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
-        trpc.treatment.getActivePatientTreatments.queryFilter({ patient_id: id })
+        trpc.treatment.getActivePatientTreatments.queryFilter({
+          patient_id: id,
+        }),
       ),
       queryClient.invalidateQueries(
-        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id })
+        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.patient.getPatientFullRecord.queryFilter({ id })
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
     ]);
   };
@@ -486,25 +562,27 @@ function PatientLayout() {
   const handleOrdonnanceChanged = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
-        trpc.ordonnance.getOrdonnancesByPatient.queryFilter({ patientId: id })
+        trpc.ordonnance.getOrdonnancesByPatient.queryFilter({ patientId: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.patient.getPatientFullRecord.queryFilter({ id })
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
       queryClient.invalidateQueries(
-        trpc.treatment.getActivePatientTreatments.queryFilter({ patient_id: id })
+        trpc.treatment.getActivePatientTreatments.queryFilter({
+          patient_id: id,
+        }),
       ),
       queryClient.invalidateQueries(
-        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id })
+        trpc.treatment.getPatientTreatments.queryFilter({ patient_id: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id })
+        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.documents.getLettresByPatient.queryFilter({ patientId: id })
+        trpc.documents.getLettresByPatient.queryFilter({ patientId: id }),
       ),
       queryClient.invalidateQueries(
-        trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id })
+        trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id }),
       ),
     ]);
   };
@@ -529,7 +607,7 @@ function PatientLayout() {
           <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)]">
             <div className="flex justify-between gap-8">
               {/* Left: Identity */}
-              <div className="flex flex-col gap-[10px]">
+              <div className="flex w-[330px] flex-col gap-[8px]">
                 <h1 className="font-['Plus_Jakarta_Sans'] font-medium text-[30px] leading-[36px] text-[#0f3460]">
                   {fullName}
                 </h1>
@@ -558,91 +636,150 @@ function PatientLayout() {
                 </div>
 
                 {/* Contact rows */}
-              <div className="flex flex-col gap-[10px] mt-1">
-                <form.Field name="nom">
-                  {(field) => (
-                    <div className="flex items-center gap-2">
-                      <User className="size-4 text-[#265284]" />
-                      {isEditing ? (
-                        <div>
-                          <input
-                            className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                          />
-                          {field.state.meta.errors[0]?.message ? (
-                            <p className="text-xs text-red-600">
-                              {field.state.meta.errors[0].message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
-                          {patient.nom}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
+                <div className="mt-1 flex max-w-[320px] flex-col gap-[8px]">
+                  <div className="flex items-center gap-2">
+                    <User className="size-4 text-[#265284]" />
+                    {isEditing ? (
+                      <div className="flex flex-wrap items-start gap-2">
+                        <form.Field name="nom">
+                          {(field) => (
+                            <div>
+                              <input
+                                className="h-8 w-[132px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) =>
+                                  field.handleChange(e.target.value)
+                                }
+                                aria-label="Nom"
+                              />
+                              {field.state.meta.errors[0]?.message ? (
+                                <p className="text-xs text-red-600">
+                                  {field.state.meta.errors[0].message}
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+                        </form.Field>
+                        <form.Field name="prenom">
+                          {(field) => (
+                            <div>
+                              <input
+                                className="h-8 w-[132px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) =>
+                                  field.handleChange(e.target.value)
+                                }
+                                aria-label="Prénom"
+                              />
+                              {field.state.meta.errors[0]?.message ? (
+                                <p className="text-xs text-red-600">
+                                  {field.state.meta.errors[0].message}
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+                        </form.Field>
+                      </div>
+                    ) : (
+                      <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
+                        {fullName}
+                      </span>
+                    )}
+                  </div>
 
-                <form.Field name="prenom">
-                  {(field) => (
-                    <div className="flex items-center gap-2">
-                      <User className="size-4 text-[#265284]" />
-                      {isEditing ? (
-                        <div>
-                          <input
-                            className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                          />
-                          {field.state.meta.errors[0]?.message ? (
-                            <p className="text-xs text-red-600">
-                              {field.state.meta.errors[0].message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
-                          {patient.prenom}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
+                  <form.Field name="telephone">
+                    {(field) => (
+                      <div className="flex items-center gap-2">
+                        <Phone className="size-4 text-[#265284]" />
+                        {isEditing ? (
+                          <div>
+                            <input
+                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
+                            {patient.telephone ?? "—"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
+                  <form.Field name="email">
+                    {(field) => (
+                      <div className="flex items-center gap-2">
+                        <Mail className="size-4 text-[#265284]" />
+                        {isEditing ? (
+                          <div>
+                            <input
+                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]">
+                            {patient.email ?? "—"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
+                  <form.Field name="adresse">
+                    {(field) => (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="size-4 text-[#265284]" />
+                        {isEditing ? (
+                          <div>
+                            <input
+                              className="h-8 w-[260px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]">
+                            {patient.adresse ?? "—"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </form.Field>
+                </div>
 
-                <form.Field name="telephone">
+                {/* Profession */}
+                <form.Field name="profession">
                   {(field) => (
-                    <div className="flex items-center gap-2">
-                      <Phone className="size-4 text-[#265284]" />
-                      {isEditing ? (
-                        <div>
-                          <input
-                            className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                          />
-                          {field.state.meta.errors[0]?.message ? (
-                            <p className="text-xs text-red-600">
-                              {field.state.meta.errors[0].message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
-                          {patient.telephone ?? "—"}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="email">
-                  {(field) => (
-                    <div className="flex items-center gap-2">
-                      <Mail className="size-4 text-[#265284]" />
+                    <div className="flex items-center gap-2 mt-1">
+                      <Briefcase className="size-4 text-[#265284]" />
                       {isEditing ? (
                         <div>
                           <input
@@ -659,67 +796,12 @@ function PatientLayout() {
                         </div>
                       ) : (
                         <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]">
-                          {patient.email ?? "—"}
+                          {patient.profession ?? "—"}
                         </span>
                       )}
                     </div>
                   )}
                 </form.Field>
-                <form.Field name="adresse">
-                  {(field) => (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="size-4 text-[#265284]" />
-                      {isEditing ? (
-                        <div>
-                          <input
-                            className="h-8 w-[280px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
-                            value={field.state.value}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                          />
-                          {field.state.meta.errors[0]?.message ? (
-                            <p className="text-xs text-red-600">
-                              {field.state.meta.errors[0].message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]">
-                          {patient.adresse ?? "—"}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
-              </div>
-
-              {/* Profession */}
-              <form.Field name="profession">
-                {(field) => (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Briefcase className="size-4 text-[#265284]" />
-                    {isEditing ? (
-                      <div>
-                        <input
-                          className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                        />
-                        {field.state.meta.errors[0]?.message ? (
-                          <p className="text-xs text-red-600">
-                            {field.state.meta.errors[0].message}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]">
-                        {patient.profession ?? "—"}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </form.Field>
               </div>
 
               {/* Center: Medical Info */}
@@ -751,7 +833,9 @@ function PatientLayout() {
                               className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
                               value={field.state.value}
                               onBlur={field.handleBlur}
-                              onChange={(e) => field.handleChange(e.target.value)}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
                             />
                             {field.state.meta.errors[0]?.message ? (
                               <p className="text-xs text-red-600">
@@ -762,7 +846,7 @@ function PatientLayout() {
                         )}
                       </form.Field>
                     ) : (
-                      patient.nationalite ?? "—"
+                      (patient.nationalite ?? "—")
                     )
                   }
                 />
@@ -778,7 +862,9 @@ function PatientLayout() {
                               className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
                               value={field.state.value}
                               onBlur={field.handleBlur}
-                              onChange={(e) => field.handleChange(e.target.value)}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
                             />
                             {field.state.meta.errors[0]?.message ? (
                               <p className="text-xs text-red-600">
@@ -789,7 +875,7 @@ function PatientLayout() {
                         )}
                       </form.Field>
                     ) : (
-                      patient.situation_familiale ?? "—"
+                      (patient.situation_familiale ?? "—")
                     )
                   }
                 />
@@ -805,7 +891,9 @@ function PatientLayout() {
                               className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
                               value={field.state.value}
                               onBlur={field.handleBlur}
-                              onChange={(e) => field.handleChange(e.target.value)}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
                             />
                             {field.state.meta.errors[0]?.message ? (
                               <p className="text-xs text-red-600">
@@ -871,7 +959,9 @@ function PatientLayout() {
                       disabled={updatePatientMutation.isPending}
                       type="button"
                     >
-                      {updatePatientMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                      {updatePatientMutation.isPending
+                        ? "Enregistrement..."
+                        : "Enregistrer"}
                     </button>
                   </>
                 )}
@@ -929,10 +1019,13 @@ function PatientLayout() {
                       "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
                       isActive
                         ? "bg-[#f97316] text-white"
-                        : "text-[#0f3460] hover:bg-[#f8fafc]"
+                        : "text-[#0f3460] hover:bg-[#f8fafc]",
                     )}
                   >
-                    <tab.icon className="size-4 shrink-0 text-current" strokeWidth={1.75} />
+                    <tab.icon
+                      className="size-4 shrink-0 text-current"
+                      strokeWidth={1.75}
+                    />
                     <span>{tab.label}</span>
                   </Link>
                 );
@@ -1075,9 +1168,15 @@ function PatientLayout() {
 
           <NouvelleOrdonnanceDialog
             onCreated={handleOrdonnanceChanged}
-            onOpenChange={setIsNouvelleOrdonnanceOpen}
+            onOpenChange={(nextOpen) => {
+              setIsNouvelleOrdonnanceOpen(nextOpen);
+              if (!nextOpen) {
+                setOrdonnanceValues(undefined);
+              }
+            }}
             open={isNouvelleOrdonnanceOpen}
             patientId={id}
+            values={ordonnanceValues}
           />
         </div>
       </div>
@@ -1099,7 +1198,10 @@ function PatientLayoutSkeleton() {
           <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
             <div className="flex w-full items-center gap-2 overflow-hidden px-1">
               {Array.from({ length: 9 }).map((_, index) => (
-                <Skeleton key={index} className="h-8 w-28 shrink-0 rounded-[14px]" />
+                <Skeleton
+                  key={index}
+                  className="h-8 w-28 shrink-0 rounded-[14px]"
+                />
               ))}
             </div>
           </div>
@@ -1160,7 +1262,7 @@ function ActionButton({
         "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[195px] px-[16px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
         layout === "suivi"
           ? "flex items-center"
-          : "flex items-center justify-center gap-[10px]"
+          : "flex items-center justify-center gap-[10px]",
       )}
       type="button"
     >

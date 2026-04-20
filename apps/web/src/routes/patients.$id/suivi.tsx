@@ -37,18 +37,16 @@ function RouteComponent() {
   const { id } = Route.useParams();
 
   const { data: suivis } = useSuspenseQuery(
-    trpc.consultation.getPatientSuivis.queryOptions({ patient_id: id })
+    trpc.consultation.getPatientSuivis.queryOptions({ patient_id: id }),
   );
   const { data: examens } = useSuspenseQuery(
-    trpc.consultation.getExamensPatient.queryOptions({ patient_id: id })
+    trpc.consultation.getExamensPatient.queryOptions({ patient_id: id }),
   );
 
   const [selectedSuiviId, setSelectedSuiviId] = useState<string | null>(
-    suivis[0]?.id ?? null
+    suivis[0]?.id ?? null,
   );
-  const [expandedExamenId, setExpandedExamenId] = useState<string | null>(
-    null
-  );
+  const [expandedExamenId, setExpandedExamenId] = useState<string | null>(null);
 
   const examensBySuivi = useMemo(() => {
     const grouped = new Map<string, typeof examens>();
@@ -59,7 +57,7 @@ function RouteComponent() {
     for (const [key, list] of grouped.entries()) {
       grouped.set(
         key,
-        [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+        [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
       );
     }
     return grouped;
@@ -67,11 +65,13 @@ function RouteComponent() {
 
   const selectedSuivi = useMemo(() => {
     if (!selectedSuiviId) return suivis[0] ?? null;
-    return suivis.find((suivi) => suivi.id === selectedSuiviId) ?? suivis[0] ?? null;
+    return (
+      suivis.find((suivi) => suivi.id === selectedSuiviId) ?? suivis[0] ?? null
+    );
   }, [selectedSuiviId, suivis]);
 
   const selectedExamens = selectedSuivi
-    ? examensBySuivi.get(selectedSuivi.id) ?? []
+    ? (examensBySuivi.get(selectedSuivi.id) ?? [])
     : [];
 
   const closeSuiviMutation = useMutation({
@@ -123,90 +123,88 @@ function RouteComponent() {
     window.dispatchEvent(
       new CustomEvent("patient-popup-open", {
         detail,
-      })
+      }),
     );
   };
 
   return (
-    <div className="flex h-[522.85px] items-start gap-4 pb-4">
-      <div className="h-full w-[288px]">
-        <div className="flex h-full flex-col gap-3">
-          <div className="h-[279.1px] w-[288px] overflow-hidden rounded-[10px]">
-            <div className="flex flex-col gap-2">
-              {suivis.slice(0, 3).map((suivi) => {
-                const consultationsCount = examensBySuivi.get(suivi.id)?.length ?? 0;
-                const isSelected = selectedSuivi?.id === suivi.id;
+    <div className="grid items-start gap-6 pb-6 xl:grid-cols-[288px_minmax(0,1fr)]">
+      <aside className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          {suivis.slice(0, 3).map((suivi) => {
+            const consultationsCount =
+              examensBySuivi.get(suivi.id)?.length ?? 0;
+            const isSelected = selectedSuivi?.id === suivi.id;
 
-                return (
-                  <button
-                    key={suivi.id}
+            return (
+              <button
+                key={suivi.id}
+                className={cn(
+                  "relative min-h-[112px] w-full cursor-pointer rounded-[14px] border-[0.8px] px-4 py-3 text-left transition-all duration-200 ease-out",
+                  isSelected
+                    ? "border-[#c2e0ef] bg-[#f0f6ff] shadow-[0px_3px_8px_0px_rgba(15,52,96,0.12)]"
+                    : "border-[#c2e0ef] bg-white hover:bg-[#f8fcff]",
+                )}
+                onClick={() => {
+                  setSelectedSuiviId(suivi.id);
+                  setExpandedExamenId(null);
+                }}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
+                    {suivi.motif}
+                  </p>
+                  <span
                     className={cn(
-                      "relative h-[87.7px] w-[288px] cursor-pointer rounded-[10px] border-[0.8px] px-3 py-3 text-left",
-                      isSelected
-                        ? "border-[#c2e0ef] bg-[#f0f6ff] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_0px_rgba(0,0,0,0.1)]"
-                        : "border-[#c2e0ef] bg-white"
+                      "shrink-0 rounded-[8px] border-[0.8px] px-[6.8px] py-[2.8px] font-['Inter'] text-[10px] font-medium leading-[15px]",
+                      suivi.est_actif
+                        ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
+                        : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]",
                     )}
-                    onClick={() => {
-                      setSelectedSuiviId(suivi.id);
-                      setExpandedExamenId(null);
-                    }}
-                    type="button"
                   >
-                    <div className="flex items-start justify-between">
-                      <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-[20px] text-[#0f3460]">
-                        {suivi.motif}
-                      </p>
-                      <span
-                        className={cn(
-                          "rounded-[8px] border-[0.8px] px-[6.8px] py-[2.8px] font-['Inter'] text-[10px] font-medium leading-[15px]",
-                          suivi.est_actif
-                            ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
-                            : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]"
-                        )}
-                      >
-                        {suivi.est_actif ? "Actif" : "Cloture"}
-                      </span>
-                    </div>
+                    {suivi.est_actif ? "Actif" : "Cloture"}
+                  </span>
+                </div>
 
-                    <p className="mt-[3px] font-['Plus_Jakarta_Sans'] text-[11px] font-medium leading-[16.5px] text-[rgba(100,116,139,0.9)]">
-                      {suivi.hypothese_diagnostic || "Hypothese non renseignee"}
-                    </p>
+                <p className="mt-2 line-clamp-2 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-[17px] text-[rgba(100,116,139,0.9)]">
+                  {suivi.hypothese_diagnostic || "Hypothese non renseignee"}
+                </p>
 
-                    <div className="mt-[6px] flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="size-3 text-[rgba(100,116,139,0.9)]" />
-                        <span className="font-['Plus_Jakarta_Sans'] text-[10px] font-medium leading-[15px] text-[rgba(100,116,139,0.9)]">
-                          {suivi.date_ouverture}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ClipboardList className="size-3 text-[rgba(100,116,139,0.9)]" />
-                        <span className="font-['Plus_Jakarta_Sans'] text-[10px] font-medium leading-[15px] text-[rgba(100,116,139,0.9)]">
-                          {consultationsCount} consultation{consultationsCount > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            className="flex h-[42px] w-[288px] cursor-pointer items-center justify-center gap-[10px] rounded-[14px] bg-[#052ca0] px-[66px] py-3 shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)]"
-            onClick={() => openPopup({ type: "suivi", mode: "create" })}
-            type="button"
-          >
-            <Plus className="size-5 text-white" />
-            <span className="font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white">
-              Nouveau suivi
-            </span>
-          </button>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <Calendar className="size-3 shrink-0 text-[rgba(100,116,139,0.9)]" />
+                    <span className="truncate font-['Plus_Jakarta_Sans'] text-[10px] font-medium leading-[15px] text-[rgba(100,116,139,0.9)]">
+                      {suivi.date_ouverture}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <ClipboardList className="size-3 shrink-0 text-[rgba(100,116,139,0.9)]" />
+                    <span className="truncate font-['Plus_Jakarta_Sans'] text-[10px] font-medium leading-[15px] text-[rgba(100,116,139,0.9)]">
+                      {consultationsCount} consultation
+                      {consultationsCount > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      <div className="flex h-full min-w-0 flex-1 flex-col gap-4">
-        <div className="h-[202px] w-[800px] rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white">
+        <button
+          className="flex h-[46px] w-full cursor-pointer items-center justify-center gap-[10px] rounded-[14px] bg-[#052ca0] px-4 py-3 shadow-[0px_4px_12px_0px_rgba(5,44,160,0.35)] transition-transform duration-200 ease-out hover:-translate-y-0.5"
+          onClick={() => openPopup({ type: "suivi", mode: "create" })}
+          type="button"
+        >
+          <Plus className="size-5 text-white" />
+          <span className="font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white">
+            Nouveau suivi
+          </span>
+        </button>
+      </aside>
+
+      <section className="flex min-w-0 flex-col gap-5">
+        <div className="min-h-[202px] w-full rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white">
           {selectedSuivi ? (
             <>
               <div className="flex items-start justify-between px-5 pt-5">
@@ -220,7 +218,7 @@ function RouteComponent() {
                         "inline-flex h-[21.587px] items-center gap-[5px] rounded-[8px] border-[0.8px] pl-2 pr-[9px]",
                         selectedSuivi.est_actif
                           ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
-                          : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]"
+                          : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]",
                       )}
                     >
                       {selectedSuivi.est_actif ? (
@@ -234,7 +232,8 @@ function RouteComponent() {
                     </span>
                   </div>
                   <p className="font-['Plus_Jakarta_Sans'] text-[14px] leading-5 text-[#f97316]">
-                    Hypothese : {selectedSuivi.hypothese_diagnostic || "Non renseignee"}
+                    Hypothese :{" "}
+                    {selectedSuivi.hypothese_diagnostic || "Non renseignee"}
                   </p>
                 </div>
 
@@ -283,7 +282,9 @@ function RouteComponent() {
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-4",
-                        selectedSuivi.est_actif ? "text-[#e7000b]" : "text-[#008236]"
+                        selectedSuivi.est_actif
+                          ? "text-[#e7000b]"
+                          : "text-[#008236]",
                       )}
                     >
                       {selectedSuivi.est_actif ? (
@@ -297,21 +298,24 @@ function RouteComponent() {
                 </div>
               </div>
 
-              <div className="ml-[615.2px] mt-1 flex w-[181px] items-start gap-0.5 rounded-[10px] px-2.5 pt-[3px]">
-                <span className="font-['Plus_Jakarta_Sans'] text-[10px] uppercase leading-[14.286px] tracking-[0.25px] text-[rgba(100,116,139,0.9)]">
-                  Ouvert le:
-                </span>
-                <span className="font-['Poppins'] text-[14px] leading-5 text-[#0f3460]">
-                  {selectedSuivi.date_ouverture}
-                </span>
+              <div className="mt-3 flex justify-end px-5">
+                <div className="flex items-center gap-1 rounded-[10px] px-2.5 pt-[3px]">
+                  <span className="font-['Plus_Jakarta_Sans'] text-[10px] uppercase leading-[14.286px] tracking-[0.25px] text-[rgba(100,116,139,0.9)]">
+                    Ouvert le:
+                  </span>
+                  <span className="font-['Poppins'] text-[14px] leading-5 text-[#0f3460]">
+                    {selectedSuivi.date_ouverture}
+                  </span>
+                </div>
               </div>
 
-              <div className="mx-[20.2px] mt-[5px] flex h-[71.8px] w-[758.4px] flex-col gap-1 border-t-[0.8px] border-[#c2e0ef] pt-[12.8px]">
+              <div className="mx-5 mt-[5px] flex min-h-[72px] flex-col gap-1 border-t-[0.8px] border-[#c2e0ef] pt-[12.8px]">
                 <span className="font-['Poppins'] text-[10px] uppercase leading-[15px] tracking-[0.25px] text-[rgba(100,116,139,0.9)]">
                   Historique
                 </span>
                 <p className="line-clamp-2 font-['Poppins'] text-[14px] leading-5 text-[rgba(100,116,139,0.9)]">
-                  {selectedSuivi.historique || "Aucun historique renseigne pour ce suivi."}
+                  {selectedSuivi.historique ||
+                    "Aucun historique renseigne pour ce suivi."}
                 </p>
               </div>
             </>
@@ -324,7 +328,7 @@ function RouteComponent() {
           )}
         </div>
 
-        <div className="flex h-[52px] w-[800px] items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Stethoscope className="size-4 text-[#0f3460]" />
             <h4 className="font-['Plus_Jakarta_Sans'] text-[18px] font-normal leading-[27px] text-[#0f3460]">
@@ -333,7 +337,7 @@ function RouteComponent() {
           </div>
 
           <button
-            className="flex h-[42px] w-[288px] cursor-pointer items-center justify-center gap-[10px] rounded-[14px] bg-[#052ca0] px-[66px] py-3 shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)]"
+            className="flex h-[46px] min-w-[260px] cursor-pointer items-center justify-center gap-[10px] rounded-[14px] bg-[#052ca0] px-6 py-3 shadow-[0px_4px_12px_0px_rgba(5,44,160,0.35)] transition-transform duration-200 ease-out hover:-translate-y-0.5"
             onClick={() =>
               openPopup({
                 type: "consultation",
@@ -350,7 +354,7 @@ function RouteComponent() {
           </button>
         </div>
 
-        <div className="flex w-[800px] flex-col gap-3">
+        <div className="flex w-full flex-col gap-3">
           {selectedExamens.length === 0 ? (
             <div className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-4">
               <p className="font-['Inter'] text-[12px] leading-4 text-[#64748b]">
@@ -374,7 +378,7 @@ function RouteComponent() {
                     className="h-[71.588px] w-full cursor-pointer px-4"
                     onClick={() =>
                       setExpandedExamenId((prev) =>
-                        prev === examen.id ? null : examen.id
+                        prev === examen.id ? null : examen.id,
                       )
                     }
                     type="button"
@@ -425,7 +429,8 @@ function RouteComponent() {
                                   taille: examen.taille ?? "",
                                   poids: examen.poids ?? "",
                                   spo2:
-                                    examen.spo2 !== null && examen.spo2 !== undefined
+                                    examen.spo2 !== null &&
+                                    examen.spo2 !== undefined
                                       ? String(examen.spo2)
                                       : "",
                                   tension_arterielle:
@@ -514,7 +519,7 @@ function RouteComponent() {
             })
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -640,21 +645,21 @@ function ConsultationDetail({
 
 function SuiviSkeleton() {
   return (
-    <div className="flex h-[522.85px] items-start gap-4">
+    <div className="grid items-start gap-6 xl:grid-cols-[288px_minmax(0,1fr)]">
       <div className="w-[288px] space-y-3">
-        <Skeleton className="h-[87.7px] rounded-[10px]" />
-        <Skeleton className="h-[87.7px] rounded-[10px]" />
-        <Skeleton className="h-[87.7px] rounded-[10px]" />
-        <Skeleton className="h-[42px] rounded-[14px]" />
+        <Skeleton className="h-[112px] rounded-[14px]" />
+        <Skeleton className="h-[112px] rounded-[14px]" />
+        <Skeleton className="h-[112px] rounded-[14px]" />
+        <Skeleton className="h-[46px] rounded-[14px]" />
       </div>
-      <div className="flex-1 space-y-4">
-        <Skeleton className="h-[202px] w-[800px] rounded-[14px]" />
-        <div className="flex h-[52px] w-[800px] items-center justify-between">
+      <div className="min-w-0 flex-1 space-y-5">
+        <Skeleton className="h-[202px] w-full rounded-[14px]" />
+        <div className="flex items-center justify-between">
           <Skeleton className="h-6 w-40 rounded-[10px]" />
-          <Skeleton className="h-[42px] w-[288px] rounded-[14px]" />
+          <Skeleton className="h-[46px] w-[260px] rounded-[14px]" />
         </div>
-        <Skeleton className="h-[71.588px] w-[800px] rounded-[14px]" />
-        <Skeleton className="h-[71.588px] w-[800px] rounded-[14px]" />
+        <Skeleton className="h-[71.588px] w-full rounded-[14px]" />
+        <Skeleton className="h-[71.588px] w-full rounded-[14px]" />
       </div>
     </div>
   );
@@ -663,13 +668,15 @@ function SuiviSkeleton() {
 async function invalidateSuiviQueries(patientId: string) {
   await Promise.all([
     queryClient.invalidateQueries(
-      trpc.consultation.getPatientSuivis.queryFilter({ patient_id: patientId })
+      trpc.consultation.getPatientSuivis.queryFilter({ patient_id: patientId }),
     ),
     queryClient.invalidateQueries(
-      trpc.consultation.getExamensPatient.queryFilter({ patient_id: patientId })
+      trpc.consultation.getExamensPatient.queryFilter({
+        patient_id: patientId,
+      }),
     ),
     queryClient.invalidateQueries(
-      trpc.patient.getPatientFullRecord.queryFilter({ id: patientId })
+      trpc.patient.getPatientFullRecord.queryFilter({ id: patientId }),
     ),
   ]);
 }
