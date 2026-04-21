@@ -6,12 +6,14 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Download,
   Eye,
   FilePlus2,
   FileStack,
   Files,
   Pencil,
+  Plus,
   Printer,
   Search,
   Sparkles,
@@ -21,7 +23,6 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import plusIcon from "@/assets/icons/+.svg";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
@@ -59,11 +60,15 @@ type PreRempliCardItem = {
   nom: string;
   description: string | null;
   specialite: string | null;
+  categorieId: string;
+  categorieNom: string;
   medicationCount: number;
   searchableText: string;
 };
 
-const RECENT_ORDONNANCES_PAGE_SIZE = 5;
+const RECENT_ORDONNANCES_PAGE_SIZE = 3;
+const ALL_CATEGORIES_VALUE = "__all_categories__";
+const ALL_SPECIALITES_VALUE = "__all_specialites__";
 
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
@@ -77,13 +82,17 @@ function RouteComponent() {
         }
       : undefined;
 
-  const [searchValue, setSearchValue] = useState("");
+  const [templateSearchValue, setTemplateSearchValue] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE);
+  const [selectedSpecialite, setSelectedSpecialite] = useState(
+    ALL_SPECIALITES_VALUE,
+  );
   const [recentOrdonnancesPage, setRecentOrdonnancesPage] = useState(0);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
     null,
   );
-  const normalizedSearch = searchValue.trim().toLowerCase();
+  const normalizedTemplateSearch = templateSearchValue.trim().toLowerCase();
 
   const patientsQuery = useQuery({
     ...trpc.patient.searchPatients.queryOptions({}),
@@ -175,6 +184,8 @@ function RouteComponent() {
           nom: item.nom,
           description: item.description,
           specialite: item.specialite,
+          categorieId: item.category.id,
+          categorieNom: item.category.nom,
           medicationCount: detail?.medicaments?.length ?? 0,
           searchableText: [
             item.nom,
@@ -191,33 +202,21 @@ function RouteComponent() {
       .sort((left, right) => left.nom.localeCompare(right.nom, "fr"));
   }, [preRempliDetailQueries, preRemplis]);
 
-  const filteredRecentOrdonnances = useMemo(() => {
-    if (!normalizedSearch) {
-      return recentOrdonnances;
-    }
-
-    return recentOrdonnances.filter((item) =>
-      [
-        item.patientName,
-        item.date,
-        item.type,
-        item.medicaments.map((medicament) => medicament.nom_medicament).join(" "),
-        item.medicaments.map((medicament) => medicament.dci).join(" "),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch),
-    );
-  }, [normalizedSearch, recentOrdonnances]);
-
-  useEffect(() => {
-    setRecentOrdonnancesPage(0);
-  }, [normalizedSearch]);
+  const availableSpecialites = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          preRempliCards
+            .map((item) => item.specialite?.trim())
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ).sort((left, right) => left.localeCompare(right, "fr")),
+    [preRempliCards],
+  );
 
   const recentOrdonnancesPageCount = Math.max(
     1,
-    Math.ceil(filteredRecentOrdonnances.length / RECENT_ORDONNANCES_PAGE_SIZE),
+    Math.ceil(recentOrdonnances.length / RECENT_ORDONNANCES_PAGE_SIZE),
   );
 
   useEffect(() => {
@@ -228,22 +227,35 @@ function RouteComponent() {
 
   const visibleRecentOrdonnances = useMemo(
     () =>
-      filteredRecentOrdonnances.slice(
+      recentOrdonnances.slice(
         recentOrdonnancesPage * RECENT_ORDONNANCES_PAGE_SIZE,
         (recentOrdonnancesPage + 1) * RECENT_ORDONNANCES_PAGE_SIZE,
       ),
-    [filteredRecentOrdonnances, recentOrdonnancesPage],
+    [recentOrdonnances, recentOrdonnancesPage],
   );
 
   const filteredPreRemplis = useMemo(() => {
-    if (!normalizedSearch) {
-      return preRempliCards;
-    }
+    return preRempliCards.filter((item) => {
+      const matchesSearch = normalizedTemplateSearch
+        ? item.searchableText.includes(normalizedTemplateSearch)
+        : true;
+      const matchesCategory =
+        selectedCategory === ALL_CATEGORIES_VALUE
+          ? true
+          : item.categorieId === selectedCategory;
+      const matchesSpecialite =
+        selectedSpecialite === ALL_SPECIALITES_VALUE
+          ? true
+          : item.specialite === selectedSpecialite;
 
-    return preRempliCards.filter((item) =>
-      item.searchableText.includes(normalizedSearch),
-    );
-  }, [normalizedSearch, preRempliCards]);
+      return matchesSearch && matchesCategory && matchesSpecialite;
+    });
+  }, [
+    normalizedTemplateSearch,
+    preRempliCards,
+    selectedCategory,
+    selectedSpecialite,
+  ]);
 
   const allQueries = [
     patientsQuery,
@@ -369,7 +381,7 @@ function RouteComponent() {
                 }}
               />
 
-              <div className="relative z-[1] flex min-h-[104px] flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+              <div className="relative z-[1] flex min-h-[104px] flex-col items-start justify-center gap-3">
                 <div className="min-w-0">
                   <h1
                     className="m-0 font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-[1.1] text-[#0f3460]"
@@ -382,37 +394,8 @@ function RouteComponent() {
                     modèles
                   </p>
                 </div>
-
-                <button
-                  className="inline-flex min-h-[60px] min-w-[222px] items-center justify-center gap-3 rounded-[15px] border-0 bg-[#c2e0ef] px-6 py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-bold tracking-[-0.01em] text-[#0f3460] whitespace-nowrap transition-[background-color,box-shadow] duration-150 ease-out hover:bg-[color:color-mix(in_srgb,#c2e0ef_88%,white_12%)] hover:shadow-[0_6px_16px_rgba(15,52,96,0.14)]"
-                  onClick={handleCreateNewTemplate}
-                  type="button"
-                >
-                  <img
-                    alt=""
-                    aria-hidden="true"
-                    className="block h-[24px] w-[24px] shrink-0"
-                    src={plusIcon}
-                  />
-                  <span className="block leading-[1.15]">Nouveau modèle</span>
-                </button>
               </div>
             </section>
-
-            <div className="flex justify-end">
-              <label className="relative block w-full max-w-[468px]">
-                <Search
-                  className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[#3b82f6]"
-                  strokeWidth={1.8}
-                />
-                <input
-                  className="h-[50px] w-full rounded-[14px] border-[1.5px] border-[#c2e0ef] bg-white pl-11 pr-4 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(5,44,160,0.38)] focus:border-[#76bbdd]"
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder="Rechercher un médicament..."
-                  value={searchValue}
-                />
-              </label>
-            </div>
 
             <section className="flex flex-col gap-4">
               <div className="flex items-end justify-between gap-4">
@@ -451,7 +434,7 @@ function RouteComponent() {
               </div>
 
               <div className="overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
-                <div className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
+                <div className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
                   <TableHeadCell>PATIENT</TableHeadCell>
                   <TableHeadCell className="text-center">DATE</TableHeadCell>
                   <TableHeadCell className="text-center">TYPE</TableHeadCell>
@@ -464,7 +447,7 @@ function RouteComponent() {
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
+                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="size-[40px] rounded-full bg-[#edf5fb]" />
@@ -489,7 +472,7 @@ function RouteComponent() {
                     {visibleRecentOrdonnances.map((ordonnance) => (
                       <article
                         key={ordonnance.id}
-                        className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
+                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[14px] font-bold tracking-[-0.03em] text-[#5b84a0]">
@@ -555,10 +538,77 @@ function RouteComponent() {
             </section>
 
             <section className="flex flex-col gap-4 pb-4">
-              <SectionHeading
-                icon={<FileStack className="size-[18px] text-[#265284]" />}
-                title="Ordonnances pré-remplis"
-              />
+              <div className="flex items-center justify-between gap-4">
+                <SectionHeading
+                  icon={<FileStack className="size-[18px] text-[#265284]" />}
+                  title="Ordonnances pré-remplis"
+                />
+                <button
+                  className="inline-flex h-[42px] min-w-[288px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[24px] py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
+                  onClick={handleCreateNewTemplate}
+                  type="button"
+                >
+                  <Plus className="size-4" strokeWidth={2.2} />
+                  Nouveau modèle
+                </button>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(260px,0.85fr)_minmax(260px,0.85fr)] xl:items-center">
+                <label className="relative block w-full">
+                  <Search
+                    className="pointer-events-none absolute left-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
+                    strokeWidth={1.9}
+                  />
+                  <input
+                    className="h-[50px] w-full rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white pl-[52px] pr-4 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(38,82,132,0.45)] focus:border-[#76bbdd]"
+                    onChange={(event) => setTemplateSearchValue(event.target.value)}
+                    placeholder="Rechercher un médicament..."
+                    value={templateSearchValue}
+                  />
+                </label>
+
+                <div className="relative">
+                  <select
+                    className="h-[50px] w-full appearance-none rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white px-4 pr-12 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors focus:border-[#76bbdd]"
+                    onChange={(event) => setSelectedSpecialite(event.target.value)}
+                    value={selectedSpecialite}
+                  >
+                    <option value={ALL_SPECIALITES_VALUE}>
+                      Toutes les spécialités
+                    </option>
+                    {availableSpecialites.map((specialite) => (
+                      <option key={specialite} value={specialite}>
+                        {specialite}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
+                    strokeWidth={1.8}
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    className="h-[50px] w-full appearance-none rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white px-4 pr-12 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors focus:border-[#76bbdd]"
+                    onChange={(event) => setSelectedCategory(event.target.value)}
+                    value={selectedCategory}
+                  >
+                    <option value={ALL_CATEGORIES_VALUE}>
+                      Toutes les catégories
+                    </option>
+                    {categoryRows.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.nom}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
+                    strokeWidth={1.8}
+                  />
+                </div>
+              </div>
 
               {preRempliCards.length === 0 && categoriesQuery.isLoading ? (
                 <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
