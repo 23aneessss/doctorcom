@@ -63,7 +63,7 @@ type PreRempliCardItem = {
   searchableText: string;
 };
 
-const RECENT_ORDONNANCES_PAGE_SIZE = 6;
+const RECENT_ORDONNANCES_PAGE_SIZE = 5;
 
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
