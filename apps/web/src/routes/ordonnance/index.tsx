@@ -553,44 +553,10 @@ function RouteComponent() {
                 </button>
               </div>
 
-              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(260px,0.85fr)_minmax(260px,0.85fr)] xl:items-center">
-                <label className="relative block w-full">
-                  <Search
-                    className="pointer-events-none absolute left-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
-                    strokeWidth={1.9}
-                  />
-                  <input
-                    className="h-[50px] w-full rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white pl-[52px] pr-4 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(38,82,132,0.45)] focus:border-[#76bbdd]"
-                    onChange={(event) => setTemplateSearchValue(event.target.value)}
-                    placeholder="Rechercher un médicament..."
-                    value={templateSearchValue}
-                  />
-                </label>
-
+              <div className="grid gap-2.5 xl:grid-cols-[minmax(190px,0.72fr)_minmax(190px,0.72fr)_minmax(300px,0.96fr)] xl:items-center">
                 <div className="relative">
                   <select
-                    className="h-[50px] w-full appearance-none rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white px-4 pr-12 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors focus:border-[#76bbdd]"
-                    onChange={(event) => setSelectedSpecialite(event.target.value)}
-                    value={selectedSpecialite}
-                  >
-                    <option value={ALL_SPECIALITES_VALUE}>
-                      Toutes les spécialités
-                    </option>
-                    {availableSpecialites.map((specialite) => (
-                      <option key={specialite} value={specialite}>
-                        {specialite}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    className="pointer-events-none absolute right-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
-                    strokeWidth={1.8}
-                  />
-                </div>
-
-                <div className="relative">
-                  <select
-                    className="h-[50px] w-full appearance-none rounded-[16px] border-[1.5px] border-[#c2e0ef] bg-white px-4 pr-12 font-['Plus_Jakarta_Sans'] text-[15px] text-[#0f3460] outline-none transition-colors focus:border-[#76bbdd]"
+                    className="h-[42px] w-full appearance-none rounded-[13px] border border-[#cfe1ec] bg-[#f2f8fd] px-3.5 pr-10 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
                     onChange={(event) => setSelectedCategory(event.target.value)}
                     value={selectedCategory}
                   >
@@ -604,10 +570,44 @@ function RouteComponent() {
                     ))}
                   </select>
                   <ChevronDown
-                    className="pointer-events-none absolute right-4 top-1/2 size-[20px] -translate-y-1/2 text-[#265284]"
+                    className="pointer-events-none absolute right-3.5 top-1/2 size-[17px] -translate-y-1/2 text-[#265284]"
                     strokeWidth={1.8}
                   />
                 </div>
+
+                <div className="relative">
+                  <select
+                    className="h-[42px] w-full appearance-none rounded-[13px] border border-[#cfe1ec] bg-[#f2f8fd] px-3.5 pr-10 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
+                    onChange={(event) => setSelectedSpecialite(event.target.value)}
+                    value={selectedSpecialite}
+                  >
+                    <option value={ALL_SPECIALITES_VALUE}>
+                      Toutes les spécialités
+                    </option>
+                    {availableSpecialites.map((specialite) => (
+                      <option key={specialite} value={specialite}>
+                        {specialite}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-3.5 top-1/2 size-[17px] -translate-y-1/2 text-[#265284]"
+                    strokeWidth={1.8}
+                  />
+                </div>
+
+                <label className="relative block w-full">
+                  <Search
+                    className="pointer-events-none absolute left-3.5 top-1/2 size-[16px] -translate-y-1/2 text-[#265284]"
+                    strokeWidth={1.9}
+                  />
+                  <input
+                    className="h-[42px] w-full rounded-[13px] border border-[#cfe1ec] bg-[#eef6fc] pl-[40px] pr-3.5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] placeholder:text-[rgba(38,82,132,0.42)] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
+                    onChange={(event) => setTemplateSearchValue(event.target.value)}
+                    placeholder="Rechercher un médicament..."
+                    value={templateSearchValue}
+                  />
+                </label>
               </div>
 
               {preRempliCards.length === 0 && categoriesQuery.isLoading ? (
