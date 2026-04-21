@@ -17,7 +17,6 @@ export type OrdonnanceAiDraftMedicament = {
 };
 
 export type OrdonnanceAiRecommendation = {
-  rank: number;
   label: string;
   rationale: string;
   warnings: string[];
@@ -28,7 +27,14 @@ export type OrdonnanceAiRecommendation = {
 };
 
 type OrdonnanceAiResult = {
-  recommendations: OrdonnanceAiRecommendation[];
+  status: "ready" | "blocked";
+  ordonnance_draft: {
+    remarques: string | null;
+    medicaments: OrdonnanceAiDraftMedicament[];
+  } | null;
+  clinical_problem_basis: {
+    chief_problem: string;
+  };
   global_warnings: string[];
   disclaimer: string;
 };
@@ -54,7 +60,7 @@ export function OrdonnanceSugAiDialog({
         throw new Error("Veuillez sélectionner un suivi avant de lancer la recommandation IA.");
       }
 
-      return (await trpcClient.ai.ordonnanceRecommendation.generate.mutate({
+      return (await trpcClient.ai.ordonnanceRecommendation.generateOrdonnance.mutate({
         suivi_id: suiviId,
       })) as OrdonnanceAiResult;
     },
@@ -63,13 +69,25 @@ export function OrdonnanceSugAiDialog({
     },
   });
 
-  const recommendations = recommendationMutation.data?.recommendations ?? [];
+  const draft = recommendationMutation.data?.ordonnance_draft;
+  const recommendations: OrdonnanceAiRecommendation[] = draft
+    ? [
+        {
+          label: recommendationMutation.data?.clinical_problem_basis.chief_problem ??
+            "Ordonnance IA",
+          rationale:
+            "Brouillon construit a partir des meilleurs candidats medicamenteux valides.",
+          warnings: recommendationMutation.data?.global_warnings ?? [],
+          ordonnance_draft: draft,
+        },
+      ]
+    : [];
 
   const selectedRecommendation = useMemo(() => {
     if (selectedRank === null) {
       return recommendations[0] ?? null;
     }
-    return recommendations.find((item) => item.rank === selectedRank) ?? null;
+    return recommendations[selectedRank - 1] ?? null;
   }, [recommendations, selectedRank]);
 
   useEffect(() => {
@@ -189,20 +207,20 @@ export function OrdonnanceSugAiDialog({
 
         <div className="px-6 pb-4">
           <div className="flex items-center gap-2">
-            {recommendations.slice(0, 3).map((item) => (
-              <button
-                key={item.rank}
-                className={`h-[30px] cursor-pointer rounded-[8px] px-3 font-['Inter'] text-[12px] ${
-                  selectedRecommendation?.rank === item.rank
+              {recommendations.slice(0, 3).map((item, index) => (
+                <button
+                  key={`${item.label}-${index}`}
+                  className={`h-[30px] cursor-pointer rounded-[8px] px-3 font-['Inter'] text-[12px] ${
+                  selectedRecommendation === item
                     ? "bg-[#265284] text-white"
                     : "border border-[#c2e0ef] text-[#265284]"
                 }`}
-                onClick={() => setSelectedRank(item.rank)}
-                type="button"
-              >
-                Option {item.rank}
-              </button>
-            ))}
+                  onClick={() => setSelectedRank(index + 1)}
+                  type="button"
+                >
+                  Option {index + 1}
+                </button>
+              ))}
           </div>
 
           <div className="mt-3 flex items-center justify-end gap-3">

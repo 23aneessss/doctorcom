@@ -5,58 +5,66 @@ import { toast } from "sonner";
 
 import { trpcClient } from "@/utils/trpc";
 
-type MedicationAssistantResult = {
-  answer: string;
-  referenced_medicaments: Array<{
+type RecommendMedicamentsResult = {
+  merged_candidates: Array<{
     medicament_externe_id: string;
     nom_medicament: string;
     dci: string | null;
-    classe_therapeutique: string | null;
-    why_relevant: string;
-    highlights: string[];
+    dosage: string | null;
+    posologie: string | null;
+    duree_traitement: string | null;
+    instructions: string | null;
+    justification: string | null;
   }>;
-  warnings: string[];
+  global_warnings: string[];
 };
 
 export function MedicamentSugAiDialog({
   open,
   onOpenChange,
+  suiviId,
   suiviLabel,
   onSelectMedicament,
   variant = "overlay",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  suiviId?: string;
   suiviLabel?: string;
   onSelectMedicament: (payload: {
     medicament_externe_id: string;
     nom_medicament: string;
     dci: string | null;
-    classe_therapeutique: string | null;
+    dosage: string | null;
+    posologie: string | null;
+    duree_traitement: string | null;
+    instructions: string | null;
   }) => void;
   variant?: "overlay" | "side-panel";
 }) {
   const chatMutation = useMutation({
     mutationFn: async () => {
-      const userMessage = suiviLabel
-        ? `Suggère 6 médicaments pertinents pour ce contexte clinique: ${suiviLabel}. Retourne les options les plus utiles.`
-        : "Suggère 6 médicaments polyvalents courants en médecine générale.";
+      if (!suiviId) {
+        throw new Error("Veuillez sélectionner un suivi avant de lancer la recommandation IA.");
+      }
 
-      return (await trpcClient.ai.medicationAssistant.chat.mutate({
-        messages: [{ role: "user", content: userMessage }],
-        max_candidates: 8,
-      })) as MedicationAssistantResult;
+      return (await trpcClient.ai.ordonnanceRecommendation.recommendMedicaments.mutate({
+        suivi_id: suiviId,
+        include_historical_context: true,
+        max_historical_suivis: 5,
+        max_historical_treatments: 8,
+      })) as RecommendMedicamentsResult;
     },
     onError: (error) => {
       toast.error(error.message);
     },
   });
 
-  const suggestions = chatMutation.data?.referenced_medicaments ?? [];
+  const suggestions = chatMutation.data?.merged_candidates ?? [];
 
   const warningText = useMemo(() => {
-    return chatMutation.data?.warnings?.[0] ?? null;
-  }, [chatMutation.data?.warnings]);
+    return chatMutation.data?.global_warnings?.[0] ?? null;
+  }, [chatMutation.data?.global_warnings]);
 
   if (!open) {
     return null;
@@ -91,7 +99,7 @@ export function MedicamentSugAiDialog({
         <div className="px-6 pt-4">
           <button
             className="inline-flex h-[42px] cursor-pointer items-center gap-2 rounded-[10px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={chatMutation.isPending}
+            disabled={chatMutation.isPending || !suiviId}
             onClick={() => chatMutation.mutate()}
             type="button"
           >
@@ -115,7 +123,10 @@ export function MedicamentSugAiDialog({
                     medicament_externe_id: item.medicament_externe_id,
                     nom_medicament: item.nom_medicament,
                     dci: item.dci,
-                    classe_therapeutique: item.classe_therapeutique,
+                    dosage: item.dosage,
+                    posologie: item.posologie,
+                    duree_traitement: item.duree_traitement,
+                    instructions: item.instructions,
                   });
                 }}
                 type="button"
@@ -134,10 +145,10 @@ export function MedicamentSugAiDialog({
                   </span>
                 </div>
                 <div className="mt-3 rounded-[8px] border border-[#c2e0ef] bg-[#fffdfb] px-3 py-1 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#265284]">
-                  {item.classe_therapeutique ?? "Classe thérapeutique"}
+                  {item.dosage ?? "Dosage à confirmer"}
                 </div>
                 <p className="mt-2 line-clamp-1 font-['Plus_Jakarta_Sans'] text-[14px] text-[#265284]">
-                  {item.why_relevant}
+                  {item.justification ?? "Suggestion issue du moteur de recommandation clinique."}
                 </p>
               </button>
             ))

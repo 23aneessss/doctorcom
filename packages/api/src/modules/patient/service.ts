@@ -428,7 +428,25 @@ export class PatientService {
       });
     }
 
-    const utilisateur = await patientRepository.findUtilisateurByEmail(database, email);
+    let utilisateur: UtilisateurRecord | null;
+
+    try {
+      utilisateur = await patientRepository.findUtilisateurByEmail(database, email);
+    } catch (error) {
+      console.error("PatientService.resolveUtilisateur query failed", {
+        email,
+        code: this.getErrorCode(error),
+        error,
+      });
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          "La verification du compte utilisateur a echoue. Verifiez la connexion a la base et la table utilisateurs.",
+        cause: error,
+      });
+    }
+
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -713,6 +731,15 @@ export class PatientService {
     }
 
     return String(value);
+  }
+
+  private getErrorCode(error: unknown): string | null {
+    if (typeof error !== "object" || error === null || !("code" in error)) {
+      return null;
+    }
+
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : null;
   }
 }
 

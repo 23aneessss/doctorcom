@@ -1,0 +1,706 @@
+{
+  "id": "a18c5931-a49c-4b29-84b9-860c3222f0f2",
+  "prevId": "0921a8b5-9e6d-469f-81fd-2692534b70ca",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.contre_indications": {
+      "name": "contre_indications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "contre_indications_medicament_id_idx": {
+          "name": "contre_indications_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "contre_indications_medicament_id_medicaments_id_fk": {
+          "name": "contre_indications_medicament_id_medicaments_id_fk",
+          "tableFrom": "contre_indications",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.effets_indesirables": {
+      "name": "effets_indesirables",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "frequence": {
+          "name": "frequence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effet": {
+          "name": "effet",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "effets_indesirables_medicament_id_idx": {
+          "name": "effets_indesirables_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "effets_indesirables_medicament_id_medicaments_id_fk": {
+          "name": "effets_indesirables_medicament_id_medicaments_id_fk",
+          "tableFrom": "effets_indesirables",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.indications": {
+      "name": "indications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "indication": {
+          "name": "indication",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "indications_medicament_id_idx": {
+          "name": "indications_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "indications_medicament_id_medicaments_id_fk": {
+          "name": "indications_medicament_id_medicaments_id_fk",
+          "tableFrom": "indications",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.interactions": {
+      "name": "interactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medicament_interaction": {
+          "name": "medicament_interaction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "interactions_medicament_id_idx": {
+          "name": "interactions_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "interactions_medicament_id_medicaments_id_fk": {
+          "name": "interactions_medicament_id_medicaments_id_fk",
+          "tableFrom": "interactions",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.medicament_embeddings": {
+      "name": "medicament_embeddings",
+      "schema": "",
+      "columns": {
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(3072)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "embedding_content_hash": {
+          "name": "embedding_content_hash",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "embedding_payload_preview": {
+          "name": "embedding_payload_preview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "medicament_embeddings_updated_at_idx": {
+          "name": "medicament_embeddings_updated_at_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "medicament_embeddings_content_hash_idx": {
+          "name": "medicament_embeddings_content_hash_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "embedding_content_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "medicament_embeddings_medicament_id_medicaments_id_fk": {
+          "name": "medicament_embeddings_medicament_id_medicaments_id_fk",
+          "tableFrom": "medicament_embeddings",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.medicaments": {
+      "name": "medicaments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nom_medicament": {
+          "name": "nom_medicament",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom_generique": {
+          "name": "nom_generique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "classe_therapeutique": {
+          "name": "classe_therapeutique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "famille_pharmacologique": {
+          "name": "famille_pharmacologique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "posologie_adulte": {
+          "name": "posologie_adulte",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "posologie_enfant": {
+          "name": "posologie_enfant",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dose_maximale": {
+          "name": "dose_maximale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "frequence_administration": {
+          "name": "frequence_administration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grossesse": {
+          "name": "grossesse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allaitement": {
+          "name": "allaitement",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "medicaments_nom_medicament_idx": {
+          "name": "medicaments_nom_medicament_idx",
+          "columns": [
+            {
+              "expression": "nom_medicament",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "medicaments_nom_generique_idx": {
+          "name": "medicaments_nom_generique_idx",
+          "columns": [
+            {
+              "expression": "nom_generique",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "medicaments_classe_therapeutique_idx": {
+          "name": "medicaments_classe_therapeutique_idx",
+          "columns": [
+            {
+              "expression": "classe_therapeutique",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "medicaments_famille_pharmacologique_idx": {
+          "name": "medicaments_famille_pharmacologique_idx",
+          "columns": [
+            {
+              "expression": "famille_pharmacologique",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.precautions": {
+      "name": "precautions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "precautions_medicament_id_idx": {
+          "name": "precautions_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "precautions_medicament_id_medicaments_id_fk": {
+          "name": "precautions_medicament_id_medicaments_id_fk",
+          "tableFrom": "precautions",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.presentations": {
+      "name": "presentations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "forme": {
+          "name": "forme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dosage": {
+          "name": "dosage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "presentations_medicament_id_idx": {
+          "name": "presentations_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "presentations_medicament_id_medicaments_id_fk": {
+          "name": "presentations_medicament_id_medicaments_id_fk",
+          "tableFrom": "presentations",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.substances_actives": {
+      "name": "substances_actives",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "medicament_id": {
+          "name": "medicament_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom_substance": {
+          "name": "nom_substance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "substances_actives_medicament_id_idx": {
+          "name": "substances_actives_medicament_id_idx",
+          "columns": [
+            {
+              "expression": "medicament_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "substances_actives_medicament_id_medicaments_id_fk": {
+          "name": "substances_actives_medicament_id_medicaments_id_fk",
+          "tableFrom": "substances_actives",
+          "tableTo": "medicaments",
+          "columnsFrom": [
+            "medicament_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

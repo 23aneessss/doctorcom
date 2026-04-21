@@ -123,22 +123,22 @@ interface HypothesisGenerationResult {
 
 interface OrdonnanceGenerationResult {
   clinical_problem_basis: { chief_problem: string };
-  recommendations: unknown[];
+  status: "ready" | "blocked";
+  ordonnance_draft: {
+    remarques: string | null;
+    medicaments: Array<{
+      medicament_externe_id: string;
+      nom_medicament: string;
+      dci: string | null;
+      dosage: string | null;
+      posologie: string;
+      duree_traitement: string | null;
+      instructions: string | null;
+      justification: string;
+    }>;
+  } | null;
   global_warnings: string[];
   disclaimer: string;
-}
-
-interface MedicationSuggestionResultItem {
-  rank: number;
-  medicament_externe_id: string;
-  nom_medicament: string;
-  dci: string | null;
-  dosage: string | null;
-  posologie: string;
-  duree_traitement: string | null;
-  instructions: string | null;
-  justification: string;
-  warnings: string[];
 }
 
 type PatientRendezVousLite = {
@@ -336,51 +336,6 @@ const cDiscussionMuted = "#334155";
 const cDiscussionBorder = "#c2e0ef";
 const cDiscussionCardBg = "#f8fafc";
 
-function isOrdonnanceViewRecommendation(
-  recommendation: unknown,
-): recommendation is {
-  label: string;
-  rationale: string;
-  warnings: string[];
-  ordonnance_draft: {
-    remarques: string | null;
-    medicaments: Array<{
-      medicament_externe_id: string;
-      nom_medicament: string;
-      dosage: string | null;
-      posologie: string;
-      duree_traitement: string | null;
-      instructions: string | null;
-      justification: string;
-    }>;
-  };
-} {
-  if (!recommendation || typeof recommendation !== "object") {
-    return false;
-  }
-
-  return (
-    "label" in recommendation &&
-    "rationale" in recommendation &&
-    "warnings" in recommendation &&
-    "ordonnance_draft" in recommendation
-  );
-}
-
-function isMedicationSuggestion(
-  recommendation: unknown,
-): recommendation is MedicationSuggestionResultItem {
-  if (!recommendation || typeof recommendation !== "object") {
-    return false;
-  }
-
-  return (
-    "medicament_externe_id" in recommendation &&
-    "nom_medicament" in recommendation &&
-    "posologie" in recommendation &&
-    "justification" in recommendation
-  );
-}
 
 function selectLatestExamen<
   T extends {
@@ -736,7 +691,7 @@ export function AIAssistantPanel() {
     };
   };
 
-  const buildOrdonnanceResponse = (
+const buildOrdonnanceResponse = (
     result: OrdonnanceGenerationResult,
     source: {
       patientId: string;
@@ -744,18 +699,113 @@ export function AIAssistantPanel() {
       rendezVousId: string | null;
     },
   ): AssistantResponsePayload => {
-    const primaryRecommendation = result.recommendations.find((item) =>
-      isOrdonnanceViewRecommendation(item),
-    );
-
-    if (
-      !primaryRecommendation ||
-      !isOrdonnanceViewRecommendation(primaryRecommendation)
-    ) {
+    if (result.status === "blocked" || !result.ordonnance_draft) {
+      const legacyResult = result as unknown as {
+        recommendations?: Array<{
+          rank: number;
+          label: string;
+          rationale: string;
+          warnings: string[];
+          ordonnance_draft?: {
+            remarques?: string | null;
+            medicaments?: Array<{
+              medicament_externe_id: string;
+              nom_medicament: string;
+              dci?: string | null;
+              dosage?: string | null;
+              posologie?: string;
+              duree_traitement?: string | null;
+              instructions?: string | null;
+              justification?: string;
+            }>;
+          };
+        }>;
+        clinical_problem_basis?: { chief_problem: string };
+        global_warnings?: string[];
+      };
+      if (legacyResult.recommendations?.length ?? 0 > 0) {
+        const rec = legacyResult.recommendations![0];
+        if (rec.ordonnance_draft?.medicaments?.length ?? 0 > 0) {
+          const prescription = rec.ordonnance_draft!;
+          const primaryRecommendation = {
+            label: legacyResult.clinical_problem_basis?.chief_problem ?? "Recommandation",
+            rationale: rec.rationale,
+            warnings: rec.warnings ?? [],
+            ordonnance_draft: {
+              remarques: prescription.remarques ?? null,
+              medicaments: prescription.medicaments!.slice(0, 3).map((item) => ({
+                medicament_externe_id: item.medicament_externe_id,
+                nom_medicament: item.nom_medicament,
+                dci: item.dci ?? null,
+                dosage: item.dosage ?? null,
+                posologie: item.posologie ?? "A definir",
+                duree_traitement: item.duree_traitement ?? null,
+                instructions: item.instructions ?? null,
+                justification: item.justification ?? "",
+              })),
+            },
+          };
+          const medicationSummary = primaryRecommendation.ordonnance_draft.medicaments
+            .slice(0, 3)
+            .map(
+              (item) =>
+                `${item.nom_medicament}${item.dosage ? ` ${item.dosage}` : ""}`,
+            )
+            .join(", ");
+          const durationSummary =
+            primaryRecommendation.ordonnance_draft.medicaments.find(
+              (item) => item.duree_traitement,
+            )?.duree_traitement ?? null;
+return {
+            done: "Ordonnance preparee selon le diagnostic et les contraintes du patient.",
+            card: {
+              title: "Ordonnance generee",
+              description: durationSummary
+                ? `${medicationSummary}, ${durationSummary}`
+                : medicationSummary,
+              buttonLabel: "Voir l'ordonnance",
+              icon: FileText,
+              view: {
+                type: "ordonnance",
+                payload: {
+                  title: currentContextLabel,
+                  patientId: source.patientId,
+                  suiviId: source.suiviId,
+                  rendezVousId: source.rendezVousId,
+                  clinicalProblem: legacyResult.clinical_problem_basis?.chief_problem ?? rec.label,
+                  label: rec.label,
+                  rationale: rec.rationale,
+                  warnings: rec.warnings ?? [],
+                  globalWarnings: legacyResult.global_warnings ?? [],
+                  remarks: prescription.remarques ?? null,
+                  medications: prescription.medicaments!.slice(0, 3).map((item) => ({
+                    medicament_externe_id: item.medicament_externe_id,
+                    nom_medicament: item.nom_medicament,
+                    dosage: item.dosage ?? null,
+                    posologie: item.posologie ?? "A definir",
+                    duree_traitement: item.duree_traitement ?? null,
+                    instructions: item.instructions ?? null,
+                    justification: item.justification ?? "",
+                  })),
+                  disclaimer: "Aide au brouillon d'ordonnance uniquement. La decision finale et la prescription appartiennent toujours au medecin.",
+                },
+              },
+            },
+          };
+        }
+      }
       throw new Error(
-        "Aucune recommandation fiable n’a pu être produite pour ce contexte.",
+        "Aucune recommandation fiable n'a pu être produite pour ce contexte.",
       );
     }
+
+    const primaryRecommendation = {
+      label: result.clinical_problem_basis.chief_problem,
+      rationale:
+        "Brouillon d'ordonnance construit a partir des candidats medicamenteux les plus pertinents pour le contexte clinique.",
+      warnings: result.global_warnings,
+      ordonnance_draft: result.ordonnance_draft,
+    };
 
     const medicationSummary = primaryRecommendation.ordonnance_draft.medicaments
       .slice(0, 3)
@@ -793,78 +843,6 @@ export function AIAssistantPanel() {
             globalWarnings: result.global_warnings,
             remarks: primaryRecommendation.ordonnance_draft.remarques,
             medications: primaryRecommendation.ordonnance_draft.medicaments,
-            disclaimer: result.disclaimer,
-          },
-        },
-      },
-    };
-  };
-
-  const buildOrdonnanceResponseFromMedicationSuggestions = (
-    result: OrdonnanceGenerationResult,
-    source: {
-      patientId: string;
-      suiviId: string;
-      rendezVousId: string | null;
-    },
-  ): AssistantResponsePayload => {
-    const suggestions = result.recommendations
-      .filter(isMedicationSuggestion)
-      .slice(0, 3);
-
-    if (suggestions.length === 0) {
-      throw new Error(
-        "Aucune recommandation fiable n’a pu être produite pour ce contexte.",
-      );
-    }
-
-    const sharedWarnings = [
-      ...new Set([
-        ...result.global_warnings,
-        ...suggestions.flatMap((item) => item.warnings),
-      ]),
-    ];
-
-    const medications = suggestions.map((item) => ({
-      medicament_externe_id: item.medicament_externe_id,
-      nom_medicament: item.nom_medicament,
-      dosage: item.dosage,
-      dci: item.dci,
-      posologie: item.posologie,
-      duree_traitement: item.duree_traitement,
-      instructions: item.instructions,
-      justification: item.justification,
-    }));
-
-    const medicationSummary = medications
-      .map(
-        (item) => `${item.nom_medicament}${item.dosage ? ` ${item.dosage}` : ""}`,
-      )
-      .join(", ");
-
-    return {
-      done: "Ordonnance preparee a partir des suggestions medicamenteuses les plus pertinentes pour ce patient.",
-      card: {
-        title: "Ordonnance generee",
-        description: medicationSummary,
-        buttonLabel: "Voir l'ordonnance",
-        icon: FileText,
-        view: {
-          type: "ordonnance",
-          payload: {
-            title: currentContextLabel,
-            patientId: source.patientId,
-            suiviId: source.suiviId,
-            rendezVousId: source.rendezVousId,
-            clinicalProblem: result.clinical_problem_basis.chief_problem,
-            label: "Ordonnance assistee par l'IA",
-            rationale:
-              "Cette proposition a ete reconstruite a partir des suggestions medicamenteuses les plus pertinentes pour le contexte clinique courant.",
-            warnings: sharedWarnings.slice(0, 6),
-            globalWarnings: sharedWarnings,
-            remarks:
-              "Verifier la priorisation, les interactions et la posologie finale avant validation.",
-            medications,
             disclaimer: result.disclaimer,
           },
         },
@@ -975,15 +953,6 @@ export function AIAssistantPanel() {
       task: async () => {
         const { suivi, examen, patientId } = await resolveFreshClinicalContext();
 
-        if (
-          patientId &&
-          (suivisQuery.isLoading || examensQuery.isLoading)
-        ) {
-          return {
-            done: "Le contexte patient est en cours de chargement. Reessayez dans un instant.",
-          };
-        }
-
         if (!patientId || !suivi) {
           return {
             done: "Ce cas necessite le contexte d'un patient ouvert pour produire une hypothese diagnostique fiable.",
@@ -1011,15 +980,6 @@ export function AIAssistantPanel() {
         const { patientId, suivi, examen, rendezVous } =
           await resolveFreshClinicalContext();
 
-        if (
-          patientId &&
-          (suivisQuery.isLoading || examensQuery.isLoading)
-        ) {
-          return {
-            done: "Le contexte patient est en cours de chargement. Reessayez dans un instant.",
-          };
-        }
-
         if (!patientId || !suivi) {
           return {
             done: "Ce cas necessite le contexte d'un patient ouvert pour generer une ordonnance assistee.",
@@ -1041,43 +1001,20 @@ export function AIAssistantPanel() {
         }
 
         const result =
-          await trpcClient.ai.ordonnanceRecommendation.generate.mutate({
+          await trpcClient.ai.ordonnanceRecommendation.generateOrdonnance.mutate({
             suivi_id: suivi.id,
             examen_id: examen?.id,
             include_historical_context: true,
             max_historical_suivis: 5,
             max_historical_treatments: 8,
             clinical_problem_override: clinicalProblemOverride,
-            response_mode: "ordonnance",
           });
 
-        if (result.recommendations.some(isOrdonnanceViewRecommendation)) {
-          return buildOrdonnanceResponse(result, {
-            patientId,
-            suiviId: suivi.id,
-            rendezVousId: rendezVous?.id ?? null,
-          });
-        }
-
-        const medicationFallback =
-          await trpcClient.ai.ordonnanceRecommendation.generate.mutate({
-            suivi_id: suivi.id,
-            examen_id: examen?.id,
-            include_historical_context: true,
-            max_historical_suivis: 5,
-            max_historical_treatments: 8,
-            clinical_problem_override: clinicalProblemOverride,
-            response_mode: "medicaments",
-          });
-
-        return buildOrdonnanceResponseFromMedicationSuggestions(
-          medicationFallback,
-          {
-            patientId,
-            suiviId: suivi.id,
-            rendezVousId: rendezVous?.id ?? null,
-          },
-        );
+        return buildOrdonnanceResponse(result, {
+          patientId,
+          suiviId: suivi.id,
+          rendezVousId: rendezVous?.id ?? null,
+        });
       },
     });
   };

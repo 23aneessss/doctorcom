@@ -58,7 +58,17 @@ function PatientsPage() {
     null,
   );
 
-  const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
+  const patientsQuery = useQuery(
+    trpc.patient.searchPatients.queryOptions(
+      {},
+      {
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        staleTime: 60_000,
+      },
+    ),
+  );
   const createPatientMutation = useMutation(
     trpc.patient.createPatient.mutationOptions(),
   );
@@ -165,6 +175,10 @@ function PatientsPage() {
     setFilterValue("all");
   };
 
+  const handleRetryPatients = () => {
+    void patientsQuery.refetch();
+  };
+
   return (
     <div className={styles.pageShell}>
       <Sidebar currentUser={sidebarUser} />
@@ -197,6 +211,13 @@ function PatientsPage() {
               <p className={styles.statusDescription}>
                 {patientsQuery.error.message}
               </p>
+              <button
+                type="button"
+                className={styles.statusActionButton}
+                onClick={handleRetryPatients}
+              >
+                Reessayer
+              </button>
             </div>
           ) : filteredPatients.length === 0 ? (
             <div className={styles.statusBox}>

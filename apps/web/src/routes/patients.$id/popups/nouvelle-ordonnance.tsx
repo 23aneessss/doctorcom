@@ -1280,10 +1280,10 @@ export function NouvelleOrdonnanceDialog({
                       id: crypto.randomUUID(),
                       medicament_externe_id: item.medicament_externe_id,
                       nom_medicament: item.nom_medicament,
-                      dosage: "",
-                      posologie: "",
-                      duree_traitement: "",
-                      instructions: "",
+                      dosage: item.dosage ?? "",
+                      posologie: item.posologie ?? "",
+                      duree_traitement: item.duree_traitement ?? "",
+                      instructions: item.instructions ?? "",
                     },
                   ]);
                   toast.success(`${item.nom_medicament} ajouté à l'ordonnance`);
@@ -1291,6 +1291,7 @@ export function NouvelleOrdonnanceDialog({
                   setIsRowsDirty(true);
                 }}
                 open={showMedicationAiPanel}
+                suiviId={selectedSuiviId || undefined}
                 suiviLabel={selectedSuiviLabel}
                 variant="side-panel"
               />

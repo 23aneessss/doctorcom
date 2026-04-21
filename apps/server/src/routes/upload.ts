@@ -7,6 +7,7 @@ import { uploadFile } from "@doctor.com/api/infrastructure/storage";
 import { toSimpleFrenchRuntimeMessage } from "@doctor.com/api/trpc/error-messages";
 import { fromNodeHeaders } from "better-auth/node";
 import multer from "multer";
+import { isStorageAvailable } from "../infrastructure/storage-state";
 
 const router = Router();
 
@@ -44,8 +45,22 @@ async function requireUtilisateurId(email: string, res: express.Response): Promi
   return utilisateur.id;
 }
 
+function ensureStorageReady(res: express.Response): boolean {
+  if (isStorageAvailable()) {
+    return true;
+  }
+
+  res.status(503).json({
+    error:
+      "Le stockage des documents est temporairement indisponible. Reessayez dans quelques instants.",
+  });
+  return false;
+}
+
 router.post("/document", upload.single("file"), async (req, res) => {
   try {
+    if (!ensureStorageReady(res)) return;
+
     const session = await requireSession(req, res);
     if (!session) return;
 
@@ -99,6 +114,8 @@ router.post("/document", upload.single("file"), async (req, res) => {
 
 router.post("/lettre", upload.single("file"), async (req, res) => {
   try {
+    if (!ensureStorageReady(res)) return;
+
     const session = await requireSession(req, res);
     if (!session) return;
 
@@ -183,6 +200,8 @@ router.post("/lettre", upload.single("file"), async (req, res) => {
 
 router.post("/certificat", upload.single("file"), async (req, res) => {
   try {
+    if (!ensureStorageReady(res)) return;
+
     const session = await requireSession(req, res);
     if (!session) return;
 

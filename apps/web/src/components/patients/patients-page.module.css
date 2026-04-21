@@ -560,6 +560,25 @@
   font-size: 0.9rem;
 }
 
+.statusActionButton {
+  border: 1px solid var(--patients-border);
+  border-radius: 0.6rem;
+  background: var(--patients-white);
+  color: var(--patients-dark-blue);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.statusActionButton:hover,
+.statusActionButton:focus-visible {
+  border-color: var(--patients-focus-stroke);
+  box-shadow: inset 0 0 0 1px var(--patients-focus-stroke);
+  background: color-mix(in srgb, var(--patients-white) 94%, var(--patients-light-blue));
+  outline: none;
+}
+
 .cardBadges {
   display: inline-flex;
   align-items: center;

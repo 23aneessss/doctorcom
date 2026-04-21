@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { embed, generateText } from "ai";
 import { env } from "@doctor.com/env/server";
 
 import { mapGeminiProviderError } from "./errors";
@@ -22,6 +22,9 @@ export interface GeminiTextGenerationInput {
   timeoutMs?: number;
   temperature?: number;
 }
+
+export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-001" as const;
+export const GEMINI_EMBEDDING_DIMENSIONS = 3072 as const;
 
 export function resolveGeminiProvider(): GeminiProviderConfig {
   if (!env.GEMINI_API_KEY) {
@@ -65,4 +68,31 @@ export async function generateGeminiText(
   } catch (error) {
     throw mapGeminiProviderError(error);
   }
+}
+
+export async function generateGeminiEmbedding(
+  value: string,
+): Promise<number[]> {
+  if (!env.GEMINI_API_KEY) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Le service d'aide medicale n'est pas disponible pour le moment.",
+    });
+  }
+
+  const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+  const result = await embed({
+    model: google.textEmbedding(GEMINI_EMBEDDING_MODEL),
+    value,
+    maxRetries: 0,
+  });
+
+  if (result.embedding.length !== GEMINI_EMBEDDING_DIMENSIONS) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Dimension d'embedding inattendue pour Gemini.",
+    });
+  }
+
+  return result.embedding;
 }
