@@ -4,6 +4,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FilePlus2,
@@ -16,7 +18,7 @@ import {
   SquarePen,
 } from "lucide-react";
 import type { CSSProperties } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import plusIcon from "@/assets/icons/+.svg";
@@ -61,6 +63,8 @@ type PreRempliCardItem = {
   searchableText: string;
 };
 
+const RECENT_ORDONNANCES_PAGE_SIZE = 6;
+
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
   const sessionUser = session?.data?.user;
@@ -74,6 +78,7 @@ function RouteComponent() {
       : undefined;
 
   const [searchValue, setSearchValue] = useState("");
+  const [recentOrdonnancesPage, setRecentOrdonnancesPage] = useState(0);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
     null,
@@ -206,9 +211,28 @@ function RouteComponent() {
     );
   }, [normalizedSearch, recentOrdonnances]);
 
+  useEffect(() => {
+    setRecentOrdonnancesPage(0);
+  }, [normalizedSearch]);
+
+  const recentOrdonnancesPageCount = Math.max(
+    1,
+    Math.ceil(filteredRecentOrdonnances.length / RECENT_ORDONNANCES_PAGE_SIZE),
+  );
+
+  useEffect(() => {
+    setRecentOrdonnancesPage((current) =>
+      Math.min(current, recentOrdonnancesPageCount - 1),
+    );
+  }, [recentOrdonnancesPageCount]);
+
   const visibleRecentOrdonnances = useMemo(
-    () => filteredRecentOrdonnances.slice(0, 6),
-    [filteredRecentOrdonnances],
+    () =>
+      filteredRecentOrdonnances.slice(
+        recentOrdonnancesPage * RECENT_ORDONNANCES_PAGE_SIZE,
+        (recentOrdonnancesPage + 1) * RECENT_ORDONNANCES_PAGE_SIZE,
+      ),
+    [filteredRecentOrdonnances, recentOrdonnancesPage],
   );
 
   const filteredPreRemplis = useMemo(() => {
@@ -396,16 +420,42 @@ function RouteComponent() {
                   icon={<Files className="size-[17px] text-[#265284]" />}
                   title="Ordonnances récentes"
                 />
-                <span className="rounded-full border border-[#d9edf7] bg-[#f8fbff] px-3 py-1 font-['Inter'] text-[12px] font-medium text-[#5d7b96]">
-                  {visibleRecentOrdonnances.length} affichées
-                </span>
+                <div className="flex items-center gap-2 rounded-full border border-[#d9edf7] bg-[#f8fbff] p-1">
+                  <button
+                    aria-label="Voir les ordonnances précédentes"
+                    className="inline-flex size-[34px] items-center justify-center rounded-full text-[#5d7b96] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                    disabled={recentOrdonnancesPage === 0}
+                    onClick={() =>
+                      setRecentOrdonnancesPage((current) =>
+                        Math.max(0, current - 1),
+                      )
+                    }
+                    type="button"
+                  >
+                    <ChevronLeft className="size-[18px]" strokeWidth={2.2} />
+                  </button>
+                  <button
+                    aria-label="Voir les ordonnances suivantes"
+                    className="inline-flex size-[34px] items-center justify-center rounded-full text-[#5d7b96] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                    disabled={recentOrdonnancesPage >= recentOrdonnancesPageCount - 1}
+                    onClick={() =>
+                      setRecentOrdonnancesPage((current) =>
+                        Math.min(recentOrdonnancesPageCount - 1, current + 1),
+                      )
+                    }
+                    type="button"
+                  >
+                    <ChevronRight className="size-[18px]" strokeWidth={2.2} />
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
-                <div className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
+                <div className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
                   <TableHeadCell>PATIENT</TableHeadCell>
                   <TableHeadCell className="text-center">DATE</TableHeadCell>
                   <TableHeadCell className="text-center">TYPE</TableHeadCell>
+                  <div aria-hidden="true" />
                   <TableHeadCell className="text-center">ACTIONS</TableHeadCell>
                 </div>
 
@@ -414,18 +464,19 @@ function RouteComponent() {
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[16px] border border-[#e6f1f8] bg-white px-4 py-[11px]"
+                        className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="size-[46px] rounded-full bg-[#edf5fb]" />
+                        <div className="flex items-center gap-2.5">
+                          <div className="size-[40px] rounded-full bg-[#edf5fb]" />
                           <div className="space-y-2">
-                            <div className="h-4 w-[138px] rounded-full bg-[#edf5fb]" />
-                            <div className="h-3 w-[80px] rounded-full bg-[#edf5fb]" />
+                            <div className="h-3.5 w-[128px] rounded-full bg-[#edf5fb]" />
+                            <div className="h-2.5 w-[72px] rounded-full bg-[#edf5fb]" />
                           </div>
                         </div>
-                        <div className="h-4 w-[92px] rounded-full bg-[#edf5fb]" />
-                        <div className="h-4 w-[74px] rounded-full bg-[#edf5fb]" />
-                        <div className="h-9 w-[126px] rounded-[12px] bg-[#edf5fb]" />
+                        <div className="mx-auto h-3.5 w-[92px] rounded-full bg-[#edf5fb]" />
+                        <div className="mx-auto h-3.5 w-[74px] rounded-full bg-[#edf5fb]" />
+                        <div aria-hidden="true" />
+                        <div className="mx-auto h-8 w-[118px] rounded-[12px] bg-[#edf5fb]" />
                       </div>
                     ))}
                   </div>
@@ -438,20 +489,20 @@ function RouteComponent() {
                     {visibleRecentOrdonnances.map((ordonnance) => (
                       <article
                         key={ordonnance.id}
-                        className="grid grid-cols-[minmax(0,1.5fr)_148px_136px_178px] items-center gap-5 rounded-[16px] border border-[#dbeaf4] bg-white px-4 py-[11px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
+                        className="grid grid-cols-[minmax(0,480px)_154px_140px_minmax(28px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
                       >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="inline-flex size-[46px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[16px] font-bold tracking-[-0.03em] text-[#5b84a0]">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[14px] font-bold tracking-[-0.03em] text-[#5b84a0]">
                             {buildInitials(ordonnance.patientName)}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate font-['Poppins'] text-[16px] font-semibold leading-[22px] text-[#0f3460]">
+                            <p className="truncate font-['Poppins'] text-[14px] font-semibold leading-[19px] text-[#0f3460]">
                               {ordonnance.patientName}
                             </p>
-                            <p className="mt-0.5 truncate font-['Inter'] text-[12px] font-semibold leading-[17px] text-[#365a78]">
+                            <p className="mt-0.5 truncate font-['Inter'] text-[11px] font-semibold leading-[15px] text-[#365a78]">
                               #{ordonnance.patientMatricule || "Sans matricule"}
                             </p>
-                            <p className="mt-1 truncate font-['Inter'] text-[11px] leading-[16px] text-[#6d879d]">
+                            <p className="mt-0.5 truncate font-['Inter'] text-[10px] leading-[14px] text-[#6d879d]">
                               {ordonnance.medicaments.length} médicament
                               {ordonnance.medicaments.length > 1 ? "s" : ""}
                               {ordonnance.medicaments[0]?.nom_medicament
@@ -461,8 +512,8 @@ function RouteComponent() {
                           </div>
                         </div>
 
-                        <div className="mx-auto inline-flex w-fit items-center gap-2 rounded-full border border-[#dcecf6] bg-[#f8fbff] px-2.5 py-1.5 font-['Poppins'] text-[12px] font-medium leading-[18px] text-[#5d728a]">
-                          <CalendarDays className="size-[14px] text-[#6d8297]" />
+                        <div className="mx-auto inline-flex w-fit items-center gap-1.5 rounded-full border border-[#dcecf6] bg-[#f8fbff] px-2.5 py-1 font-['Poppins'] text-[11px] font-medium leading-[16px] text-[#5d728a]">
+                          <CalendarDays className="size-[13px] text-[#6d8297]" />
                           <span>{formatDisplayDate(ordonnance.date)}</span>
                         </div>
 
@@ -470,25 +521,27 @@ function RouteComponent() {
                           <OrdonnanceTypeBadge type={ordonnance.type} />
                         </div>
 
-                        <div className="flex items-center justify-center gap-2 rounded-[14px] border border-[#e4eef5] bg-[#fbfdff] px-2.5 py-1.5">
+                        <div aria-hidden="true" />
+
+                        <div className="flex items-center justify-center gap-2">
                           <ActionIconButton
                             ariaLabel="Voir l'ordonnance"
-                            icon={<Eye className="size-[13px]" strokeWidth={1.9} />}
+                            icon={<Eye className="size-[13px]" strokeWidth={2} />}
                             onClick={() => void handleViewOrdonnance(ordonnance.id)}
                           />
                           <ActionIconButton
                             ariaLabel="Modifier l'ordonnance"
-                            icon={<Pencil className="size-[13px]" strokeWidth={1.9} />}
+                            icon={<Pencil className="size-[13px]" strokeWidth={2} />}
                             onClick={handleEditOrdonnance}
                           />
                           <ActionIconButton
                             ariaLabel="Imprimer l'ordonnance"
-                            icon={<Printer className="size-[13px]" strokeWidth={1.9} />}
+                            icon={<Printer className="size-[13px]" strokeWidth={2} />}
                             onClick={() => void handleViewOrdonnance(ordonnance.id)}
                           />
                           <ActionIconButton
                             ariaLabel="Télécharger l'ordonnance"
-                            icon={<Download className="size-[13px]" strokeWidth={1.9} />}
+                            icon={<Download className="size-[13px]" strokeWidth={2} />}
                             onClick={() =>
                               void handleDownloadOrdonnance(ordonnance.id)
                             }
@@ -632,7 +685,7 @@ function ActionIconButton(props: {
   return (
     <button
       aria-label={props.ariaLabel}
-      className="inline-flex size-[31px] items-center justify-center rounded-[9px] border border-[#d7e7f2] bg-white text-[#f77a21] shadow-[0px_6px_12px_-12px_rgba(15,52,96,0.24)] transition-[transform,background-color,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#c0d9e8] hover:bg-[#f8fbff] hover:shadow-[0px_12px_18px_-16px_rgba(15,52,96,0.32)]"
+      className="inline-flex size-[40px] items-center justify-center rounded-[9px] border border-[#d7e7f2] bg-white text-[#f77a21] shadow-[0px_6px_12px_-12px_rgba(15,52,96,0.24)] transition-[transform,background-color,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#c0d9e8] hover:bg-white hover:shadow-[0px_12px_18px_-16px_rgba(15,52,96,0.32)]"
       onClick={props.onClick}
       type="button"
     >
@@ -668,7 +721,7 @@ function OrdonnanceTypeBadge(props: {
 
   return (
     <span
-      className={`inline-flex h-[28px] w-fit items-center gap-1.5 rounded-full border px-[11px] font-['Inter'] text-[10.5px] font-semibold ${config.className}`}
+      className={`inline-flex h-[26px] w-fit items-center gap-1 rounded-full border px-[10px] font-['Inter'] text-[10px] font-semibold ${config.className}`}
     >
       {config.icon}
       <span>{config.label}</span>
