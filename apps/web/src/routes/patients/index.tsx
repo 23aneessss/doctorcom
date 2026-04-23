@@ -1,6 +1,7 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -19,8 +20,9 @@ import type {
 import styles from "@/components/patients/patients-page.module.css";
 import {
   NouveauPatientDialog,
-  type NouveauPatientFormValues,
-} from "@/routes/patients/popups/nouveau-patient";
+  type NouveauPatientSubmissionValues,
+} from "@/components/patients/popups/nouveau-patient-dialog";
+import { PatientCreatedSuccessModal } from "../../components/patients/popups/patient-created-success-modal";
 
 import { requireSession } from "@/lib/require-session";
 
@@ -39,7 +41,7 @@ type PatientRecord = SearchPatientsOutput[number];
 function PatientsPage() {
   const navigate = useNavigate();
   const { session } = Route.useRouteContext();
-  const { trpc } = Route.useRouteContext();
+  const { trpc, queryClient } = Route.useRouteContext();
   const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
@@ -57,11 +59,23 @@ function PatientsPage() {
   const [nouveauPatientError, setNouveauPatientError] = useState<string | null>(
     null,
   );
+  const [createdPatientName, setCreatedPatientName] = useState<string>("");
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
   const createPatientMutation = useMutation(
     trpc.patient.createPatient.mutationOptions(),
   );
+  const addAntecedentMutation = useMutation(
+    trpc.medicalHistory.ajouterAntecedent.mutationOptions(),
+  );
+  const startTreatmentMutation = useMutation(
+    trpc.treatment.startTreatment.mutationOptions(),
+  );
+  const isSubmittingPatientFlow =
+    createPatientMutation.isPending ||
+    addAntecedentMutation.isPending ||
+    startTreatmentMutation.isPending;
 
   const patients = useMemo<PatientViewModel[]>(() => {
     return (patientsQuery.data ?? []).map((patient) =>
@@ -114,7 +128,7 @@ function PatientsPage() {
     setIsNouveauPatientOpen(false);
   };
 
-  const handleAddNow = async (values: NouveauPatientFormValues) => {
+  const handleSubmitPatient = async (values: NouveauPatientSubmissionValues) => {
     setNouveauPatientError(null);
 
     const dateNaissanceIso = toIsoDate(values.dateNaissance);
@@ -126,7 +140,7 @@ function PatientsPage() {
     }
 
     try {
-      await createPatientMutation.mutateAsync({
+      const createdPatient = await createPatientMutation.mutateAsync({
         patient: {
           nom: values.nom.trim(),
           prenom: values.prenom.trim(),
@@ -142,20 +156,130 @@ function PatientsPage() {
           lieu_naissance: toOptionalText(values.lieuNaissance),
           sexe: toOptionalText(values.sexe),
           nationalite: toOptionalText(values.nationalite),
+          groupe_sanguin: toOptionalText(values.groupeSanguin),
           adresse: toOptionalText(values.adresseComplete),
-          profession: toOptionalText(values.profession),
-          situation_familiale: toOptionalText(values.situationFamiliale),
+          profession: toOptionalText(values.socialProfession) ?? toOptionalText(values.profession),
+          habitudes_saines: toOptionalText(values.habitudesSaines),
+          habitudes_toxiques: toOptionalText(values.habitudesToxiques),
+          nb_enfants: values.nombreEnfants,
+          situation_familiale:
+            toOptionalText(values.socialSituationFamiliale) ??
+            toOptionalText(values.situationFamiliale),
+          age_circoncision: isMale(values.sexe) ? toOptionalInteger(values.ageCirconcision) : undefined,
+          environnement_animal: toOptionalText(values.environnementAnimal),
+          revenu_mensuel: toOptionalText(values.revenuMensuel),
+          taille_menage: values.tailleMenages,
+          nb_pieces: values.nombreDePieces,
+          relations_environnement: toOptionalText(values.relationsEnvironnementales),
         },
       });
 
+      const partialFailures: string[] = [];
+
+      for (const entry of values.personalAntecedents) {
+        if (!entry.type.trim() && !entry.details.trim()) {
+          continue;
+        }
+
+        try {
+          await addAntecedentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            type: "personnel",
+            description: entry.details.trim() || entry.type.trim(),
+            personnel: {
+              type: entry.type.trim(),
+              details: entry.details.trim() || null,
+              est_actif: entry.maladieActive,
+            },
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Antecedent personnel \"${entry.type.trim() || "sans titre"}\": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
+      for (const entry of values.familyAntecedents) {
+        if (!entry.lienParente.trim() && !entry.pathologie.trim()) {
+          continue;
+        }
+
+        try {
+          await addAntecedentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            type: "familial",
+            description: entry.pathologie.trim() || "Antecedent familial",
+            familial: {
+              details: entry.pathologie.trim() || null,
+              lien_parente: entry.lienParente.trim() || null,
+            },
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Antecedent familial \"${entry.lienParente.trim() || "sans lien"}\": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
+      const treatmentsToCreate = values.traitements.filter((entry) =>
+        [entry.medicament, entry.dosage, entry.indication, entry.posologie]
+          .some((field) => field.trim().length > 0),
+      );
+
+      for (const entry of treatmentsToCreate) {
+        if (!entry.medicament.trim() || !entry.posologie.trim()) {
+          partialFailures.push(
+            `Traitement \"${entry.medicament.trim() || "sans medicament"}\": medicament et posologie sont obligatoires.`,
+          );
+          continue;
+        }
+
+        try {
+          const medicationsSearch = await queryClient.fetchQuery(
+            trpc.medicaments.rechercherMedicaments.queryOptions({
+              query: entry.medicament.trim(),
+              page: 1,
+              page_size: 1,
+            }),
+          );
+
+          const matchedMedication = medicationsSearch.items[0];
+          if (!matchedMedication) {
+            partialFailures.push(
+              `Traitement \"${entry.medicament.trim()}\": medicament introuvable dans la base.`,
+            );
+            continue;
+          }
+
+          await startTreatmentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            medicament_externe_id: String(matchedMedication.id),
+            dosage: toOptionalText(entry.dosage) ?? null,
+            posologie: entry.posologie.trim(),
+            date_prescription: new Date().toISOString().slice(0, 10),
+            est_actif: entry.maladieActive,
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Traitement \"${entry.medicament.trim()}\": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
       toast.success("Patient ajoute avec succes.");
+      if (partialFailures.length > 0) {
+        toast.error(
+          `Patient cree, mais certaines donnees n'ont pas ete enregistrees:\n- ${partialFailures.join("\n- ")}`,
+          { duration: 9000 },
+        );
+      }
+
+      setCreatedPatientName([values.nom.trim(), values.prenom.trim()].filter(Boolean).join(" "));
+      setIsSuccessModalOpen(true);
       setIsNouveauPatientOpen(false);
       await patientsQuery.refetch();
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Impossible d'ajouter le patient.";
+      const message = getMutationErrorMessage(error);
       setNouveauPatientError(message);
     }
   };
@@ -234,16 +358,32 @@ function PatientsPage() {
         <NouveauPatientDialog
           open={isNouveauPatientOpen}
           onClose={handleCloseNouveauPatient}
-          isSubmitting={createPatientMutation.isPending}
+          isSubmitting={isSubmittingPatientFlow}
           submitError={nouveauPatientError}
-          onContinue={() => {
-            setIsNouveauPatientOpen(false);
-          }}
-          onAddNow={handleAddNow}
+          onContinue={handleSubmitPatient}
+          onAddNow={handleSubmitPatient}
+        />
+
+        <PatientCreatedSuccessModal
+          open={isSuccessModalOpen}
+          patientName={createdPatientName}
+          onClose={() => setIsSuccessModalOpen(false)}
         />
       </main>
     </div>
   );
+}
+
+function getMutationErrorMessage(error: unknown) {
+  if (error instanceof TRPCClientError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Impossible d'ajouter le patient.";
 }
 
 function toOptionalText(value: string) {

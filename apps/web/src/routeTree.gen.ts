@@ -20,10 +20,12 @@ import { Route as MedicamentIndexRouteImport } from './routes/medicament/index'
 import { Route as AideIndexRouteImport } from './routes/aide/index'
 import { Route as AgendaIndexRouteImport } from './routes/agenda/index'
 import { Route as PatientsIdRouteImport } from './routes/patients.$id'
+import { Route as AideParametresRouteImport } from './routes/aide/parametres'
 import { Route as AideFaqRouteImport } from './routes/aide/faq'
 import { Route as AgendaModifierRouteImport } from './routes/agenda/modifier'
 import { Route as AgendaAjouterRouteImport } from './routes/agenda/ajouter'
 import { Route as PatientsIdIndexRouteImport } from './routes/patients.$id/index'
+import { Route as PatientsPopupsNouveauPatientRouteImport } from './routes/patients/popups/nouveau-patient'
 import { Route as PatientsIdVoyageRouteImport } from './routes/patients.$id/voyage'
 import { Route as PatientsIdVaccinationRouteImport } from './routes/patients.$id/vaccination'
 import { Route as PatientsIdTraitementRouteImport } from './routes/patients.$id/traitement'
@@ -89,6 +91,11 @@ const PatientsIdRoute = PatientsIdRouteImport.update({
   path: '/patients/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AideParametresRoute = AideParametresRouteImport.update({
+  id: '/aide/parametres',
+  path: '/aide/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AideFaqRoute = AideFaqRouteImport.update({
   id: '/aide/faq',
   path: '/aide/faq',
@@ -109,6 +116,12 @@ const PatientsIdIndexRoute = PatientsIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PatientsIdRoute,
 } as any)
+const PatientsPopupsNouveauPatientRoute =
+  PatientsPopupsNouveauPatientRouteImport.update({
+    id: '/patients/popups/nouveau-patient',
+    path: '/patients/popups/nouveau-patient',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PatientsIdVoyageRoute = PatientsIdVoyageRouteImport.update({
   id: '/voyage',
   path: '/voyage',
@@ -164,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/parametres': typeof AideParametresRoute
   '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda/': typeof AgendaIndexRoute
   '/aide/': typeof AideIndexRoute
@@ -179,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/popups/nouveau-patient': typeof PatientsPopupsNouveauPatientRoute
   '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -190,6 +205,7 @@ export interface FileRoutesByTo {
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/parametres': typeof AideParametresRoute
   '/agenda': typeof AgendaIndexRoute
   '/aide': typeof AideIndexRoute
   '/medicament': typeof MedicamentIndexRoute
@@ -204,6 +220,7 @@ export interface FileRoutesByTo {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/popups/nouveau-patient': typeof PatientsPopupsNouveauPatientRoute
   '/patients/$id': typeof PatientsIdIndexRoute
 }
 export interface FileRoutesById {
@@ -216,6 +233,7 @@ export interface FileRoutesById {
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/parametres': typeof AideParametresRoute
   '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda/': typeof AgendaIndexRoute
   '/aide/': typeof AideIndexRoute
@@ -231,6 +249,7 @@ export interface FileRoutesById {
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
   '/patients/$id/vaccination': typeof PatientsIdVaccinationRoute
   '/patients/$id/voyage': typeof PatientsIdVoyageRoute
+  '/patients/popups/nouveau-patient': typeof PatientsPopupsNouveauPatientRoute
   '/patients/$id/': typeof PatientsIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -244,6 +263,7 @@ export interface FileRouteTypes {
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
+    | '/aide/parametres'
     | '/patients/$id'
     | '/agenda/'
     | '/aide/'
@@ -259,6 +279,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/popups/nouveau-patient'
     | '/patients/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -270,6 +291,7 @@ export interface FileRouteTypes {
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
+    | '/aide/parametres'
     | '/agenda'
     | '/aide'
     | '/medicament'
@@ -284,6 +306,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/popups/nouveau-patient'
     | '/patients/$id'
   id:
     | '__root__'
@@ -295,6 +318,7 @@ export interface FileRouteTypes {
     | '/agenda/ajouter'
     | '/agenda/modifier'
     | '/aide/faq'
+    | '/aide/parametres'
     | '/patients/$id'
     | '/agenda/'
     | '/aide/'
@@ -310,6 +334,7 @@ export interface FileRouteTypes {
     | '/patients/$id/traitement'
     | '/patients/$id/vaccination'
     | '/patients/$id/voyage'
+    | '/patients/popups/nouveau-patient'
     | '/patients/$id/'
   fileRoutesById: FileRoutesById
 }
@@ -322,12 +347,14 @@ export interface RootRouteChildren {
   AgendaAjouterRoute: typeof AgendaAjouterRoute
   AgendaModifierRoute: typeof AgendaModifierRoute
   AideFaqRoute: typeof AideFaqRoute
+  AideParametresRoute: typeof AideParametresRoute
   PatientsIdRoute: typeof PatientsIdRouteWithChildren
   AgendaIndexRoute: typeof AgendaIndexRoute
   AideIndexRoute: typeof AideIndexRoute
   MedicamentIndexRoute: typeof MedicamentIndexRoute
   OrdonnanceIndexRoute: typeof OrdonnanceIndexRoute
   PatientsIndexRoute: typeof PatientsIndexRoute
+  PatientsPopupsNouveauPatientRoute: typeof PatientsPopupsNouveauPatientRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -409,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aide/parametres': {
+      id: '/aide/parametres'
+      path: '/aide/parametres'
+      fullPath: '/aide/parametres'
+      preLoaderRoute: typeof AideParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aide/faq': {
       id: '/aide/faq'
       path: '/aide/faq'
@@ -436,6 +470,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/patients/$id/'
       preLoaderRoute: typeof PatientsIdIndexRouteImport
       parentRoute: typeof PatientsIdRoute
+    }
+    '/patients/popups/nouveau-patient': {
+      id: '/patients/popups/nouveau-patient'
+      path: '/patients/popups/nouveau-patient'
+      fullPath: '/patients/popups/nouveau-patient'
+      preLoaderRoute: typeof PatientsPopupsNouveauPatientRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/patients/$id/voyage': {
       id: '/patients/$id/voyage'
@@ -542,12 +583,14 @@ const rootRouteChildren: RootRouteChildren = {
   AgendaAjouterRoute: AgendaAjouterRoute,
   AgendaModifierRoute: AgendaModifierRoute,
   AideFaqRoute: AideFaqRoute,
+  AideParametresRoute: AideParametresRoute,
   PatientsIdRoute: PatientsIdRouteWithChildren,
   AgendaIndexRoute: AgendaIndexRoute,
   AideIndexRoute: AideIndexRoute,
   MedicamentIndexRoute: MedicamentIndexRoute,
   OrdonnanceIndexRoute: OrdonnanceIndexRoute,
   PatientsIndexRoute: PatientsIndexRoute,
+  PatientsPopupsNouveauPatientRoute: PatientsPopupsNouveauPatientRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
