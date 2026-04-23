@@ -1,77 +1,114 @@
-import { Eye, Paperclip, Pencil, Trash2 } from "lucide-react";
+import linkOutlineIcon from "./0bfcd7686f0dd9db316efa2ed4de20daa139f9e4.svg";
+import linkSlashIcon from "./b5bd840c227881f698eab2cc9f4278fed5a208ec.svg";
+import eyeIcon from "./158f0a8159edfb6da48fd13114421bbe48fb7682.svg";
+import pencilIcon from "./80bad5cc01254c23b6c35b19fee9da9ff831e85a.svg";
+import trashOutlineIcon from "./5f90c638bf7814caa6931545573b2fc3f2f3bdd9.svg";
+import trashTopIcon from "./b2c2d57769ae703dd073c007161e49736bdc644b.svg";
+import trashLidIcon from "./d3e51cd57aa6028f083904e9eb1b0d0603abff6b.svg";
+import trashLineIcon from "./c4138c8bc8da2374075c67f126a8da57c7a2feb4.svg";
 
 type MedicationCardProps = {
+  id: number;
   name: string;
   scientificName: string;
   primaryTag: string;
   secondaryTag: string;
   condition: string;
+  onView: (id: number) => void;
+  onEdit: (id: number) => void;
+  onDelete: (id: number) => void;
+  isDeleting?: boolean;
 };
 
 export function MedicationCard({
+  id,
   name,
   scientificName,
   primaryTag,
   secondaryTag,
   condition,
+  onView,
+  onEdit,
+  onDelete,
+  isDeleting = false,
 }: MedicationCardProps) {
   return (
-    <article className="flex h-[239px] w-[335px] flex-col rounded-[14px] border border-[#CBE4F1] bg-white px-[13px] pb-[13px] pt-[15px] shadow-[0px_10px_22px_rgba(118,187,221,0.16)]">
-      <div className="mb-[10px] flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate font-['Inter'] text-[18px] font-semibold leading-[1.1] text-[#0F3460]">
+    <article className="flex h-[239px] w-[335px] flex-col gap-[11px] overflow-hidden rounded-[16px] border border-[#C2E0EF] bg-white p-[20px] shadow-[0px_4px_20px_rgba(194,224,239,0.5)]">
+      <div className="flex h-[49px] items-start justify-between gap-[12px]">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[17px] font-bold leading-[25.5px] text-[#0F3460]">
             {name}
           </h3>
-          <p className="mt-[5px] font-['Inter'] text-[12px] font-normal leading-none text-[#8AA3C7]">
+          <p className="mt-[4px] truncate font-['Plus_Jakarta_Sans'] text-[13px] font-normal leading-[19.5px] text-[#052CA0] opacity-70">
             {scientificName}
           </p>
         </div>
 
         <button
           type="button"
-          className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-[#F3F9FD]"
+          className="relative flex size-[40px] shrink-0 items-center justify-center rounded-[10px] bg-[rgba(194,224,239,0.2)]"
         >
-          <Paperclip className="size-[16px] text-[#174AA8]" strokeWidth={2.3} />
+          <div className="relative size-[20px]">
+            <img alt="" aria-hidden="true" className="absolute inset-[1.68px] size-[16.64px] max-w-none" src={linkOutlineIcon} />
+            <img alt="" aria-hidden="true" className="absolute inset-[6.67px] size-[6.66px] max-w-none" src={linkSlashIcon} />
+          </div>
         </button>
       </div>
 
-      <div className="mb-[12px] flex flex-wrap gap-[8px]">
-        <span className="rounded-[7px] bg-[#173FB8] px-[11px] py-[6px] font-['Inter'] text-[12px] font-medium leading-none text-white">
+      <div className="flex max-w-full min-w-0 items-center gap-[7px] overflow-hidden">
+        <span className="min-w-0 max-w-[140px] truncate rounded-[8px] bg-[#052CA0] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-white">
           {primaryTag}
         </span>
-        <span className="rounded-[7px] border border-[#CBE2F0] bg-white px-[11px] py-[6px] font-['Inter'] text-[12px] font-medium leading-none text-[#173FB8]">
+        <span className="min-w-0 max-w-[130px] truncate rounded-[8px] border border-[#C2E0EF] bg-[#FFFDFB] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-[#052CA0]">
           {secondaryTag}
         </span>
       </div>
 
-      <p className="mb-[16px] font-['Inter'] text-[16px] font-normal leading-[1.15] text-[#1F4CC3]">
+      <p
+        className="max-w-[225.667px] overflow-hidden break-words font-['Plus_Jakarta_Sans'] text-[14px] font-normal leading-[22.75px] text-[#052CA0]"
+        style={{
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 2,
+        }}
+      >
         {condition}
       </p>
 
-      <div className="mt-auto border-t border-[#E6F0F6] pt-[12px]">
-        <div className="flex items-center gap-[8px]">
-          <button
-            type="button"
-            className="flex h-[36px] flex-1 items-center justify-center gap-[7px] rounded-[10px] bg-[#F3F9FD] font-['Inter'] text-[14px] font-normal text-[#173FB8]"
-          >
-            <Eye className="size-[14px]" strokeWidth={2.1} />
+      <div className="mt-auto flex h-[53px] items-center gap-[8px] border-t-[0.667px] border-[#C2E0EF] pt-[0.667px]">
+        <button
+          type="button"
+          onClick={() => onView(id)}
+          className="flex h-[36px] w-[196.333px] items-center justify-center gap-[8px] rounded-[10px] bg-[rgba(194,224,239,0.2)] px-[39px] py-[8px]"
+        >
+          <img alt="" aria-hidden="true" className="size-[16px]" src={eyeIcon} />
+          <span className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-[20px] text-[#052CA0]">
             Voir
-          </button>
+          </span>
+        </button>
 
-          <button
-            type="button"
-            className="flex size-[36px] items-center justify-center rounded-[10px] border border-[#F5D1AF] bg-white text-[#FF8A1F]"
-          >
-            <Pencil className="size-[14px]" strokeWidth={2.15} />
-          </button>
+        <button
+          type="button"
+          onClick={() => onEdit(id)}
+          className="flex h-[33.333px] w-[41.333px] items-center justify-center rounded-[10px] border border-[#052CA0] bg-[#FFFDFB]"
+        >
+          <img alt="" aria-hidden="true" className="size-[14.666px]" src={pencilIcon} />
+        </button>
 
-          <button
-            type="button"
-            className="flex size-[36px] items-center justify-center rounded-[10px] border border-[#F5D1AF] bg-white text-[#FF8A1F]"
-          >
-            <Trash2 className="size-[14px]" strokeWidth={2.05} />
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={isDeleting}
+          onClick={() => onDelete(id)}
+          className="flex h-[33.333px] w-[41.333px] items-center justify-center rounded-[10px] border border-[#052CA0] bg-[#FFFDFB]"
+        >
+          <div className="relative size-[16px]">
+            <img alt="" aria-hidden="true" className="absolute left-[2px] top-[4px] h-[12px] w-[10.667px] max-w-none" src={trashOutlineIcon} />
+            <img alt="" aria-hidden="true" className="absolute left-[3.333px] top-[4px] h-[4px] w-[6.667px] max-w-none" src={trashTopIcon} />
+            <img alt="" aria-hidden="true" className="absolute left-[1.333px] top-[1.333px] h-[1.333px] w-[13.333px] max-w-none" src={trashLidIcon} />
+            <img alt="" aria-hidden="true" className="absolute left-[6.667px] top-[7.333px] h-[5.333px] w-[1.333px] max-w-none" src={trashLineIcon} />
+            <img alt="" aria-hidden="true" className="absolute left-[8.667px] top-[7.333px] h-[5.333px] w-[1.333px] max-w-none" src={trashLineIcon} />
+          </div>
+        </button>
       </div>
     </article>
   );
