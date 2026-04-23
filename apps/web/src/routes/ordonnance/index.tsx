@@ -7,17 +7,18 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Download,
   Eye,
   FilePlus2,
   FileStack,
   Files,
+  Loader2,
   Pencil,
   Plus,
   Printer,
   Search,
   Sparkles,
   SquarePen,
+  X,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -48,9 +49,11 @@ type PreRempliDetail = RouterOutputs["ordonnance"]["getPreRempliById"];
 type RecentOrdonnanceItem = {
   id: string;
   patientId: string;
+  rendezVousId: string;
   patientName: string;
   patientMatricule: string;
   date: string;
+  remarques: string | null;
   type: "ia" | "preRemplie" | "manuel";
   medicaments: OrdonnanceRow["medicaments"];
 };
@@ -90,6 +93,12 @@ function RouteComponent() {
   const [recentOrdonnancesPage, setRecentOrdonnancesPage] = useState(0);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    null,
+  );
+  const [previewOrdonnanceId, setPreviewOrdonnanceId] = useState<string | null>(
+    null,
+  );
+  const [editingOrdonnanceId, setEditingOrdonnanceId] = useState<string | null>(
     null,
   );
   const normalizedTemplateSearch = templateSearchValue.trim().toLowerCase();
@@ -156,9 +165,11 @@ function RouteComponent() {
           (ordonnance) => ({
             id: ordonnance.id,
             patientId: ordonnance.patient_id,
+            rendezVousId: ordonnance.rendez_vous_id,
             patientName: fullName,
             patientMatricule: patient.matricule ?? "",
             date: ordonnance.date_prescription,
+            remarques: ordonnance.remarques,
             type: inferOrdonnanceType(ordonnance),
             medicaments: ordonnance.medicaments,
           }),
@@ -257,6 +268,11 @@ function RouteComponent() {
     selectedSpecialite,
   ]);
 
+  const previewOrdonnance =
+    recentOrdonnances.find((item) => item.id === previewOrdonnanceId) ?? null;
+  const editingOrdonnance =
+    recentOrdonnances.find((item) => item.id === editingOrdonnanceId) ?? null;
+
   const allQueries = [
     patientsQuery,
     categoriesQuery,
@@ -285,7 +301,7 @@ function RouteComponent() {
     ]);
   };
 
-  const handleViewOrdonnance = async (ordonnanceId: string) => {
+  const handlePrintOrdonnance = async (ordonnanceId: string) => {
     try {
       const payload = await trpcClient.export.exporterOrdonnance.mutate({
         id: ordonnanceId,
@@ -302,26 +318,6 @@ function RouteComponent() {
           : "Impossible d'ouvrir cette ordonnance.";
       toast.error(message);
     }
-  };
-
-  const handleDownloadOrdonnance = async (ordonnanceId: string) => {
-    try {
-      const payload = await trpcClient.export.exporterOrdonnance.mutate({
-        id: ordonnanceId,
-      });
-      downloadBase64Pdf(payload.data, payload.filename, payload.mimeType);
-      toast.success("Ordonnance téléchargée.");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Impossible de télécharger cette ordonnance.";
-      toast.error(message);
-    }
-  };
-
-  const handleEditOrdonnance = () => {
-    toast.info("Le frame de modification arrive à l’étape suivante.");
   };
 
   const handleCreateNewTemplate = () => {
@@ -434,7 +430,7 @@ function RouteComponent() {
               </div>
 
               <div className="overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
-                <div className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
+                <div className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
                   <TableHeadCell>PATIENT</TableHeadCell>
                   <TableHeadCell className="text-center">DATE</TableHeadCell>
                   <TableHeadCell className="text-center">TYPE</TableHeadCell>
@@ -447,7 +443,7 @@ function RouteComponent() {
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
+                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="size-[40px] rounded-full bg-[#edf5fb]" />
@@ -472,7 +468,7 @@ function RouteComponent() {
                     {visibleRecentOrdonnances.map((ordonnance) => (
                       <article
                         key={ordonnance.id}
-                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_188px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
+                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[14px] font-bold tracking-[-0.03em] text-[#5b84a0]">
@@ -510,24 +506,17 @@ function RouteComponent() {
                           <ActionIconButton
                             ariaLabel="Voir l'ordonnance"
                             icon={<Eye className="size-[13px]" strokeWidth={2} />}
-                            onClick={() => void handleViewOrdonnance(ordonnance.id)}
+                            onClick={() => setPreviewOrdonnanceId(ordonnance.id)}
                           />
                           <ActionIconButton
                             ariaLabel="Modifier l'ordonnance"
                             icon={<Pencil className="size-[13px]" strokeWidth={2} />}
-                            onClick={handleEditOrdonnance}
+                            onClick={() => setEditingOrdonnanceId(ordonnance.id)}
                           />
                           <ActionIconButton
                             ariaLabel="Imprimer l'ordonnance"
                             icon={<Printer className="size-[13px]" strokeWidth={2} />}
-                            onClick={() => void handleViewOrdonnance(ordonnance.id)}
-                          />
-                          <ActionIconButton
-                            ariaLabel="Télécharger l'ordonnance"
-                            icon={<Download className="size-[13px]" strokeWidth={2} />}
-                            onClick={() =>
-                              void handleDownloadOrdonnance(ordonnance.id)
-                            }
+                            onClick={() => void handlePrintOrdonnance(ordonnance.id)}
                           />
                         </div>
                       </article>
@@ -696,6 +685,16 @@ function RouteComponent() {
         open={Boolean(editingTemplateId)}
         templateId={editingTemplateId}
       />
+      <OrdonnancePreviewDialog
+        onClose={() => setPreviewOrdonnanceId(null)}
+        onPrint={(ordonnanceId) => void handlePrintOrdonnance(ordonnanceId)}
+        ordonnance={previewOrdonnance}
+      />
+      <OrdonnanceEditDialog
+        onClose={() => setEditingOrdonnanceId(null)}
+        onSaved={refreshOrdonnancePageData}
+        ordonnance={editingOrdonnance}
+      />
     </div>
   );
 }
@@ -711,6 +710,474 @@ function SectionHeading(props: {
         {props.title}
       </h2>
     </div>
+  );
+}
+
+function OrdonnancePreviewDialog({
+  ordonnance,
+  onClose,
+  onPrint,
+}: {
+  ordonnance: RecentOrdonnanceItem | null;
+  onClose: () => void;
+  onPrint: (ordonnanceId: string) => void;
+}) {
+  useDialogScrollLock(Boolean(ordonnance));
+
+  if (!ordonnance) {
+    return null;
+  }
+
+  return (
+    <>
+      <OrdonnanceDialogMotionStyles />
+      <div
+        className="fixed inset-0 z-[140] overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target) {
+            onClose();
+          }
+        }}
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
+        <div className="mx-auto flex min-h-full max-w-[640px] items-center justify-center">
+          <div
+            className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
+            style={{
+              animation:
+                "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+        <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
+          <div>
+            <p className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-[28px] text-[#0f3460]">
+              Aperçu de l'ordonnance
+            </p>
+            <p className="mt-1 font-['Inter'] text-[13px] text-[#6d879d]">
+              {ordonnance.patientName} · {formatDisplayDate(ordonnance.date)}
+            </p>
+          </div>
+          <button
+            aria-label="Fermer l'aperçu"
+            className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc]"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="rounded-[18px] border border-[#d9edf7] bg-[#f8fbff] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                  Patient
+                </p>
+                <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[17px] font-semibold text-[#0f3460]">
+                  {ordonnance.patientName}
+                </p>
+                <p className="font-['Inter'] text-[12px] font-semibold text-[#365a78]">
+                  #{ordonnance.patientMatricule || "Sans matricule"}
+                </p>
+              </div>
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#dcecf6] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#5d728a]">
+                  <CalendarDays className="size-4" />
+                  {formatDisplayDate(ordonnance.date)}
+                </div>
+                <OrdonnanceTypeBadge type={ordonnance.type} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <p className="font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-[#0f3460]">
+              Médicaments prescrits
+            </p>
+            {ordonnance.medicaments.map((medicament, index) => (
+              <div
+                className="rounded-[16px] border border-[#e1eef6] bg-white px-4 py-3"
+                key={medicament.id}
+              >
+                <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
+                  {index + 1}. {medicament.nom_medicament}
+                </p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <PreviewInfo label="Posologie" value={medicament.posologie} />
+                  <PreviewInfo
+                    label="Durée"
+                    value={medicament.duree_traitement ?? "—"}
+                  />
+                  <PreviewInfo label="Dosage" value={medicament.dosage ?? "—"} />
+                  <PreviewInfo
+                    label="Instructions"
+                    value={medicament.instructions ?? "—"}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {ordonnance.remarques ? (
+            <div className="mt-5 rounded-[16px] border border-[#e1eef6] bg-[#fbfdff] px-4 py-3">
+              <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                Remarques
+              </p>
+              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#365a78]">
+                {ordonnance.remarques}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
+          <button
+            className="h-[38px] rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff]"
+            onClick={onClose}
+            type="button"
+          >
+            Fermer
+          </button>
+          <button
+            className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#0a3ac7]"
+            onClick={() => onPrint(ordonnance.id)}
+            type="button"
+          >
+            <Printer className="size-4" />
+            Imprimer
+          </button>
+        </div>
+      </div>
+    </div>
+      </div>
+    </>
+  );
+}
+
+function OrdonnanceEditDialog({
+  ordonnance,
+  onClose,
+  onSaved,
+}: {
+  ordonnance: RecentOrdonnanceItem | null;
+  onClose: () => void;
+  onSaved: () => Promise<void> | void;
+}) {
+  useDialogScrollLock(Boolean(ordonnance));
+
+  const [date, setDate] = useState("");
+  const [remarques, setRemarques] = useState("");
+  const [medicaments, setMedicaments] = useState<
+    Array<{
+      id: string;
+      dosage: string;
+      posologie: string;
+      duree_traitement: string;
+      instructions: string;
+    }>
+  >([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!ordonnance) {
+      return;
+    }
+
+    setDate(ordonnance.date);
+    setRemarques(ordonnance.remarques ?? "");
+    setMedicaments(
+      ordonnance.medicaments.map((medicament) => ({
+        id: medicament.id,
+        dosage: medicament.dosage ?? "",
+        posologie: medicament.posologie,
+        duree_traitement: medicament.duree_traitement ?? "",
+        instructions: medicament.instructions ?? "",
+      })),
+    );
+    setIsSaving(false);
+  }, [ordonnance]);
+
+  if (!ordonnance) {
+    return null;
+  }
+
+  const updateMedicament = (
+    medicamentId: string,
+    field: "dosage" | "posologie" | "duree_traitement" | "instructions",
+    value: string,
+  ) => {
+    setMedicaments((current) =>
+      current.map((item) =>
+        item.id === medicamentId ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const handleSave = async () => {
+    const invalidMedicament = medicaments.find(
+      (medicament) => !medicament.posologie.trim(),
+    );
+
+    if (invalidMedicament) {
+      toast.error("La posologie est obligatoire pour chaque médicament.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await trpcClient.ordonnance.modifierOrdonnance.mutate({
+        id: ordonnance.id,
+        data: {
+          date_prescription: date,
+          remarques: remarques.trim() || null,
+        },
+      });
+
+      await Promise.all(
+        medicaments.map((medicament) =>
+          trpcClient.ordonnance.modifierMedicament.mutate({
+            ordonnanceMedicamentId: medicament.id,
+            data: {
+              dosage: medicament.dosage.trim() || null,
+              posologie: medicament.posologie.trim(),
+              duree_traitement: medicament.duree_traitement.trim() || null,
+              instructions: medicament.instructions.trim() || null,
+            },
+          }),
+        ),
+      );
+
+      await onSaved();
+      toast.success("Ordonnance modifiée.");
+      onClose();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible de modifier cette ordonnance.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <OrdonnanceDialogMotionStyles />
+      <div
+        className="fixed inset-0 z-[140] overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target && !isSaving) {
+            onClose();
+          }
+        }}
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
+        <div className="mx-auto flex min-h-full max-w-[760px] items-center justify-center">
+          <div
+            className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
+            style={{
+              animation:
+                "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+        <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
+          <div>
+            <p className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-[28px] text-[#0f3460]">
+              Modifier l'ordonnance
+            </p>
+            <p className="mt-1 font-['Inter'] text-[13px] text-[#6d879d]">
+              {ordonnance.patientName} · #{ordonnance.patientMatricule || "Sans matricule"}
+            </p>
+          </div>
+          <button
+            aria-label="Fermer la modification"
+            className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc] disabled:opacity-50"
+            disabled={isSaving}
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+            <label className="block">
+              <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                Date
+              </span>
+              <input
+                className="mt-1 h-[40px] w-full rounded-[12px] border border-[#cfe6f3] px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+                onChange={(event) => setDate(event.target.value)}
+                type="date"
+                value={date}
+              />
+            </label>
+
+            <label className="block">
+              <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                Remarques
+              </span>
+              <input
+                className="mt-1 h-[40px] w-full rounded-[12px] border border-[#cfe6f3] px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+                onChange={(event) => setRemarques(event.target.value)}
+                placeholder="Remarques..."
+                value={remarques}
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {ordonnance.medicaments.map((medicament, index) => {
+              const editable = medicaments.find((item) => item.id === medicament.id);
+
+              return (
+                <div
+                  className="rounded-[16px] border border-[#e1eef6] bg-[#fbfdff] px-4 py-3"
+                  key={medicament.id}
+                >
+                  <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
+                    {index + 1}. {medicament.nom_medicament}
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <EditField
+                      label="Posologie"
+                      onChange={(value) =>
+                        updateMedicament(medicament.id, "posologie", value)
+                      }
+                      required
+                      value={editable?.posologie ?? ""}
+                    />
+                    <EditField
+                      label="Durée"
+                      onChange={(value) =>
+                        updateMedicament(
+                          medicament.id,
+                          "duree_traitement",
+                          value,
+                        )
+                      }
+                      value={editable?.duree_traitement ?? ""}
+                    />
+                    <EditField
+                      label="Dosage"
+                      onChange={(value) =>
+                        updateMedicament(medicament.id, "dosage", value)
+                      }
+                      value={editable?.dosage ?? ""}
+                    />
+                    <EditField
+                      label="Instructions"
+                      onChange={(value) =>
+                        updateMedicament(medicament.id, "instructions", value)
+                      }
+                      value={editable?.instructions ?? ""}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
+          <button
+            className="h-[38px] rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff] disabled:opacity-50"
+            disabled={isSaving}
+            onClick={onClose}
+            type="button"
+          >
+            Annuler
+          </button>
+          <button
+            className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSaving}
+            onClick={() => void handleSave()}
+            type="button"
+          >
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+      </div>
+    </>
+  );
+}
+
+function OrdonnanceDialogMotionStyles() {
+  return (
+    <style>
+      {`
+        @keyframes ordonnanceOverlayIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes ordonnanceDialogIn {
+          from {
+            opacity: 0;
+            transform: translateY(18px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}
+    </style>
+  );
+}
+
+function useDialogScrollLock(isOpen: boolean) {
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+}
+
+function PreviewInfo(props: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <p className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+        {props.label}
+      </p>
+      <p className="mt-0.5 font-['Inter'] text-[12px] leading-5 text-[#365a78]">
+        {props.value || "—"}
+      </p>
+    </div>
+  );
+}
+
+function EditField(props: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+        {props.label}
+        {props.required ? " *" : ""}
+      </span>
+      <input
+        className="mt-1 h-[38px] w-full rounded-[11px] border border-[#d9edf7] bg-white px-3 font-['Inter'] text-[12px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+        onChange={(event) => props.onChange(event.target.value)}
+        value={props.value}
+      />
+    </label>
   );
 }
 
@@ -840,30 +1307,4 @@ function inferOrdonnanceType(ordonnance: OrdonnanceRow): "ia" | "preRemplie" | "
   }
 
   return "manuel";
-}
-
-function downloadBase64Pdf(
-  base64Data: string,
-  filename: string,
-  mimeType = "application/pdf",
-) {
-  const binary = atob(base64Data);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  const blob = new Blob([bytes], { type: mimeType });
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  setTimeout(() => {
-    URL.revokeObjectURL(objectUrl);
-  }, 1_000);
 }
