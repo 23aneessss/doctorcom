@@ -7,9 +7,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  CircleHelp,
   Eye,
   FilePlus2,
   FileStack,
+  FileText,
   Files,
   Loader2,
   Pencil,
@@ -69,9 +71,57 @@ type PreRempliCardItem = {
   searchableText: string;
 };
 
+type RendezVousLite = {
+  id: string;
+  suivi_id: string | null;
+  date: string;
+  heure: string;
+  statut: string;
+};
+
+type SuiviLite = {
+  id: string;
+  motif: string;
+  date_ouverture: string;
+};
+
+type SearchMedicamentOption = {
+  id: number | string;
+  nom_medicament: string;
+  nom_generique: string | null;
+  posologie_adulte: string | null;
+  posologie_enfant: string | null;
+  dose_maximale: string | null;
+  frequence_administration: string | null;
+};
+
+type EditableOrdonnanceMedicamentRow = {
+  localId: string;
+  ordonnanceMedicamentId?: string;
+  medicament_externe_id: string;
+  nom_medicament: string;
+  dosage: string;
+  posologie: string;
+  duree_traitement: string;
+  instructions: string;
+};
+
 const RECENT_ORDONNANCES_PAGE_SIZE = 3;
 const ALL_CATEGORIES_VALUE = "__all_categories__";
 const ALL_SPECIALITES_VALUE = "__all_specialites__";
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+function createEmptyEditMedicationRow(): EditableOrdonnanceMedicamentRow {
+  return {
+    localId: crypto.randomUUID(),
+    medicament_externe_id: "",
+    nom_medicament: "",
+    dosage: "",
+    posologie: "",
+    duree_traitement: "",
+    instructions: "",
+  };
+}
 
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
@@ -692,6 +742,7 @@ function RouteComponent() {
       />
       <OrdonnanceEditDialog
         onClose={() => setEditingOrdonnanceId(null)}
+        onPrint={(ordonnanceId) => void handlePrintOrdonnance(ordonnanceId)}
         onSaved={refreshOrdonnancePageData}
         ordonnance={editingOrdonnance}
       />
@@ -858,26 +909,101 @@ function OrdonnancePreviewDialog({
 function OrdonnanceEditDialog({
   ordonnance,
   onClose,
+  onPrint,
   onSaved,
 }: {
   ordonnance: RecentOrdonnanceItem | null;
   onClose: () => void;
+  onPrint: (ordonnanceId: string) => void;
   onSaved: () => Promise<void> | void;
 }) {
+  const { trpc } = Route.useRouteContext();
   useDialogScrollLock(Boolean(ordonnance));
 
   const [date, setDate] = useState("");
+  const [selectedSuiviId, setSelectedSuiviId] = useState("");
+  const [selectedRendezVousId, setSelectedRendezVousId] = useState("");
   const [remarques, setRemarques] = useState("");
-  const [medicaments, setMedicaments] = useState<
-    Array<{
-      id: string;
-      dosage: string;
-      posologie: string;
-      duree_traitement: string;
-      instructions: string;
-    }>
-  >([]);
+  const [rows, setRows] = useState<EditableOrdonnanceMedicamentRow[]>([
+    createEmptyEditMedicationRow(),
+  ]);
+  const [removedMedicamentIds, setRemovedMedicamentIds] = useState<string[]>(
+    [],
+  );
+  const [activeSearchRowId, setActiveSearchRowId] = useState<string | null>(
+    null,
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const open = Boolean(ordonnance);
+  const patientId = ordonnance?.patientId ?? EMPTY_UUID;
+
+  const { data: suivis = [] } = useQuery({
+    ...trpc.consultation.getPatientSuivis.queryOptions({
+      patient_id: patientId,
+    }),
+    enabled: open,
+  });
+
+  const { data: patientFullRecord } = useQuery({
+    ...trpc.patient.getPatientFullRecord.queryOptions({ id: patientId }),
+    enabled: open,
+  });
+
+  const rendezVous = (patientFullRecord?.rendez_vous ?? []) as RendezVousLite[];
+  const suivisList = (suivis ?? []) as SuiviLite[];
+
+  const selectedSuivi = useMemo(
+    () => suivisList.find((suivi) => suivi.id === selectedSuiviId) ?? null,
+    [selectedSuiviId, suivisList],
+  );
+
+  const rendezVousTerminesForSelectedSuivi = useMemo(() => {
+    return rendezVous
+      .filter(
+        (item) =>
+          item.suivi_id === selectedSuiviId && item.statut === "termine",
+      )
+      .sort((left, right) => {
+        const leftTime = new Date(`${left.date}T${left.heure}`).getTime();
+        const rightTime = new Date(`${right.date}T${right.heure}`).getTime();
+        return rightTime - leftTime;
+      });
+  }, [rendezVous, selectedSuiviId]);
+
+  const searchQuery = useQuery({
+    ...trpc.ordonnance.rechercherMedicaments.queryOptions({
+      query: debouncedSearchTerm,
+    }),
+    enabled: open && debouncedSearchTerm.length >= 2,
+  });
+
+  const sortedSearchResults = useMemo(() => {
+    const items = (searchQuery.data ?? []) as SearchMedicamentOption[];
+    const term = debouncedSearchTerm.toLowerCase();
+    if (!term) return items;
+
+    const score = (item: SearchMedicamentOption) => {
+      const name = item.nom_medicament.toLowerCase();
+      const generic = (item.nom_generique ?? "").toLowerCase();
+
+      if (name === term) return 0;
+      if (name.startsWith(term)) return 1;
+      if (generic === term) return 2;
+      if (generic.startsWith(term)) return 3;
+      if (name.includes(term)) return 4;
+      if (generic.includes(term)) return 5;
+      return 6;
+    };
+
+    return [...items].sort((a, b) => {
+      const scoreDiff = score(a) - score(b);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.nom_medicament.localeCompare(b.nom_medicament, "fr");
+    });
+  }, [searchQuery.data, debouncedSearchTerm]);
 
   useEffect(() => {
     if (!ordonnance) {
@@ -885,42 +1011,146 @@ function OrdonnanceEditDialog({
     }
 
     setDate(ordonnance.date);
+    setSelectedRendezVousId(ordonnance.rendezVousId);
     setRemarques(ordonnance.remarques ?? "");
-    setMedicaments(
+    setRows(
       ordonnance.medicaments.map((medicament) => ({
-        id: medicament.id,
+        localId: crypto.randomUUID(),
+        ordonnanceMedicamentId: medicament.id,
+        medicament_externe_id: medicament.medicament_externe_id,
+        nom_medicament: medicament.nom_medicament,
         dosage: medicament.dosage ?? "",
         posologie: medicament.posologie,
         duree_traitement: medicament.duree_traitement ?? "",
         instructions: medicament.instructions ?? "",
       })),
     );
+    setRemovedMedicamentIds([]);
+    setActiveSearchRowId(null);
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
     setIsSaving(false);
   }, [ordonnance]);
+
+  useEffect(() => {
+    if (!ordonnance) {
+      return;
+    }
+
+    const originalRendezVous = rendezVous.find(
+      (item) => item.id === ordonnance.rendezVousId,
+    );
+
+    setSelectedSuiviId(originalRendezVous?.suivi_id ?? "");
+  }, [ordonnance, rendezVous]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 280);
+
+    return () => window.clearTimeout(timeout);
+  }, [open, searchTerm]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSaving) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isSaving, onClose, open]);
 
   if (!ordonnance) {
     return null;
   }
 
-  const updateMedicament = (
-    medicamentId: string,
-    field: "dosage" | "posologie" | "duree_traitement" | "instructions",
-    value: string,
+  const updateRow = (
+    localId: string,
+    patch: Partial<EditableOrdonnanceMedicamentRow>,
   ) => {
-    setMedicaments((current) =>
+    setRows((current) =>
       current.map((item) =>
-        item.id === medicamentId ? { ...item, [field]: value } : item,
+        item.localId === localId ? { ...item, ...patch } : item,
       ),
     );
   };
 
+  const handleSuiviChange = (suiviId: string) => {
+    setSelectedSuiviId(suiviId);
+    const latestRendezVous = rendezVous
+      .filter((item) => item.suivi_id === suiviId && item.statut === "termine")
+      .sort((left, right) => {
+        const leftTime = new Date(`${left.date}T${left.heure}`).getTime();
+        const rightTime = new Date(`${right.date}T${right.heure}`).getTime();
+        return rightTime - leftTime;
+      })[0];
+    setSelectedRendezVousId(latestRendezVous?.id ?? "");
+  };
+
+  const handleRemoveRow = (row: EditableOrdonnanceMedicamentRow) => {
+    const ordonnanceMedicamentId = row.ordonnanceMedicamentId;
+
+    if (ordonnanceMedicamentId) {
+      setRemovedMedicamentIds((current) =>
+        current.includes(ordonnanceMedicamentId)
+          ? current
+          : [...current, ordonnanceMedicamentId],
+      );
+    }
+
+    setRows((current) => {
+      const nextRows = current.filter((item) => item.localId !== row.localId);
+      return nextRows.length > 0 ? nextRows : [createEmptyEditMedicationRow()];
+    });
+  };
+
   const handleSave = async () => {
-    const invalidMedicament = medicaments.find(
-      (medicament) => !medicament.posologie.trim(),
+    if (!selectedSuiviId) {
+      toast.error("Le suivi est obligatoire.");
+      return;
+    }
+
+    if (!selectedRendezVousId) {
+      toast.error(
+        "Aucun rendez-vous terminé trouvé pour ce suivi. La modification est bloquée.",
+      );
+      return;
+    }
+
+    const touchedRows = rows.filter(
+      (row) =>
+        row.nom_medicament.trim() ||
+        row.medicament_externe_id.trim() ||
+        row.posologie.trim() ||
+        row.dosage.trim() ||
+        row.duree_traitement.trim() ||
+        row.instructions.trim(),
+    );
+
+    const invalidMedicament = touchedRows.find(
+      (row) => !row.medicament_externe_id.trim() || !row.posologie.trim(),
     );
 
     if (invalidMedicament) {
-      toast.error("La posologie est obligatoire pour chaque médicament.");
+      toast.error(
+        "Chaque médicament doit être sélectionné dans la recherche et avoir une posologie.",
+      );
+      return;
+    }
+
+    if (touchedRows.length === 0) {
+      toast.error("Ajoutez au moins un médicament valide.");
       return;
     }
 
@@ -929,22 +1159,43 @@ function OrdonnanceEditDialog({
       await trpcClient.ordonnance.modifierOrdonnance.mutate({
         id: ordonnance.id,
         data: {
+          rendez_vous_id: selectedRendezVousId,
           date_prescription: date,
           remarques: remarques.trim() || null,
         },
       });
 
       await Promise.all(
-        medicaments.map((medicament) =>
-          trpcClient.ordonnance.modifierMedicament.mutate({
-            ordonnanceMedicamentId: medicament.id,
-            data: {
-              dosage: medicament.dosage.trim() || null,
-              posologie: medicament.posologie.trim(),
-              duree_traitement: medicament.duree_traitement.trim() || null,
-              instructions: medicament.instructions.trim() || null,
-            },
+        removedMedicamentIds.map((ordonnanceMedicamentId) =>
+          trpcClient.ordonnance.retirerMedicament.mutate({
+            ordonnanceMedicamentId,
           }),
+        ),
+      );
+
+      await Promise.all(
+        touchedRows.map((row) =>
+          row.ordonnanceMedicamentId
+            ? trpcClient.ordonnance.modifierMedicament.mutate({
+                ordonnanceMedicamentId: row.ordonnanceMedicamentId,
+                data: {
+                  medicament_externe_id: row.medicament_externe_id.trim(),
+                  dosage: row.dosage.trim() || null,
+                  posologie: row.posologie.trim(),
+                  duree_traitement: row.duree_traitement.trim() || null,
+                  instructions: row.instructions.trim() || null,
+                },
+              })
+            : trpcClient.ordonnance.ajouterMedicament.mutate({
+                ordonnanceId: ordonnance.id,
+                data: {
+                  medicament_externe_id: row.medicament_externe_id.trim(),
+                  dosage: row.dosage.trim() || null,
+                  posologie: row.posologie.trim(),
+                  duree_traitement: row.duree_traitement.trim() || null,
+                  instructions: row.instructions.trim() || null,
+                },
+              }),
         ),
       );
 
@@ -966,7 +1217,7 @@ function OrdonnanceEditDialog({
     <>
       <OrdonnanceDialogMotionStyles />
       <div
-        className="fixed inset-0 z-[140] overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] p-4"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target && !isSaving) {
             onClose();
@@ -974,135 +1225,296 @@ function OrdonnanceEditDialog({
         }}
         style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
       >
-        <div className="mx-auto flex min-h-full max-w-[760px] items-center justify-center">
-          <div
-            className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
-            style={{
-              animation:
-                "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
-        <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
-          <div>
-            <p className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-[28px] text-[#0f3460]">
-              Modifier l'ordonnance
-            </p>
-            <p className="mt-1 font-['Inter'] text-[13px] text-[#6d879d]">
-              {ordonnance.patientName} · #{ordonnance.patientMatricule || "Sans matricule"}
-            </p>
+        <div
+          className="my-4 flex w-full max-w-[600px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] transition-[height,transform] duration-300 ease-out"
+          style={{
+            animation: "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <div className="flex h-[68px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] px-5">
+            <div className="flex items-center gap-2">
+              <FileText className="size-5 text-[#0f3460]" />
+              <p className="font-['Plus_Jakarta_Sans'] text-[18px] font-medium text-[#0f3460]">
+                Modifier une ordonnance
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                aria-label="Aide"
+                className="cursor-pointer text-[#0f3460] transition-colors hover:text-[#265284]"
+                type="button"
+              >
+                <CircleHelp className="size-5" />
+              </button>
+              <button
+                aria-label="Fermer la modification"
+                className="cursor-pointer text-[#0f3460] transition-colors hover:text-[#265284] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSaving}
+                onClick={onClose}
+                type="button"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
           </div>
-          <button
-            aria-label="Fermer la modification"
-            className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc] disabled:opacity-50"
-            disabled={isSaving}
-            onClick={onClose}
-            type="button"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
 
-        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
-            <label className="block">
-              <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
-                Date
-              </span>
-              <input
-                className="mt-1 h-[40px] w-full rounded-[12px] border border-[#cfe6f3] px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
-                onChange={(event) => setDate(event.target.value)}
-                type="date"
-                value={date}
-              />
-            </label>
+          <div className="consultation-modal-scrollbar flex max-h-[82vh] flex-col overflow-y-auto px-5 pb-4 pt-5">
+            <FieldLabel required text="Suivi lié" />
+            <select
+              className="h-[50px] min-h-[50px] w-full rounded-[10px] border-[1.5px] border-[#c2e0ef] bg-white px-4 py-0 font-['Inter'] text-[14px] leading-[50px] text-[#0f3460]"
+              onChange={(event) => handleSuiviChange(event.target.value)}
+              value={selectedSuiviId}
+            >
+              <option value="">Sélectionner un suivi</option>
+              {suivisList.map((suivi) => (
+                <option key={suivi.id} value={suivi.id}>
+                  {suivi.motif} ({suivi.date_ouverture})
+                </option>
+              ))}
+            </select>
 
-            <label className="block">
-              <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
-                Remarques
-              </span>
-              <input
-                className="mt-1 h-[40px] w-full rounded-[12px] border border-[#cfe6f3] px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+            <div className="mt-4 space-y-3">
+              {rows.map((row, index) => (
+                <div
+                  key={row.localId}
+                  className="rounded-[10px] border border-[#c2e0ef] bg-[#f8fafc]"
+                >
+                  <div className="flex items-center justify-between border-b border-[#c2e0ef] bg-[#c2e0ef] px-4 py-2">
+                    <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#265284]">
+                      médicament {index + 1}
+                    </p>
+                    {rows.length > 1 ? (
+                      <button
+                        className="cursor-pointer rounded-[8px] border border-[#fecaca] px-2 py-1 font-['Inter'] text-[12px] text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                        onClick={() => handleRemoveRow(row)}
+                        type="button"
+                      >
+                        supprimer
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2 p-3">
+                    <div className="relative">
+                      <input
+                        className="h-[34px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 pr-8 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                        onBlur={() => {
+                          window.setTimeout(() => {
+                            setActiveSearchRowId((current) =>
+                              current === row.localId ? null : current,
+                            );
+                          }, 120);
+                        }}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setSearchTerm(value);
+                          updateRow(row.localId, {
+                            nom_medicament: value,
+                            medicament_externe_id:
+                              value.trim() !== row.nom_medicament.trim()
+                                ? ""
+                                : row.medicament_externe_id,
+                          });
+                        }}
+                        onFocus={() => {
+                          setActiveSearchRowId(row.localId);
+                          setSearchTerm(row.nom_medicament);
+                        }}
+                        placeholder="Nom du médicament / DCI *"
+                        value={row.nom_medicament}
+                      />
+                      <Search className="absolute right-2 top-2.5 size-4 text-[#94a3b8]" />
+                    </div>
+
+                    {activeSearchRowId === row.localId ? (
+                      <div className="consultation-modal-scrollbar max-h-[180px] overflow-auto rounded-[8px] border border-[#c2e0ef] bg-white p-1">
+                        {searchQuery.isPending ? (
+                          <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                            Recherche en cours...
+                          </p>
+                        ) : null}
+
+                        {!searchQuery.isPending && searchQuery.isError ? (
+                          <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#b45309]">
+                            Impossible de charger les suggestions.
+                          </p>
+                        ) : null}
+
+                        {!searchQuery.isPending &&
+                        !searchQuery.isError &&
+                        debouncedSearchTerm.length >= 2 &&
+                        sortedSearchResults.length === 0 ? (
+                          <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                            Aucun médicament trouvé.
+                          </p>
+                        ) : null}
+
+                        {!searchQuery.isPending &&
+                        !searchQuery.isError &&
+                        debouncedSearchTerm.length >= 2
+                          ? sortedSearchResults.slice(0, 8).map((item) => (
+                              <button
+                                key={item.id}
+                                className="w-full cursor-pointer rounded-[6px] px-2 py-1.5 text-left hover:bg-[#f8fafc]"
+                                onMouseDown={(event) =>
+                                  event.preventDefault()
+                                }
+                                onClick={() => {
+                                  updateRow(row.localId, {
+                                    medicament_externe_id: String(item.id),
+                                    nom_medicament: item.nom_medicament,
+                                    posologie:
+                                      row.posologie ||
+                                      item.posologie_adulte ||
+                                      item.posologie_enfant ||
+                                      "",
+                                    dosage:
+                                      row.dosage || item.dose_maximale || "",
+                                    instructions:
+                                      row.instructions ||
+                                      item.frequence_administration ||
+                                      "",
+                                  });
+                                  setActiveSearchRowId(null);
+                                  setSearchTerm(item.nom_medicament);
+                                }}
+                                type="button"
+                              >
+                                <p className="font-['Inter'] text-[13px] font-medium text-[#0f3460]">
+                                  {item.nom_medicament}
+                                </p>
+                                {item.nom_generique ? (
+                                  <p className="font-['Inter'] text-[11px] text-[rgba(100,116,139,0.9)]">
+                                    {item.nom_generique}
+                                  </p>
+                                ) : null}
+                              </button>
+                            ))
+                          : null}
+
+                        {debouncedSearchTerm.length < 2 ? (
+                          <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                            Tapez au moins 2 caractères pour rechercher.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        className="h-[33px] rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                        onChange={(event) =>
+                          updateRow(row.localId, {
+                            posologie: event.target.value,
+                          })
+                        }
+                        placeholder="Posologie"
+                        value={row.posologie}
+                      />
+                      <input
+                        className="h-[33px] rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                        onChange={(event) =>
+                          updateRow(row.localId, {
+                            duree_traitement: event.target.value,
+                          })
+                        }
+                        placeholder="Durée"
+                        value={row.duree_traitement}
+                      />
+                    </div>
+
+                    <input
+                      className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                      onChange={(event) =>
+                        updateRow(row.localId, { dosage: event.target.value })
+                      }
+                      placeholder="Dosage"
+                      value={row.dosage}
+                    />
+
+                    <input
+                      className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                      onChange={(event) =>
+                        updateRow(row.localId, {
+                          instructions: event.target.value,
+                        })
+                      }
+                      placeholder="Instructions..."
+                      value={row.instructions}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!selectedRendezVousId && selectedSuivi ? (
+              <p className="mt-3 rounded-[10px] border border-[#f97316] bg-[#fff7ed] px-3 py-2 font-['Inter'] text-[12px] text-[#b45309]">
+                Aucun rendez-vous terminé trouvé pour ce suivi. La modification
+                d'ordonnance est bloquée.
+              </p>
+            ) : null}
+
+            <button
+              className="mt-3 flex h-[42px] min-h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[10px] border-[1.6px] border-dashed border-[#265284] py-0 font-['Inter'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f8fbff]"
+              onClick={() =>
+                setRows((current) => [...current, createEmptyEditMedicationRow()])
+              }
+              type="button"
+            >
+              <Plus className="size-4" />
+              Ajouter un autre médicament
+            </button>
+
+            <div className="mt-4">
+              <FieldLabel text="Remarques" />
+              <textarea
+                className="h-[74px] w-full resize-none rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] text-[#0f3460]"
                 onChange={(event) => setRemarques(event.target.value)}
                 placeholder="Remarques..."
                 value={remarques}
               />
-            </label>
-          </div>
+            </div>
 
-          <div className="mt-5 space-y-3">
-            {ordonnance.medicaments.map((medicament, index) => {
-              const editable = medicaments.find((item) => item.id === medicament.id);
-
-              return (
-                <div
-                  className="rounded-[16px] border border-[#e1eef6] bg-[#fbfdff] px-4 py-3"
-                  key={medicament.id}
+            <div className="mt-4 flex items-center justify-between pb-1">
+              <div className="flex items-center gap-2">
+                <button
+                  className="h-[37.6px] cursor-pointer rounded-[10px] border border-[#f97316] px-4 font-['Inter'] text-[14px] text-[#f97316] transition-colors hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isSaving}
+                  onClick={onClose}
+                  type="button"
                 >
-                  <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
-                    {index + 1}. {medicament.nom_medicament}
-                  </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <EditField
-                      label="Posologie"
-                      onChange={(value) =>
-                        updateMedicament(medicament.id, "posologie", value)
-                      }
-                      required
-                      value={editable?.posologie ?? ""}
-                    />
-                    <EditField
-                      label="Durée"
-                      onChange={(value) =>
-                        updateMedicament(
-                          medicament.id,
-                          "duree_traitement",
-                          value,
-                        )
-                      }
-                      value={editable?.duree_traitement ?? ""}
-                    />
-                    <EditField
-                      label="Dosage"
-                      onChange={(value) =>
-                        updateMedicament(medicament.id, "dosage", value)
-                      }
-                      value={editable?.dosage ?? ""}
-                    />
-                    <EditField
-                      label="Instructions"
-                      onChange={(value) =>
-                        updateMedicament(medicament.id, "instructions", value)
-                      }
-                      value={editable?.instructions ?? ""}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                  Annuler
+                </button>
+                <button
+                  className="h-[37.6px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  onClick={() => void handleSave()}
+                  type="button"
+                >
+                  {isSaving ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Enregistrement...
+                    </span>
+                  ) : (
+                    "Enregistrer"
+                  )}
+                </button>
+              </div>
+
+              <button
+                className="inline-flex cursor-pointer items-center gap-1 rounded-[4px] border border-[#265284] px-2 py-1 font-['Poppins'] text-[12px] text-[#265284] transition-colors hover:bg-[#f0f6ff] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSaving}
+                onClick={() => onPrint(ordonnance.id)}
+                type="button"
+              >
+                imprimer
+                <Printer className="size-3.5" />
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
-          <button
-            className="h-[38px] rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff] disabled:opacity-50"
-            disabled={isSaving}
-            onClick={onClose}
-            type="button"
-          >
-            Annuler
-          </button>
-          <button
-            className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSaving}
-            onClick={() => void handleSave()}
-            type="button"
-          >
-            {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
       </div>
     </>
   );
@@ -1157,6 +1569,15 @@ function PreviewInfo(props: { label: string; value: string | null | undefined })
         {props.value || "—"}
       </p>
     </div>
+  );
+}
+
+function FieldLabel({ text, required }: { text: string; required?: boolean }) {
+  return (
+    <p className="mb-1 font-['Plus_Jakarta_Sans'] text-[12px] font-medium uppercase tracking-[0.3px] text-[rgba(100,116,139,0.9)]">
+      {text}
+      {required ? <span className="text-[#f97316]">*</span> : null}
+    </p>
   );
 }
 
