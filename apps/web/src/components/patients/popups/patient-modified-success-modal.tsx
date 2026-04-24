@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 
 import styles from "./patient-created-success-modal.module.css";
 
-interface PatientCreatedSuccessModalProps {
+interface PatientModifiedSuccessModalProps {
   open: boolean;
   patientName?: string;
   onClose: () => void;
@@ -10,19 +10,19 @@ interface PatientCreatedSuccessModalProps {
   description?: string;
 }
 
-export function PatientCreatedSuccessModal({
+export function PatientModifiedSuccessModal({
   open,
   patientName,
   onClose,
-  title = "Patient cree avec succes!",
+  title = "Patient modifier avec succée",
   description,
-}: PatientCreatedSuccessModalProps) {
+}: PatientModifiedSuccessModalProps) {
   if (!open) {
     return null;
   }
 
   const displayName = patientName?.trim() || "ce patient";
-  const defaultDescription = `Le dossier patient de ${displayName} a ete cree et enregistre dans le systeme.`;
+  const defaultDescription = `Le dossier patient de ${displayName} a ete modifier et enregistre dans le systeme.`;
   const finalDescription = description || defaultDescription;
 
   return (
@@ -38,7 +38,7 @@ export function PatientCreatedSuccessModal({
         className={styles.modal}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="patient-created-title"
+        aria-labelledby="patient-modified-title"
       >
         <div className={styles.iconWrap} aria-hidden="true">
           <span className={styles.iconInner}>
@@ -46,7 +46,7 @@ export function PatientCreatedSuccessModal({
           </span>
         </div>
 
-        <h2 id="patient-created-title" className={styles.title}>
+        <h2 id="patient-modified-title" className={styles.title}>
           {title}
         </h2>
 

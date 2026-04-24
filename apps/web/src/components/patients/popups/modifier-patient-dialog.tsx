@@ -1,23 +1,20 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import styles from "@/routes/patients/popups/nouveau-patient.module.css";
 
-interface NouveauPatientDialogProps {
+interface ModifierPatientDialogProps {
   open: boolean;
   onClose: () => void;
   isSubmitting?: boolean;
   submitError?: string | null;
-  onContinue?: (values: NouveauPatientSubmissionValues) => void | Promise<void>;
-  onAddNow?: (values: NouveauPatientSubmissionValues) => void | Promise<void>;
-  initialValues?: Partial<NouveauPatientFormValues>;
+  onContinue?: (values: ModifierPatientSubmissionValues) => void | Promise<void>;
+  onSave?: (values: ModifierPatientSubmissionValues) => void | Promise<void>;
+  initialData?: Partial<ModifierPatientSubmissionValues>;
   dialogTitle?: string;
-  mode?: "create" | "edit";
-  initialData?: unknown;
-  isLoading?: boolean;
 }
 
-export interface NouveauPatientFormValues {
+export interface ModifierPatientFormValues {
   nom: string;
   prenom: string;
   profession: string;
@@ -42,6 +39,7 @@ interface PersonalAntecedentValues {
 interface FamilyAntecedentValues {
   id: string;
   lienParente: string;
+  pathology: string; // Match the prop if needed, but original used pathologie
   pathologie: string;
 }
 
@@ -54,7 +52,7 @@ interface TreatmentValues {
   maladieActive: boolean;
 }
 
-export interface NouveauPatientSubmissionValues extends NouveauPatientFormValues {
+export interface ModifierPatientSubmissionValues extends ModifierPatientFormValues {
   groupeSanguin: string;
   ageCirconcision: string;
   revenuMensuel: string;
@@ -67,9 +65,9 @@ export interface NouveauPatientSubmissionValues extends NouveauPatientFormValues
   habitudesToxiques: string;
   environnementAnimal: string;
   relationsEnvironnementales: string;
-  personalAntecedents: Array<Omit<PersonalAntecedentValues, "id">>;
-  familyAntecedents: Array<Omit<FamilyAntecedentValues, "id">>;
-  traitements: Array<Omit<TreatmentValues, "id">>;
+  personalAntecedents: Array<PersonalAntecedentValues>;
+  familyAntecedents: Array<FamilyAntecedentValues>;
+  traitements: Array<TreatmentValues>;
   menarche?: number;
   regulariteCycles?: string;
   contraception?: string;
@@ -77,28 +75,12 @@ export interface NouveauPatientSubmissionValues extends NouveauPatientFormValues
   nbCesariennes?: number;
   menopause?: boolean;
   ageMenopause?: number;
-  symptomes_menopause?: string;
   symptomesMenopause?: string;
 }
 
 const ALLOW_STEP_PREVIEW_NAVIGATION = false;
 
-const initialValues: NouveauPatientFormValues = {
-  nom: "Benali",
-  prenom: "Ahmed",
-  profession: "Ingenieur en Informatique",
-  sexe: "Homme",
-  lieuNaissance: "Alger",
-  dateNaissance: "15/04/1985",
-  nss: "123456789012",
-  nationalite: "Algerienne",
-  telephone: "0555123456",
-  email: "ahmed.benali@example.com",
-  situationFamiliale: "Marie(e)",
-  adresseComplete: "Cite 1000 logts, Batiment A, Alger",
-};
-
-const requiredFields: Array<keyof NouveauPatientFormValues> = [
+const requiredFields: Array<keyof ModifierPatientFormValues> = [
   "nom",
   "prenom",
   "sexe",
@@ -138,6 +120,7 @@ const initialFamilyAntecedent = (): FamilyAntecedentValues => ({
   id: createId(),
   lienParente: "",
   pathologie: "",
+  pathology: "",
 });
 
 const initialTreatment = (): TreatmentValues => ({
@@ -149,69 +132,112 @@ const initialTreatment = (): TreatmentValues => ({
   maladieActive: true,
 });
 
-export function NouveauPatientDialog({
+export function ModifierPatientDialog({
   open,
   onClose,
   isSubmitting = false,
   submitError = null,
   onContinue,
-  onAddNow,
-  initialValues,
-  dialogTitle,
-}: NouveauPatientDialogProps) {
+  onSave,
+  initialData,
+  dialogTitle = "Modifier le patient",
+}: ModifierPatientDialogProps) {
   const modalRef = useRef<HTMLElement | null>(null);
   const progressTrackRef = useRef<HTMLDivElement | null>(null);
   const stepDotRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  const defaultValues: NouveauPatientFormValues = {
-    nom: "Benali",
-    prenom: "Ahmed",
-    profession: "Ingenieur en Informatique",
-    sexe: "Homme",
-    lieuPatient: "Alger",
-    dateNaissance: "15/04/1985",
-    nss: "123456789012",
-    nationalite: "Algerienne",
-    telephone: "0555123456",
-    email: "ahmed.benali@example.com",
-    situationFamiliale: "Marie(e)",
-    adresseComplete: "Cite 1000 logts, Batiment A, Alger",
-  };
+  const [values, setValues] = useState<ModifierPatientFormValues>({
+    nom: initialData?.nom ?? "",
+    prenom: initialData?.prenom ?? "",
+    profession: initialData?.profession ?? "",
+    sexe: initialData?.sexe ?? "",
+    lieuNaissance: initialData?.lieuNaissance ?? "",
+    dateNaissance: initialData?.dateNaissance ?? "",
+    nss: initialData?.nss ?? "",
+    nationalite: initialData?.nationalite ?? "",
+    telephone: initialData?.telephone ?? "",
+    email: initialData?.email ?? "",
+    situationFamiliale: initialData?.situationFamiliale ?? "",
+    adresseComplete: initialData?.adresseComplete ?? "",
+  });
 
-  const [values, setValues] = useState<NouveauPatientFormValues>(initialValues ?? defaultValues);
   const [showValidation, setShowValidation] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [progressFillPx, setProgressFillPx] = useState(0);
-  const [groupeSanguin, setGroupeSanguin] = useState("O+");
-  const [ageCirconcision, setAgeCirconcision] = useState("13 ans");
-  const [revenuMensuel, setRevenuMensuel] = useState("150000 DA");
-  const [tailleMenages, setTailleMenages] = useState(4);
-  const [nombreDePieces, setNombreDePieces] = useState(4);
-  const [socialProfession, setSocialProfession] = useState("Ingenieur en Informatique");
-  const [socialSituationFamiliale, setSocialSituationFamiliale] = useState("Marie(e)");
-  const [nombreEnfants, setNombreEnfants] = useState(2);
-  const [habitudesSaines, setHabitudesSaines] = useState("Course a pied 3x/semaine, alimentation equilibree");
-  const [habitudesToxiques, setHabitudesToxiques] = useState("Cafe (3 tasses/jour)");
-  const [environnementAnimal, setEnvironnementAnimal] = useState("Un chat domestique");
-  const [relationsEnvironnementales, setRelationsEnvironnementales] = useState("Relations stables, bon support familial");
-  const [personalAntecedents, setPersonalAntecedents] = useState<PersonalAntecedentValues[]>([
-    { id: createId(), type: "Diabete de Type 2", details: "Diagnostique en 2020, sous controle", maladieActive: true },
-  ]);
-  const [familyAntecedents, setFamilyAntecedents] = useState<FamilyAntecedentValues[]>([
-    { id: createId(), lienParente: "Pere", pathologie: "Hypertension Arterielle" },
-  ]);
-  const [treatments, setTreatments] = useState<TreatmentValues[]>([
-    { id: createId(), medicament: "Glucophage 500mg", dosage: "500mg", indication: "Diabete", posologie: "1 comprime au diner", maladieActive: true }
-  ]);
+  
+  const [groupeSanguin, setGroupeSanguin] = useState(initialData?.groupeSanguin ?? "O+");
+  const [ageCirconcision, setAgeCirconcision] = useState(initialData?.ageCirconcision ?? "13 ans");
+  const [revenuMensuel, setRevenuMensuel] = useState(initialData?.revenuMensuel ?? "");
+  const [tailleMenages, setTailleMenages] = useState(initialData?.tailleMenages ?? 0);
+  const [nombreDePieces, setNombreDePieces] = useState(initialData?.nombreDePieces ?? 0);
+  const [socialProfession, setSocialProfession] = useState(initialData?.socialProfession ?? "");
+  const [socialSituationFamiliale, setSocialSituationFamiliale] = useState(initialData?.socialSituationFamiliale ?? "");
+  const [nombreEnfants, setNombreEnfants] = useState(initialData?.nombreEnfants ?? 0);
+  const [habitudesSaines, setHabitudesSaines] = useState(initialData?.habitudesSaines ?? "");
+  const [habitudesToxiques, setHabitudesToxiques] = useState(initialData?.habitudesToxiques ?? "");
+  const [environnementAnimal, setEnvironnementAnimal] = useState(initialData?.environnementAnimal ?? "");
+  const [relationsEnvironnementales, setRelationsEnvironnementales] = useState(initialData?.relationsEnvironnementales ?? "");
+  
+  const [personalAntecedents, setPersonalAntecedents] = useState<PersonalAntecedentValues[]>(
+    initialData?.personalAntecedents ?? []
+  );
+  const [familyAntecedents, setFamilyAntecedents] = useState<FamilyAntecedentValues[]>(
+    initialData?.familyAntecedents ?? []
+  );
+  const [treatments, setTreatments] = useState<TreatmentValues[]>(
+    initialData?.traitements ?? []
+  );
 
-  const [menarche, setMenarche] = useState<string>("12");
-  const [regulariteCycles, setRegulariteCycles] = useState("Reguliers");
-  const [contraception, setContraception] = useState("Aucune");
-  const [nbGrossesses, setNbGrossesses] = useState(0);
-  const [nbCesariennes, setNbCesariennes] = useState(0);
-  const [menopause, setMenopause] = useState(false);
-  const [ageMenopause, setAgeMenopause] = useState("");
-  const [symptomesMenopause, setSymptomesMenopause] = useState("");
+  const [menarche, setMenarche] = useState<string>(String(initialData?.menarche ?? ""));
+  const [regulariteCycles, setRegulariteCycles] = useState(initialData?.regulariteCycles ?? "Reguliers");
+  const [contraception, setContraception] = useState(initialData?.contraception ?? "Aucune");
+  const [nbGrossesses, setNbGrossesses] = useState(initialData?.nbGrossesses ?? 0);
+  const [nbCesariennes, setNbCesariennes] = useState(initialData?.nbCesariennes ?? 0);
+  const [menopause, setMenopause] = useState(initialData?.menopause ?? false);
+  const [ageMenopause, setAgeMenopause] = useState(String(initialData?.ageMenopause ?? ""));
+  const [symptomesMenopause, setSymptomesMenopause] = useState(initialData?.symptomesMenopause ?? "");
+
+  useEffect(() => {
+    if (open && initialData) {
+      setValues({
+        nom: initialData.nom ?? "",
+        prenom: initialData.prenom ?? "",
+        profession: initialData.profession ?? "",
+        sexe: initialData.sexe ?? "",
+        lieuNaissance: initialData.lieuNaissance ?? "",
+        dateNaissance: initialData.dateNaissance ?? "",
+        nss: initialData.nss ?? "",
+        nationalite: initialData.nationalite ?? "",
+        telephone: initialData.telephone ?? "",
+        email: initialData.email ?? "",
+        situationFamiliale: initialData.situationFamiliale ?? "",
+        adresseComplete: initialData.adresseComplete ?? "",
+      });
+      setGroupeSanguin(initialData.groupeSanguin ?? "O+");
+      setAgeCirconcision(initialData.ageCirconcision ?? "13 ans");
+      setRevenuMensuel(initialData.revenuMensuel ?? "");
+      setTailleMenages(initialData.tailleMenages ?? 0);
+      setNombreDePieces(initialData.nombreDePieces ?? 0);
+      setSocialProfession(initialData.socialProfession ?? "");
+      setSocialSituationFamiliale(initialData.socialSituationFamiliale ?? "");
+      setNombreEnfants(initialData.nombreEnfants ?? 0);
+      setHabitudesSaines(initialData.habitudesSaines ?? "");
+      setHabitudesToxiques(initialData.habitudesToxiques ?? "");
+      setEnvironnementAnimal(initialData.environnementAnimal ?? "");
+      setRelationsEnvironnementales(initialData.relationsEnvironnementales ?? "");
+      setPersonalAntecedents(initialData.personalAntecedents ?? []);
+      setFamilyAntecedents(initialData.familyAntecedents ?? []);
+      setTreatments(initialData.traitements ?? []);
+      setMenarche(String(initialData.menarche ?? ""));
+      setRegulariteCycles(initialData.regulariteCycles ?? "Reguliers");
+      setContraception(initialData.contraception ?? "Aucune");
+      setNbGrossesses(initialData.nbGrossesses ?? 0);
+      setNbCesariennes(initialData.nbCesariennes ?? 0);
+      setMenopause(initialData.menopause ?? false);
+      setAgeMenopause(String(initialData.ageMenopause ?? ""));
+      setSymptomesMenopause(initialData.symptomesMenopause ?? "");
+    }
+  }, [open, initialData]);
 
   const isMalePatient = useMemo(() => {
     const normalized = (values.sexe ?? "").trim().toLowerCase();
@@ -244,38 +270,8 @@ export function NouveauPatientDialog({
 
   useEffect(() => {
     if (!open) {
-      setValues({
-        ...initialValues,
-        nss: `1234${Math.floor(Math.random() * 1000000)}`,
-        telephone: `0555${Math.floor(Math.random() * 1000000)}`,
-        email: `ahmed.benali${Math.floor(Math.random() * 10000)}@example.com`,
-      });
-      setShowValidation(false);
       setCurrentStep(1);
-      setGroupeSanguin("O+");
-      setAgeCirconcision("13 ans");
-      setRevenuMensuel("150000 DA");
-      setTailleMenages(4);
-      setNombreDePieces(4);
-      setSocialProfession("Ingenieur en Informatique");
-      setSocialSituationFamiliale("Marie(e)");
-      setNombreEnfants(2);
-      setHabitudesSaines("Course a pied 3x/semaine, alimentation equilibree");
-      setHabitudesToxiques("Cafe (3 tasses/jour)");
-      setEnvironnementAnimal("Un chat domestique");
-      setRelationsEnvironnementales("Relations stables, bon support familial");
-      setPersonalAntecedents([{ id: createId(), type: "Diabete de Type 2", details: "Diagnostique en 2020, sous controle", maladieActive: true }]);
-      setFamilyAntecedents([{ id: createId(), lienParente: "Pere", pathologie: "Hypertension Arterielle" }]);
-      setTreatments([{ id: createId(), medicament: "Glucophage 500mg", dosage: "500mg", indication: "Diabete", posologie: "1 comprime au diner", maladieActive: true }]);
-      
-      setMenarche("12");
-      setRegulariteCycles("Reguliers");
-      setContraception("Aucune");
-      setNbGrossesses(0);
-      setNbCesariennes(0);
-      setMenopause(false);
-      setAgeMenopause("");
-      setSymptomesMenopause("");
+      setShowValidation(false);
       return;
     }
 
@@ -314,7 +310,7 @@ export function NouveauPatientDialog({
     return null;
   }
 
-  const buildSubmissionValues = (): NouveauPatientSubmissionValues => ({
+  const buildSubmissionValues = (): ModifierPatientSubmissionValues => ({
     ...values,
     groupeSanguin,
     ageCirconcision,
@@ -328,9 +324,9 @@ export function NouveauPatientDialog({
     habitudesToxiques,
     environnementAnimal,
     relationsEnvironnementales,
-    personalAntecedents: personalAntecedents.map(({ id, ...entry }) => entry),
-    familyAntecedents: familyAntecedents.map(({ id, ...entry }) => entry),
-    traitements: treatments.map(({ id, ...entry }) => entry),
+    personalAntecedents,
+    familyAntecedents,
+    traitements: treatments,
     menarche: menarche ? parseInt(menarche) : undefined,
     regulariteCycles,
     contraception,
@@ -366,7 +362,7 @@ export function NouveauPatientDialog({
     await onContinue?.(buildSubmissionValues());
   };
 
-  const handleAddNow = async () => {
+  const handleSave = async () => {
     if (!ALLOW_STEP_PREVIEW_NAVIGATION) {
       if (!isFormValid || (currentStep >= 2 && !isStepTwoValid)) {
         setShowValidation(true);
@@ -374,10 +370,10 @@ export function NouveauPatientDialog({
       }
     }
 
-    await onAddNow?.(buildSubmissionValues());
+    await onSave?.(buildSubmissionValues());
   };
 
-  const updateField = (field: keyof NouveauPatientFormValues, value: string) => {
+  const updateField = (field: keyof ModifierPatientFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
   };
 
@@ -402,7 +398,6 @@ export function NouveauPatientDialog({
       if (current.length === 1) {
         return [{ ...current[0], type: "", details: "", maladieActive: false }];
       }
-
       return current.filter((entry) => entry.id !== id);
     });
   };
@@ -410,9 +405,8 @@ export function NouveauPatientDialog({
   const removeFamilyAntecedent = (id: string) => {
     setFamilyAntecedents((current) => {
       if (current.length === 1) {
-        return [{ ...current[0], lienParente: "", pathologie: "" }];
+        return [{ ...current[0], lienParente: "", pathologie: "", pathology: "" }];
       }
-
       return current.filter((entry) => entry.id !== id);
     });
   };
@@ -426,17 +420,16 @@ export function NouveauPatientDialog({
       if (current.length === 1) {
         return [{ ...current[0], medicament: "", dosage: "", indication: "", posologie: "", maladieActive: true }];
       }
-
       return current.filter((entry) => entry.id !== id);
     });
   };
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
+      <section ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="modifier-patient-title">
         <header className={styles.header}>
           <div className={styles.headerTextBlock}>
-            <h2 className={styles.title} id="nouveau-patient-title">{dialogTitle ?? "Nouveau patient"}</h2>
+            <h2 className={styles.title} id="modifier-patient-title">{dialogTitle}</h2>
             <p className={styles.subtitle}>{`Etape ${currentStep} sur ${stepLabels.length}`}</p>
           </div>
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
@@ -446,7 +439,14 @@ export function NouveauPatientDialog({
 
         <div ref={progressTrackRef} className={styles.progressBarTrack}><span className={styles.progressBarFill} style={{ width: `${progressFillPx}px` }} /></div>
 
-        <div className={styles.stepRail}>
+        {!initialData && open ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '1rem', color: '#64748b' }}>
+            <Loader2 className="animate-spin" size={32} />
+            <p>Chargement des données du patient...</p>
+          </div>
+        ) : (
+          <>
+            <div className={styles.stepRail}>
           {stepLabels.map((label, index) => {
             const isDone = index < currentStep - 1;
             const isActive = index === currentStep - 1;
@@ -478,7 +478,7 @@ export function NouveauPatientDialog({
           {submitError ? <p className={styles.submitError} style={{ margin: "0 0 1rem 0", color: "#ef4444", fontWeight: 500, background: "#fef2f2", padding: "0.75rem", borderRadius: "0.5rem" }}>{submitError}</p> : null}
           {currentStep === 1 ? (
             <>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations essentielles</strong> - Ces champs sont obligatoires pour creer le dossier patient.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations essentielles</strong> - Ces champs sont obligatoires pour modifier le dossier patient.</p></div>
               {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires.</p> : null}
               <div className={styles.formGrid}>
                 <Field label="Nom" required error={showValidation && !values.nom.trim() ? "Le nom est obligatoire" : undefined}><input className={styles.input} style={showValidation && !values.nom.trim() ? { borderColor: '#ef4444' } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} /></Field>
@@ -524,7 +524,6 @@ export function NouveauPatientDialog({
 
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>ANTECEDENTS PERSONNELS</h3>
-
                 {personalAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <div className={styles.personalTypeRow}>
@@ -540,7 +539,6 @@ export function NouveauPatientDialog({
                             }
                             placeholder="Ex: Diabete type 2, Hypertension..."
                           />
-
                           <button
                             type="button"
                             className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton}`}
@@ -551,7 +549,6 @@ export function NouveauPatientDialog({
                           </button>
                         </div>
                       </Field>
-
                       <label className={styles.checkboxPill}>
                         <input
                           type="checkbox"
@@ -563,7 +560,6 @@ export function NouveauPatientDialog({
                         <span>maladie active</span>
                       </label>
                     </div>
-
                     <Field label="Details" required error={showValidation && !antecedent.details.trim() ? "Les details sont obligatoires" : undefined}>
                       <textarea
                         className={`${styles.input} ${styles.textareaInput}`}
@@ -577,7 +573,6 @@ export function NouveauPatientDialog({
                     </Field>
                   </div>
                 ))}
-
                 <button
                   type="button"
                   className={styles.addAntecedentButton}
@@ -590,7 +585,6 @@ export function NouveauPatientDialog({
 
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>ANTECEDENTS FAMILIAUX</h3>
-
                 {familyAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <Field label="Lien de parente" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined}>
@@ -605,7 +599,6 @@ export function NouveauPatientDialog({
                         placeholder="Ex: Pere, Mere, Grand-pere..."
                       />
                     </Field>
-
                     <div className={styles.familyPathologieRow}>
                       <Field label="Pathologie" required error={showValidation && !antecedent.pathologie.trim() ? "La pathologie est obligatoire" : undefined}>
                         <input
@@ -619,7 +612,6 @@ export function NouveauPatientDialog({
                           placeholder="Ex: Cardiopathie, Cancer du sein..."
                         />
                       </Field>
-
                       <button
                         type="button"
                         className={styles.removeIconButton}
@@ -631,7 +623,6 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 ))}
-
                 <button
                   type="button"
                   className={styles.addAntecedentButton}
@@ -646,7 +637,7 @@ export function NouveauPatientDialog({
 
           {currentStep === 3 ? (
             <div className={styles.stepThreeContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Les traitements saisis seront enregistres lors de la creation.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Les traitements saisis seront enregistres lors de la modification.</p></div>
               <section className={styles.treatmentSection}>
                 <h3 className={styles.sectionTitle}>MEDICAMENTS</h3>
                 {treatments.map((treatment) => (
@@ -676,7 +667,6 @@ export function NouveauPatientDialog({
           {currentStep === 4 && isFemalePatient ? (
             <div className={styles.stepFourContent}>
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Sante feminine</strong> - Informations specifiques a la patiente.</p></div>
-              
               <div className={styles.formGrid}>
                 <Field label="Age des premieres regles">
                   <input className={styles.input} type="number" value={menarche} onChange={(e) => setMenarche(e.currentTarget.value)} placeholder="Ex: 12" />
@@ -730,10 +720,8 @@ export function NouveauPatientDialog({
           {(currentStep === 4 && isMalePatient) || (currentStep === 5 && isFemalePatient) ? (
             <div className={styles.stepFourContent}>
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
-
               <div className={styles.socialTopGrid}>
                 <Field label="Revenu mensuel"><input className={styles.input} value={revenuMensuel} onChange={(event) => setRevenuMensuel(event.currentTarget.value)} placeholder="Ex: 2000 DA BOURSE" /></Field>
-
                 <Field label="Taille menages">
                   <div className={styles.counterInputWrap}>
                     <input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly />
@@ -743,7 +731,6 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 </Field>
-
                 <Field label="Nombre de pieces">
                   <div className={styles.counterInputWrap}>
                     <input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly />
@@ -757,7 +744,6 @@ export function NouveauPatientDialog({
 
               <div className={styles.socialBottomGrid}>
                 <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex: Ingenieur, Etudiant, Retraite..." /></Field>
-
                 <Field label="Situation familiale">
                   <div className={styles.selectWrap}>
                     <select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}>
@@ -770,7 +756,6 @@ export function NouveauPatientDialog({
                     <ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" />
                   </div>
                 </Field>
-
                 <Field label="Nombre d'enfants">
                   <div className={styles.counterInputWrap}>
                     <input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreEnfants)} readOnly />
@@ -784,7 +769,6 @@ export function NouveauPatientDialog({
 
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>MODE DE VIE & HABITUDES</h3>
-
                 <Field label="Habitudes saines">
                   <div className={styles.inputWithAction}>
                     <textarea
@@ -796,7 +780,6 @@ export function NouveauPatientDialog({
                     <button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesSaines("")} aria-label="Effacer habitudes saines"><Trash2 size={16} aria-hidden="true" /></button>
                   </div>
                 </Field>
-
                 <Field label="Habitudes toxiques">
                   <div className={styles.inputWithAction}>
                     <textarea
@@ -808,7 +791,6 @@ export function NouveauPatientDialog({
                     <button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesToxiques("")} aria-label="Effacer habitudes toxiques"><Trash2 size={16} aria-hidden="true" /></button>
                   </div>
                 </Field>
-
                 <Field label="Environnement animal">
                   <div className={styles.inputWithAction}>
                     <textarea
@@ -820,7 +802,6 @@ export function NouveauPatientDialog({
                     <button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setEnvironnementAnimal("")} aria-label="Effacer environnement animal"><Trash2 size={16} aria-hidden="true" /></button>
                   </div>
                 </Field>
-
                 <Field label="Relations environnementales">
                   <div className={styles.inputWithAction}>
                     <textarea
@@ -844,11 +825,13 @@ export function NouveauPatientDialog({
             )}
 
             <div className={styles.footerActionsRight}>
-              <button type="button" className={styles.addNowButton} onClick={handleAddNow} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Ajout en cours..." : "Ajouter maintenant"}</button>
+              <button type="button" className={styles.addNowButton} onClick={handleSave} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Modification en cours..." : "Modifier maintenant"}</button>
               <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>Continuer</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </footer>
         </form>
+          </>
+        )}
       </section>
     </div>
   );
