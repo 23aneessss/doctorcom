@@ -243,6 +243,25 @@ export class MedicamentsService {
     };
   }
 
+  async getMedicamentsAggregatesByIds(medicamentIds: number[]): Promise<MedicamentAggregate[]> {
+    const uniqueIds = [...new Set(medicamentIds)].filter((id) => Number.isInteger(id) && id > 0);
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    const aggregates = await Promise.all(
+      uniqueIds.map(async (medicamentId) => {
+        try {
+          return await this.getMedicamentById(medicamentId);
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    return aggregates.filter((aggregate): aggregate is MedicamentAggregate => Boolean(aggregate));
+  }
+
   async rechercherMedicaments(filters: MedicamentSearchFilters): Promise<PaginatedMedicaments> {
     return medicamentsRepository.searchMedicaments(medicationsDb, filters);
   }

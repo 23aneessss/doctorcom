@@ -24,6 +24,12 @@ export const certificat_medical_type_values = [
 ] as const;
 export const certificat_medical_statut_values = ["brouillon", "emis", "annule"] as const;
 export const historique_traitement_source_values = ["manuel", "ordonnance"] as const;
+export const ordonnance_ai_generation_status_values = [
+  "draft_ready",
+  "verifying",
+  "verified",
+  "verification_failed",
+] as const;
 
 export const utilisateur_role_enum = pgEnum("utilisateur_role", utilisateur_role_values);
 export const antecedent_type_enum = pgEnum("antecedent_type", antecedent_type_values);
@@ -46,4 +52,8 @@ export const certificat_medical_statut_enum = pgEnum(
 export const historique_traitement_source_enum = pgEnum(
   "historique_traitement_source",
   historique_traitement_source_values,
+);
+export const ordonnance_ai_generation_status_enum = pgEnum(
+  "ordonnance_ai_generation_status",
+  ordonnance_ai_generation_status_values,
 );

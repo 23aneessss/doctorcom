@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Bot, Loader2, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ export type OrdonnanceAiDraftMedicament = {
   duree_traitement: string | null;
   instructions: string | null;
   justification: string;
+  is_active_treatment?: boolean;
 };
 
 export type OrdonnanceAiRecommendation = {
@@ -39,6 +40,21 @@ type OrdonnanceAiResult = {
   disclaimer: string;
 };
 
+type OrdonnanceAiAsyncResult = {
+  generation_id: string;
+  verification_status:
+    | "draft_ready"
+    | "verifying"
+    | "verified"
+    | "verification_failed";
+  verification_error: string | null;
+  poll_after_ms: number;
+  result: OrdonnanceAiResult;
+  draft_result: OrdonnanceAiResult;
+  verified_result: OrdonnanceAiResult | null;
+  updated_at: string;
+};
+
 export function OrdonnanceSugAiDialog({
   open,
   onOpenChange,
@@ -60,27 +76,53 @@ export function OrdonnanceSugAiDialog({
         throw new Error("Veuillez sélectionner un suivi avant de lancer la recommandation IA.");
       }
 
-      return (await trpcClient.ai.ordonnanceRecommendation.generateOrdonnance.mutate({
+      return (await trpcClient.ai.ordonnanceRecommendation.startAsyncOrdonnance.mutate({
         suivi_id: suiviId,
-      })) as OrdonnanceAiResult;
+      })) as OrdonnanceAiAsyncResult;
     },
     onError: (error) => {
       toast.error(error.message);
     },
   });
 
-  const draft = recommendationMutation.data?.ordonnance_draft;
+  const generationId = recommendationMutation.data?.generation_id;
+  const statusQuery = useQuery({
+    queryKey: ["ordonnance-ai-generation", generationId],
+    enabled:
+      open &&
+      Boolean(generationId) &&
+      recommendationMutation.data?.verification_status !== "verified" &&
+      recommendationMutation.data?.verification_status !== "verification_failed",
+    queryFn: async () => {
+      return (await trpcClient.ai.ordonnanceRecommendation.getGenerationStatus.query({
+        generation_id: generationId!,
+      })) as OrdonnanceAiAsyncResult;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as OrdonnanceAiAsyncResult | undefined;
+      if (
+        !data ||
+        data.verification_status === "draft_ready" ||
+        data.verification_status === "verifying"
+      ) {
+        return recommendationMutation.data?.poll_after_ms ?? 2000;
+      }
+      return false;
+    },
+  });
+
+  const activeResult = statusQuery.data?.result ?? recommendationMutation.data?.result;
+  const draft = activeResult?.ordonnance_draft;
   const recommendations: OrdonnanceAiRecommendation[] = draft
-    ? [
-        {
-          label: recommendationMutation.data?.clinical_problem_basis.chief_problem ??
-            "Ordonnance IA",
-          rationale:
-            "Brouillon construit a partir des meilleurs candidats medicamenteux valides.",
-          warnings: recommendationMutation.data?.global_warnings ?? [],
-          ordonnance_draft: draft,
-        },
-      ]
+      ? [
+          {
+            label: activeResult?.clinical_problem_basis.chief_problem ?? "Ordonnance IA",
+            rationale:
+              "Brouillon construit a partir des meilleurs candidats medicamenteux valides.",
+            warnings: activeResult?.global_warnings ?? [],
+            ordonnance_draft: draft,
+          },
+        ]
     : [];
 
   const selectedRecommendation = useMemo(() => {
@@ -151,6 +193,32 @@ export function OrdonnanceSugAiDialog({
 
           {selectedRecommendation ? (
             <>
+              <div className="mb-3 flex items-center gap-2 rounded-[10px] border border-[#c2e0ef] bg-[#f8fbff] px-3 py-2">
+                <span className={`rounded-[8px] px-2 py-1 font-['Inter'] text-[11px] font-semibold ${
+                  (statusQuery.data?.verification_status ?? recommendationMutation.data?.verification_status) ===
+                  "verified"
+                    ? "bg-[#dcfce7] text-[#166534]"
+                    : (statusQuery.data?.verification_status ?? recommendationMutation.data?.verification_status) ===
+                        "verification_failed"
+                      ? "bg-[#fee2e2] text-[#b91c1c]"
+                      : "bg-[#fff7ed] text-[#c2410c]"
+                }`}>
+                  {(statusQuery.data?.verification_status ?? recommendationMutation.data?.verification_status) ===
+                  "verified"
+                    ? "Verifie par l'IA"
+                    : (statusQuery.data?.verification_status ?? recommendationMutation.data?.verification_status) ===
+                        "verification_failed"
+                      ? "Verification IA echouee"
+                      : "Verification IA en cours"}
+                </span>
+                <p className="font-['Inter'] text-[12px] text-[#265284]">
+                  {(statusQuery.data?.verification_status ?? recommendationMutation.data?.verification_status) ===
+                  "verified"
+                    ? "Le brouillon a ete relu par Gemini."
+                    : "Le brouillon est deja utilisable pendant que Gemini le verifie en arriere-plan."}
+                </p>
+              </div>
+
               <div className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-3">
                 <p className="font-['Inter'] text-[12px] font-bold uppercase tracking-[0.3px] text-[#265284]">
                   Diagnostic
@@ -170,9 +238,16 @@ export function OrdonnanceSugAiDialog({
                       <p className="font-['Inter'] text-[14px] font-bold text-[#265284]">
                         {medicament.nom_medicament}
                       </p>
-                      <span className="rounded-[8px] bg-[#f0f6ff] px-2 py-1 font-['Inter'] text-[11px] text-[#265284]">
-                        {medicament.dosage ?? "Sans dosage"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {medicament.is_active_treatment ? (
+                          <span className="rounded-[8px] border border-[#f97316] bg-[#fff7ed] px-2 py-1 font-['Inter'] text-[11px] text-[#c2410c]">
+                            Traitement actif
+                          </span>
+                        ) : null}
+                        <span className="rounded-[8px] bg-[#f0f6ff] px-2 py-1 font-['Inter'] text-[11px] text-[#265284]">
+                          {medicament.dosage ?? "Sans dosage"}
+                        </span>
+                      </div>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-3">
                       <InfoLabel label="Posologie" value={medicament.posologie} />
@@ -191,6 +266,11 @@ export function OrdonnanceSugAiDialog({
                       <p className="font-['Inter'] text-[12px] text-[#b45309]">{warning}</p>
                     </div>
                   ))}
+                </div>
+              ) : null}
+              {(statusQuery.data?.verification_error ?? recommendationMutation.data?.verification_error) ? (
+                <div className="mt-3 rounded-[10px] border border-[#ef4444] bg-[#fef2f2] px-3 py-3 font-['Inter'] text-[12px] text-[#b91c1c]">
+                  {statusQuery.data?.verification_error ?? recommendationMutation.data?.verification_error}
                 </div>
               ) : null}
             </>

@@ -15,6 +15,7 @@ type RecommendMedicamentsResult = {
     duree_traitement: string | null;
     instructions: string | null;
     justification: string | null;
+    is_active_treatment?: boolean;
   }>;
   global_warnings: string[];
 };
@@ -144,6 +145,11 @@ export function MedicamentSugAiDialog({
                     IA
                   </span>
                 </div>
+                {item.is_active_treatment ? (
+                  <div className="mt-2 inline-flex rounded-[8px] border border-[#f97316] bg-[#fff7ed] px-2 py-1 font-['Plus_Jakarta_Sans'] text-[11px] font-semibold text-[#c2410c]">
+                    Traitement actif
+                  </div>
+                ) : null}
                 <div className="mt-3 rounded-[8px] border border-[#c2e0ef] bg-[#fffdfb] px-3 py-1 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#265284]">
                   {item.dosage ?? "Dosage à confirmer"}
                 </div>

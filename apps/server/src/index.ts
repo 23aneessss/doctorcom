@@ -6,7 +6,7 @@ import express from "express";
 import { createContext } from "@doctor.com/api/context";
 import { appRouter } from "@doctor.com/api/routers/index";
 import { ensureBucketExists, isStorageUnavailableError } from "@doctor.com/api/infrastructure/storage";
-import { startScheduler } from "@doctor.com/api/infrastructure/scheduler/index";
+import { startScheduler } from "@doctor.com/api/infrastructure/scheduler";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";

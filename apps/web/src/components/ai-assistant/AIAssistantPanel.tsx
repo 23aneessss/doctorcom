@@ -141,6 +141,21 @@ interface OrdonnanceGenerationResult {
   disclaimer: string;
 }
 
+interface OrdonnanceAsyncGenerationResult {
+  generation_id: string;
+  verification_status:
+    | "draft_ready"
+    | "verifying"
+    | "verified"
+    | "verification_failed";
+  verification_error: string | null;
+  poll_after_ms: number;
+  result: OrdonnanceGenerationResult;
+  draft_result: OrdonnanceGenerationResult;
+  verified_result: OrdonnanceGenerationResult | null;
+  updated_at: string;
+}
+
 type PatientRendezVousLite = {
   id: string;
   suivi_id: string | null;
@@ -150,7 +165,6 @@ type PatientRendezVousLite = {
 };
 
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
-const CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH = 280;
 const diagnosticActionLabel = "Proposer une hypothese diagnostique";
 const ordonnanceActionLabel = "Recommander une ordonnance";
 const documentActionLabel = "Verifier un document medical";
@@ -620,6 +634,19 @@ export function AIAssistantPanel() {
     scrollToBottom();
   };
 
+  const appendAssistantResult = (payload: AssistantResponsePayload) => {
+    const assistantMsg: Message = {
+      id: ++idRef.current,
+      type: "assistant",
+      text: payload.done,
+      status: "done",
+      resultCard: payload.card,
+    };
+
+    setMessages((prev) => [...prev, assistantMsg]);
+    scrollToBottom();
+  };
+
   const runAssistantTask = async (options: {
     userText: string;
     thinkingText: string;
@@ -691,7 +718,7 @@ export function AIAssistantPanel() {
     };
   };
 
-const buildOrdonnanceResponse = (
+  const buildOrdonnanceResponse = (
     result: OrdonnanceGenerationResult,
     source: {
       patientId: string;
@@ -850,34 +877,41 @@ return {
     };
   };
 
-  const buildClinicalProblemOverride = (
-    result: HypothesisGenerationResult,
-  ): string | undefined => {
-    const normalizeSnippet = (value: string) =>
-      value.replace(/\s+/g, " ").trim();
+  const watchOrdonnanceVerification = (options: {
+    generationId: string;
+    source: { patientId: string; suiviId: string; rendezVousId: string | null };
+  }) => {
+    void (async () => {
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
 
-    const snippets = [
-      result.analysis.chief_problem,
-      ...result.analysis.hypotheses
-        .slice(0, 1)
-        .map((hypothesis) => hypothesis.label),
-    ]
-      .map(normalizeSnippet)
-      .filter(Boolean);
+        try {
+          const status =
+            (await trpcClient.ai.ordonnanceRecommendation.getGenerationStatus.query({
+              generation_id: options.generationId,
+            })) as OrdonnanceAsyncGenerationResult;
 
-    if (snippets.length === 0) {
-      return undefined;
-    }
+          if (status.verification_status === "verified" && status.verified_result) {
+            appendAssistantResult({
+              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
+              card: buildOrdonnanceResponse(status.verified_result, options.source).card,
+            });
+            return;
+          }
 
-    const compactOverride = [...new Set(snippets)].join(". ");
-    if (compactOverride.length <= CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH) {
-      return compactOverride;
-    }
-
-    return `${compactOverride.slice(
-      0,
-      CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH - 3,
-    ).trimEnd()}...`;
+          if (status.verification_status === "verification_failed") {
+            appendAssistantResult({
+              done:
+                status.verification_error ??
+                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
+            });
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+    })();
   };
 
   const resolveFreshClinicalContext = async () => {
@@ -986,35 +1020,39 @@ return {
           };
         }
 
-        let clinicalProblemOverride: string | undefined;
-        try {
-          const diagnosticResult = await trpcClient.ai.hypotheseDiagnostic.generate.mutate({
+        const generation =
+          (await trpcClient.ai.ordonnanceRecommendation.startAsyncOrdonnance.mutate({
             suivi_id: suivi.id,
             examen_id: examen?.id,
             include_historical_context: true,
             max_historical_suivis: 5,
             max_historical_treatments: 8,
-          });
-          clinicalProblemOverride = buildClinicalProblemOverride(diagnosticResult);
-        } catch {
-          // The ordonnance service keeps its own fallback path if the hypothesis step fails.
-        }
+          })) as OrdonnanceAsyncGenerationResult;
 
-        const result =
-          await trpcClient.ai.ordonnanceRecommendation.generateOrdonnance.mutate({
-            suivi_id: suivi.id,
-            examen_id: examen?.id,
-            include_historical_context: true,
-            max_historical_suivis: 5,
-            max_historical_treatments: 8,
-            clinical_problem_override: clinicalProblemOverride,
-          });
-
-        return buildOrdonnanceResponse(result, {
+        const source = {
           patientId,
           suiviId: suivi.id,
           rendezVousId: rendezVous?.id ?? null,
-        });
+        };
+
+        if (
+          generation.verification_status === "draft_ready" ||
+          generation.verification_status === "verifying"
+        ) {
+          watchOrdonnanceVerification({
+            generationId: generation.generation_id,
+            source,
+          });
+        }
+
+        const response = buildOrdonnanceResponse(generation.result, source);
+        return {
+          ...response,
+          done:
+            generation.verification_status === "verified"
+              ? response.done
+              : "Brouillon d'ordonnance genere. Verification IA en cours en arriere-plan.",
+        };
       },
     });
   };

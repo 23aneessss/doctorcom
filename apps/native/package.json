@@ -4,13 +4,13 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "dev": "expo start",
-    "dev:clear": "expo start --clear",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "prebuild": "expo prebuild",
-    "web": "expo start --web"
+    "start": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli start",
+    "dev": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli start",
+    "dev:clear": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli start --clear",
+    "android": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli run:android",
+    "ios": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli run:ios",
+    "prebuild": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli prebuild",
+    "web": "node -r ./scripts/expo-ws-compat.cjs ../../node_modules/expo/bin/cli start --web"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

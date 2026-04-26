@@ -55,6 +55,7 @@ export function buildMedicamentEmbeddingPayload(aggregate: MedicamentAggregate):
     compact(medicament.nom_medicament),
     compact(medicament.nom_generique),
     compact(medicament.classe_therapeutique),
+    compact(medicament.famille_pharmacologique),
   ].filter((value): value is string => Boolean(value));
 
   if (core.length > 0) {
@@ -76,6 +77,8 @@ export function buildMedicamentEmbeddingPayload(aggregate: MedicamentAggregate):
   const precautions = dedupe([
     ...aggregate.contre_indications.map((item) => item.description),
     ...aggregate.precautions.map((item) => item.description),
+    medicament.grossesse,
+    medicament.allaitement,
   ]);
   if (precautions.length > 0) {
     lines.push(`safety: ${precautions.join(" ; ")}`);

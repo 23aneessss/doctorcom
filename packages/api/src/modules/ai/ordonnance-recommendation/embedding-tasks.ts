@@ -107,6 +107,8 @@ class OrdonnanceEmbeddingTasks {
 
   private running = 0;
 
+  private runningIds = new Set<number>();
+
   scheduleUpsertFromAggregate(aggregate: MedicamentAggregate): void {
     const medicamentId = aggregate.medicament.id;
     this.pending.set(medicamentId, { operation: "upsert", aggregate });
@@ -120,14 +122,17 @@ class OrdonnanceEmbeddingTasks {
 
   private pump(): void {
     while (this.running < MAX_CONCURRENCY && this.pending.size > 0) {
-      const next = this.pending.entries().next();
-      if (next.done) {
+      const next = [...this.pending.entries()].find(([medicamentId]) =>
+        !this.runningIds.has(medicamentId),
+      );
+      if (!next) {
         break;
       }
 
-      const [medicamentId, task] = next.value;
+      const [medicamentId, task] = next;
       this.pending.delete(medicamentId);
       this.running += 1;
+      this.runningIds.add(medicamentId);
 
       void this.executeTask(task)
         .catch((error) => {
@@ -138,6 +143,7 @@ class OrdonnanceEmbeddingTasks {
         })
         .finally(() => {
           this.running -= 1;
+          this.runningIds.delete(medicamentId);
           this.pump();
         });
     }

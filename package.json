@@ -29,6 +29,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
+    "dev:core": "turbo dev --filter=server --filter=web",
     "build": "turbo build",
     "minio:up": "docker compose up -d minio",
     "check-types": "turbo run check-types",
