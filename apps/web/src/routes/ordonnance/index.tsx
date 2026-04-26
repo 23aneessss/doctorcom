@@ -783,7 +783,7 @@ function OrdonnancePreviewDialog({
     <>
       <OrdonnanceDialogMotionStyles />
       <div
-        className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target) {
             onClose();
@@ -818,7 +818,7 @@ function OrdonnancePreviewDialog({
           </button>
         </div>
 
-        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="rounded-[18px] border border-[#d9edf7] bg-[#f8fbff] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1217,7 +1217,7 @@ function OrdonnanceEditDialog({
     <>
       <OrdonnanceDialogMotionStyles />
       <div
-        className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] px-4 py-8"
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target && !isSaving) {
             onClose();
@@ -1259,7 +1259,7 @@ function OrdonnanceEditDialog({
             </div>
           </div>
 
-          <div className="consultation-modal-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-4 pt-5">
+          <div className="consultation-modal-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
             <FieldLabel required text="Suivi lié" />
             <select
               className="h-[50px] min-h-[50px] w-full rounded-[10px] border-[1.5px] border-[#c2e0ef] bg-white px-4 py-0 font-['Inter'] text-[14px] leading-[50px] text-[#0f3460]"
@@ -1551,10 +1551,18 @@ function useDialogScrollLock(isOpen: boolean) {
     }
 
     const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
     };
   }, [isOpen]);
 }
