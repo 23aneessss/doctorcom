@@ -74,6 +74,8 @@ export function ModeleOrdonnanceDialog({
   templateId?: string | null;
   onSaved?: () => Promise<void> | void;
 }) {
+  useModalScrollLock(open);
+
   const categoriesQuery = useQuery({
     ...trpc.ordonnance.getToutesCategories.queryOptions(),
     enabled: open,
@@ -408,10 +410,10 @@ export function ModeleOrdonnanceDialog({
           }
         `}
       </style>
-    <div
-      className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
-      style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
-    >
+      <div
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
       <div className="mx-auto flex w-full max-w-[760px] items-center justify-center">
         <div
           className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[18px] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]"
@@ -439,7 +441,7 @@ export function ModeleOrdonnanceDialog({
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[27px] pt-5">
+          <div className="consultation-modal-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-[27px] pt-5">
             {isLoadingInitialData ? (
               <div className="flex h-[620px] items-center justify-center">
                 <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
@@ -644,9 +646,32 @@ export function ModeleOrdonnanceDialog({
           </div>
         </div>
       </div>
-    </div>
+      </div>
     </>
   );
+}
+
+function useModalScrollLock(isOpen: boolean) {
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [isOpen]);
 }
 
 function Field({
