@@ -145,6 +145,7 @@ function RouteComponent() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
     null,
   );
+  const [usingTemplateId, setUsingTemplateId] = useState<string | null>(null);
   const [previewOrdonnanceId, setPreviewOrdonnanceId] = useState<string | null>(
     null,
   );
@@ -374,10 +375,8 @@ function RouteComponent() {
     setIsCreateTemplateOpen(true);
   };
 
-  const handleUseTemplate = () => {
-    toast.info(
-      "L'utilisation d’un modèle sera branchée avec le prochain frame.",
-    );
+  const handleUseTemplate = (templateId: string) => {
+    setUsingTemplateId(templateId);
   };
 
   const handleEditTemplate = (templateId: string) => {
@@ -697,7 +696,7 @@ function RouteComponent() {
                         <div className="mt-auto flex items-center gap-[10px] pt-5">
                         <button
                           className="h-[36px] w-full rounded-[13px] bg-[#76bbdd] font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-white shadow-[0px_8px_16px_-10px_rgba(118,187,221,0.72)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#69b2d6] hover:shadow-[0px_14px_22px_-14px_rgba(118,187,221,0.78)]"
-                          onClick={handleUseTemplate}
+                          onClick={() => handleUseTemplate(item.id)}
                           type="button"
                         >
                           Utiliser
@@ -735,6 +734,12 @@ function RouteComponent() {
         open={Boolean(editingTemplateId)}
         templateId={editingTemplateId}
       />
+      <UtiliserPreRempliDialog
+        onClose={() => setUsingTemplateId(null)}
+        onSaved={refreshOrdonnancePageData}
+        patients={patientRows}
+        templateId={usingTemplateId}
+      />
       <OrdonnancePreviewDialog
         onClose={() => setPreviewOrdonnanceId(null)}
         onPrint={(ordonnanceId) => void handlePrintOrdonnance(ordonnanceId)}
@@ -761,6 +766,643 @@ function SectionHeading(props: {
         {props.title}
       </h2>
     </div>
+  );
+}
+
+function UtiliserPreRempliDialog({
+  templateId,
+  patients,
+  onClose,
+  onSaved,
+}: {
+  templateId: string | null;
+  patients: PatientSearchRow[];
+  onClose: () => void;
+  onSaved: () => Promise<void> | void;
+}) {
+  const { trpc } = Route.useRouteContext();
+  const open = Boolean(templateId);
+  useDialogScrollLock(open);
+
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [selectedSuiviId, setSelectedSuiviId] = useState("");
+  const [selectedRendezVousId, setSelectedRendezVousId] = useState("");
+  const [remarques, setRemarques] = useState("");
+  const [rows, setRows] = useState<EditableOrdonnanceMedicamentRow[]>([
+    createEmptyEditMedicationRow(),
+  ]);
+  const [activeSearchRowId, setActiveSearchRowId] = useState<string | null>(
+    null,
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hydratedTemplateId, setHydratedTemplateId] = useState<string | null>(
+    null,
+  );
+
+  const templateDetailQuery = useQuery({
+    ...trpc.ordonnance.getPreRempliById.queryOptions({
+      id: templateId ?? EMPTY_UUID,
+    }),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const { data: suivis = [] } = useQuery({
+    ...trpc.consultation.getPatientSuivis.queryOptions({
+      patient_id: selectedPatientId || EMPTY_UUID,
+    }),
+    enabled: open && Boolean(selectedPatientId),
+  });
+
+  const { data: patientFullRecord } = useQuery({
+    ...trpc.patient.getPatientFullRecord.queryOptions({
+      id: selectedPatientId || EMPTY_UUID,
+    }),
+    enabled: open && Boolean(selectedPatientId),
+  });
+
+  const searchQuery = useQuery({
+    ...trpc.ordonnance.rechercherMedicaments.queryOptions({
+      query: debouncedSearchTerm,
+    }),
+    enabled: open && debouncedSearchTerm.length >= 2,
+  });
+
+  const rendezVous = (patientFullRecord?.rendez_vous ?? []) as RendezVousLite[];
+  const suivisList = (suivis ?? []) as SuiviLite[];
+  const selectedSuivi = useMemo(
+    () => suivisList.find((suivi) => suivi.id === selectedSuiviId) ?? null,
+    [selectedSuiviId, suivisList],
+  );
+
+  const sortedSearchResults = useMemo(() => {
+    const items = (searchQuery.data ?? []) as SearchMedicamentOption[];
+    const term = debouncedSearchTerm.toLowerCase();
+    if (!term) return items;
+
+    const score = (item: SearchMedicamentOption) => {
+      const name = item.nom_medicament.toLowerCase();
+      const generic = (item.nom_generique ?? "").toLowerCase();
+
+      if (name === term) return 0;
+      if (name.startsWith(term)) return 1;
+      if (generic === term) return 2;
+      if (generic.startsWith(term)) return 3;
+      if (name.includes(term)) return 4;
+      if (generic.includes(term)) return 5;
+      return 6;
+    };
+
+    return [...items].sort((a, b) => {
+      const scoreDiff = score(a) - score(b);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.nom_medicament.localeCompare(b.nom_medicament, "fr");
+    });
+  }, [searchQuery.data, debouncedSearchTerm]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setSelectedPatientId("");
+    setSelectedSuiviId("");
+    setSelectedRendezVousId("");
+    setRemarques("");
+    setRows([createEmptyEditMedicationRow()]);
+    setActiveSearchRowId(null);
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setIsSaving(false);
+    setHydratedTemplateId(null);
+  }, [open, templateId]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 280);
+
+    return () => window.clearTimeout(timeout);
+  }, [open, searchTerm]);
+
+  useEffect(() => {
+    if (!open || !templateDetailQuery.data) {
+      return;
+    }
+
+    if (hydratedTemplateId === templateDetailQuery.data.id) {
+      return;
+    }
+
+    const templateRows = templateDetailQuery.data.medicaments?.length
+      ? templateDetailQuery.data.medicaments.map((medicament) => ({
+          localId: crypto.randomUUID(),
+          medicament_externe_id: medicament.medicament_externe_id,
+          nom_medicament: medicament.nom_medicament,
+          dosage: medicament.dosage ?? "",
+          posologie: medicament.posologie_defaut ?? "",
+          duree_traitement: medicament.duree_defaut ?? "",
+          instructions: medicament.instructions_defaut ?? "",
+        }))
+      : [createEmptyEditMedicationRow()];
+
+    setRows(templateRows);
+    setHydratedTemplateId(templateDetailQuery.data.id);
+  }, [hydratedTemplateId, open, templateDetailQuery.data]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setSelectedSuiviId("");
+    setSelectedRendezVousId("");
+  }, [open, selectedPatientId]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSaving) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isSaving, onClose, open]);
+
+  if (!templateId) {
+    return null;
+  }
+
+  const updateRow = (
+    localId: string,
+    patch: Partial<EditableOrdonnanceMedicamentRow>,
+  ) => {
+    setRows((current) =>
+      current.map((item) =>
+        item.localId === localId ? { ...item, ...patch } : item,
+      ),
+    );
+  };
+
+  const handlePatientChange = (patientId: string) => {
+    setSelectedPatientId(patientId);
+  };
+
+  const handleSuiviChange = (suiviId: string) => {
+    setSelectedSuiviId(suiviId);
+    const latestRendezVous = rendezVous
+      .filter((item) => item.suivi_id === suiviId && item.statut === "termine")
+      .sort((left, right) => {
+        const leftTime = new Date(`${left.date}T${left.heure}`).getTime();
+        const rightTime = new Date(`${right.date}T${right.heure}`).getTime();
+        return rightTime - leftTime;
+      })[0];
+    setSelectedRendezVousId(latestRendezVous?.id ?? "");
+  };
+
+  const handleRemoveRow = (localId: string) => {
+    setRows((current) => {
+      const nextRows = current.filter((item) => item.localId !== localId);
+      return nextRows.length > 0 ? nextRows : [createEmptyEditMedicationRow()];
+    });
+  };
+
+  const handleSave = async () => {
+    if (!selectedPatientId) {
+      toast.error("Sélectionnez un patient.");
+      return;
+    }
+
+    if (!selectedSuiviId) {
+      toast.error("Sélectionnez le suivi lié.");
+      return;
+    }
+
+    if (!selectedRendezVousId) {
+      toast.error(
+        "Aucun rendez-vous terminé trouvé pour ce suivi. Impossible d'attribuer le modèle.",
+      );
+      return;
+    }
+
+    const medicaments = rows
+      .map((row) => ({
+        medicament_externe_id: row.medicament_externe_id.trim(),
+        dosage: row.dosage.trim() || null,
+        posologie: row.posologie.trim(),
+        duree_traitement: row.duree_traitement.trim() || null,
+        instructions: row.instructions.trim() || null,
+      }))
+      .filter(
+        (row) =>
+          row.medicament_externe_id ||
+          row.posologie ||
+          row.dosage ||
+          row.duree_traitement ||
+          row.instructions,
+      );
+
+    if (
+      medicaments.length === 0 ||
+      medicaments.some(
+        (row) => !row.medicament_externe_id || !row.posologie,
+      )
+    ) {
+      toast.error(
+        "Chaque médicament renseigné doit être sélectionné et avoir une posologie.",
+      );
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await trpcClient.ordonnance.creerOrdonnance.mutate({
+        patient_id: selectedPatientId,
+        rendez_vous_id: selectedRendezVousId,
+        date_prescription: todayIsoDate(),
+        remarques: remarques.trim() || null,
+        pre_rempli_origine_id: templateId,
+        medicaments,
+      });
+
+      await onSaved();
+      toast.success("Modèle attribué au patient.");
+      onClose();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible d'attribuer ce modèle.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isLoadingInitialData = templateDetailQuery.isLoading;
+  const selectedPatient = patients.find(
+    (patient) => patient.id === selectedPatientId,
+  );
+
+  return (
+    <>
+      <OrdonnanceDialogMotionStyles />
+      <div
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target && !isSaving) {
+            onClose();
+          }
+        }}
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
+        <div
+          className="flex max-h-[calc(100vh-64px)] w-full max-w-[600px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] transition-[height,transform] duration-300 ease-out"
+          style={{
+            animation:
+              "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <div className="flex h-[68px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] px-5">
+            <div className="flex min-w-0 items-center gap-2">
+              <FilePlus2 className="size-5 shrink-0 text-[#0f3460]" />
+              <div className="min-w-0">
+                <p className="truncate font-['Plus_Jakarta_Sans'] text-[18px] font-medium text-[#0f3460]">
+                  Utiliser un modèle d'ordonnance
+                </p>
+                {templateDetailQuery.data?.nom ? (
+                  <p className="truncate font-['Inter'] text-[11px] text-[#6d879d]">
+                    {templateDetailQuery.data.nom}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                aria-label="Aide"
+                className="cursor-pointer text-[#0f3460] transition-colors hover:text-[#265284]"
+                type="button"
+              >
+                <CircleHelp className="size-5" />
+              </button>
+              <button
+                aria-label="Fermer l'utilisation du modèle"
+                className="cursor-pointer text-[#0f3460] transition-colors hover:text-[#265284] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSaving}
+                onClick={onClose}
+                type="button"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="consultation-modal-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
+            {isLoadingInitialData ? (
+              <div className="flex h-[420px] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
+              </div>
+            ) : (
+              <>
+                <FieldLabel required text="Patient" />
+                <select
+                  className="h-[50px] min-h-[50px] w-full rounded-[10px] border-[1.5px] border-[#c2e0ef] bg-white px-4 py-0 font-['Inter'] text-[14px] leading-[50px] text-[#0f3460]"
+                  onChange={(event) => handlePatientChange(event.target.value)}
+                  value={selectedPatientId}
+                >
+                  <option value="">Sélectionner un patient</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {buildFullName(patient)}
+                      {patient.matricule ? ` · ${patient.matricule}` : ""}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedPatient ? (
+                  <div className="mt-2 rounded-[10px] border border-[#d9edf7] bg-[#f8fbff] px-3 py-2">
+                    <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                      {buildFullName(selectedPatient)}
+                    </p>
+                    <p className="font-['Inter'] text-[11px] text-[#6d879d]">
+                      #{selectedPatient.matricule || "Sans matricule"}
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="mt-4">
+                  <FieldLabel required text="Suivi lié" />
+                  <select
+                    className="h-[50px] min-h-[50px] w-full rounded-[10px] border-[1.5px] border-[#c2e0ef] bg-white px-4 py-0 font-['Inter'] text-[14px] leading-[50px] text-[#0f3460] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!selectedPatientId}
+                    onChange={(event) => handleSuiviChange(event.target.value)}
+                    value={selectedSuiviId}
+                  >
+                    <option value="">
+                      {selectedPatientId
+                        ? "Sélectionner un suivi"
+                        : "Choisir un patient d'abord"}
+                    </option>
+                    {suivisList.map((suivi) => (
+                      <option key={suivi.id} value={suivi.id}>
+                        {suivi.motif} ({suivi.date_ouverture})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {!selectedRendezVousId && selectedSuivi ? (
+                  <p className="mt-3 rounded-[10px] border border-[#f97316] bg-[#fff7ed] px-3 py-2 font-['Inter'] text-[12px] text-[#b45309]">
+                    Aucun rendez-vous terminé trouvé pour ce suivi.
+                    L'attribution est bloquée.
+                  </p>
+                ) : null}
+
+                <div className="mt-4 space-y-3">
+                  {rows.map((row, index) => (
+                    <div
+                      key={row.localId}
+                      className="rounded-[10px] border border-[#c2e0ef] bg-[#f8fafc]"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#c2e0ef] bg-[#c2e0ef] px-4 py-2">
+                        <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#265284]">
+                          médicament {index + 1}
+                        </p>
+                        {rows.length > 1 ? (
+                          <button
+                            className="cursor-pointer rounded-[8px] border border-[#fecaca] px-2 py-1 font-['Inter'] text-[12px] text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                            onClick={() => handleRemoveRow(row.localId)}
+                            type="button"
+                          >
+                            supprimer
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2 p-3">
+                        <div className="relative">
+                          <input
+                            className="h-[34px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 pr-8 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            onBlur={() => {
+                              window.setTimeout(() => {
+                                setActiveSearchRowId((current) =>
+                                  current === row.localId ? null : current,
+                                );
+                              }, 120);
+                            }}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setSearchTerm(value);
+                              updateRow(row.localId, {
+                                nom_medicament: value,
+                                medicament_externe_id:
+                                  value.trim() !== row.nom_medicament.trim()
+                                    ? ""
+                                    : row.medicament_externe_id,
+                              });
+                            }}
+                            onFocus={() => {
+                              setActiveSearchRowId(row.localId);
+                              setSearchTerm(row.nom_medicament);
+                            }}
+                            placeholder="Nom du médicament / DCI *"
+                            value={row.nom_medicament}
+                          />
+                          <Search className="absolute right-2 top-2.5 size-4 text-[#94a3b8]" />
+                        </div>
+
+                        {activeSearchRowId === row.localId ? (
+                          <div className="consultation-modal-scrollbar max-h-[180px] overflow-auto rounded-[8px] border border-[#c2e0ef] bg-white p-1">
+                            {searchQuery.isPending ? (
+                              <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                                Recherche en cours...
+                              </p>
+                            ) : null}
+
+                            {!searchQuery.isPending && searchQuery.isError ? (
+                              <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#b45309]">
+                                Impossible de charger les suggestions.
+                              </p>
+                            ) : null}
+
+                            {!searchQuery.isPending &&
+                            !searchQuery.isError &&
+                            debouncedSearchTerm.length >= 2 &&
+                            sortedSearchResults.length === 0 ? (
+                              <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                                Aucun médicament trouvé.
+                              </p>
+                            ) : null}
+
+                            {!searchQuery.isPending &&
+                            !searchQuery.isError &&
+                            debouncedSearchTerm.length >= 2
+                              ? sortedSearchResults.slice(0, 8).map((item) => (
+                                  <button
+                                    key={item.id}
+                                    className="w-full cursor-pointer rounded-[6px] px-2 py-1.5 text-left hover:bg-[#f8fafc]"
+                                    onMouseDown={(event) =>
+                                      event.preventDefault()
+                                    }
+                                    onClick={() => {
+                                      updateRow(row.localId, {
+                                        medicament_externe_id: String(item.id),
+                                        nom_medicament: item.nom_medicament,
+                                        posologie:
+                                          row.posologie ||
+                                          item.posologie_adulte ||
+                                          item.posologie_enfant ||
+                                          "",
+                                        dosage:
+                                          row.dosage ||
+                                          item.dose_maximale ||
+                                          "",
+                                        instructions:
+                                          row.instructions ||
+                                          item.frequence_administration ||
+                                          "",
+                                      });
+                                      setActiveSearchRowId(null);
+                                      setSearchTerm(item.nom_medicament);
+                                    }}
+                                    type="button"
+                                  >
+                                    <p className="font-['Inter'] text-[13px] font-medium text-[#0f3460]">
+                                      {item.nom_medicament}
+                                    </p>
+                                    {item.nom_generique ? (
+                                      <p className="font-['Inter'] text-[11px] text-[rgba(100,116,139,0.9)]">
+                                        {item.nom_generique}
+                                      </p>
+                                    ) : null}
+                                  </button>
+                                ))
+                              : null}
+
+                            {debouncedSearchTerm.length < 2 ? (
+                              <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
+                                Tapez au moins 2 caractères pour rechercher.
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            className="h-[33px] rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            onChange={(event) =>
+                              updateRow(row.localId, {
+                                posologie: event.target.value,
+                              })
+                            }
+                            placeholder="Posologie"
+                            value={row.posologie}
+                          />
+                          <input
+                            className="h-[33px] rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            onChange={(event) =>
+                              updateRow(row.localId, {
+                                duree_traitement: event.target.value,
+                              })
+                            }
+                            placeholder="Durée"
+                            value={row.duree_traitement}
+                          />
+                        </div>
+
+                        <input
+                          className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                          onChange={(event) =>
+                            updateRow(row.localId, {
+                              dosage: event.target.value,
+                            })
+                          }
+                          placeholder="Dosage"
+                          value={row.dosage}
+                        />
+
+                        <input
+                          className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                          onChange={(event) =>
+                            updateRow(row.localId, {
+                              instructions: event.target.value,
+                            })
+                          }
+                          placeholder="Instructions..."
+                          value={row.instructions}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className="mt-3 flex h-[42px] min-h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[10px] border-[1.6px] border-dashed border-[#265284] py-0 font-['Inter'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f8fbff]"
+                  onClick={() =>
+                    setRows((current) => [
+                      ...current,
+                      createEmptyEditMedicationRow(),
+                    ])
+                  }
+                  type="button"
+                >
+                  <Plus className="size-4" />
+                  Ajouter un autre médicament
+                </button>
+
+                <div className="mt-4">
+                  <FieldLabel text="Remarques" />
+                  <textarea
+                    className="h-[74px] w-full resize-none rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] text-[#0f3460]"
+                    onChange={(event) => setRemarques(event.target.value)}
+                    placeholder="Remarques..."
+                    value={remarques}
+                  />
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-2 pb-1">
+                  <button
+                    className="h-[37.6px] cursor-pointer rounded-[10px] border border-[#f97316] px-4 font-['Inter'] text-[14px] text-[#f97316] transition-colors hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isSaving}
+                    onClick={onClose}
+                    type="button"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    className="h-[37.6px] min-w-[150px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={isSaving}
+                    onClick={() => void handleSave()}
+                    type="button"
+                  >
+                    {isSaving ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="size-4 animate-spin" />
+                        Attribution...
+                      </span>
+                    ) : (
+                      "Attribuer"
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
