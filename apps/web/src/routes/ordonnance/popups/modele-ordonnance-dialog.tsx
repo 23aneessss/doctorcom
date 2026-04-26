@@ -482,29 +482,37 @@ export function ModeleOrdonnanceDialog({
                   />
                 </Field>
 
-                <section className="overflow-hidden rounded-[10px] border-[0.8px] border-[#c2e0ef]">
-                  <div className="flex h-8 items-center justify-between bg-[rgba(194,224,239,0.48)] px-4">
-                    <span className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium uppercase tracking-[0.3px] text-[#0f3460]">
-                      Médicaments
-                    </span>
-                    <button
-                      className="inline-flex items-center gap-1 font-['Inter'] text-[12px] font-semibold text-[#052ca0]"
-                      onClick={() =>
-                        setRows((current) => [...current, createEmptyMedicationRow()])
-                      }
-                      type="button"
+                <div className="space-y-3">
+                  {rows.map((row, index) => (
+                    <section
+                      key={row.localId}
+                      className="overflow-visible rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc]"
                     >
-                      <Plus className="size-[14px]" strokeWidth={2.2} />
-                      Ajouter
-                    </button>
-                  </div>
+                      <div className="flex h-12 items-center justify-between rounded-t-[10px] bg-[rgba(194,224,239,0.9)] px-4">
+                        <p className="font-['Plus_Jakarta_Sans'] text-[16px] font-medium text-[#265284]">
+                          médicament {index + 1}
+                        </p>
+                        {rows.length > 1 ? (
+                          <button
+                            className="cursor-pointer rounded-[9px] border border-[#fecaca] bg-white/70 px-3 py-1.5 font-['Inter'] text-[13px] font-medium text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                            onClick={() =>
+                              setRows((current) => {
+                                const nextRows = current.filter(
+                                  (item) => item.localId !== row.localId,
+                                );
+                                return nextRows.length > 0
+                                  ? nextRows
+                                  : [createEmptyMedicationRow()];
+                              })
+                            }
+                            type="button"
+                          >
+                            supprimer
+                          </button>
+                        ) : null}
+                      </div>
 
-                  <div className="space-y-3 bg-white px-3 py-3">
-                    {rows.map((row) => (
-                      <div
-                        key={row.localId}
-                        className="rounded-[10px] bg-[#f8fafc] px-3 py-3"
-                      >
+                      <div className="space-y-2 rounded-b-[10px] bg-white px-3 py-3">
                         <div className="relative">
                           <input
                             className="h-[33.6px] w-full rounded-[4px] border-[0.8px] border-[#c2e0ef] px-2 font-['Inter'] text-[14px] text-[#0f172a] outline-none placeholder:text-[rgba(10,10,10,0.5)] focus:border-[#76bbdd]"
@@ -566,7 +574,7 @@ export function ModeleOrdonnanceDialog({
                           ) : null}
                         </div>
 
-                        <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <input
                             className="h-[33.6px] rounded-[4px] border-[0.8px] border-[#c2e0ef] px-2 font-['Inter'] text-[14px] text-[#0f172a] outline-none placeholder:text-[rgba(10,10,10,0.5)] focus:border-[#76bbdd]"
                             onChange={(event) =>
@@ -594,7 +602,7 @@ export function ModeleOrdonnanceDialog({
                         </div>
 
                         <input
-                          className="mt-2 h-[33.6px] w-full rounded-[4px] border-[0.8px] border-[#c2e0ef] px-2 font-['Inter'] text-[14px] text-[#0f172a] outline-none placeholder:text-[rgba(10,10,10,0.5)] focus:border-[#76bbdd]"
+                          className="h-[33.6px] w-full rounded-[4px] border-[0.8px] border-[#c2e0ef] px-2 font-['Inter'] text-[14px] text-[#0f172a] outline-none placeholder:text-[rgba(10,10,10,0.5)] focus:border-[#76bbdd]"
                           onChange={(event) =>
                             handleRowChange(
                               row.localId,
@@ -606,9 +614,23 @@ export function ModeleOrdonnanceDialog({
                           value={row.instructions_defaut}
                         />
                       </div>
-                    ))}
-                  </div>
-                </section>
+                    </section>
+                  ))}
+
+                  <button
+                    className="flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border-[1.6px] border-dashed border-[#265284] font-['Inter'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f8fbff]"
+                    onClick={() =>
+                      setRows((current) => [
+                        ...current,
+                        createEmptyMedicationRow(),
+                      ])
+                    }
+                    type="button"
+                  >
+                    <Plus className="size-4" />
+                    Ajouter un autre médicament
+                  </button>
+                </div>
 
                 <Field label="Remarques">
                   <textarea
