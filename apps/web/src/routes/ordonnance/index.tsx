@@ -783,7 +783,7 @@ function OrdonnancePreviewDialog({
     <>
       <OrdonnanceDialogMotionStyles />
       <div
-        className="fixed inset-0 z-[140] overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target) {
             onClose();
@@ -791,7 +791,7 @@ function OrdonnancePreviewDialog({
         }}
         style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
       >
-        <div className="mx-auto flex min-h-full max-w-[640px] items-center justify-center">
+        <div className="mx-auto flex w-full max-w-[640px] items-center justify-center">
           <div
             className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
             style={{
@@ -1217,7 +1217,7 @@ function OrdonnanceEditDialog({
     <>
       <OrdonnanceDialogMotionStyles />
       <div
-        className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] p-4"
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] px-4 py-8"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target && !isSaving) {
             onClose();
@@ -1226,7 +1226,7 @@ function OrdonnanceEditDialog({
         style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
       >
         <div
-          className="my-4 flex w-full max-w-[600px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] transition-[height,transform] duration-300 ease-out"
+          className="flex max-h-[calc(100vh-64px)] w-full max-w-[600px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] transition-[height,transform] duration-300 ease-out"
           style={{
             animation: "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
@@ -1259,7 +1259,7 @@ function OrdonnanceEditDialog({
             </div>
           </div>
 
-          <div className="consultation-modal-scrollbar flex max-h-[82vh] flex-col overflow-y-auto px-5 pb-4 pt-5">
+          <div className="consultation-modal-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-4 pt-5">
             <FieldLabel required text="Suivi lié" />
             <select
               className="h-[50px] min-h-[50px] w-full rounded-[10px] border-[1.5px] border-[#c2e0ef] bg-white px-4 py-0 font-['Inter'] text-[14px] leading-[50px] text-[#0f3460]"

@@ -480,7 +480,7 @@ export function ModeleOrdonnanceDialog({
                   />
                 </Field>
 
-                <section className="flex shrink-0 flex-col overflow-hidden rounded-[10px] border-[0.8px] border-[#c2e0ef]">
+                <section className="overflow-hidden rounded-[10px] border-[0.8px] border-[#c2e0ef]">
                   <div className="flex h-8 items-center justify-between bg-[rgba(194,224,239,0.48)] px-4">
                     <span className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium uppercase tracking-[0.3px] text-[#0f3460]">
                       Médicaments
@@ -497,7 +497,7 @@ export function ModeleOrdonnanceDialog({
                     </button>
                   </div>
 
-                  <div className="consultation-modal-scrollbar max-h-[236px] space-y-3 overflow-y-auto bg-white px-3 py-3">
+                  <div className="space-y-3 bg-white px-3 py-3">
                     {rows.map((row) => (
                       <div
                         key={row.localId}
