@@ -409,12 +409,12 @@ export function ModeleOrdonnanceDialog({
         `}
       </style>
     <div
-      className="fixed inset-0 z-[140] bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+      className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
       style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
     >
-      <div className="mx-auto flex min-h-full max-w-[760px] items-center justify-center">
+      <div className="mx-auto flex w-full max-w-[760px] items-center justify-center">
         <div
-          className="w-full overflow-hidden rounded-[18px] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]"
+          className="flex max-h-[calc(100vh-64px)] w-full flex-col overflow-hidden rounded-[18px] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]"
           style={{ animation: "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
         >
           <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
@@ -423,7 +423,7 @@ export function ModeleOrdonnanceDialog({
               <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold text-[#0f3460]">
                 {mode === "create"
                   ? "Créer un modèle d'ordonnance"
-                  : "Modifier le modèle d'ordonnance"}
+                  : "Modifier un modèle d'ordonnance"}
               </h3>
             </div>
 
@@ -439,7 +439,7 @@ export function ModeleOrdonnanceDialog({
             </div>
           </div>
 
-          <div className="flex max-h-[calc(100vh-180px)] flex-col gap-5 overflow-y-auto px-5 pb-[27px] pt-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[27px] pt-5">
             {isLoadingInitialData ? (
               <div className="flex h-[620px] items-center justify-center">
                 <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
@@ -480,7 +480,7 @@ export function ModeleOrdonnanceDialog({
                   />
                 </Field>
 
-                <section className="overflow-hidden rounded-[10px] border-[0.8px] border-[#c2e0ef]">
+                <section className="flex shrink-0 flex-col overflow-hidden rounded-[10px] border-[0.8px] border-[#c2e0ef]">
                   <div className="flex h-8 items-center justify-between bg-[rgba(194,224,239,0.48)] px-4">
                     <span className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium uppercase tracking-[0.3px] text-[#0f3460]">
                       Médicaments
@@ -497,7 +497,7 @@ export function ModeleOrdonnanceDialog({
                     </button>
                   </div>
 
-                  <div className="space-y-3 bg-white px-3 py-3">
+                  <div className="consultation-modal-scrollbar max-h-[236px] space-y-3 overflow-y-auto bg-white px-3 py-3">
                     {rows.map((row) => (
                       <div
                         key={row.localId}
