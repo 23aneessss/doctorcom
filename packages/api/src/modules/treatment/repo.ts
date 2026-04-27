@@ -111,6 +111,18 @@ export class TreatmentRepository {
     return stoppedTreatment ?? null;
   }
 
+  async deleteTreatment(
+    database: DatabaseClient,
+    treatmentId: string,
+  ): Promise<TreatmentRecord | null> {
+    const [deletedTreatment] = await database
+      .delete(historique_traitements)
+      .where(eq(historique_traitements.id, treatmentId))
+      .returning();
+
+    return deletedTreatment ?? null;
+  }
+
   async stopTreatmentsByOrdonnanceId(
     database: DatabaseClient,
     ordonnanceId: string,

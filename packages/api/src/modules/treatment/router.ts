@@ -72,6 +72,19 @@ export const treatmentRouter = createTRPCRouter({
         treatment_id: input.treatment_id,
       });
     }),
+  deleteTreatment: protectedProcedure
+    .input(
+      z.object({
+        treatment_id: uuidSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return treatmentService.deleteTreatment({
+        db: ctx.db,
+        session: ctx.session,
+        treatment_id: input.treatment_id,
+      });
+    }),
   getPatientTreatments: protectedProcedure
     .input(patientFilterInputSchema)
     .query(async ({ ctx, input }) => {

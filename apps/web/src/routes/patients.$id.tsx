@@ -46,6 +46,7 @@ import { NouvelAntecedentPersonnelDialog } from "@/routes/patients.$id/popups/no
 import { AjouterTraitementDialog } from "@/routes/patients.$id/popups/ajouter-traitement";
 import { ModifierTraitementDialog } from "@/routes/patients.$id/popups/modifier-traitement";
 import { NouvelleOrdonnanceDialog } from "@/routes/patients.$id/popups/nouvelle-ordonnance";
+import { NouvelleVaccinationDialog } from "@/routes/patients.$id/popups/nouvelle-vaccination";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -120,6 +121,12 @@ type OrdonnanceDialogValues = {
   }>;
 };
 
+type VaccinationDialogValues = {
+  vaccin?: string;
+  date_vaccination?: string;
+  notes?: string | null;
+};
+
 type PatientPopupEventDetail = {
   type:
     | "suivi"
@@ -127,19 +134,22 @@ type PatientPopupEventDetail = {
     | "antecedent-personnel"
     | "antecedent-familial"
     | "traitement"
-    | "ordonnance";
-  mode?: "create" | "edit";
+    | "ordonnance"
+    | "vaccination";
+  mode?: "create" | "edit" | "delete";
   suiviId?: string;
   examenId?: string;
   antecedentId?: string;
   traitementId?: string;
+  vaccinationId?: string;
   initialValues?:
     | SuiviDialogValues
     | ConsultationDialogValues
     | AntecedentPersonnelDialogValues
     | AntecedentFamilialDialogValues
     | TraitementDialogValues
-    | OrdonnanceDialogValues;
+    | OrdonnanceDialogValues
+    | VaccinationDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -240,12 +250,22 @@ function PatientLayout() {
   const [ordonnanceValues, setOrdonnanceValues] = useState<
     OrdonnanceDialogValues | undefined
   >(undefined);
+  const [isVaccinationOpen, setIsVaccinationOpen] = useState(false);
+  const [vaccinationMode, setVaccinationMode] = useState<
+    "create" | "edit" | "delete"
+  >("create");
+  const [vaccinationId, setVaccinationId] = useState<string | undefined>(
+    undefined,
+  );
+  const [vaccinationValues, setVaccinationValues] = useState<
+    VaccinationDialogValues | undefined
+  >(undefined);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<PatientPopupEventDetail>;
       if (customEvent.detail?.type === "suivi") {
-        setSuiviDialogMode(customEvent.detail.mode ?? "create");
+        setSuiviDialogMode(customEvent.detail.mode === "edit" ? "edit" : "create");
         setSuiviDialogId(customEvent.detail.suiviId);
         setSuiviDialogValues(
           (customEvent.detail.initialValues as SuiviDialogValues | undefined) ??
@@ -254,7 +274,9 @@ function PatientLayout() {
         setIsNouveauSuiviOpen(true);
       }
       if (customEvent.detail?.type === "consultation") {
-        setConsultationDialogMode(customEvent.detail.mode ?? "create");
+        setConsultationDialogMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setConsultationDialogId(customEvent.detail.examenId);
         const initial =
           (customEvent.detail.initialValues as
@@ -274,7 +296,9 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "antecedent-personnel") {
-        setAntecedentPersonnelMode(customEvent.detail.mode ?? "create");
+        setAntecedentPersonnelMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setAntecedentPersonnelId(customEvent.detail.antecedentId);
         setAntecedentPersonnelValues(
           (customEvent.detail.initialValues as
@@ -285,7 +309,9 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "antecedent-familial") {
-        setAntecedentFamilialMode(customEvent.detail.mode ?? "create");
+        setAntecedentFamilialMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setAntecedentFamilialId(customEvent.detail.antecedentId);
         setAntecedentFamilialValues(
           (customEvent.detail.initialValues as
@@ -296,7 +322,9 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "traitement") {
-        setTraitementMode(customEvent.detail.mode ?? "create");
+        setTraitementMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setTraitementId(customEvent.detail.traitementId);
         setTraitementValues(
           (customEvent.detail.initialValues as
@@ -313,6 +341,17 @@ function PatientLayout() {
             | undefined) ?? undefined,
         );
         setIsNouvelleOrdonnanceOpen(true);
+      }
+
+      if (customEvent.detail?.type === "vaccination") {
+        setVaccinationMode(customEvent.detail.mode ?? "create");
+        setVaccinationId(customEvent.detail.vaccinationId);
+        setVaccinationValues(
+          (customEvent.detail.initialValues as
+            | VaccinationDialogValues
+            | undefined) ?? undefined,
+        );
+        setIsVaccinationOpen(true);
       }
     };
 
@@ -583,6 +622,17 @@ function PatientLayout() {
       ),
       queryClient.invalidateQueries(
         trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id }),
+      ),
+    ]);
+  };
+
+  const handleVaccinationChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.vaccination.getPatientVaccinations.queryFilter({ patient_id: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
     ]);
   };
@@ -1177,6 +1227,23 @@ function PatientLayout() {
             open={isNouvelleOrdonnanceOpen}
             patientId={id}
             values={ordonnanceValues}
+          />
+
+          <NouvelleVaccinationDialog
+            mode={vaccinationMode}
+            onCreated={handleVaccinationChanged}
+            onOpenChange={(nextOpen) => {
+              setIsVaccinationOpen(nextOpen);
+              if (!nextOpen) {
+                setVaccinationMode("create");
+                setVaccinationId(undefined);
+                setVaccinationValues(undefined);
+              }
+            }}
+            open={isVaccinationOpen}
+            patientId={id}
+            vaccinationId={vaccinationId}
+            values={vaccinationValues}
           />
         </div>
       </div>
