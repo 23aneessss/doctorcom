@@ -37,6 +37,7 @@ import { z } from "zod";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireSession } from "@/lib/require-session";
+import { formatSexLabel, isFemaleSex } from "@/lib/patient-sex";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
 import { NouveauSuiviDialog } from "@/routes/patients.$id/popups/nouveau-suivi";
 import { ModifierAntecedentFamilialDialog } from "@/routes/patients.$id/popups/modifier-antecedent-familial";
@@ -407,12 +408,8 @@ function PatientLayout() {
 
   const patientAge = ageData.age;
   const fullName = `${patient.prenom} ${patient.nom}`;
-  const sexeLabel =
-    patient.sexe === "M"
-      ? "Homme"
-      : patient.sexe === "F"
-        ? "Femme"
-        : (patient.sexe ?? "");
+  const isFemalePatient = isFemaleSex(patient.sexe);
+  const sexeLabel = formatSexLabel(patient.sexe);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -1056,30 +1053,35 @@ function PatientLayout() {
 
           {/* Tab Navigation */}
           <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
-            <div className="scrollbar-hide flex w-full max-w-full items-center justify-start gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1 md:justify-start md:gap-1">
-              {tabs.map((tab) => {
-                const tabPath = tab.to.replace("$id", id);
-                const isActive = location.pathname === tabPath;
-                return (
-                  <Link
-                    key={tab.to}
-                    to={tab.to}
-                    params={{ id }}
-                    className={cn(
-                      "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
-                      isActive
-                        ? "bg-[#f97316] text-white"
-                        : "text-[#0f3460] hover:bg-[#f8fafc]",
-                    )}
-                  >
-                    <tab.icon
-                      className="size-4 shrink-0 text-current"
-                      strokeWidth={1.75}
-                    />
-                    <span>{tab.label}</span>
-                  </Link>
-                );
-              })}
+            <div className={cn(
+              "scrollbar-hide flex w-full max-w-full items-center overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1",
+              isFemalePatient ? "justify-start gap-1" : "justify-center gap-3"
+            )}>
+              {tabs
+                .filter((tab) => tab.to !== "/patients/$id/sante-feminine" || isFemalePatient)
+                .map((tab) => {
+                  const tabPath = tab.to.replace("$id", id);
+                  const isActive = location.pathname === tabPath;
+                  return (
+                    <Link
+                      key={tab.to}
+                      to={tab.to}
+                      params={{ id }}
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
+                        isActive
+                          ? "bg-[#f97316] text-white"
+                          : "text-[#0f3460] hover:bg-[#f8fafc]",
+                      )}
+                    >
+                      <tab.icon
+                        className="size-4 shrink-0 text-current"
+                        strokeWidth={1.75}
+                      />
+                      <span>{tab.label}</span>
+                    </Link>
+                  );
+                })}
             </div>
           </div>
 

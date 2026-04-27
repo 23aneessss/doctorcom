@@ -23,6 +23,7 @@ import {
 } from "@/routes/patients/popups/nouveau-patient";
 
 import { requireSession } from "@/lib/require-session";
+import { formatSexLabel, isFemaleSex, isMaleSex } from "@/lib/patient-sex";
 
 export const Route = createFileRoute("/patients/")({
   component: PatientsPage,
@@ -89,11 +90,11 @@ function PatientsPage() {
 
       const matchesFilter =
         filterValue === "all" ||
-        (filterValue === "female" && isFemale(patient.sexeText)) ||
-        (filterValue === "male" && isMale(patient.sexeText)) ||
+        (filterValue === "female" && isFemaleSex(patient.sexeText)) ||
+        (filterValue === "male" && isMaleSex(patient.sexeText)) ||
         (filterValue === "other" &&
-          !isFemale(patient.sexeText) &&
-          !isMale(patient.sexeText));
+          !isFemaleSex(patient.sexeText) &&
+          !isMaleSex(patient.sexeText));
 
       return matchesSearch && matchesFilter;
     });
@@ -383,24 +384,6 @@ function computeAge(dateNaissance: string) {
   return Math.max(age, 0);
 }
 
-function formatSexLabel(sexe: string | null) {
-  const normalized = (sexe ?? "").trim().toLowerCase();
-
-  if (normalized === "f" || normalized.startsWith("fem")) {
-    return "Femme";
-  }
-
-  if (
-    normalized === "m" ||
-    normalized.startsWith("mas") ||
-    normalized.startsWith("hom")
-  ) {
-    return "Homme";
-  }
-
-  return sexe?.trim() || "Non renseigne";
-}
-
 function extractConditionsText(patient: PatientRecord) {
   const withConditions = patient as PatientRecord & {
     conditions?: string[] | null;
@@ -414,14 +397,4 @@ function extractConditionsText(patient: PatientRecord) {
   }
 
   return "Non renseigne";
-}
-
-function isFemale(sexeText: string) {
-  const normalized = sexeText.toLowerCase();
-  return normalized === "femme" || normalized.startsWith("f");
-}
-
-function isMale(sexeText: string) {
-  const normalized = sexeText.toLowerCase();
-  return normalized === "homme" || normalized.startsWith("m");
 }
