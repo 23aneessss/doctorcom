@@ -264,16 +264,13 @@ export class PatientService {
       id: data.id,
     });
 
-    const [antecedents, vaccinations, rendezVous, suivis, ordonnances, documents, voyages] =
-      await Promise.all([
-        patientRepository.getPatientAntecedents(data.db, data.id),
-        patientRepository.getPatientVaccinations(data.db, data.id),
-        patientRepository.getPatientRendezVous(data.db, data.id),
-        patientRepository.getPatientSuivis(data.db, data.id),
-        patientRepository.getPatientOrdonnances(data.db, data.id),
-        patientRepository.getPatientDocuments(data.db, data.id),
-        patientRepository.getPatientVoyages(data.db, data.id),
-      ]);
+    const antecedents = await patientRepository.getPatientAntecedents(data.db, data.id);
+    const vaccinations = await patientRepository.getPatientVaccinations(data.db, data.id);
+    const rendezVous = await patientRepository.getPatientRendezVous(data.db, data.id);
+    const suivis = await patientRepository.getPatientSuivis(data.db, data.id);
+    const ordonnances = await patientRepository.getPatientOrdonnances(data.db, data.id);
+    const documents = await patientRepository.getPatientDocuments(data.db, data.id);
+    const voyages = await patientRepository.getPatientVoyages(data.db, data.id);
 
     return {
       patient,

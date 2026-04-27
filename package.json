@@ -58,6 +58,7 @@
     "@doctor.com/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
+    "opencode-ai": "^1.14.25",
     "pg": "catalog:",
     "zod": "catalog:"
   },

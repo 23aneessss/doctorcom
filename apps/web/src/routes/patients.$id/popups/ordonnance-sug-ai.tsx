@@ -37,6 +37,7 @@ type OrdonnanceAiResult = {
     chief_problem: string;
   };
   global_warnings: string[];
+  verification_justification?: string | null;
   disclaimer: string;
 };
 
@@ -48,6 +49,7 @@ type OrdonnanceAiAsyncResult = {
     | "verified"
     | "verification_failed";
   verification_error: string | null;
+  verification_justification: string | null;
   poll_after_ms: number;
   result: OrdonnanceAiResult;
   draft_result: OrdonnanceAiResult;
@@ -273,6 +275,7 @@ export function OrdonnanceSugAiDialog({
                   {statusQuery.data?.verification_error ?? recommendationMutation.data?.verification_error}
                 </div>
               ) : null}
+
             </>
           ) : (
             <div className="rounded-[10px] border border-dashed border-[#c2e0ef] bg-[#f8fafc] p-6 text-center">

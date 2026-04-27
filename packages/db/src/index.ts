@@ -13,6 +13,15 @@ if (!connectionString) {
 
 export const pool = new Pool({
   connectionString,
+  max: 5,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 10_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+});
+
+pool.on("error", (error) => {
+  console.error("[db.pool] idle client error", error);
 });
 
 export const db = drizzle({

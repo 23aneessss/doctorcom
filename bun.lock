@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "doctor.com",
@@ -8,6 +7,7 @@
         "@doctor.com/env": "workspace:*",
         "dotenv": "catalog:",
         "drizzle-orm": "catalog:",
+        "opencode-ai": "^1.14.25",
         "pg": "catalog:",
         "zod": "catalog:",
       },
@@ -1835,6 +1835,32 @@
     "onetime": ["onetime@5.1.2", "", { "dependencies": { "mimic-fn": "^2.1.0" } }, "sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg=="],
 
     "open": ["open@11.0.0", "", { "dependencies": { "default-browser": "^5.4.0", "define-lazy-prop": "^3.0.0", "is-in-ssh": "^1.0.0", "is-inside-container": "^1.0.0", "powershell-utils": "^0.1.0", "wsl-utils": "^0.3.0" } }, "sha512-smsWv2LzFjP03xmvFoJ331ss6h+jixfA4UUV/Bsiyuu4YJPfN+FIQGOIiv4w9/+MoHkfkJ22UIaQWRVFRfH6Vw=="],
+
+    "opencode-ai": ["opencode-ai@1.14.25", "", { "optionalDependencies": { "opencode-darwin-arm64": "1.14.25", "opencode-darwin-x64": "1.14.25", "opencode-darwin-x64-baseline": "1.14.25", "opencode-linux-arm64": "1.14.25", "opencode-linux-arm64-musl": "1.14.25", "opencode-linux-x64": "1.14.25", "opencode-linux-x64-baseline": "1.14.25", "opencode-linux-x64-baseline-musl": "1.14.25", "opencode-linux-x64-musl": "1.14.25", "opencode-windows-arm64": "1.14.25", "opencode-windows-x64": "1.14.25", "opencode-windows-x64-baseline": "1.14.25" }, "bin": { "opencode": "bin/opencode" } }, "sha512-xlcuGQWsaN/BZ1Bo9+Pk7X7zMYz2BMnzkKFzZMn/Q9D7SEvdVx+ycjK5Wf8Wq/7niv0t1nFkAQZ85T3tCRWVxg=="],
+
+    "opencode-darwin-arm64": ["opencode-darwin-arm64@1.14.25", "", { "os": "darwin", "cpu": "arm64" }, "sha512-hOTygBfFPAJeo1nGHLi4bqHoJQSQBRNZsKTsyhmflUlGkb+VuXGlxs7PpcN5yPitbnB+EUySEOaJmTlcZf73yg=="],
+
+    "opencode-darwin-x64": ["opencode-darwin-x64@1.14.25", "", { "os": "darwin", "cpu": "x64" }, "sha512-34FTz0Yh2FY+E+TzQHQVPO1w2jXMkLDt/hdlluqBrFdwBxJRKCvrHv+RGPDJJrYiFjyr9GGJfNYQJmxRfrGEdg=="],
+
+    "opencode-darwin-x64-baseline": ["opencode-darwin-x64-baseline@1.14.25", "", { "os": "darwin", "cpu": "x64" }, "sha512-Cqedwl6GIUAbZModPvKNMcLFG95ROSqamDomx89VjwTX68Lg8GjdOqGWO4A66XfohBemMtEyigbgE6fMcFM0vA=="],
+
+    "opencode-linux-arm64": ["opencode-linux-arm64@1.14.25", "", { "os": "linux", "cpu": "arm64" }, "sha512-PdeyTRE10OwAPTpLVmKE3hSGncxxeHJC7iN1FVf+yRFBzp9SPYe5mlP7+O4ETj/J2j64peftuI0RYz44R9oisw=="],
+
+    "opencode-linux-arm64-musl": ["opencode-linux-arm64-musl@1.14.25", "", { "os": "linux", "cpu": "arm64" }, "sha512-aRAzikWpeXZrTfqdR0Nnqta3IV9NQgmTP7r81tMQOw5vNEyuHeBXGPoXnaV0U/8WDqhp7msIOpAd9qQ/kfm8gw=="],
+
+    "opencode-linux-x64": ["opencode-linux-x64@1.14.25", "", { "os": "linux", "cpu": "x64" }, "sha512-gUTRsniZv91V4VO1eYa7QThDMVQkqClI2yiyhrN7L0xF95Oi4xzbYFvYdWbkmvaO85MKLaNsFNgdyYHEqhQ4wg=="],
+
+    "opencode-linux-x64-baseline": ["opencode-linux-x64-baseline@1.14.25", "", { "os": "linux", "cpu": "x64" }, "sha512-/Mp8uGLzM1TIxU7MLnQZb9Xi79k78SibezxQhRzXUABCKbi2fDwIlX1Pi0UfjnBapIVknaRO8VML284nIhV9Lw=="],
+
+    "opencode-linux-x64-baseline-musl": ["opencode-linux-x64-baseline-musl@1.14.25", "", { "os": "linux", "cpu": "x64" }, "sha512-6geh3YcHJmEI946pBODj96s9mFuC/kI5MXftC07k2+o61H2ehL22QA5k6vc1T/DiH09HHvXZpFpe4YjbehCfXg=="],
+
+    "opencode-linux-x64-musl": ["opencode-linux-x64-musl@1.14.25", "", { "os": "linux", "cpu": "x64" }, "sha512-5Z/S5lCbdiT96fcT6aFpetGen8NaHrFNne/2QLYrHYfI2fIzT2uvtIT9c4MyBpN7Mx1TSHeq0Wol5b7D4QLznA=="],
+
+    "opencode-windows-arm64": ["opencode-windows-arm64@1.14.25", "", { "os": "win32", "cpu": "arm64" }, "sha512-HeJxvqJdsbGxTKna9zMaaEhDgSvKJDJofC9qLGEledYxH9HUVHd9CFUmuYpO7KKcQZvClcAEJWRu0DOhUKTHDA=="],
+
+    "opencode-windows-x64": ["opencode-windows-x64@1.14.25", "", { "os": "win32", "cpu": "x64" }, "sha512-o2LjSo2/2meUlUD37oYX8H9KQUu9z8wRiyS0jAahnlgIQwmHHJ//FLgoPPxrnTqhk+eM7/lv24wckxJ8T7y12g=="],
+
+    "opencode-windows-x64-baseline": ["opencode-windows-x64-baseline@1.14.25", "", { "os": "win32", "cpu": "x64" }, "sha512-HPtLBjM5Ox5saLGM9UQ9jyfeebgKL6C/zMte0TX7RBkib/D0lv8fwGC7fnBXbUUzGaLlLz0yixVlvllragfViw=="],
 
     "ora": ["ora@8.2.0", "", { "dependencies": { "chalk": "^5.3.0", "cli-cursor": "^5.0.0", "cli-spinners": "^2.9.2", "is-interactive": "^2.0.0", "is-unicode-supported": "^2.0.0", "log-symbols": "^6.0.0", "stdin-discarder": "^0.2.2", "string-width": "^7.2.0", "strip-ansi": "^7.1.0" } }, "sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw=="],
 

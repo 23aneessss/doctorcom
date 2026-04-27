@@ -92,11 +92,13 @@ interface Message {
   text: string;
   status?: MessageStatus;
   thinkingText?: string;
+  reflectionText?: string | null;
   resultCard?: ResultCard;
 }
 
 interface AssistantResponsePayload {
   done: string;
+  reflectionText?: string | null;
   card?: ResultCard;
 }
 
@@ -138,6 +140,7 @@ interface OrdonnanceGenerationResult {
     }>;
   } | null;
   global_warnings: string[];
+  verification_justification?: string | null;
   disclaimer: string;
 }
 
@@ -149,6 +152,7 @@ interface OrdonnanceAsyncGenerationResult {
     | "verified"
     | "verification_failed";
   verification_error: string | null;
+  verification_justification: string | null;
   poll_after_ms: number;
   result: OrdonnanceGenerationResult;
   draft_result: OrdonnanceGenerationResult;
@@ -613,6 +617,7 @@ export function AIAssistantPanel() {
               ...message,
               status: "done",
               text: payload.done,
+              reflectionText: payload.reflectionText,
               resultCard: payload.card,
             }
           : message,
@@ -640,6 +645,7 @@ export function AIAssistantPanel() {
       type: "assistant",
       text: payload.done,
       status: "done",
+      reflectionText: payload.reflectionText,
       resultCard: payload.card,
     };
 
@@ -783,8 +789,9 @@ export function AIAssistantPanel() {
             primaryRecommendation.ordonnance_draft.medicaments.find(
               (item) => item.duree_traitement,
             )?.duree_traitement ?? null;
-return {
+          return {
             done: "Ordonnance preparee selon le diagnostic et les contraintes du patient.",
+            reflectionText: result.verification_justification ?? null,
             card: {
               title: "Ordonnance generee",
               description: durationSummary
@@ -849,6 +856,7 @@ return {
 
     return {
       done: "Ordonnance preparee selon le diagnostic et les contraintes du patient.",
+      reflectionText: result.verification_justification ?? null,
       card: {
         title: "Ordonnance generee",
         description: durationSummary
@@ -875,43 +883,6 @@ return {
         },
       },
     };
-  };
-
-  const watchOrdonnanceVerification = (options: {
-    generationId: string;
-    source: { patientId: string; suiviId: string; rendezVousId: string | null };
-  }) => {
-    void (async () => {
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 2000));
-
-        try {
-          const status =
-            (await trpcClient.ai.ordonnanceRecommendation.getGenerationStatus.query({
-              generation_id: options.generationId,
-            })) as OrdonnanceAsyncGenerationResult;
-
-          if (status.verification_status === "verified" && status.verified_result) {
-            appendAssistantResult({
-              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
-              card: buildOrdonnanceResponse(status.verified_result, options.source).card,
-            });
-            return;
-          }
-
-          if (status.verification_status === "verification_failed") {
-            appendAssistantResult({
-              done:
-                status.verification_error ??
-                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
-            });
-            return;
-          }
-        } catch {
-          return;
-        }
-      }
-    })();
   };
 
   const resolveFreshClinicalContext = async () => {
@@ -964,6 +935,57 @@ return {
       }),
     );
     setViewerModal(null);
+  };
+
+  const watchOrdonnanceVerification = (options: {
+    generationId: string;
+    source: { patientId: string; suiviId: string; rendezVousId: string | null };
+    pollAfterMs: number;
+  }) => {
+    void (async () => {
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, options.pollAfterMs),
+        );
+
+        try {
+          const status =
+            (await trpcClient.ai.ordonnanceRecommendation.getGenerationStatus.query({
+              generation_id: options.generationId,
+            })) as OrdonnanceAsyncGenerationResult;
+
+          if (status.verification_status === "verified") {
+            const verifiedResponse = buildOrdonnanceResponse(
+              status.verified_result ?? status.result,
+              options.source,
+            );
+            const justification =
+              status.verification_justification ??
+              verifiedResponse.reflectionText ??
+              "Le brouillon a ete relu par l'IA.";
+
+            appendAssistantResult({
+              ...verifiedResponse,
+              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
+              reflectionText: justification,
+            });
+            return;
+          }
+
+          if (status.verification_status === "verification_failed") {
+            appendAssistantResult({
+              done:
+                status.verification_error ??
+                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
+              reflectionText: status.verification_error,
+            });
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+    })();
   };
 
   const sendWithResponse = (
@@ -1035,6 +1057,51 @@ return {
           rendezVousId: rendezVous?.id ?? null,
         };
 
+        if (generation.verification_status === "verification_failed") {
+          const draftResponse = buildOrdonnanceResponse(
+            generation.draft_result ?? generation.result,
+            source,
+          );
+
+          window.setTimeout(() => {
+            appendAssistantResult({
+              done:
+                generation.verification_error ??
+                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
+              reflectionText: generation.verification_error,
+            });
+          }, 450);
+
+          return {
+            ...draftResponse,
+            reflectionText: null,
+          };
+        }
+
+        const draftResponse = buildOrdonnanceResponse(
+          generation.draft_result ?? generation.result,
+          source,
+        );
+
+        if (generation.verification_status === "verified") {
+          const verifiedResponse = buildOrdonnanceResponse(
+            generation.verified_result ?? generation.result,
+            source,
+          );
+          const justification =
+            generation.verification_justification ??
+            verifiedResponse.reflectionText ??
+            "Le brouillon a ete relu par l'IA.";
+
+          window.setTimeout(() => {
+            appendAssistantResult({
+              ...verifiedResponse,
+              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
+              reflectionText: justification,
+            });
+          }, 450);
+        }
+
         if (
           generation.verification_status === "draft_ready" ||
           generation.verification_status === "verifying"
@@ -1042,16 +1109,13 @@ return {
           watchOrdonnanceVerification({
             generationId: generation.generation_id,
             source,
+            pollAfterMs: generation.poll_after_ms,
           });
         }
 
-        const response = buildOrdonnanceResponse(generation.result, source);
         return {
-          ...response,
-          done:
-            generation.verification_status === "verified"
-              ? response.done
-              : "Brouillon d'ordonnance genere. Verification IA en cours en arriere-plan.",
+          ...draftResponse,
+          reflectionText: null,
         };
       },
     });
@@ -1493,6 +1557,7 @@ return {
                                       <DoneBlock
                                         card={message.resultCard}
                                         onOpenView={setViewerModal}
+                                        reflectionText={message.reflectionText}
                                         text={message.text}
                                       />
                                     </motion.div>
@@ -1730,10 +1795,12 @@ function ThinkingBlock({ text }: { text: string }) {
 
 function DoneBlock({
   text,
+  reflectionText,
   card,
   onOpenView,
 }: {
   text: string;
+  reflectionText?: string | null;
   card?: ResultCard;
   onOpenView: (view: AssistantResultView) => void;
 }) {
@@ -1758,7 +1825,7 @@ function DoneBlock({
 
   return (
     <div className="flex flex-col gap-3">
-      <ThoughtCollapsed />
+      <ThoughtCollapsed text={reflectionText} />
 
       <p style={{ fontSize: 13, color: cDiscussionText, lineHeight: "1.55" }}>
         {displayedText}
@@ -2419,36 +2486,69 @@ function formatReadiness(value: string) {
   }
 }
 
-function ThoughtCollapsed() {
+function ThoughtCollapsed({ text }: { text?: string | null }) {
   const [expanded, setExpanded] = useState(false);
+  const reflectionText =
+    text?.trim() ||
+    "La demande a ete analysee avec les informations disponibles, puis le resultat a ete structure pour rester exploitable par le medecin.";
 
   return (
-    <motion.button
-      onClick={() => setExpanded(!expanded)}
-      className="w-fit rounded-lg px-2.5 py-1"
-      style={{ background: "transparent" }}
-      whileHover={{ background: cDiscussionCardBg }}
-      whileTap={{ scale: 0.97 }}
-    >
-      <div className="flex items-center gap-2">
-        <motion.div
-          className="flex h-4 w-4 items-center justify-center rounded-full"
-          style={{ background: cDiscussionCardBg }}
-        >
-          <Check size={9} style={{ color: cSky }} />
-        </motion.div>
-        <span
-          style={{ fontSize: 11, fontWeight: 500, color: cDiscussionMuted }}
-        >
-          Reflexion terminee
-        </span>
-        <motion.div
-          animate={{ rotate: expanded ? 90 : 0 }}
-          transition={springBouncy}
-        >
-          <ChevronRight size={10} style={{ color: cDiscussionMuted }} />
-        </motion.div>
-      </div>
-    </motion.button>
+    <div className="w-fit max-w-full">
+      <motion.button
+        onClick={() => setExpanded(!expanded)}
+        className="rounded-lg px-2.5 py-1"
+        style={{ background: "transparent" }}
+        whileHover={{ background: cDiscussionCardBg }}
+        whileTap={{ scale: 0.97 }}
+        type="button"
+      >
+        <div className="flex items-center gap-2">
+          <motion.div
+            className="flex h-4 w-4 items-center justify-center rounded-full"
+            style={{ background: cDiscussionCardBg }}
+          >
+            <Check size={9} style={{ color: cSky }} />
+          </motion.div>
+          <span
+            style={{ fontSize: 11, fontWeight: 500, color: cDiscussionMuted }}
+          >
+            Reflexion terminee
+          </span>
+          <motion.div
+            animate={{ rotate: expanded ? 90 : 0 }}
+            transition={springBouncy}
+          >
+            <ChevronRight size={10} style={{ color: cDiscussionMuted }} />
+          </motion.div>
+        </div>
+      </motion.button>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            className="mt-2 max-w-[520px] rounded-xl border px-3 py-2"
+            exit={{ opacity: 0, height: 0, y: -4 }}
+            initial={{ opacity: 0, height: 0, y: -4 }}
+            style={{
+              borderColor: cDiscussionBorder,
+              background: cDiscussionCardBg,
+              overflow: "hidden",
+            }}
+            transition={{ duration: 0.2 }}
+          >
+            <p
+              style={{
+                fontSize: 12,
+                color: cDiscussionMuted,
+                lineHeight: "1.55",
+              }}
+            >
+              {reflectionText}
+            </p>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 import { z } from "zod";
 
-import { toSimpleFrenchAiMessage } from "../shared/errors";
+import { logAiError, toSimpleFrenchAiMessage } from "../shared/errors";
 import { parseModelJson as parseSharedModelJson } from "../shared/json";
 import {
   generateGeminiEmbedding,
@@ -28,6 +28,7 @@ import {
 } from "./repo";
 import {
   aiResponseSchema,
+  aiVerificationPayloadSchema,
   ordonnanceAiGenerationStatusSchema,
   recommendationSchema,
   type MedicationRecommendationSuggestion,
@@ -155,6 +156,7 @@ export interface OrdonnanceRecommendationResult {
     reason: string;
   }>;
   global_warnings: string[];
+  verification_justification?: string | null;
   disclaimer: string;
 }
 
@@ -162,6 +164,7 @@ export interface OrdonnanceAsyncGenerationEnvelope {
   generation_id: string;
   verification_status: OrdonnanceAiGenerationStatus;
   verification_error: string | null;
+  verification_justification: string | null;
   poll_after_ms: number;
   result: OrdonnanceRecommendationResult;
   draft_result: OrdonnanceRecommendationResult;
@@ -278,6 +281,7 @@ export class OrdonnanceRecommendationService {
       merged_candidates: medicamentSuggestions,
       excluded_candidates: [],
       global_warnings: [...new Set(globalWarnings)],
+      verification_justification: null,
       disclaimer: recommendationDisclaimer,
     };
   }
@@ -315,6 +319,7 @@ export class OrdonnanceRecommendationService {
       generation_id: generation.id,
       verification_status: "draft_ready",
       verification_error: null,
+      verification_justification: null,
       updated_at: this.toIsoString(generation.updated_at) ?? new Date().toISOString(),
       draft_result: draftResult,
       verified_result: null,
@@ -348,10 +353,35 @@ export class OrdonnanceRecommendationService {
       generation_id: generation.id,
       verification_status: verificationStatus,
       verification_error: generation.verification_error,
+      verification_justification: this.extractVerificationJustification(verifiedResult),
       updated_at: this.toIsoString(generation.updated_at) ?? new Date().toISOString(),
       draft_result: draftResult,
       verified_result: verifiedResult,
     });
+  }
+
+  private buildAsyncEnvelope(data: {
+    generation_id: string;
+    verification_status: OrdonnanceAiGenerationStatus;
+    verification_error: string | null;
+    verification_justification: string | null;
+    updated_at: string;
+    draft_result: OrdonnanceRecommendationResult;
+    verified_result: OrdonnanceRecommendationResult | null;
+  }): OrdonnanceAsyncGenerationEnvelope {
+    return {
+      generation_id: data.generation_id,
+      verification_status: data.verification_status,
+      verification_error: data.verification_error,
+      verification_justification:
+        data.verification_justification ??
+        this.extractVerificationJustification(data.verified_result),
+      poll_after_ms: 2000,
+      result: data.verified_result ?? data.draft_result,
+      draft_result: data.draft_result,
+      verified_result: data.verified_result,
+      updated_at: data.updated_at,
+    };
   }
 
   async processPendingVerifications(
@@ -373,6 +403,7 @@ export class OrdonnanceRecommendationService {
           verifiedResult,
         );
       } catch (error) {
+        logAiError("ordonnance-recommendation.verification", error);
         await ordonnanceRecommendationRepository.markAiGenerationFailed(
           db,
           generation.id,
@@ -380,26 +411,6 @@ export class OrdonnanceRecommendationService {
         );
       }
     }
-  }
-
-  private buildAsyncEnvelope(data: {
-    generation_id: string;
-    verification_status: OrdonnanceAiGenerationStatus;
-    verification_error: string | null;
-    updated_at: string;
-    draft_result: OrdonnanceRecommendationResult;
-    verified_result: OrdonnanceRecommendationResult | null;
-  }): OrdonnanceAsyncGenerationEnvelope {
-    return {
-      generation_id: data.generation_id,
-      verification_status: data.verification_status,
-      verification_error: data.verification_error,
-      poll_after_ms: 2000,
-      result: data.verified_result ?? data.draft_result,
-      draft_result: data.draft_result,
-      verified_result: data.verified_result,
-      updated_at: data.updated_at,
-    };
   }
 
   private async runGeminiVerification(
@@ -413,17 +424,28 @@ export class OrdonnanceRecommendationService {
     const response = await generateGeminiText({
       provider,
       system:
-        "Tu verifies un brouillon d'ordonnance. Tu reponds uniquement en JSON valide. Tu peux conserver les medicaments proposes, ajuster remarques, avertissements, posologie ou instructions. Si tu n'es pas sur, conserve le brouillon fourni.",
+        [
+          "Tu verifies un brouillon d'ordonnance.",
+          "Tu reponds uniquement avec un objet JSON valide, sans markdown.",
+          "La sortie doit avoir exactement les champs: medicaments, remarques, warnings, global_warnings, verification_justification.",
+          "medicaments doit etre un tableau d'objets medicament complets, jamais un tableau de noms de champs.",
+          "Tu peux conserver les medicaments proposes, ajuster remarques, avertissements, posologie ou instructions.",
+          "Si tu n'es pas sur, conserve le brouillon fourni dans le format JSON demande.",
+        ].join(" "),
       prompt: this.buildVerificationPrompt(draftResult),
       temperature: 0.1,
       timeoutMs: 20000,
     });
 
-    const parsed = parseSharedModelJson(response.text.trim());
-    const verified = aiResponseSchema.parse(parsed);
+    const payload = aiVerificationPayloadSchema.parse(
+      parseSharedModelJson(response.text.trim()),
+    );
+    const verified = aiResponseSchema.parse(
+      this.buildVerifiedResponseFromPayload(draftResult, payload),
+    );
     const recommendation = verified.recommendations[0];
     if (!recommendation) {
-      return draftResult;
+      throw new Error("Gemini verification returned no recommendation.");
     }
 
     return {
@@ -432,17 +454,99 @@ export class OrdonnanceRecommendationService {
       status: recommendation.ordonnance_draft.medicaments.length > 0 ? "ready" : "blocked",
       recommendations: verified.recommendations,
       ordonnance_draft: recommendation.ordonnance_draft,
-      global_warnings: [...new Set([...draftResult.global_warnings, ...verified.global_warnings])],
+      global_warnings: verified.global_warnings,
+      verification_justification: verified.verification_justification,
     };
+  }
+
+  private extractVerificationJustification(
+    result: OrdonnanceRecommendationResult | null,
+  ): string | null {
+    return this.nullableText(result?.verification_justification);
+  }
+
+  private buildVerifiedResponseFromPayload(
+    draftResult: OrdonnanceRecommendationResult,
+    response: z.infer<typeof aiVerificationPayloadSchema>,
+  ): z.infer<typeof aiResponseSchema> {
+    const draftRecommendation = draftResult.recommendations.find(
+      (item): item is z.infer<typeof recommendationSchema> =>
+        "ordonnance_draft" in item,
+    );
+
+    return {
+      recommendations: [
+        {
+          rank: draftRecommendation?.rank ?? 1,
+          label: draftRecommendation?.label ?? draftResult.clinical_problem_basis.chief_problem,
+          rationale:
+            draftRecommendation?.rationale ??
+            "Ordonnance verifiee par le service d'aide medicale.",
+          warnings: response.warnings,
+          ordonnance_draft: {
+            remarques: this.emptyStringToNull(response.remarques),
+            medicaments: response.medicaments.map((medicament) => ({
+              ...medicament,
+              dci: this.emptyStringToNull(medicament.dci),
+              dosage: this.emptyStringToNull(medicament.dosage),
+              duree_traitement: this.emptyStringToNull(medicament.duree_traitement),
+              instructions: this.emptyStringToNull(medicament.instructions),
+            })),
+          },
+        },
+      ],
+      global_warnings: response.global_warnings,
+      verification_justification: response.verification_justification,
+    };
+  }
+
+  private buildVerificationJsonExample(draftResult: OrdonnanceRecommendationResult): string {
+    const firstMedication = draftResult.ordonnance_draft?.medicaments[0];
+
+    return JSON.stringify({
+      medicaments: [
+        {
+          medicament_externe_id: firstMedication?.medicament_externe_id ?? "id",
+          nom_medicament: firstMedication?.nom_medicament ?? "NOM",
+          dci: firstMedication?.dci ?? "",
+          dosage: firstMedication?.dosage ?? "",
+          posologie: firstMedication?.posologie ?? "Posologie a verifier",
+          duree_traitement: firstMedication?.duree_traitement ?? "",
+          instructions: firstMedication?.instructions ?? "",
+          justification:
+            firstMedication?.justification ??
+            "Justification clinique courte pour ce medicament.",
+          is_active_treatment: firstMedication?.is_active_treatment ?? false,
+        },
+      ],
+      remarques: draftResult.ordonnance_draft?.remarques ?? "",
+      warnings: [],
+      global_warnings: draftResult.global_warnings,
+      verification_justification:
+        "Controle des doublons, de la coherence de la posologie et des avertissements.",
+    });
+  }
+
+  private emptyStringToNull(value: string): string | null {
+    const normalized = value.trim();
+    return normalized ? normalized : null;
   }
 
   private buildVerificationPrompt(draftResult: OrdonnanceRecommendationResult): string {
     return [
       "Verifie ce brouillon d'ordonnance clinique.",
-      "Retourne uniquement un JSON valide au format { recommendations: [...], global_warnings: [...] }.",
+      "Reponds uniquement avec un objet JSON valide, sans texte avant ou apres.",
+      "La sortie racine doit avoir exactement ces champs: medicaments, remarques, warnings, global_warnings, verification_justification.",
+      "Le champ medicaments doit etre un tableau d'objets medicament complets, jamais un tableau de noms de champs.",
+      "Chaque medicament doit contenir exactement: medicament_externe_id, nom_medicament, dci, dosage, posologie, duree_traitement, instructions, justification, is_active_treatment.",
+      "La verification_justification doit expliquer brievement les controles faits et les changements retenus.",
       "Conserve les medicaments si le contexte ne justifie pas de changement.",
-      "Au maximum une recommandation.",
-      "Le brouillon actuel est:",
+      "Retire les doublons: ne conserve qu'une seule specialite par substance active ou famille therapeutique equivalente.",
+      "Pour les champs dci, dosage, duree_traitement, instructions et remarques, utilise une chaine vide si l'information n'est pas disponible.",
+      "N'utilise pas les cles recommendations, recommandations, ordonnance_finale ou ordonnance_draft dans la sortie.",
+      "Exemple de format attendu:",
+      this.buildVerificationJsonExample(draftResult),
+      "Le JSON suivant est uniquement l'entree a verifier, pas le format de sortie:",
       JSON.stringify({
         clinical_problem_basis: draftResult.clinical_problem_basis,
         ordonnance_draft: draftResult.ordonnance_draft,
