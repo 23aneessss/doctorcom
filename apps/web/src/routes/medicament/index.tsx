@@ -266,7 +266,6 @@ function RouteComponent() {
                     <MedicationCard
                       key={medication.id}
                       id={medication.id}
-                      condition={medication.condition}
                       isDeleting={deleteMutation.isPending && deleteMutation.variables === medication.id}
                       name={medication.name}
                       onDelete={handleDelete}
@@ -280,7 +279,6 @@ function RouteComponent() {
                       }}
                       primaryTag={medication.primaryTag}
                       scientificName={medication.scientificName}
-                      secondaryTag={medication.secondaryTag}
                     />
                   ))}
                 </div>
