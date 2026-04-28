@@ -57,6 +57,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
 
       <form
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -115,7 +116,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             <Button
               type="submit"
               className="w-full"
-              disabled={!state.canSubmit || state.isSubmitting}
+              disabled={state.isSubmitting}
             >
               {state.isSubmitting ? "Submitting..." : "Sign In"}
             </Button>

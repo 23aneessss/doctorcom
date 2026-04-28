@@ -15,6 +15,7 @@ import { uploadRouter } from "./routes/upload";
 
 const app: express.Express = express();
 const port = Number(process.env.PORT ?? 3000);
+const corsOrigin = env.CORS_ORIGIN.replace(/\/+$/, "");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -22,7 +23,7 @@ const upload = multer({
 
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: corsOrigin,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
