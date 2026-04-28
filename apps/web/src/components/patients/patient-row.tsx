@@ -75,7 +75,7 @@ export function PatientRow({ patient, viewMode, onViewPatient, onEditPatient }: 
         <span className={styles.avatar} aria-hidden="true">
           {patient.initials}
         </span>
-        <div>
+        <div className="min-w-0">
           <p className={styles.patientName}>{patient.fullName}</p>
           <p className={styles.patientMeta}>#{patient.matricule}</p>
         </div>
@@ -95,13 +95,21 @@ export function PatientRow({ patient, viewMode, onViewPatient, onEditPatient }: 
       <p className={styles.primaryText}>{patient.bloodGroupText}</p>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.actionButton} onClick={() => onViewPatient(patient.id)}>
-          <Eye size={16} aria-hidden="true" />
-          <span>Voir</span>
+        <button
+          type="button"
+          aria-label="Voir le patient"
+          className={styles.rowActionButton}
+          onClick={() => onViewPatient(patient.id)}
+        >
+          <Eye size={13} strokeWidth={2} aria-hidden="true" />
         </button>
-        <button type="button" className={styles.actionButton} onClick={() => onEditPatient(patient.id)}>
-          <SquarePen size={16} aria-hidden="true" />
-          <span>Modifier</span>
+        <button
+          type="button"
+          aria-label="Modifier le patient"
+          className={styles.rowActionButton}
+          onClick={() => onEditPatient(patient.id)}
+        >
+          <SquarePen size={13} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
     </li>
