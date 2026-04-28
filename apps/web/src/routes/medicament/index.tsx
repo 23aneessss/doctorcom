@@ -261,7 +261,7 @@ function RouteComponent() {
                   </p>
                 </div>
               ) : (
-                <div className="ml-[67px] mt-[30px] grid w-[1086px] max-w-[calc(100%-67px)] grid-cols-1 gap-x-[41px] gap-y-[44px] xl:grid-cols-3">
+                <div className="ml-[67px] mt-[30px] grid w-[1086px] max-w-[calc(100%-67px)] grid-cols-1 gap-x-[16px] gap-y-[14px] xl:grid-cols-3">
                   {displayedItems.map((medication) => (
                     <MedicationCard
                       key={medication.id}
