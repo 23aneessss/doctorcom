@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -226,18 +225,7 @@ function RouteComponent() {
                 <ul className={styles.sideList}>
                   {relatedQuestions.map((item) => {
                     const answer = faqAnswersByQuestion[item];
-                    const hasAnswer = typeof answer === "string" && answer.length > 0;
-                    const isOpen = hasAnswer && openRelatedQuestion === item;
-
-                    if (!hasAnswer) {
-                      return (
-                        <li key={item}>
-                          <Link to={relatedQuestionLinks[item]} className={styles.sideLink}>
-                            {item}
-                          </Link>
-                        </li>
-                      );
-                    }
+                    const isOpen = openRelatedQuestion === item;
 
                     return (
                       <li key={item} className={styles.sideQuestionItem}>
