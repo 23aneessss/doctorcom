@@ -16,6 +16,7 @@ export type MedicationCardViewModel = {
   name: string;
   scientificName: string;
   primaryTag: string;
+  pharmacologicalFamily: string | null;
 };
 
 export type MedicationFormValues = {
@@ -92,6 +93,7 @@ export function toCardFromMobileItem(item: MobileCatalogItem): MedicationCardVie
     name: item.name,
     scientificName: item.genericName ?? item.name,
     primaryTag: item.category,
+    pharmacologicalFamily: item.family ?? null,
   };
 }
 
@@ -109,6 +111,7 @@ export function toCardFromSearchItem(
     name: item.nom_medicament,
     scientificName: item.nom_generique ?? item.nom_medicament,
     primaryTag: getPrimaryCategory(item.classe_therapeutique, item.famille_pharmacologique),
+    pharmacologicalFamily: item.famille_pharmacologique ?? null,
   };
 }
 

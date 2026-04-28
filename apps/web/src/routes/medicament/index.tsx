@@ -277,6 +277,7 @@ function RouteComponent() {
                         setViewMedicamentId(id);
                         setIsDetailEditing(false);
                       }}
+                      pharmacologicalFamily={medication.pharmacologicalFamily}
                       primaryTag={medication.primaryTag}
                       scientificName={medication.scientificName}
                     />

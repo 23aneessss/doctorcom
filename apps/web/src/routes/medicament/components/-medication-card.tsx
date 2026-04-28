@@ -5,6 +5,7 @@ type MedicationCardProps = {
   name: string;
   scientificName: string;
   primaryTag: string;
+  pharmacologicalFamily?: string | null;
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
@@ -16,6 +17,7 @@ export function MedicationCard({
   name,
   scientificName,
   primaryTag,
+  pharmacologicalFamily,
   onView,
   onEdit,
   onDelete,
@@ -40,9 +42,16 @@ export function MedicationCard({
           </span>
         </div>
 
-        <span className="w-fit inline-flex h-[24px] items-center rounded-full bg-[#052CA0] px-3 font-['Inter'] text-[11px] font-semibold text-white truncate max-w-full">
-          {primaryTag}
-        </span>
+        <div className="flex flex-wrap items-center gap-[6px]">
+          <span className="inline-flex h-[22px] items-center rounded-full bg-[#052CA0] px-3 font-['Inter'] text-[11px] font-semibold text-white truncate max-w-full">
+            {primaryTag}
+          </span>
+          {pharmacologicalFamily && pharmacologicalFamily !== primaryTag && (
+            <span className="inline-flex h-[22px] items-center rounded-full border border-[#c6dff0] bg-[#eef6fc] px-3 font-['Inter'] text-[11px] font-medium text-[#3a6a8f] truncate max-w-full">
+              {pharmacologicalFamily.split(">")[0]?.trim() ?? pharmacologicalFamily}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 border-t border-[#e8f3fb] px-4 py-3">
