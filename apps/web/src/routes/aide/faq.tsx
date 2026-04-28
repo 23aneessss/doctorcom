@@ -170,6 +170,7 @@ function RouteComponent() {
                     return (
                       <li
                         key={item.id}
+                        id={item.id}
                         className={`${styles.item} ${isOpen ? styles.itemOpen : ""}`}
                       >
                         <button

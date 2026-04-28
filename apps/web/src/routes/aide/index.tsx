@@ -16,6 +16,25 @@ import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import styles from "../parametres.module.css";
 
+function CalendarAgendaIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="22"
+      height="20.625"
+      viewBox="0 0 22 20.625"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M17.875 1.375H22V20.625H0V1.375H4.125V0H5.5V1.375H16.5V0H17.875V1.375ZM4.125 2.75H1.375V5.5H20.625V2.75H17.875V4.125H16.5V2.75H5.5V4.125H4.125V2.75ZM1.375 19.25H20.625V6.875H1.375V19.25ZM4.125 11V9.625H17.875V11H4.125ZM4.125 15.125V13.75H17.875V15.125H4.125Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export const Route = createFileRoute("/aide/")({
   component: RouteComponent,
   beforeLoad: async () => {
@@ -62,7 +81,7 @@ function RouteComponent() {
       id: "agenda",
       title: "Agenda & Rendez-vous",
       description: "Planification, modification et statuts.",
-      icon: <Note size={20} weight="fill" />,
+      icon: <CalendarAgendaIcon />,
       href: "/agenda",
     },
     {

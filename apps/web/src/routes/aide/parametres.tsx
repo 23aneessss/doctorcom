@@ -105,11 +105,29 @@ function RouteComponent() {
     "Recuperation du mot de passe oublie",
   ] as const;
 
+  const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
+    "Modifier vos informations de profil": "profil",
+    "Changer votre mot de passe": "securite",
+    "Se deconnecter de Doctor.com": "session",
+    "Recuperation du mot de passe oublie": "recuperation",
+  };
+
+  const scrollToArticleSection = (targetId: string) => {
+    const targetElement = document.getElementById(targetId);
+    targetElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const relatedQuestions = [
     "Puis-je rester connecte sur plusieurs appareils ?",
     "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?",
     "doctor.com est-il accessible sur mobile ?",
   ] as const;
+
+  const relatedQuestionLinks: Record<(typeof relatedQuestions)[number], string> = {
+    "Puis-je rester connecte sur plusieurs appareils ?": "/aide/faq#account-1",
+    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?": "/aide/faq#account-2",
+    "doctor.com est-il accessible sur mobile ?": "/aide/faq#account-3",
+  };
 
   const faqAnswersByQuestion: Partial<Record<(typeof relatedQuestions)[number], string>> = {
     // Questions without mapped answers stay static, as requested.
@@ -150,7 +168,7 @@ function RouteComponent() {
               </Link>
 
               {articleSections.map((section) => (
-                <article key={section.id} className={styles.articleCard}>
+                <article key={section.id} id={section.id} className={styles.articleCard}>
                   <h1 className={styles.articleTitle}>{section.title}</h1>
                   <p className={styles.articleIntro}>{section.intro}</p>
                   <h2 className={styles.articleSubtitle}>{section.subtitle}</h2>
@@ -199,7 +217,11 @@ function RouteComponent() {
                 <ul className={styles.sideList}>
                   {articleLinks.map((item) => (
                     <li key={item}>
-                      <button type="button" className={styles.sideLink}>
+                      <button
+                        type="button"
+                        className={styles.sideLink}
+                        onClick={() => scrollToArticleSection(articleLinkTargets[item])}
+                      >
                         {item}
                       </button>
                     </li>
@@ -218,9 +240,9 @@ function RouteComponent() {
                     if (!hasAnswer) {
                       return (
                         <li key={item}>
-                          <button type="button" className={styles.sideLink}>
+                          <Link to={relatedQuestionLinks[item]} className={styles.sideLink}>
                             {item}
-                          </button>
+                          </Link>
                         </li>
                       );
                     }
