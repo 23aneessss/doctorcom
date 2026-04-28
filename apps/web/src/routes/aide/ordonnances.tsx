@@ -7,9 +7,6 @@ import {
   CheckCircle,
   Warning,
 } from "@phosphor-icons/react";
-import drAdminHead from "@/assets/0849c953470bfbc456f6bb8378af8f0b2293e2d7.svg";
-import drAdminBody from "@/assets/94439e37d5eda0beeaf04124bb2db2df0848c812.svg";
-import drAdminDot from "@/assets/9eb00701539dafff1d15056cbd2a5cc50d99e8a3.svg";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 
@@ -17,7 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import styles from "./parametres.module.css";
 
-export const Route = createFileRoute("/aide/parametres")({
+export const Route = createFileRoute("/aide/ordonnances")({
   component: RouteComponent,
   beforeLoad: async () => {
     const session = await requireSession();
@@ -39,78 +36,66 @@ function RouteComponent() {
 
   const articleSections = [
     {
-      id: "profil",
-      title: "Gerer votre profil et vos identifiants",
-      intro: "L'onglet Parametres vous permet de maintenir vos informations professionnelles a jour pour garantir la validite des documents emis et par le cabinet.",
-      subtitle: "Mettre a jour vos informations de contact",
+      id: "overview",
+      title: "Vue d'ensemble",
+      intro:
+        "Cet espace centralise l'historique de toutes les prescriptions émises, classées par type pour un suivi optimal.",
+      subtitle: "Statut des ordonnances",
       steps: [
-        "Rendez-vous dans l'onglet Parametres via la barre laterale gauche.",
-        "Dans la section Profil, modifiez votre nom, e-mail, numero de telephone ou l'adresse de votre cabinet.",
-        "Preferences : utilisez le menu deroulant pour changer la langue de l'interface (francais, arabe, anglais, etc.).",
-        "Cliquez sur Enregistrer les modifications pour valider.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Assurez-vous que votre adresse e-mail est correcte, car elle est le seul moyen de reinitialiser votre acces en cas d'oubli.",
-    },
-    {
-      id: "securite",
-      title: "Securite du compte",
-      intro: "La protection des donnees de sante commence par un mot de passe robuste et regulierement renouvele.",
-      subtitle: "Changer votre mot de passe",
-      steps: [
-        "Allez dans Parametres > section Securite.",
-        "Cliquez sur le bouton bleu Changer le mot de passe.",
-        "Saisissez votre mot de passe actuel, puis le nouveau (minimum 8 caracteres, incluant des chiffres et symboles).",
-        "Validez pour appliquer le changement immediatement.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Si vous avez oublie votre mot de passe, cliquez sur Mot de passe oublie ? sous le formulaire de connexion.",
-    },
-    {
-      id: "session",
-      title: "Gestion de la session",
-      intro: "Pour proteger la confidentialite des dossiers patients, il est crucial de fermer votre session lorsque vous quittez votre poste.",
-      subtitle: "Se deconnecter de doctor.com",
-      steps: [
-        "Reperez l'icone de deconnexion situee tout en bas de votre barre laterale gauche.",
-        "Cliquez sur le bouton Se deconnecter.",
-        "Vous pouvez egalement effectuer cette action depuis l'onglet Parametres, tout en bas dans la section Session.",
+        "IA : Ordonnance générée ou assistée par la suggestion intelligente.",
+        "Pré-remplie : Ordonnance créée à partir d'un modèle de votre bibliothèque.",
+        "Manuel : Ordonnance rédigée de zéro, sans aide ni modèle.",
       ],
       calloutTone: "success",
       callout:
-        "Nous recommandons de vous deconnecter systematiquement a la fin de chaque journee de consultation.",
+        "Les statuts permettent de retrouver rapidement l'origine d'une prescription et de distinguer les ordonnances assistées des modèles personnalisés.",
     },
     {
-      id: "recuperation",
-      title: "Recuperation du mot de passe",
-      intro: "Pour reinitialiser votre cle d'acces et debloquer votre session, suivez les etapes de securisation ci-dessous.",
-      subtitle: "Etapes de reinitialisation du mot de passe",
+      id: "actions",
+      title: "Actions",
+      intro:
+        "Chaque ordonnance peut être consultée, ajustée, imprimée ou téléchargée selon votre besoin.",
+      subtitle: "Gérer une prescription",
       steps: [
-        "Sur la page de connexion de l'application, cliquez sur le lien Mot de passe oublie ? situe sous le formulaire.",
-        "Saisissez l'adresse e-mail associee a votre compte (celle renseignee dans vos Parametres).",
-        "Consultez votre messagerie : un e-mail de securite vous sera envoye instantanement.",
-        "Cliquez sur le bouton Reinitialiser mon mot de passe contenu dans l'e-mail.",
+        "Voir : Consulter l'aperçu du document avant toute action.",
+        "Modifier : Ajuster une posologie ou un médicament, même après enregistrement.",
+        "Imprimer : Générer la version papier pour le patient.",
+        "Télécharger : Exporter l'ordonnance en PDF pour un envoi numérique sécurisé.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Vérifiez toujours l'aperçu avant impression ou téléchargement afin de limiter les corrections de dernière minute.",
+    },
+    {
+      id: "templates",
+      title: "Modèles d'ordonnance",
+      intro:
+        "Gagnez un temps précieux en utilisant des protocoles pré-établis pour les pathologies fréquentes.",
+      subtitle: "Utiliser et modifier les modèles",
+      steps: [
+        "Utiliser les modèles : Cliquez sur le bouton \"Utiliser\" du modèle souhaité. Une page s'ouvre avec l'ordonnance complète, prête à l'emploi.",
+        "Modifier un modèle : Sur la carte du modèle, cliquez sur le bouton orange \"Modifier\" pour mettre à jour le contenu.",
+        "Créer un nouveau modèle : Cliquez sur \"+ Nouveau modèle\", renseignez l'identification, la description et les médicaments, puis validez avec \"Créer le modèle\".",
+        "Conseil : Utilisez la barre de recherche en haut de page pour retrouver instantanément un modèle spécifique parmi votre liste.",
       ],
       calloutTone: "success",
       callout:
-        "Pour des raisons de securite, le lien de recuperation expire apres quelques minutes. Si vous ne recevez pas l'e-mail, verifiez votre dossier Courriers indesirables (Spams).",
+        "Un modèle bien documenté accélère la prescription future sans modifier les ordonnances déjà émises.",
     },
   ] as const;
 
   const articleLinks = [
-    "Modifier vos informations de profil",
-    "Changer votre mot de passe",
-    "Se deconnecter de Doctor.com",
-    "Recuperation du mot de passe oublie",
+    "Vue d’ensemble et statuts",
+    "Actions (Impression, PDF)",
+    "Utilisation et modification des modèles",
+    "Création d'un modele personnalisé",
   ] as const;
 
   const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
-    "Modifier vos informations de profil": "profil",
-    "Changer votre mot de passe": "securite",
-    "Se deconnecter de Doctor.com": "session",
-    "Recuperation du mot de passe oublie": "recuperation",
+    "Vue d’ensemble et statuts": "overview",
+    "Actions (Impression, PDF)": "actions",
+    "Utilisation et modification des modèles": "templates",
+    "Création d'un modele personnalisé": "templates",
   };
 
   const scrollToArticleSection = (targetId: string) => {
@@ -119,18 +104,18 @@ function RouteComponent() {
   };
 
   const relatedQuestions = [
-    "doctor.com est-il accessible sur mobile ?",
-    "Puis-je rester connecté sur plusieurs appareils ?",
-    "Je n'ai plus accès à mon adresse e-mail de récupération, que faire ?",
+    "Puis-je transformer une ordonnance manuelle en modèle ?",
+    "Où sont stockées les ordonnances téléchargées ?",
+    "Comment rechercher un modèle spécifique ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
-    "doctor.com est-il accessible sur mobile ?":
-      "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement directement depuis votre téléphone ou tablette.",
-    "Puis-je rester connecté sur plusieurs appareils ?":
-      "Oui, mais avec vigilance. Vous pouvez être connecté sur votre ordinateur de bureau et votre tablette simultanément. Cependant, pour des raisons de sécurité et de confidentialité des données de santé, nous vous conseillons de fermer votre session sur les appareils que vous n'utilisez plus activement.",
-    "Je n'ai plus accès à mon adresse e-mail de récupération, que faire ?":
-      "Contactez l'assistance technique car si vous ne pouvez plus accéder à la boîte mail liée à votre compte, vous ne pourrez pas recevoir le lien de réinitialisation.",
+    "Puis-je transformer une ordonnance manuelle en modèle ?":
+      "Pas directement, mais vous pouvez copier les éléments d'une ordonnance récente pour créer un nouveau modèle en moins de 30 secondes.",
+    "Où sont stockées les ordonnances téléchargées ?":
+      "Le fichier PDF est enregistré dans le dossier \"Téléchargements\" de votre appareil.",
+    "Comment rechercher un modèle spécifique ?":
+      "Utilisez la barre de recherche \"Rechercher un modèle...\" située en haut de la section pour filtrer par pathologie.",
   };
 
   const [openRelatedQuestion, setOpenRelatedQuestion] = useState<string>("");
@@ -141,18 +126,37 @@ function RouteComponent() {
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
-          <section className={patientsStyles.hero} style={{ "--patients-hero-texture": `url(${headerTexture})`, marginLeft: "clamp(0.9rem, 2vw, 1.8rem)", marginRight: "clamp(0.9rem, 2vw, 1.8rem)", padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)" } as any} aria-labelledby="parametres-page-title">
+          <section
+            className={patientsStyles.hero}
+            style={{
+              "--patients-hero-texture": `url(${headerTexture})`,
+              marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
+              marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
+              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
+            } as any}
+            aria-labelledby="ordonnances-page-title"
+          >
             <div className={patientsStyles.heroInner}>
               <div className={patientsStyles.heroText}>
-                <h1 className={patientsStyles.heroTitle} id="parametres-page-title" style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}>Parametre</h1>
-                <p className={patientsStyles.heroSubtitle} style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}>Connexion, mot de passe, récupération de compte</p>
+                <h1
+                  className={patientsStyles.heroTitle}
+                  id="ordonnances-page-title"
+                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
+                >
+                  Ordonnances
+                </h1>
+                <p
+                  className={patientsStyles.heroSubtitle}
+                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
+                >
+                  Prescriptions, modèles et historique
+                </p>
               </div>
             </div>
           </section>
 
           <div className={styles.columns}>
-            <section className={styles.articleColumn} aria-label="Guide parametres">
-
+            <section className={styles.articleColumn} aria-label="Guide ordonnances">
               <Link to="/aide" className={styles.backLink}>
                 <ArrowLeft size={17} weight="bold" aria-hidden="true" />
                 Retour aux categories
@@ -190,10 +194,8 @@ function RouteComponent() {
 
               <section className={styles.supportCard}>
                 <div>
-                  <h3 className={styles.supportTitle}>Vous n'avez pas trouve votre reponse ?</h3>
-                  <p className={styles.supportDescription}>
-                    Notre equipe est disponible pour vous aider.
-                  </p>
+                  <h3 className={styles.supportTitle}>Vous n'avez pas trouvé votre réponse ?</h3>
+                  <p className={styles.supportDescription}>Notre équipe est disponible pour vous aider.</p>
                 </div>
 
                 <button type="button" className={styles.supportButton}>
@@ -221,12 +223,11 @@ function RouteComponent() {
               </section>
 
               <section className={styles.sideCard}>
-                <h2 className={styles.sideTitle}>Questions lies</h2>
+                <h2 className={styles.sideTitle}>Questions liées</h2>
                 <ul className={styles.sideList}>
                   {relatedQuestions.map((item) => {
                     const answer = faqAnswersByQuestion[item];
-                    const hasAnswer = typeof answer === "string" && answer.length > 0;
-                    const isOpen = hasAnswer && openRelatedQuestion === item;
+                    const isOpen = openRelatedQuestion === item;
 
                     return (
                       <li key={item} className={styles.sideQuestionItem}>
@@ -247,9 +248,7 @@ function RouteComponent() {
                           />
                         </button>
 
-                        <div
-                          className={`${styles.sideAnswerWrap} ${isOpen ? styles.sideAnswerWrapOpen : ""}`}
-                        >
+                        <div className={`${styles.sideAnswerWrap} ${isOpen ? styles.sideAnswerWrapOpen : ""}`}>
                           <div className={styles.sideAnswerInner}>
                             <p className={styles.sideAnswerText}>{answer}</p>
                           </div>

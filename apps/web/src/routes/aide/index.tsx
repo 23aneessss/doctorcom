@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
-  CaretRight,
+  CaretDown,
   GearSix,
   House,
   MagnifyingGlass,
@@ -11,6 +11,7 @@ import {
   User,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
@@ -61,7 +62,7 @@ function RouteComponent() {
       title: "Accueil",
       description: "Statistiques, KPIs et actions rapides.",
       icon: <House size={20} weight="fill" />,
-      href: "/dashboard",
+      href: "/aide/accueil",
     },
     {
       id: "parametres",
@@ -75,37 +76,59 @@ function RouteComponent() {
       title: "Patients",
       description: "Dossiers, fiches et assistant IA medical.",
       icon: <User size={20} weight="fill" />,
-      href: "/patients",
+      href: "/aide/patients",
     },
     {
       id: "agenda",
       title: "Agenda & Rendez-vous",
       description: "Planification, modification et statuts.",
       icon: <CalendarAgendaIcon />,
-      href: "/agenda",
+      href: "/aide/agenda-rendez-vous",
     },
     {
       id: "ordonnances",
       title: "Ordonnances",
       description: "Creation, impression et suivi des prescriptions.",
       icon: <Note size={20} weight="fill" />,
-      href: "/ordonnance",
+      href: "/aide/ordonnances",
     },
     {
       id: "medicaments",
       title: "Medicaments",
       description: "Catalogue, prescriptions et statistiques.",
       icon: <Pill size={20} weight="fill" />,
-      href: "/medicament",
+      href: "/aide/medicaments",
     },
   ] as const;
 
   const frequentQuestions = [
-    "Je n'arrive pas a me connecter, que faire ?",
-    "Comment modifier mon mot de passe ?",
-    "Comment recuperer mon compte ?",
-    "Comment contacter le support rapidement ?",
+    {
+      id: "aide-home-1",
+      question: "Je n'arrive pas a me connecter, que faire ?",
+      answer:
+        "Sur la page de connexion, cliquez sur \"Mot de passe oublié ?\", saisissez votre e-mail professionnelle puis suivez le lien de réinitialisation reçu par e-mail.",
+    },
+    {
+      id: "aide-home-2",
+      question: "Comment modifier mon mot de passe ?",
+      answer:
+        "Allez dans Paramètres > Sécurité, cliquez sur \"Changer le mot de passe\", puis validez votre nouveau mot de passe (minimum 8 caractères).",
+    },
+    {
+      id: "aide-home-3",
+      question: "Comment recuperer mon compte ?",
+      answer:
+        "Utilisez l'option \"Mot de passe oublié ?\" sur l'écran de connexion. Si vous n'avez plus accès à votre e-mail, contactez le support pour vérification.",
+    },
+    {
+      id: "aide-home-4",
+      question: "Comment contacter le support rapidement ?",
+      answer:
+        "Utilisez le bouton \"Contacter le support\" en bas de la page Aide pour joindre rapidement l'équipe d'assistance.",
+    },
   ] as const;
+
+  const [openQuestionId, setOpenQuestionId] = useState<string>(frequentQuestions[0]?.id ?? "");
 
   return (
     <div className={styles.pageShell}>
@@ -162,14 +185,39 @@ function RouteComponent() {
             </div>
 
             <ul className={styles.faqList}>
-              {frequentQuestions.map((question) => (
-                <li key={question}>
-                  <button type="button" className={styles.faqButton}>
-                    <span>{question}</span>
-                    <CaretRight size={16} weight="bold" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
+              {frequentQuestions.map((item) => {
+                const isOpen = openQuestionId === item.id;
+
+                return (
+                  <li
+                    key={item.id}
+                    className={`${styles.faqItem} ${isOpen ? styles.faqItemOpen : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className={styles.faqButton}
+                      onClick={() => {
+                        setOpenQuestionId((current) => (current === item.id ? "" : item.id));
+                      }}
+                      aria-expanded={isOpen}
+                    >
+                      <span>{item.question}</span>
+                      <CaretDown
+                        size={16}
+                        weight="bold"
+                        className={`${styles.faqIcon} ${isOpen ? styles.faqIconOpen : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+
+                    <div className={`${styles.faqAnswerWrap} ${isOpen ? styles.faqAnswerWrapOpen : ""}`}>
+                      <div className={styles.faqAnswerInner}>
+                        <p className={styles.faqAnswerText}>{item.answer}</p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
 
             <Link to="/aide/faq" className={styles.faqAll}>
