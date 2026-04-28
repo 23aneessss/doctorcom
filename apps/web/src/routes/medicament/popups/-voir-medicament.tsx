@@ -8,7 +8,7 @@ import {
   ChevronUp,
   ClipboardList,
   FileText,
-  Pill,
+  FlaskConical,
   Shield,
   Tag,
 } from "lucide-react";
@@ -134,28 +134,55 @@ export function VoirMedicamentDialog({
       onSubmit={(event) => { event.preventDefault(); form.handleSubmit(); }}
     >
       {/* ── Hero header ── */}
-      <section className="ml-[24px] w-[1096px] max-w-full overflow-hidden rounded-[14px] bg-gradient-to-br from-[#1b4574] to-[#0f3460] px-[28px] pb-[20px] pt-[16px] shadow-[0px_8px_28px_-12px_rgba(15,52,96,0.38)]">
+      <section className="relative ml-[24px] w-[1096px] max-w-full overflow-hidden rounded-[18px] bg-gradient-to-br from-[#1e5291] via-[#1b4574] to-[#0d2d52] px-[28px] pb-[24px] pt-[16px] shadow-[0px_10px_32px_-8px_rgba(15,52,96,0.45)]">
+        {/* Decorative background circles */}
+        <div className="pointer-events-none absolute -right-[50px] -top-[50px] size-[200px] rounded-full bg-[rgba(255,255,255,0.04)]" />
+        <div className="pointer-events-none absolute bottom-[-70px] right-[80px] size-[240px] rounded-full bg-[rgba(118,187,221,0.05)]" />
+        <div className="pointer-events-none absolute -left-[30px] bottom-[-40px] size-[160px] rounded-full bg-[rgba(255,255,255,0.03)]" />
+
         <button
           type="button"
           onClick={() => { onEditModeChange(false); onOpenChange(false); }}
-          className="inline-flex h-[24px] items-center gap-[6px] font-['Inter'] text-[12px] font-medium text-[rgba(255,253,251,0.7)] transition-colors hover:text-[#FFFDFB]"
+          className="relative inline-flex h-[24px] items-center gap-[6px] font-['Inter'] text-[12px] font-medium text-[rgba(255,253,251,0.65)] transition-colors hover:text-[#FFFDFB]"
         >
           <ArrowLeft className="size-[12px]" strokeWidth={2.4} />
-          <span className="border-b border-[rgba(255,253,251,0.4)]">Retour aux médicaments</span>
+          <span className="border-b border-[rgba(255,253,251,0.35)]">Retour aux médicaments</span>
         </button>
 
-        <div className="mt-[14px] flex items-center justify-between gap-6">
-          <div className="flex min-w-0 items-center gap-[14px]">
-            <div className="flex size-[48px] shrink-0 items-center justify-center rounded-[12px] bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.15)]">
-              <Pill className="size-[22px] rotate-[135deg] text-[#FFFDFB]" strokeWidth={2} />
+        <div className="relative mt-[16px] flex items-center justify-between gap-6">
+          <div className="flex min-w-0 items-center gap-[16px]">
+            {/* Icon badge */}
+            <div className="flex size-[56px] shrink-0 items-center justify-center rounded-[15px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.12)] shadow-[inset_0px_1px_0px_rgba(255,255,255,0.15),0px_4px_12px_rgba(0,0,0,0.12)]">
+              <FlaskConical className="size-[24px] text-[#c8e8f5]" strokeWidth={1.8} />
             </div>
+
+            {/* Name + meta */}
             <div className="min-w-0">
-              <h1 className="truncate font-['Plus_Jakarta_Sans'] text-[26px] font-bold leading-[1.2] text-[#FFFDFB]">
+              <h1 className="truncate font-['Plus_Jakarta_Sans'] text-[27px] font-bold leading-[1.2] tracking-[-0.01em] text-[#FFFDFB]">
                 {summary.name}
               </h1>
-              <p className="mt-[3px] truncate font-['Inter'] text-[14px] font-medium leading-[1.4] text-[rgba(255,253,251,0.72)]">
-                {summary.genericName}
-              </p>
+              {summary.genericName !== summary.name && (
+                <p className="mt-[2px] truncate font-['Inter'] text-[13px] font-normal leading-[1.5] text-[rgba(255,253,251,0.6)]">
+                  {summary.genericName}
+                </p>
+              )}
+              {/* Category badge + stats row */}
+              <div className="mt-[10px] flex items-center gap-[10px]">
+                <span className="inline-flex h-[22px] items-center gap-[5px] rounded-full border border-[rgba(118,187,221,0.35)] bg-[rgba(118,187,221,0.15)] px-[10px] font-['Inter'] text-[11px] font-semibold text-[#a8d8ef]">
+                  <Tag className="size-[10px]" strokeWidth={2.2} />
+                  {summary.category}
+                </span>
+                {detail.presentations.length > 0 && (
+                  <span className="font-['Inter'] text-[11px] text-[rgba(255,253,251,0.38)]">
+                    {detail.presentations.length} présentation{detail.presentations.length > 1 ? "s" : ""}
+                  </span>
+                )}
+                {detail.substances_actives.length > 0 && (
+                  <span className="font-['Inter'] text-[11px] text-[rgba(255,253,251,0.38)]">
+                    {detail.substances_actives.length} substance{detail.substances_actives.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -165,14 +192,14 @@ export function VoirMedicamentDialog({
                 <button
                   type="button"
                   onClick={() => { form.reset(initialValues); onEditModeChange(false); }}
-                  className="h-[38px] min-w-[100px] rounded-[10px] border border-[rgba(255,255,255,0.3)] bg-transparent px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#FFFDFB] transition-colors hover:bg-[rgba(255,255,255,0.08)]"
+                  className="h-[38px] min-w-[100px] rounded-[10px] border border-[rgba(255,255,255,0.25)] bg-transparent px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[rgba(255,253,251,0.85)] transition-colors hover:bg-[rgba(255,255,255,0.08)]"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={updateMutation.isPending}
-                  className="h-[38px] min-w-[120px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_12px_rgba(118,187,221,0.4)] transition-[background-color,opacity] hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-[38px] min-w-[120px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_14px_rgba(118,187,221,0.45)] transition-[background-color,opacity] hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
                 </button>
@@ -182,7 +209,7 @@ export function VoirMedicamentDialog({
                 <button
                   type="button"
                   onClick={() => onEditModeChange(true)}
-                  className="h-[38px] min-w-[100px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_12px_rgba(118,187,221,0.4)] transition-colors hover:bg-[#69b2d6]"
+                  className="h-[38px] min-w-[100px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_14px_rgba(118,187,221,0.45)] transition-colors hover:bg-[#69b2d6]"
                 >
                   Modifier
                 </button>
@@ -190,7 +217,7 @@ export function VoirMedicamentDialog({
                   type="button"
                   disabled={isDeleting}
                   onClick={() => onDelete(medicamentId)}
-                  className="h-[38px] min-w-[100px] rounded-[10px] border border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.08)] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#FFFDFB] transition-colors hover:bg-[rgba(255,255,255,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-[38px] min-w-[100px] rounded-[10px] border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.07)] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[rgba(255,253,251,0.85)] transition-colors hover:bg-[rgba(255,255,255,0.14)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDeleting ? "Suppression..." : "Supprimer"}
                 </button>
@@ -232,7 +259,7 @@ export function VoirMedicamentDialog({
       </DetailSectionCard>
 
       {/* ── Posologie ── */}
-      <DetailSectionCard className="mt-[20px]" title="Posologie" icon={<Pill className="size-[15px] text-[#265284]" strokeWidth={1.8} />}>
+      <DetailSectionCard className="mt-[20px]" title="Posologie" icon={<FlaskConical className="size-[15px] text-[#265284]" strokeWidth={1.8} />}>
         <div className="flex flex-col gap-[18px]">
 
           {/* Posologie adulte: full width — often very long */}

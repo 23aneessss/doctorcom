@@ -1,4 +1,4 @@
-import { Eye, Pencil, Pill, Trash2 } from "lucide-react";
+import { Eye, FlaskConical, Pencil, Trash2 } from "lucide-react";
 
 type MedicationCardProps = {
   id: number;
@@ -36,7 +36,7 @@ export function MedicationCard({
           </div>
 
           <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-[#d6edf8] bg-[#eef7fc]">
-            <Pill className="size-[14px] rotate-[135deg] text-[#4a7a9b]" strokeWidth={1.8} />
+            <FlaskConical className="size-[14px] text-[#4a7a9b]" strokeWidth={1.8} />
           </span>
         </div>
 
