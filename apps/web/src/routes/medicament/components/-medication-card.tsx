@@ -42,12 +42,12 @@ export function MedicationCard({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-[6px]">
-          <span className="inline-flex h-[22px] items-center rounded-full bg-[#052CA0] px-3 font-['Inter'] text-[11px] font-semibold text-white truncate max-w-full">
+        <div className="flex flex-col gap-[5px]">
+          <span className="w-fit inline-flex h-[22px] items-center rounded-full bg-[#052CA0] px-3 font-['Inter'] text-[11px] font-semibold text-white truncate max-w-full">
             {primaryTag}
           </span>
           {pharmacologicalFamily && pharmacologicalFamily !== primaryTag && (
-            <span className="inline-flex h-[22px] items-center rounded-full border border-[#c6dff0] bg-[#eef6fc] px-3 font-['Inter'] text-[11px] font-medium text-[#3a6a8f] truncate max-w-full">
+            <span className="w-fit inline-flex h-[22px] items-center rounded-full border border-[#c6dff0] bg-[#eef6fc] px-3 font-['Inter'] text-[11px] font-medium text-[#3a6a8f] truncate max-w-full">
               {pharmacologicalFamily.split(">")[0]?.trim() ?? pharmacologicalFamily}
             </span>
           )}
