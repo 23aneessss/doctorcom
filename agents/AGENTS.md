@@ -16,6 +16,7 @@ Backend business logic lives in `packages/api/src/modules/<module>/` — NOT in 
 
 ```bash
 bun run dev              # all apps via turbo
+bun run dev:app          # web + server only
 bun run dev:server       # server only
 bun run dev:web          # web only
 bun run dev:native       # mobile only
@@ -98,6 +99,17 @@ mounted at `/api/upload`.
   Package: `packages/medications-db`
 
 ## Code Style
+
+### Figma To Code
+
+When the user provides a Figma link, use the `figma` MCP server before writing UI code.
+
+1. Inspect the linked frame/component with Figma MCP and extract layout, spacing, typography, colors, icons, states, and responsive behavior.
+2. Locate the closest existing UI patterns in `apps/web/src` before creating new components.
+3. Implement in the existing React + Tailwind style used by the web app.
+4. Preserve the app's current design system and avoid generic placeholder UI.
+5. If assets are needed, export them from Figma MCP when available; otherwise ask one short question.
+6. Verify with `bun run dev:web` or `bun run dev:app` depending on scope.
 
 ### TypeScript
 

@@ -36,6 +36,7 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
+    "dev:app": "turbo -F web -F server dev",
     "db:push": "turbo -F @doctor.com/db db:push",
     "db:studio": "turbo -F @doctor.com/db db:studio",
     "db:generate": "turbo -F @doctor.com/db db:generate",
