@@ -115,74 +115,63 @@ function RouteComponent() {
               "--patients-hero-texture": `url(${headerTexture})`,
               marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
               marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
-              padding: "clamp(1.4rem, 2.8vw, 2.2rem) clamp(1.2rem, 2.2vw, 1.8rem)",
+              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
             } as any}
             aria-labelledby="aide-page-title"
           >
-            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.1rem" }}>
-              <div style={{ textAlign: "center" }}>
+            <div className={patientsStyles.heroInner}>
+              <div className={patientsStyles.heroText}>
                 <h1
                   className={patientsStyles.heroTitle}
                   id="aide-page-title"
-                  style={{ fontSize: "clamp(1.2rem, 2vw, 1.7rem)", textAlign: "center" }}
+                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
                 >
                   Aide &amp; Assistance
                 </h1>
                 <p
                   className={patientsStyles.heroSubtitle}
-                  style={{ marginTop: "0.5rem", fontSize: "clamp(0.8rem, 1.1vw, 0.96rem)", textAlign: "center" }}
+                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
                 >
-                  Recherchez une rubrique ou parcourez les catégories ci-dessous
+                  Guides, FAQ et support technique
                 </p>
               </div>
 
-              {/* Search bar */}
-              <div style={{ position: "relative", width: "min(100%, 38rem)" }}>
+              {/* Search bar — right side, where action buttons go in other hero headers */}
+              <div style={{ flexShrink: 0, position: "relative", width: "clamp(14rem, 24vw, 22rem)" }}>
                 <MagnifyingGlass
-                  size={17}
+                  size={16}
                   weight="bold"
                   aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: "0.9rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "rgba(255,253,251,0.55)",
-                    pointerEvents: "none",
-                    flexShrink: 0,
-                  }}
+                  style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#173FB8", pointerEvents: "none" }}
                 />
                 <input
                   type="search"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
-                  placeholder="Rechercher une question, une rubrique..."
+                  placeholder="Rechercher..."
                   aria-label="Rechercher dans l'aide"
                   style={{
                     width: "100%",
-                    height: "2.85rem",
-                    borderRadius: "0.85rem",
-                    border: "1.5px solid rgba(255,253,251,0.22)",
-                    background: "rgba(255,253,251,0.12)",
-                    backdropFilter: "blur(8px)",
-                    WebkitBackdropFilter: "blur(8px)",
-                    color: "#FFFDFB",
+                    height: "2.6rem",
+                    borderRadius: "0.75rem",
+                    border: "1.5px solid #C2E0EF",
+                    background: "#ffffff",
+                    color: "#0F3460",
                     fontFamily: "Inter, sans-serif",
-                    fontSize: "0.88rem",
-                    padding: "0 2.6rem 0 2.4rem",
+                    fontSize: "0.86rem",
+                    padding: `0 ${searchValue.length > 0 ? "2.2rem" : "0.9rem"} 0 2.3rem`,
                     outline: "none",
                     boxSizing: "border-box",
-                    transition: "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease",
+                    boxShadow: "0px 2px 6px rgba(118,187,221,0.1)",
+                    transition: "border-color 0.18s ease, box-shadow 0.18s ease",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255,253,251,0.5)";
-                    e.currentTarget.style.background = "rgba(255,253,251,0.18)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(118,187,221,0.25)";
+                    e.currentTarget.style.borderColor = "#76BBDD";
+                    e.currentTarget.style.boxShadow = "inset 0 0 0 1px #76BBDD, 0px 2px 8px rgba(118,187,221,0.2)";
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255,253,251,0.22)";
-                    e.currentTarget.style.background = "rgba(255,253,251,0.12)";
-                    e.currentTarget.style.boxShadow = "none";
+                    e.currentTarget.style.borderColor = "#C2E0EF";
+                    e.currentTarget.style.boxShadow = "0px 2px 6px rgba(118,187,221,0.1)";
                   }}
                 />
                 {searchValue.length > 0 && (
@@ -190,25 +179,9 @@ function RouteComponent() {
                     type="button"
                     onClick={() => setSearchValue("")}
                     aria-label="Effacer la recherche"
-                    style={{
-                      position: "absolute",
-                      right: "0.7rem",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "rgba(255,253,251,0.18)",
-                      border: "none",
-                      borderRadius: "999px",
-                      width: "1.25rem",
-                      height: "1.25rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      color: "rgba(255,253,251,0.75)",
-                      padding: 0,
-                    }}
+                    style={{ position: "absolute", right: "0.6rem", top: "50%", transform: "translateY(-50%)", background: "#e8f3fb", border: "none", borderRadius: "999px", width: "1.2rem", height: "1.2rem", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#4a6fa5", padding: 0 }}
                   >
-                    <X size={11} weight="bold" />
+                    <X size={10} weight="bold" />
                   </button>
                 )}
               </div>

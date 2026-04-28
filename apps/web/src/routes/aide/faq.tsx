@@ -1,6 +1,6 @@
-import { CaretDown, Question, ArrowLeft } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass, Question, ArrowLeft, X } from "@phosphor-icons/react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 
@@ -266,6 +266,26 @@ function RouteComponent() {
   ];
 
   const [openItemId, setOpenItemId] = useState("ai-prescription-1");
+  const [searchValue, setSearchValue] = useState("");
+  const deferredSearch = useDeferredValue(searchValue.trim());
+  const isSearching = deferredSearch.length >= 2;
+
+  function normalize(s: string) {
+    return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  const filteredGroups = useMemo(() => {
+    if (!isSearching) return faqGroups;
+    const q = normalize(deferredSearch);
+    return faqGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) => normalize(item.question).includes(q) || ("answer" in item && normalize(item.answer as string).includes(q)),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [deferredSearch, isSearching]);
 
   return (
     <div className={styles.pageShell}>
@@ -300,6 +320,56 @@ function RouteComponent() {
                   Toutes les réponses aux questions fréquentes
                 </p>
               </div>
+
+              {/* Search bar */}
+              <div style={{ flexShrink: 0, position: "relative", width: "clamp(14rem, 24vw, 22rem)" }}>
+                <MagnifyingGlass
+                  size={16}
+                  weight="bold"
+                  aria-hidden="true"
+                  style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#173FB8", pointerEvents: "none" }}
+                />
+                <input
+                  type="search"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  placeholder="Rechercher une question..."
+                  aria-label="Rechercher dans la FAQ"
+                  style={{
+                    width: "100%",
+                    height: "2.6rem",
+                    borderRadius: "0.75rem",
+                    border: "1.5px solid #C2E0EF",
+                    background: "#ffffff",
+                    color: "#0F3460",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "0.86rem",
+                    padding: `0 ${searchValue.length > 0 ? "2.2rem" : "0.9rem"} 0 2.3rem`,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    boxShadow: "0px 2px 6px rgba(118,187,221,0.1)",
+                    transition: "border-color 0.18s ease, box-shadow 0.18s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "#76BBDD";
+                    e.currentTarget.style.boxShadow = "inset 0 0 0 1px #76BBDD, 0px 2px 8px rgba(118,187,221,0.2)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "#C2E0EF";
+                    e.currentTarget.style.boxShadow = "0px 2px 6px rgba(118,187,221,0.1)";
+                  }}
+                />
+                {searchValue.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchValue("")}
+                    aria-label="Effacer la recherche"
+                    style={{ position: "absolute", right: "0.6rem", top: "50%", transform: "translateY(-50%)", background: "#e8f3fb", border: "none", borderRadius: "999px", width: "1.2rem", height: "1.2rem", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#4a6fa5", padding: 0 }}
+                  >
+                    <X size={10} weight="bold" />
+                  </button>
+                )}
+              </div>
             </div>
           </section>
 
@@ -311,10 +381,24 @@ function RouteComponent() {
           <section className={styles.faqCard} aria-label="Foire aux questions">
             <header className={styles.titleRow}>
               <Question size={18} weight="fill" className={styles.titleMark} aria-hidden="true" />
-              <h1 className={styles.title}>Foire Aux Questions</h1>
+              <h1 className={styles.title}>
+                {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire Aux Questions"}
+              </h1>
             </header>
 
-            {faqGroups.map((group) => (
+            {isSearching && filteredGroups.length === 0 && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.6rem", padding: "2.5rem 1rem", color: "#6b7e99" }}>
+                <MagnifyingGlass size={28} weight="bold" style={{ color: "#b0cfe0" }} />
+                <p style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#0f3460" }}>
+                  Aucun résultat
+                </p>
+                <p style={{ margin: 0, fontFamily: "Inter, sans-serif", fontSize: "0.82rem", textAlign: "center" }}>
+                  Aucune question ne correspond à <strong>"{deferredSearch}"</strong>
+                </p>
+              </div>
+            )}
+
+            {filteredGroups.map((group) => (
               <section className={styles.group} key={group.id}>
                 <h2 className={styles.groupTitle}>{group.title}</h2>
 
