@@ -16,8 +16,6 @@ export type MedicationCardViewModel = {
   name: string;
   scientificName: string;
   primaryTag: string;
-  secondaryTag: string;
-  condition: string;
 };
 
 export type MedicationFormValues = {
@@ -94,8 +92,6 @@ export function toCardFromMobileItem(item: MobileCatalogItem): MedicationCardVie
     name: item.name,
     scientificName: item.genericName ?? item.name,
     primaryTag: item.category,
-    secondaryTag: item.family ?? item.classification ?? "Autres",
-    condition: item.usageSnippet ?? item.classification ?? item.family ?? "Sans indication",
   };
 }
 
@@ -108,20 +104,11 @@ export function toCardFromSearchItem(
     return toCardFromMobileItem(mobile);
   }
 
-  const primaryTag = getPrimaryCategory(item.classe_therapeutique, item.famille_pharmacologique);
-
   return {
     id: item.id,
     name: item.nom_medicament,
     scientificName: item.nom_generique ?? item.nom_medicament,
-    primaryTag,
-    secondaryTag: getSecondaryCategory(
-      primaryTag,
-      item.famille_pharmacologique,
-      item.classe_therapeutique,
-    ),
-    condition:
-      item.famille_pharmacologique ?? item.classe_therapeutique ?? item.nom_generique ?? "Sans indication",
+    primaryTag: getPrimaryCategory(item.classe_therapeutique, item.famille_pharmacologique),
   };
 }
 
