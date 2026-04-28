@@ -4,12 +4,14 @@ import {
   CaretDown,
   GearSix,
   House,
+  MagnifyingGlass,
   Note,
   Pill,
   Question,
   User,
+  X,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 
@@ -17,21 +19,10 @@ import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import styles from "../parametres.module.css";
 
-function CalendarAgendaIcon({ className }: { className?: string }) {
+function CalendarAgendaIcon() {
   return (
-    <svg
-      className={className}
-      width="20"
-      height="18.75"
-      viewBox="0 0 22 20.625"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M17.875 1.375H22V20.625H0V1.375H4.125V0H5.5V1.375H16.5V0H17.875V1.375ZM4.125 2.75H1.375V5.5H20.625V2.75H17.875V4.125H16.5V2.75H5.5V4.125H4.125V2.75ZM1.375 19.25H20.625V6.875H1.375V19.25ZM4.125 11V9.625H17.875V11H4.125ZM4.125 15.125V13.75H17.875V15.125H4.125Z"
-        fill="currentColor"
-      />
+    <svg width="20" height="18.75" viewBox="0 0 22 20.625" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M17.875 1.375H22V20.625H0V1.375H4.125V0H5.5V1.375H16.5V0H17.875V1.375ZM4.125 2.75H1.375V5.5H20.625V2.75H17.875V4.125H16.5V2.75H5.5V4.125H4.125V2.75ZM1.375 19.25H20.625V6.875H1.375V19.25ZM4.125 11V9.625H17.875V11H4.125ZM4.125 15.125V13.75H17.875V15.125H4.125Z" fill="currentColor" />
     </svg>
   );
 }
@@ -44,91 +35,71 @@ export const Route = createFileRoute("/aide/")({
   },
 });
 
+const SECTION_CARDS = [
+  { id: "accueil", title: "Accueil", description: "Statistiques, KPIs et actions rapides.", icon: <House size={20} weight="fill" />, href: "/aide/accueil" },
+  { id: "parametres", title: "Paramètres", description: "Connexion, mot de passe et récupération de compte.", icon: <GearSix size={20} weight="fill" />, href: "/aide/parametres" },
+  { id: "patients", title: "Patients", description: "Dossiers, fiches et assistant IA médical.", icon: <User size={20} weight="fill" />, href: "/aide/patients" },
+  { id: "agenda", title: "Agenda & Rendez-vous", description: "Planification, modification et statuts.", icon: <CalendarAgendaIcon />, href: "/aide/agenda-rendez-vous" },
+  { id: "ordonnances", title: "Ordonnances", description: "Création, impression et suivi des prescriptions.", icon: <Note size={20} weight="fill" />, href: "/aide/ordonnances" },
+  { id: "medicaments", title: "Médicaments", description: "Catalogue, prescriptions et statistiques.", icon: <Pill size={20} weight="fill" />, href: "/aide/medicaments" },
+] as const;
+
+const ALL_QUESTIONS = [
+  { id: "q-conn-1", section: "Paramètres", question: "Je n'arrive pas à me connecter, que faire ?", answer: "Sur la page de connexion, cliquez sur \"Mot de passe oublié ?\", saisissez votre e-mail professionnelle puis suivez le lien de réinitialisation reçu par e-mail." },
+  { id: "q-conn-2", section: "Paramètres", question: "Comment modifier mon mot de passe ?", answer: "Allez dans Paramètres > Sécurité, cliquez sur \"Changer le mot de passe\", puis validez votre nouveau mot de passe (minimum 8 caractères)." },
+  { id: "q-conn-3", section: "Paramètres", question: "Comment récupérer mon compte ?", answer: "Utilisez l'option \"Mot de passe oublié ?\" sur l'écran de connexion. Si vous n'avez plus accès à votre e-mail, contactez le support pour vérification." },
+  { id: "q-conn-4", section: "Paramètres", question: "doctor.com est-il accessible sur mobile ?", answer: "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement." },
+  { id: "q-pat-1", section: "Patients", question: "Comment créer un nouveau dossier patient ?", answer: "Depuis le tableau de bord, utilisez le widget \"Actions Rapides\" et cliquez sur \"+ Ajouter un patient\". Vous pouvez aussi utiliser le bouton en haut à droite de la section Patients." },
+  { id: "q-pat-2", section: "Patients", question: "Puis-je modifier un dossier après sa création ?", answer: "Oui, cliquez sur l'icône Crayon (orange) sur la carte du patient pour modifier n'importe quelle information." },
+  { id: "q-pat-3", section: "Patients", question: "Comment supprimer un patient ?", answer: "Cliquez sur le bouton d'options sur la carte du patient, puis sélectionnez \"Supprimer\". Une confirmation sera demandée pour éviter toute suppression accidentelle." },
+  { id: "q-pat-4", section: "Patients", question: "L'assistant IA médical est-il fiable ?", answer: "L'IA de Doctor.com est un outil d'assistance à la prescription. Elle croise les médicaments suggérés avec les antécédents et allergies pour générer des alertes de sécurité en temps réel." },
+  { id: "q-agenda-1", section: "Agenda", question: "Comment créer un nouveau rendez-vous ?", answer: "Cliquez sur le bouton bleu \"+ Ajouter un RDV\" en haut à droite de votre écran Agenda, puis remplissez les informations du patient, la date et le type de consultation." },
+  { id: "q-agenda-2", section: "Agenda", question: "Comment annuler un rendez-vous ?", answer: "Cliquez sur la carte du rendez-vous dans l'agenda, changez le statut en \"Annulé\" et validez. Le rendez-vous annulé reste visible dans l'historique du patient." },
+  { id: "q-agenda-3", section: "Agenda", question: "Comment voir mes rendez-vous à venir ?", answer: "Consultez la colonne \"Prochains rendez-vous\" à droite de votre agenda ou directement sur votre tableau de bord (Accueil)." },
+  { id: "q-ordo-1", section: "Ordonnances", question: "Puis-je modifier une ordonnance générée par l'IA ?", answer: "Oui. L'IA propose une base que vous pouvez valider, modifier ou compléter manuellement avant l'impression finale." },
+  { id: "q-ordo-2", section: "Ordonnances", question: "Comment imprimer ou télécharger une ordonnance ?", answer: "Cliquez sur la carte de l'ordonnance, puis utilisez le bouton \"Imprimer\" pour la version papier ou \"Télécharger\" pour exporter en PDF." },
+  { id: "q-ordo-3", section: "Ordonnances", question: "Comment utiliser un modèle d'ordonnance ?", answer: "Cliquez sur le bouton \"Utiliser\" du modèle souhaité. Une page s'ouvre avec l'ordonnance complète, prête à l'emploi." },
+  { id: "q-med-1", section: "Médicaments", question: "Comment rechercher un médicament ?", answer: "Utilisez la barre de recherche pour une DCI ou un nom commercial, ou cliquez sur une lettre de l'index alphabétique. Le menu déroulant permet de filtrer par famille thérapeutique." },
+  { id: "q-med-2", section: "Médicaments", question: "Que faire si un médicament est absent du catalogue ?", answer: "Cliquez sur le bouton bleu \"+ Ajouter un médicament\". Remplissez les champs obligatoires et les sections \"Informations Cliniques\" et \"Sécurité\"." },
+  { id: "q-med-3", section: "Médicaments", question: "Puis-je supprimer un médicament ajouté par erreur ?", answer: "Oui, utilisez l'icône Corbeille (orange) sur la carte du médicament. Une confirmation vous sera demandée." },
+  { id: "q-acc-1", section: "Accueil", question: "Puis-je modifier la période des graphiques ?", answer: "Oui, utilisez les filtres \"Par jour\", \"Par mois\" ou \"Par an\" situés en haut à droite du graphique principal." },
+  { id: "q-acc-2", section: "Accueil", question: "Les statistiques sont-elles mises à jour automatiquement ?", answer: "Absolument. Dès qu'un patient est ajouté ou qu'un rendez-vous est marqué comme \"Terminé\", les chiffres du tableau de bord s'actualisent instantanément." },
+  { id: "q-support", section: "Aide", question: "Comment contacter le support rapidement ?", answer: "Utilisez le bouton \"Contacter le support\" en bas de la page Aide pour joindre rapidement l'équipe d'assistance." },
+];
+
+const FEATURED_QUESTIONS = ALL_QUESTIONS.slice(0, 4);
+
+function normalize(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 function RouteComponent() {
   const { session } = Route.useRouteContext();
   const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
-      ? {
-          name: sessionUser.name?.trim() || sessionUser.email,
-          email: sessionUser.email,
-          avatarUrl: sessionUser.image ?? undefined,
-        }
+      ? { name: sessionUser.name?.trim() || sessionUser.email, email: sessionUser.email, avatarUrl: sessionUser.image ?? undefined }
       : undefined;
 
-  const sectionCards = [
-    {
-      id: "accueil",
-      title: "Accueil",
-      description: "Statistiques, KPIs et actions rapides.",
-      icon: <House size={20} weight="fill" />,
-      href: "/aide/accueil",
-    },
-    {
-      id: "parametres",
-      title: "Paramètres",
-      description: "Connexion, mot de passe et récupération de compte.",
-      icon: <GearSix size={20} weight="fill" />,
-      href: "/aide/parametres",
-    },
-    {
-      id: "patients",
-      title: "Patients",
-      description: "Dossiers, fiches et assistant IA médical.",
-      icon: <User size={20} weight="fill" />,
-      href: "/aide/patients",
-    },
-    {
-      id: "agenda",
-      title: "Agenda & Rendez-vous",
-      description: "Planification, modification et statuts.",
-      icon: <CalendarAgendaIcon />,
-      href: "/aide/agenda-rendez-vous",
-    },
-    {
-      id: "ordonnances",
-      title: "Ordonnances",
-      description: "Création, impression et suivi des prescriptions.",
-      icon: <Note size={20} weight="fill" />,
-      href: "/aide/ordonnances",
-    },
-    {
-      id: "medicaments",
-      title: "Médicaments",
-      description: "Catalogue, prescriptions et statistiques.",
-      icon: <Pill size={20} weight="fill" />,
-      href: "/aide/medicaments",
-    },
-  ] as const;
+  const [searchValue, setSearchValue] = useState("");
+  const [openQuestionId, setOpenQuestionId] = useState<string>(FEATURED_QUESTIONS[0]?.id ?? "");
+  const deferredSearch = useDeferredValue(searchValue.trim());
 
-  const frequentQuestions = [
-    {
-      id: "aide-home-1",
-      question: "Je n'arrive pas à me connecter, que faire ?",
-      answer:
-        "Sur la page de connexion, cliquez sur \"Mot de passe oublié ?\", saisissez votre e-mail professionnelle puis suivez le lien de réinitialisation reçu par e-mail.",
-    },
-    {
-      id: "aide-home-2",
-      question: "Comment modifier mon mot de passe ?",
-      answer:
-        "Allez dans Paramètres > Sécurité, cliquez sur \"Changer le mot de passe\", puis validez votre nouveau mot de passe (minimum 8 caractères).",
-    },
-    {
-      id: "aide-home-3",
-      question: "Comment récupérer mon compte ?",
-      answer:
-        "Utilisez l'option \"Mot de passe oublié ?\" sur l'écran de connexion. Si vous n'avez plus accès à votre e-mail, contactez le support pour vérification.",
-    },
-    {
-      id: "aide-home-4",
-      question: "Comment contacter le support rapidement ?",
-      answer:
-        "Utilisez le bouton \"Contacter le support\" en bas de la page Aide pour joindre rapidement l'équipe d'assistance.",
-    },
-  ] as const;
+  const isSearching = deferredSearch.length >= 2;
 
-  const [openQuestionId, setOpenQuestionId] = useState<string>(frequentQuestions[0]?.id ?? "");
+  const filteredCards = useMemo(() => {
+    if (!isSearching) return SECTION_CARDS;
+    const q = normalize(deferredSearch);
+    return SECTION_CARDS.filter((c) => normalize(c.title).includes(q) || normalize(c.description).includes(q));
+  }, [deferredSearch, isSearching]);
+
+  const filteredQuestions = useMemo(() => {
+    if (!isSearching) return FEATURED_QUESTIONS;
+    const q = normalize(deferredSearch);
+    return ALL_QUESTIONS.filter((item) => normalize(item.question).includes(q) || normalize(item.answer).includes(q));
+  }, [deferredSearch, isSearching]);
+
+  const hasResults = filteredCards.length > 0 || filteredQuestions.length > 0;
 
   return (
     <div className={styles.pageShell}>
@@ -137,343 +108,354 @@ function RouteComponent() {
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
 
-          {/* ── Hero header — identical pattern to all aide sub-pages ── */}
+          {/* ── Hero header with search ── */}
           <section
             className={patientsStyles.hero}
             style={{
               "--patients-hero-texture": `url(${headerTexture})`,
               marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
               marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
-              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
+              padding: "clamp(1.4rem, 2.8vw, 2.2rem) clamp(1.2rem, 2.2vw, 1.8rem)",
             } as any}
             aria-labelledby="aide-page-title"
           >
-            <div className={patientsStyles.heroInner}>
-              <div className={patientsStyles.heroText}>
+            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.1rem" }}>
+              <div style={{ textAlign: "center" }}>
                 <h1
                   className={patientsStyles.heroTitle}
                   id="aide-page-title"
-                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
+                  style={{ fontSize: "clamp(1.2rem, 2vw, 1.7rem)", textAlign: "center" }}
                 >
                   Aide &amp; Assistance
                 </h1>
                 <p
                   className={patientsStyles.heroSubtitle}
-                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
+                  style={{ marginTop: "0.5rem", fontSize: "clamp(0.8rem, 1.1vw, 0.96rem)", textAlign: "center" }}
                 >
-                  Guides, FAQ et support technique
+                  Recherchez une rubrique ou parcourez les catégories ci-dessous
                 </p>
+              </div>
+
+              {/* Search bar */}
+              <div style={{ position: "relative", width: "min(100%, 38rem)" }}>
+                <MagnifyingGlass
+                  size={17}
+                  weight="bold"
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "0.9rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "rgba(255,253,251,0.55)",
+                    pointerEvents: "none",
+                    flexShrink: 0,
+                  }}
+                />
+                <input
+                  type="search"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  placeholder="Rechercher une question, une rubrique..."
+                  aria-label="Rechercher dans l'aide"
+                  style={{
+                    width: "100%",
+                    height: "2.85rem",
+                    borderRadius: "0.85rem",
+                    border: "1.5px solid rgba(255,253,251,0.22)",
+                    background: "rgba(255,253,251,0.12)",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
+                    color: "#FFFDFB",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "0.88rem",
+                    padding: "0 2.6rem 0 2.4rem",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    transition: "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(255,253,251,0.5)";
+                    e.currentTarget.style.background = "rgba(255,253,251,0.18)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(118,187,221,0.25)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(255,253,251,0.22)";
+                    e.currentTarget.style.background = "rgba(255,253,251,0.12)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
+                {searchValue.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchValue("")}
+                    aria-label="Effacer la recherche"
+                    style={{
+                      position: "absolute",
+                      right: "0.7rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "rgba(255,253,251,0.18)",
+                      border: "none",
+                      borderRadius: "999px",
+                      width: "1.25rem",
+                      height: "1.25rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      color: "rgba(255,253,251,0.75)",
+                      padding: 0,
+                    }}
+                  >
+                    <X size={11} weight="bold" />
+                  </button>
+                )}
               </div>
             </div>
           </section>
 
-          {/* ── 6 section cards ── */}
-          <section
-            aria-label="Rubriques d'aide"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "1.1rem",
-              marginInline: "clamp(0.9rem, 2vw, 1.8rem)",
-            }}
-          >
-            {sectionCards.map((card) => (
-              <article
-                key={card.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  borderRadius: "18px",
-                  border: "1px solid #cfe6f3",
-                  background: "#ffffff",
-                  boxShadow: "0px 4px 16px -8px rgba(15,52,96,0.12)",
-                  transition: "transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                  (e.currentTarget as HTMLElement).style.borderColor = "#afd4ea";
-                  (e.currentTarget as HTMLElement).style.boxShadow = "0px 12px 28px -12px rgba(15,52,96,0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  (e.currentTarget as HTMLElement).style.borderColor = "#cfe6f3";
-                  (e.currentTarget as HTMLElement).style.boxShadow = "0px 4px 16px -8px rgba(15,52,96,0.12)";
-                }}
-              >
-                {/* Card body */}
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "12px", padding: "20px 20px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "40px",
-                        height: "40px",
-                        flexShrink: 0,
-                        borderRadius: "11px",
-                        background: "#052CA0",
-                        color: "#ffffff",
-                        boxShadow: "0px 4px 12px rgba(5,44,160,0.25)",
-                      }}
-                    >
-                      {card.icon}
-                    </span>
-                  </div>
-                  <div>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontSize: "15px",
-                        fontWeight: 700,
-                        lineHeight: 1.3,
-                        color: "#0f3460",
-                      }}
-                    >
-                      {card.title}
-                    </h2>
-                    <p
-                      style={{
-                        margin: "5px 0 0",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "12.5px",
-                        fontWeight: 400,
-                        lineHeight: 1.5,
-                        color: "#6b7e99",
-                      }}
-                    >
-                      {card.description}
-                    </p>
-                  </div>
+          {/* ── Search results view ── */}
+          {isSearching ? (
+            <div style={{ marginInline: "clamp(0.9rem, 2vw, 1.8rem)", display: "flex", flexDirection: "column", gap: "1.4rem" }}>
+
+              {!hasResults ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", padding: "3rem 2rem", borderRadius: "14px", border: "1px solid #d8edf7", background: "#ffffff" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "3rem", height: "3rem", borderRadius: "999px", background: "#f0f7ff", color: "#7aaec8" }}>
+                    <MagnifyingGlass size={22} weight="bold" />
+                  </span>
+                  <p style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1rem", fontWeight: 700, color: "#0f3460" }}>Aucun résultat trouvé</p>
+                  <p style={{ margin: 0, fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "#6b7e99", textAlign: "center" }}>
+                    Aucune rubrique ou question ne correspond à <strong>"{deferredSearch}"</strong>
+                  </p>
                 </div>
-
-                {/* Card footer */}
-                <div style={{ display: "flex", alignItems: "center", borderTop: "1px solid #e8f3fb", padding: "10px 20px" }}>
-                  <Link
-                    to={card.href}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      fontSize: "12.5px",
-                      fontWeight: 600,
-                      color: "#f77a21",
-                      textDecoration: "none",
-                    }}
-                  >
-                    Explorer
-                    <ArrowRight size={13} weight="bold" aria-hidden="true" />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </section>
-
-          {/* ── FAQ section ── */}
-          <section
-            style={{ marginInline: "clamp(0.9rem, 2vw, 1.8rem)", display: "flex", flexDirection: "column", gap: "1.1rem" }}
-            aria-label="Questions fréquentes"
-          >
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.7rem" }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "2rem",
-                  height: "2rem",
-                  borderRadius: "999px",
-                  background: "#fff5f5",
-                  color: "#f77a21",
-                }}
-              >
-                <Question size={14} weight="bold" aria-hidden="true" />
-              </span>
-              <h2
-                style={{
-                  margin: 0,
-                  color: "#0f3460",
-                  fontSize: "clamp(1.05rem, 1.8vw, 1.4rem)",
-                  fontWeight: 700,
-                }}
-              >
-                Questions fréquentes
-              </h2>
-            </div>
-
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {frequentQuestions.map((item) => {
-                const isOpen = openQuestionId === item.id;
-                return (
-                  <li
-                    key={item.id}
-                    style={{
-                      borderRadius: "12px",
-                      border: isOpen ? "1px solid #b8d4ea" : "1px solid #d8edf7",
-                      borderLeft: isOpen ? "4px solid #052CA0" : "1px solid #d8edf7",
-                      background: isOpen ? "linear-gradient(to right, #f0f7ff, #ffffff)" : "#ffffff",
-                      overflow: "hidden",
-                      transition: "border-color 0.18s ease, background 0.18s ease",
-                      boxShadow: isOpen ? "0px 4px 14px -6px rgba(15,52,96,0.12)" : "none",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      style={{
-                        width: "100%",
-                        border: 0,
-                        background: "transparent",
-                        color: isOpen ? "#052CA0" : "#0f3460",
-                        minHeight: "3rem",
-                        padding: "0.8rem 1rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "0.8rem",
-                        textAlign: "left",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setOpenQuestionId((current) => (current === item.id ? "" : item.id))}
-                      aria-expanded={isOpen}
-                    >
-                      <span>{item.question}</span>
-                      <CaretDown
-                        size={16}
-                        weight="bold"
-                        aria-hidden="true"
-                        style={{
-                          flexShrink: 0,
-                          color: "#4a6fa5",
-                          transition: "transform 0.24s cubic-bezier(0.22,1,0.36,1)",
-                          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        }}
-                      />
-                    </button>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateRows: isOpen ? "1fr" : "0fr",
-                        opacity: isOpen ? 1 : 0,
-                        transition: "grid-template-rows 0.24s cubic-bezier(0.16,1,0.3,1), opacity 0.2s ease",
-                      }}
-                    >
-                      <div style={{ overflow: "hidden", minHeight: 0 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            padding: "0 1rem 0.9rem",
-                            fontFamily: "Inter, sans-serif",
-                            fontSize: "0.86rem",
-                            lineHeight: 1.6,
-                            color: "#3d5a7a",
-                          }}
-                        >
-                          {item.answer}
-                        </p>
+              ) : (
+                <>
+                  {filteredCards.length > 0 && (
+                    <div>
+                      <p style={{ margin: "0 0 0.75rem", fontFamily: "Inter, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#7aaec8" }}>
+                        Rubriques — {filteredCards.length}
+                      </p>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.9rem" }}>
+                        {filteredCards.map((card) => (
+                          <SectionCard key={card.id} card={card} />
+                        ))}
                       </div>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
+                  )}
 
-            <Link
-              to="/aide/faq"
-              style={{
-                alignSelf: "flex-end",
-                color: "#052CA0",
-                fontFamily: "Inter, sans-serif",
-                fontSize: "0.9rem",
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
-            >
-              Voir toutes les questions fréquentes →
-            </Link>
-          </section>
-
-          {/* ── Support section ── */}
-          <section
-            style={{
-              marginInline: "clamp(0.9rem, 2vw, 1.8rem)",
-              marginBottom: "clamp(1rem, 2vw, 1.5rem)",
-              borderRadius: "14px",
-              border: "1px solid #c8e3f0",
-              background: "linear-gradient(135deg, #eaf4fb 0%, #f5fafd 100%)",
-              padding: "clamp(1rem, 1.8vw, 1.4rem) clamp(1.2rem, 2vw, 1.6rem)",
-              display: "flex",
-              flexWrap: "wrap" as const,
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1rem",
-              boxShadow: "0px 2px 10px rgba(118,187,221,0.15)",
-            }}
-          >
-            <div>
-              <h3
-                style={{
-                  margin: 0,
-                  color: "#0f3460",
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: "clamp(0.9rem, 1.3vw, 1.05rem)",
-                  fontWeight: 700,
-                  lineHeight: 1.35,
-                }}
-              >
-                Vous n'avez pas trouvé votre réponse ?
-              </h3>
-              <p
-                style={{
-                  margin: "0.25rem 0 0",
-                  color: "#6b7e99",
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: "clamp(0.78rem, 1vw, 0.88rem)",
-                  lineHeight: 1.4,
-                }}
-              >
-                Notre équipe est disponible pour vous aider.
-              </p>
+                  {filteredQuestions.length > 0 && (
+                    <div>
+                      <p style={{ margin: "0 0 0.75rem", fontFamily: "Inter, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#7aaec8" }}>
+                        Questions — {filteredQuestions.length}
+                      </p>
+                      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                        {filteredQuestions.map((item) => (
+                          <QuestionItem
+                            key={item.id}
+                            item={item}
+                            isOpen={openQuestionId === item.id}
+                            showSection
+                            onToggle={() => setOpenQuestionId((c) => (c === item.id ? "" : item.id))}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
+          ) : (
+            <>
+              {/* ── 6 section cards ── */}
+              <section
+                aria-label="Rubriques d'aide"
+                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "1.1rem", marginInline: "clamp(0.9rem, 2vw, 1.8rem)" }}
+              >
+                {SECTION_CARDS.map((card) => (
+                  <SectionCard key={card.id} card={card} />
+                ))}
+              </section>
 
-            <button
-              type="button"
-              style={{
-                minHeight: "2.4rem",
-                border: 0,
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #052CA0 0%, #173FB8 100%)",
-                color: "#ffffff",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                padding: "0.55rem 1.3rem",
-                whiteSpace: "nowrap" as const,
-                cursor: "pointer",
-                boxShadow: "0px 4px 14px rgba(5,44,160,0.28)",
-                transition: "transform 0.15s ease, box-shadow 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0px 6px 18px rgba(5,44,160,0.36)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0px 4px 14px rgba(5,44,160,0.28)";
-              }}
-            >
-              Contacter le support
-            </button>
-          </section>
+              {/* ── FAQ section ── */}
+              <section
+                style={{ marginInline: "clamp(0.9rem, 2vw, 1.8rem)", display: "flex", flexDirection: "column", gap: "1rem" }}
+                aria-label="Questions fréquentes"
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "1.9rem", height: "1.9rem", borderRadius: "999px", background: "linear-gradient(135deg,#fff3eb,#fff9f5)", border: "1px solid #fdddc2", color: "#f77a21" }}>
+                      <Question size={13} weight="bold" aria-hidden="true" />
+                    </span>
+                    <h2 style={{ margin: 0, color: "#0f3460", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(1rem, 1.7vw, 1.3rem)", fontWeight: 700 }}>
+                      Questions fréquentes
+                    </h2>
+                  </div>
+                  <Link
+                    to="/aide/faq"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", fontWeight: 600, color: "#052CA0", textDecoration: "none", whiteSpace: "nowrap" }}
+                  >
+                    Voir tout <ArrowRight size={12} weight="bold" />
+                  </Link>
+                </div>
+
+                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                  {FEATURED_QUESTIONS.map((item) => (
+                    <QuestionItem
+                      key={item.id}
+                      item={item}
+                      isOpen={openQuestionId === item.id}
+                      showSection={false}
+                      onToggle={() => setOpenQuestionId((c) => (c === item.id ? "" : item.id))}
+                    />
+                  ))}
+                </ul>
+              </section>
+
+              {/* ── Support section ── */}
+              <section
+                style={{
+                  marginInline: "clamp(0.9rem, 2vw, 1.8rem)",
+                  marginBottom: "clamp(1rem, 2vw, 1.5rem)",
+                  borderRadius: "14px",
+                  border: "1px solid #c8e3f0",
+                  background: "linear-gradient(135deg, #eaf4fb 0%, #f5fafd 100%)",
+                  padding: "clamp(1rem, 1.8vw, 1.4rem) clamp(1.2rem, 2vw, 1.6rem)",
+                  display: "flex",
+                  flexWrap: "wrap" as const,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  boxShadow: "0px 2px 10px rgba(118,187,221,0.15)",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0, color: "#0f3460", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.88rem, 1.25vw, 1rem)", fontWeight: 700, lineHeight: 1.35 }}>
+                    Vous n'avez pas trouvé votre réponse ?
+                  </h3>
+                  <p style={{ margin: "0.25rem 0 0", color: "#6b7e99", fontFamily: "Inter, sans-serif", fontSize: "clamp(0.76rem, 1vw, 0.86rem)", lineHeight: 1.4 }}>
+                    Notre équipe est disponible pour vous aider.
+                  </p>
+                </div>
+                <SupportButton />
+              </section>
+            </>
+          )}
 
         </div>
       </main>
     </div>
+  );
+}
+
+function SectionCard({ card }: { card: typeof SECTION_CARDS[number] }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <article
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        borderRadius: "18px",
+        border: hovered ? "1px solid #afd4ea" : "1px solid #cfe6f3",
+        background: "#ffffff",
+        boxShadow: hovered ? "0px 12px 28px -12px rgba(15,52,96,0.2)" : "0px 4px 16px -8px rgba(15,52,96,0.1)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        transition: "transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", padding: "18px 18px 14px" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "38px", height: "38px", flexShrink: 0, borderRadius: "10px", background: "linear-gradient(135deg,#052CA0,#173FB8)", color: "#ffffff", boxShadow: "0px 4px 10px rgba(5,44,160,0.22)" }}>
+          {card.icon}
+        </span>
+        <div>
+          <h2 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "14.5px", fontWeight: 700, lineHeight: 1.3, color: "#0f3460" }}>
+            {card.title}
+          </h2>
+          <p style={{ margin: "4px 0 0", fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 400, lineHeight: 1.5, color: "#6b7e99" }}>
+            {card.description}
+          </p>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", borderTop: "1px solid #edf5fb", padding: "9px 18px" }}>
+        <Link
+          to={card.href}
+          style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "12px", fontWeight: 700, color: "#f77a21", textDecoration: "none" }}
+        >
+          Explorer <ArrowRight size={12} weight="bold" aria-hidden="true" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function QuestionItem({
+  item,
+  isOpen,
+  showSection,
+  onToggle,
+}: {
+  item: (typeof ALL_QUESTIONS)[number];
+  isOpen: boolean;
+  showSection: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li
+      style={{
+        borderRadius: "11px",
+        border: isOpen ? "1px solid #b5d3ea" : "1px solid #daedf8",
+        borderLeft: isOpen ? "4px solid #052CA0" : "1px solid #daedf8",
+        background: isOpen ? "linear-gradient(to right,#f0f7ff,#ffffff)" : "#ffffff",
+        overflow: "hidden",
+        boxShadow: isOpen ? "0px 4px 14px -6px rgba(15,52,96,0.12)" : "none",
+        transition: "border-color 0.18s ease, box-shadow 0.18s ease",
+      }}
+    >
+      <button
+        type="button"
+        style={{ width: "100%", border: 0, background: "transparent", color: isOpen ? "#052CA0" : "#0f3460", minHeight: "2.8rem", padding: "0.75rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", textAlign: "left", fontFamily: "Inter, sans-serif", fontSize: "0.865rem", fontWeight: 600, cursor: "pointer" }}
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+          {showSection && (
+            <span style={{ flexShrink: 0, display: "inline-flex", height: "1.25rem", alignItems: "center", borderRadius: "999px", background: "#eef6fc", border: "1px solid #c6dff0", padding: "0 0.5rem", fontFamily: "Inter, sans-serif", fontSize: "10.5px", fontWeight: 600, color: "#3a6a8f", whiteSpace: "nowrap" }}>
+              {item.section}
+            </span>
+          )}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.question}</span>
+        </span>
+        <CaretDown
+          size={15}
+          weight="bold"
+          aria-hidden="true"
+          style={{ flexShrink: 0, color: "#4a6fa5", transition: "transform 0.24s cubic-bezier(0.22,1,0.36,1)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: isOpen ? "1fr" : "0fr", opacity: isOpen ? 1 : 0, transition: "grid-template-rows 0.24s cubic-bezier(0.16,1,0.3,1), opacity 0.2s ease" }}>
+        <div style={{ overflow: "hidden", minHeight: 0 }}>
+          <p style={{ margin: 0, padding: "0 1rem 0.85rem", fontFamily: "Inter, sans-serif", fontSize: "0.84rem", lineHeight: 1.65, color: "#3d5a7a" }}>
+            {item.answer}
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function SupportButton() {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      style={{ minHeight: "2.35rem", border: 0, borderRadius: "10px", background: "linear-gradient(135deg,#052CA0,#173FB8)", color: "#ffffff", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.84rem", fontWeight: 700, padding: "0.5rem 1.3rem", whiteSpace: "nowrap" as const, cursor: "pointer", boxShadow: hovered ? "0px 6px 18px rgba(5,44,160,0.36)" : "0px 4px 14px rgba(5,44,160,0.28)", transform: hovered ? "translateY(-1px)" : "translateY(0)", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      Contacter le support
+    </button>
   );
 }
