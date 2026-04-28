@@ -108,6 +108,7 @@ function RouteComponent() {
     "Comment voir mes rendez-vous à venir en un clin d'œil ?",
     "Puis-je rechercher un rendez-vous spécifique ?",
     "Comment retrouver rapidement le dossier d'un patient depuis l'agenda ?",
+    "Le mini-calendrier est-il toujours visible ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
@@ -117,6 +118,8 @@ function RouteComponent() {
       "Oui, utilisez la barre de recherche en haut à droite pour filtrer par nom de patient ou type de consultation.",
     "Comment retrouver rapidement le dossier d'un patient depuis l'agenda ?":
       "Pour gagner du temps entre deux consultations, cliquez simplement sur le nom du patient (en bleu) à l'intérieur de sa carte de rendez-vous. L'application vous redirigera instantanément vers son profil complet.",
+    "Le mini-calendrier est-il toujours visible ?":
+      "Oui, le mini-calendrier à droite de l'écran reste toujours visible pour vous aider à trouver un créneau libre et naviguer rapidement entre les jours.",
   };
 
   const [openRelatedQuestion, setOpenRelatedQuestion] = useState<string>("");

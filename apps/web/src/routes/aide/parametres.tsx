@@ -119,18 +119,18 @@ function RouteComponent() {
   };
 
   const relatedQuestions = [
-    "Puis-je rester connecte sur plusieurs appareils ?",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?",
     "doctor.com est-il accessible sur mobile ?",
+    "Puis-je rester connecté sur plusieurs appareils ?",
+    "Je n'ai plus accès à mon adresse e-mail de récupération, que faire ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
-    "Puis-je rester connecte sur plusieurs appareils ?":
-      "Oui, vous pouvez rester connecte sur plusieurs appareils, mais nous recommandons de fermer la session sur les postes partages pour proteger l'acces au compte.",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?":
-      "Mettez a jour votre adresse e-mail dans Parametres des que possible, puis contactez le support si vous ne pouvez plus recevoir les messages de recuperation.",
     "doctor.com est-il accessible sur mobile ?":
-      "Oui, doctor.com est accessible sur mobile pour consulter l'aide et suivre votre activité depuis un smartphone ou une tablette.",
+      "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement directement depuis votre téléphone ou tablette.",
+    "Puis-je rester connecté sur plusieurs appareils ?":
+      "Oui, mais avec vigilance. Vous pouvez être connecté sur votre ordinateur de bureau et votre tablette simultanément. Cependant, pour des raisons de sécurité et de confidentialité des données de santé, nous vous conseillons de fermer votre session sur les appareils que vous n'utilisez plus activement.",
+    "Je n'ai plus accès à mon adresse e-mail de récupération, que faire ?":
+      "Contactez l'assistance technique car si vous ne pouvez plus accéder à la boîte mail liée à votre compte, vous ne pourrez pas recevoir le lien de réinitialisation.",
   };
 
   const [openRelatedQuestion, setOpenRelatedQuestion] = useState<string>("");

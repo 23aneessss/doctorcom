@@ -103,11 +103,6 @@ function RouteComponent() {
     "Les statistiques sont-elles mises à jour automatiquement ?",
   ] as const;
 
-  const relatedQuestionLinks: Record<(typeof relatedQuestions)[number], string> = {
-    "Puis-je modifier la période des graphiques ?": "/aide/faq#dashboard-1",
-    "Les statistiques sont-elles mises à jour automatiquement ?": "/aide/faq#dashboard-2",
-  };
-
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
     "Puis-je modifier la période des graphiques ?":
       "Oui, utilisez les filtres \"Par jour\", \"Par mois\" ou \"Par an\" situés en haut à droite du graphique principal pour adapter la vue.",

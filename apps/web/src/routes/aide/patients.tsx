@@ -137,11 +137,6 @@ function RouteComponent() {
     "Comment l'IA utilise-t-elle les antécédents saisis ?",
   ] as const;
 
-  const relatedQuestionLinks: Record<(typeof relatedQuestions)[number], string> = {
-    "Puis-je modifier un dossier après sa création ?": "/aide/faq#patients-1",
-    "Comment l'IA utilise-t-elle les antécédents saisis ?": "/aide/faq#patients-2",
-  };
-
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
     "Puis-je modifier un dossier après sa création ?":
       "Oui, cliquez sur l'icône Crayon (orange) sur la carte du patient pour modifier n'importe quelle information.",
