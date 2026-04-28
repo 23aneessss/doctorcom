@@ -10,9 +10,12 @@ import { eq } from "drizzle-orm";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
   anomalyFlagRepository,
+  type CorePatientData,
   type FullPatientData,
   type MedicationWithDetails,
   type ActiveTreatment,
+  type PatientAntecedentData,
+  type PatientFemaleData,
 } from "./repo";
 
 const ANOMALY_FLAG_LOG_SCOPE = "ai/anomaly-flag";
@@ -126,6 +129,25 @@ interface PatientContext {
   habitudes_toxiques: string | null;
   antecedentsPersonnels: string[];
 }
+
+function buildFullPatientData(
+  patient: CorePatientData,
+  donnees_femme: PatientFemaleData | null,
+  antecedents: PatientAntecedentData[],
+): FullPatientData {
+  return {
+    patient,
+    donnees_femme,
+    antecedents,
+  };
+}
+
+const ORDONNANCE_CONTRADICTION_CODES = new Set<string>([
+  "PREGNANCY_CONTRAINDICATION",
+  "CONTRE_INDICATION_MATCH",
+  "DRUG_INTERACTION",
+  "EXISTING_TREATMENT_INTERACTION",
+]);
 
 // ---------------------------------------------------------------------------
 // Zod schema for AI structured output
@@ -398,17 +420,17 @@ export class AnomalyFlagService {
       valid_medicament_ids_count: validMedicamentIds.length,
     });
 
-    const patientDataPromise = (async () => {
+    const patientCorePromise = (async () => {
       const startedAt = Date.now();
       try {
         const result = await withTimeout(
-          anomalyFlagRepository.getFullPatientData(data.db, data.patient_id),
+          anomalyFlagRepository.getCorePatientData(data.db, data.patient_id),
           BRANCH_TIMEOUT_MS,
-          "getFullPatientData",
+          "getCorePatientData",
         );
 
         logInfo("branch fetch completed", {
-          branch: "getFullPatientData",
+          branch: "getCorePatientData",
           branch_duration_ms: Date.now() - startedAt,
           patient_found: Boolean(result),
         });
@@ -416,7 +438,59 @@ export class AnomalyFlagService {
         return result;
       } catch (error) {
         logError("branch fetch failed", {
-          branch: "getFullPatientData",
+          branch: "getCorePatientData",
+          branch_duration_ms: Date.now() - startedAt,
+          error: branchErrorMessage(error),
+        });
+        throw error;
+      }
+    })();
+
+    const femaleDataPromise = (async () => {
+      const startedAt = Date.now();
+      try {
+        const result = await withTimeout(
+          anomalyFlagRepository.getPatientFemaleData(data.db, data.patient_id),
+          BRANCH_TIMEOUT_MS,
+          "getPatientFemaleData",
+        );
+
+        logInfo("branch fetch completed", {
+          branch: "getPatientFemaleData",
+          branch_duration_ms: Date.now() - startedAt,
+          female_data_found: Boolean(result),
+        });
+
+        return result;
+      } catch (error) {
+        logError("branch fetch failed", {
+          branch: "getPatientFemaleData",
+          branch_duration_ms: Date.now() - startedAt,
+          error: branchErrorMessage(error),
+        });
+        throw error;
+      }
+    })();
+
+    const antecedentsPromise = (async () => {
+      const startedAt = Date.now();
+      try {
+        const result = await withTimeout(
+          anomalyFlagRepository.getPatientAntecedents(data.db, data.patient_id),
+          BRANCH_TIMEOUT_MS,
+          "getPatientAntecedents",
+        );
+
+        logInfo("branch fetch completed", {
+          branch: "getPatientAntecedents",
+          branch_duration_ms: Date.now() - startedAt,
+          antecedents_count: result.length,
+        });
+
+        return result;
+      } catch (error) {
+        logError("branch fetch failed", {
+          branch: "getPatientAntecedents",
           branch_duration_ms: Date.now() - startedAt,
           error: branchErrorMessage(error),
         });
@@ -477,20 +551,28 @@ export class AnomalyFlagService {
       }
     })();
 
-    const [patientDataResult, medicationDetailsResult, activeTreatmentsResult] =
+    const [
+      patientCoreResult,
+      femaleDataResult,
+      antecedentsResult,
+      medicationDetailsResult,
+      activeTreatmentsResult,
+    ] =
       await Promise.allSettled([
-        patientDataPromise,
+        patientCorePromise,
+        femaleDataPromise,
+        antecedentsPromise,
         medicationDetailsPromise,
         activeTreatmentsPromise,
       ]);
 
-    if (patientDataResult.status === "rejected") {
+    if (patientCoreResult.status === "rejected") {
       checkpoint("parallel_fetch_failed", {
-        failed_branch: "getFullPatientData",
+        failed_branch: "getCorePatientData",
       });
       logError("patient data branch failed", {
-        branch: "getFullPatientData",
-        error: branchErrorMessage(patientDataResult.reason),
+        branch: "getCorePatientData",
+        error: branchErrorMessage(patientCoreResult.reason),
       });
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -499,7 +581,7 @@ export class AnomalyFlagService {
       });
     }
 
-    const patientData = patientDataResult.value;
+    const patientCore = patientCoreResult.value;
     const medicationDetails =
       medicationDetailsResult.status === "fulfilled"
         ? medicationDetailsResult.value
@@ -508,8 +590,45 @@ export class AnomalyFlagService {
       activeTreatmentsResult.status === "fulfilled"
         ? activeTreatmentsResult.value
         : [];
+    const femaleData =
+      femaleDataResult.status === "fulfilled" ? femaleDataResult.value : null;
+    const antecedents =
+      antecedentsResult.status === "fulfilled" ? antecedentsResult.value : [];
 
     const fetchDegradedAnomalies: GlobalAnomaly[] = [];
+
+    if (femaleDataResult.status === "rejected") {
+      fetchDegradedAnomalies.push({
+        code: "PATIENT_CONTEXT_DEGRADED",
+        severity: "info",
+        message:
+          "Certaines donnees patient n'ont pas pu etre chargees completement. Analyse effectuee avec un contexte partiel.",
+        medicaments_concernes: [],
+      });
+      logWarn("patient female data branch degraded", {
+        branch: "getPatientFemaleData",
+        error: branchErrorMessage(femaleDataResult.reason),
+      });
+    }
+
+    if (antecedentsResult.status === "rejected") {
+      const alreadyAdded = fetchDegradedAnomalies.some(
+        (anomaly) => anomaly.code === "PATIENT_CONTEXT_DEGRADED",
+      );
+      if (!alreadyAdded) {
+        fetchDegradedAnomalies.push({
+          code: "PATIENT_CONTEXT_DEGRADED",
+          severity: "info",
+          message:
+            "Certaines donnees patient n'ont pas pu etre chargees completement. Analyse effectuee avec un contexte partiel.",
+          medicaments_concernes: [],
+        });
+      }
+      logWarn("patient antecedents branch degraded", {
+        branch: "getPatientAntecedents",
+        error: branchErrorMessage(antecedentsResult.reason),
+      });
+    }
 
     if (medicationDetailsResult.status === "rejected") {
       fetchDegradedAnomalies.push({
@@ -545,7 +664,7 @@ export class AnomalyFlagService {
     }
 
     checkpoint("parallel_fetch_completed", {
-      patient_found: Boolean(patientData),
+      patient_found: Boolean(patientCore),
       medication_details_count: medicationDetails.length,
       active_treatments_count: activeTreatments.length,
       medication_fetch_degraded: medicationDetailsResult.status === "rejected",
@@ -554,7 +673,7 @@ export class AnomalyFlagService {
     });
 
     // 4. Validate patient exists
-    if (!patientData) {
+    if (!patientCore) {
       checkpoint("patient_validated_not_found", { patient_id: data.patient_id });
       logWarn("patient not found", {
         patient_id: data.patient_id,
@@ -566,6 +685,12 @@ export class AnomalyFlagService {
       });
     }
     checkpoint("patient_validated");
+
+    const patientData = buildFullPatientData(
+      patientCore,
+      femaleData,
+      antecedents,
+    );
 
     // 5. Build patient context
     const age = computePatientAge(patientData.patient.date_naissance);
@@ -678,7 +803,6 @@ export class AnomalyFlagService {
     });
 
     // 8. Phase 2: AI second pass (if available)
-    let aiSummary: string | null = null;
     let aiAvailable = false;
 
     if (env.GEMINI_API_KEY) {
@@ -699,8 +823,6 @@ export class AnomalyFlagService {
         );
 
         aiAvailable = true;
-        aiSummary = aiResult.resume;
-
         // Merge AI anomalies into per-medication list
         let aiMergeMatchedCount = 0;
         let aiMergeUnknownCount = 0;
@@ -747,7 +869,6 @@ export class AnomalyFlagService {
 
         // AI failed — return rule-based results only
         aiAvailable = false;
-        aiSummary = null;
         anomaliesGlobales.push({
           code: "AI_UNAVAILABLE",
           severity: "info",
@@ -771,10 +892,24 @@ export class AnomalyFlagService {
       ai_available: aiAvailable,
     });
 
+    const filteredMedicationAnomalies = anomaliesParMedicament.filter((anomaly) =>
+      ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code),
+    );
+    const filteredGlobalAnomalies = anomaliesGlobales.filter(
+      (anomaly) =>
+        anomaly.code === "AI_UNAVAILABLE" ||
+        anomaly.code === "ACTIVE_TREATMENTS_TIMEOUT" ||
+        anomaly.code === "ACTIVE_TREATMENTS_UNAVAILABLE" ||
+        anomaly.code === "PATIENT_CONTEXT_DEGRADED" ||
+        anomaly.code === "MEDICATION_DATA_DEGRADED" ||
+        anomaly.code === "MEDICATION_NOT_FOUND" ||
+        ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code),
+    );
+
     return {
-      anomalies_par_medicament: anomaliesParMedicament,
-      anomalies_globales: anomaliesGlobales,
-      ai_summary: aiSummary,
+      anomalies_par_medicament: filteredMedicationAnomalies,
+      anomalies_globales: filteredGlobalAnomalies,
+      ai_summary: null,
       ai_available: aiAvailable,
     };
   }

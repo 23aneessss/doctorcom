@@ -67,18 +67,40 @@ export interface FullPatientData {
   }[];
 }
 
+export interface CorePatientData {
+  id: string;
+  date_naissance: string;
+  sexe: string | null;
+  habitudes_toxiques: string | null;
+}
+
+export interface PatientFemaleData {
+  menopause: boolean | null;
+  contraception: string | null;
+  nb_grossesses: number | null;
+}
+
+export interface PatientAntecedentData {
+  id: string;
+  description: string | null;
+  personnels: {
+    id: string;
+    details: string | null;
+  }[];
+}
+
 // ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
 
 export class AnomalyFlagRepository {
   /**
-   * Fetches only the patient data required by anomaly-flag logic.
+   * Fetches the mandatory patient core data required by anomaly-flag logic.
    */
-  async getFullPatientData(
+  async getCorePatientData(
     database: DatabaseClient,
     patientId: string,
-  ): Promise<FullPatientData | null> {
+  ): Promise<CorePatientData | null> {
     const [patientRecord] = await database
       .select({
         id: patients.id,
@@ -94,24 +116,37 @@ export class AnomalyFlagRepository {
       return null;
     }
 
-    const [donneesFemmeRows, antecedentRows] = await Promise.all([
-      database
-        .select({
-          menopause: patients_femmes.menopause,
-          contraception: patients_femmes.contraception,
-          nb_grossesses: patients_femmes.nb_grossesses,
-        })
-        .from(patients_femmes)
-        .where(eq(patients_femmes.patient_id, patientId))
-        .limit(1),
-      database
-        .select({
-          id: antecedents.id,
-          description: antecedents.description,
-        })
-        .from(antecedents)
-        .where(eq(antecedents.patient_id, patientId)),
-    ]);
+    return patientRecord;
+  }
+
+  async getPatientFemaleData(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<PatientFemaleData | null> {
+    const [row] = await database
+      .select({
+        menopause: patients_femmes.menopause,
+        contraception: patients_femmes.contraception,
+        nb_grossesses: patients_femmes.nb_grossesses,
+      })
+      .from(patients_femmes)
+      .where(eq(patients_femmes.patient_id, patientId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  async getPatientAntecedents(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<PatientAntecedentData[]> {
+    const antecedentRows = await database
+      .select({
+        id: antecedents.id,
+        description: antecedents.description,
+      })
+      .from(antecedents)
+      .where(eq(antecedents.patient_id, patientId));
 
     let personnelsByAntecedent = new Map<
       string,
@@ -140,14 +175,35 @@ export class AnomalyFlagRepository {
       );
     }
 
+    return antecedentRows.map((ant) => ({
+      id: ant.id,
+      description: ant.description,
+      personnels: personnelsByAntecedent.get(ant.id) ?? [],
+    }));
+  }
+
+  /**
+   * Fetches only the patient data required by anomaly-flag logic.
+   */
+  async getFullPatientData(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<FullPatientData | null> {
+    const patientRecord = await this.getCorePatientData(database, patientId);
+
+    if (!patientRecord) {
+      return null;
+    }
+
+    const [donneesFemme, antecedents] = await Promise.all([
+      this.getPatientFemaleData(database, patientId),
+      this.getPatientAntecedents(database, patientId),
+    ]);
+
     return {
       patient: patientRecord,
-      donnees_femme: donneesFemmeRows[0] ?? null,
-      antecedents: antecedentRows.map((ant) => ({
-        id: ant.id,
-        description: ant.description,
-        personnels: personnelsByAntecedent.get(ant.id) ?? [],
-      })),
+      donnees_femme: donneesFemme,
+      antecedents,
     };
   }
 
