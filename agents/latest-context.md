@@ -255,4 +255,28 @@ Cela permet de conserver une copie exacte du médicament prescrit.
   - détection d’interactions médicamenteuses
   - vérification des contre-indications
   - aide à la prescription
-  
+
+---
+
+# Flux de Création de Patient (Ajouter Patient)
+
+L'ajout d'un nouveau patient a été implémenté en suivant une approche multi-étapes (wizard) intégrée avec le backend.
+
+## Étapes du Formulaire
+1. **Informations essentielles** : Nom, prénom, profession, sexe, lieu/date de naissance, NSS, nationalité, téléphone, email, situation familiale, adresse.
+2. **Antécédents** : 
+   - Antécédents personnels (maladies actives, type, détails).
+   - Antécédents familiaux (lien de parenté, pathologie).
+3. **Traitements** : Saisie des médicaments actifs avec dosage, indication et posologie.
+4. **Informations sociales** : (Spécifique au sexe) Revenu mensuel, taille ménage, nombre de pièces, habitudes de vie, relations environnementales.
+
+## Intégration Backend
+La création d'un patient déclenche une série de mutations pour assurer l'intégrité des données dans les différentes tables :
+1. `createPatientMutation` : Enregistrement des informations principales.
+2. `addAntecedentMutation` : Création des antécédents personnels et familiaux liés au patient.
+3. `startTreatmentMutation` : Liaison avec la base de données médicale (`medications-db`). Le backend vérifie l'existence du médicament via `rechercherMedicaments` avant de l'ajouter aux traitements actifs.
+
+## Gestion des Erreurs et UX
+- Validation locale stricte avant soumission.
+- Les échecs partiels (ex: un médicament introuvable ou erreur de saisie sur un antécédent) n'empêchent pas la création du patient mais génèrent une alerte utilisateur listant ce qui n'a pas pu être enregistré.
+- Un modal de succès avec un design premium (glassmorphism, animations fluides) confirme visuellement la création.

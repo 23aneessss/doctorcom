@@ -420,7 +420,7 @@ export class PatientService {
     database: DatabaseClient,
     session: PatientSession,
   ): Promise<UtilisateurRecord> {
-    const email = session.user.email.trim();
+    const email = session.user.email.trim().toLowerCase();
     if (!email) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -429,14 +429,38 @@ export class PatientService {
     }
 
     const utilisateur = await patientRepository.findUtilisateurByEmail(database, email);
-    if (!utilisateur) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Le compte associé à cette session est introuvable.",
-      });
+    if (utilisateur) {
+      return utilisateur;
     }
 
-    return utilisateur;
+    const fullName = session.user.name?.trim() || "Utilisateur Local";
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const prenom = nameParts[0] || "Utilisateur";
+    const nom = nameParts.slice(1).join(" ") || "Local";
+
+    try {
+      return await patientRepository.createUtilisateur(database, {
+        nom,
+        prenom,
+        email,
+        adresse: null,
+        telephone: null,
+        mot_de_passe_hash: "not-used",
+        date_creation: new Date().toISOString().slice(0, 10),
+        role: "medecin",
+      });
+    } catch (error) {
+      const concurrentUtilisateur = await patientRepository.findUtilisateurByEmail(database, email);
+      if (concurrentUtilisateur) {
+        return concurrentUtilisateur;
+      }
+
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Utilisateur introuvable pour la session active.",
+        cause: error,
+      });
+    }
   }
 
   private async ensureNoMatriculeConflict(

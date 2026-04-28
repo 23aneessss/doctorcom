@@ -13,7 +13,7 @@ export const Route = createFileRoute("/dashboard")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
-  const sessionUser = session.data?.user;
+  const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
       ? {

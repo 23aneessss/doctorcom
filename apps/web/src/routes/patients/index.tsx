@@ -1,6 +1,7 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -19,7 +20,14 @@ import styles from "@/components/patients/patients-page.module.css";
 import {
   NouveauPatientDialog,
   type NouveauPatientFormValues,
-} from "@/routes/patients/popups/nouveau-patient";
+  type NouveauPatientSubmissionValues,
+} from "@/components/patients/popups/nouveau-patient-dialog";
+import {
+  ModifierPatientDialog,
+  type ModifierPatientSubmissionValues,
+} from "@/components/patients/popups/modifier-patient-dialog";
+import { PatientCreatedSuccessModal } from "@/components/patients/popups/patient-created-success-modal";
+import { PatientModifiedSuccessModal } from "@/components/patients/popups/patient-modified-success-modal";
 
 import { requireSession } from "@/lib/require-session";
 
@@ -38,7 +46,7 @@ type PatientRecord = SearchPatientsOutput[number];
 function PatientsPage() {
   const navigate = useNavigate();
   const { session } = Route.useRouteContext();
-  const { trpc } = Route.useRouteContext();
+  const { trpc, queryClient } = Route.useRouteContext();
   const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
@@ -52,14 +60,116 @@ function PatientsPage() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValue, setFilterValue] = useState<PatientsFilter>("all");
   const [isNouveauPatientOpen, setIsNouveauPatientOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
   const [nouveauPatientError, setNouveauPatientError] = useState<string | null>(
     null,
   );
+  const [createdPatientName, setCreatedPatientName] = useState<string>("");
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
+const editPatientQuery = useQuery({
+    ...trpc.patient.getPatient.queryOptions({ id: editingPatientId ?? "" }),
+    enabled: !!editingPatientId,
+  });
+
+  const initialDialogData = useMemo((): Partial<NouveauPatientFormValues> | undefined => {
+    if (dialogMode !== "edit" || !editPatientQuery.data) {
+      return undefined;
+    }
+    const patient = editPatientQuery.data;
+    return {
+      nom: patient.nom,
+      prenom: patient.prenom,
+      profession: patient.profession ?? "",
+      sexe: patient.sexe ?? "",
+      lieuPatient: patient.lieu_naissance ?? "",
+      dateNouvelle: patient.date_naissance ? new Date(patient.date_naissance).toLocaleDateString("fr-FR") : "",
+      nss: patient.nss?.toString() ?? "",
+      nationalite: patient.nationalite ?? "",
+      telephone: patient.telephone ?? "",
+      email: patient.email ?? "",
+      situationFamiliale: patient.situation_familiale ?? "",
+      adresseComplete: patient.adresse ?? "",
+    };
+  }, [dialogMode, editPatientQuery.data]);
+
+  const modifierDialogData = useMemo((): Partial<ModifierPatientSubmissionValues> | undefined => {
+    if (dialogMode !== "edit" || !editPatientQuery.data) {
+      return undefined;
+    }
+    const patient = editPatientQuery.data;
+
+    return {
+      nom: patient.nom || "",
+      prenom: patient.prenom || "",
+      profession: patient.profession ?? "",
+      sexe: (patient.sexe ?? "").toLowerCase().startsWith("f") ? "Femme" : (patient.sexe ?? "").toLowerCase().startsWith("m") || (patient.sexe ?? "").toLowerCase().startsWith("h") ? "Homme" : "Autre",
+      lieuNaissance: patient.lieu_naissance ?? "",
+      dateNaissance: patient.date_naissance ? new Date(patient.date_naissance).toLocaleDateString("fr-FR") : "",
+      nss: patient.nss?.toString() ?? "",
+      nationalite: patient.nationalite ?? "",
+      telephone: patient.telephone ?? "",
+      email: patient.email ?? "",
+      situationFamiliale: patient.situation_familiale ?? "",
+      adresseComplete: patient.adresse ?? "",
+      
+      groupeSanguin: patient.groupe_sanguin ?? "",
+      ageCirconcision: patient.age_circoncision?.toString() ?? "",
+      revenuMensuel: patient.revenu_mensuel?.toString() ?? "",
+      tailleMenages: patient.taille_menage ?? 0,
+      nombreDePieces: patient.nb_pieces ?? 0,
+      socialProfession: patient.profession ?? "",
+      socialSituationFamiliale: patient.situation_familiale ?? "",
+      nombreEnfants: patient.nb_enfants ?? 0,
+      habitudesSaines: patient.habitudes_saines ?? "",
+      habitudesToxiques: patient.habitudes_toxiques ?? "",
+      environnementAnimal: patient.environnement_animal ?? "",
+      relationsEnvironnementales: patient.relations_environnement ?? "",
+
+      personalAntecedents: [{ id: "temp-1", type: "", details: "", maladieActive: false }],
+      familyAntecedents: [{ id: "temp-2", lienParente: "", pathologie: "", pathology: "" }],
+      traitements: [{ id: "temp-3", medicament: "", dosage: "", indication: "", posologie: "", maladieActive: true }],
+
+      menarche: patient.female_info?.menarche ?? undefined,
+      regulariteCycles: patient.female_info?.regularite_cycles ?? undefined,
+      contraception: patient.female_info?.contraception ?? undefined,
+      nbGrossesses: patient.female_info?.nb_grossesses ?? undefined,
+      nbCesariennes: patient.female_info?.nb_cesariennes ?? undefined,
+      menopause: patient.female_info?.menopause ?? undefined,
+      ageMenopause: patient.female_info?.age_menopause ?? undefined,
+      symptomesMenopause: patient.female_info?.symptomes_menopause ?? undefined,
+    };
+  }, [dialogMode, editPatientQuery.data]);
 
   const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
   const createPatientMutation = useMutation(
     trpc.patient.createPatient.mutationOptions(),
   );
+  const updatePatientMutation = useMutation({
+    ...trpc.patient.updatePatient.mutationOptions(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: trpc.patient.searchPatients.queryKey(),
+      });
+      if (editingPatientId) {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.patient.getPatient.queryKey({ id: editingPatientId }),
+        });
+      }
+    },
+  });
+  const addAntecedentMutation = useMutation(
+    trpc.medicalHistory.ajouterAntecedent.mutationOptions(),
+  );
+  const startTreatmentMutation = useMutation(
+    trpc.treatment.startTreatment.mutationOptions(),
+  );
+  const isSubmittingPatientFlow =
+    createPatientMutation.isPending ||
+    updatePatientMutation.isPending ||
+    addAntecedentMutation.isPending ||
+    startTreatmentMutation.isPending;
 
   const patients = useMemo<PatientViewModel[]>(() => {
     return (patientsQuery.data ?? []).map((patient) =>
@@ -95,10 +205,15 @@ function PatientsPage() {
   };
 
   const handleEditPatient = (patientId: string) => {
-    void navigate({ to: "/patients/$id/general", params: { id: patientId } });
+    setDialogMode("edit");
+    setEditingPatientId(patientId);
+    setNouveauPatientError(null);
+    setIsNouveauPatientOpen(true);
   };
 
   const handleAddPatient = () => {
+    setDialogMode("create");
+    setEditingPatientId(null);
     setNouveauPatientError(null);
     setIsNouveauPatientOpen(true);
   };
@@ -112,48 +227,221 @@ function PatientsPage() {
     setIsNouveauPatientOpen(false);
   };
 
-  const handleAddNow = async (values: NouveauPatientFormValues) => {
+const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [key: string]: any }) => {
     setNouveauPatientError(null);
 
-    const dateNaissanceIso = toIsoDate(values.dateNaissance);
-    if (!dateNaissanceIso) {
+    const dateNouvelleIso = toIsoDate(values.dateNouvelle || values.dateNaissance);
+    if (!dateNouvelleIso) {
       setNouveauPatientError(
         "Date de naissance invalide. Utilisez le format JJ/MM/AAAA.",
       );
       return;
     }
 
-    try {
-      await createPatientMutation.mutateAsync({
-        patient: {
-          nom: values.nom.trim(),
-          prenom: values.prenom.trim(),
-          telephone: toOptionalText(values.telephone),
-          email: toOptionalText(values.email),
-          matricule: buildMatricule(
-            values.nom,
-            values.prenom,
-            (patientsQuery.data?.length ?? 0) + 1,
-          ),
-          date_naissance: dateNaissanceIso,
-          nss: toOptionalInteger(values.nss),
-          lieu_naissance: toOptionalText(values.lieuNaissance),
-          sexe: toOptionalText(values.sexe),
-          nationalite: toOptionalText(values.nationalite),
-          adresse: toOptionalText(values.adresseComplete),
-          profession: toOptionalText(values.profession),
-          situation_familiale: toOptionalText(values.situationFamiliale),
-        },
-      });
+    const nomValue = values.nom?.trim() ?? "";
+    const prenomValue = values.prenom?.trim() ?? "";
+    if (!nomValue || !prenomValue) {
+      setNouveauPatientError("Le nom et le prénom sont obligatoires.");
+      return;
+    }
 
-      toast.success("Patient ajoute avec succes.");
+    try {
+      let createdPatient: { id: string };
+      
+      if (dialogMode === "create") {
+        createdPatient = await createPatientMutation.mutateAsync({
+          patient: {
+            nom: nomValue,
+            prenom: prenomValue,
+            telephone: toOptionalText(values.telephone),
+            email: toOptionalText(values.email),
+            matricule: buildMatricule(
+              values.nom,
+              values.prenom,
+              (patientsQuery.data?.length ?? 0) + 1,
+            ),
+            date_naissance: dateNouvelleIso,
+            nss: toOptionalInteger(values.nss),
+            lieu_naissance: toOptionalText(values.lieuPatient || values.lieuNaissance),
+            sexe: toOptionalText(values.sexe),
+            nationalite: toOptionalText(values.nationalite),
+            groupe_sanguin: toOptionalText(values.groupeSanguin),
+            adresse: toOptionalText(values.adresseComplete),
+            profession: toOptionalText(values.socialProfession) ?? toOptionalText(values.profession),
+            habitudes_saines: toOptionalText(values.habitudesSaines),
+            habitudes_toxiques: toOptionalText(values.habitudesToxiques),
+            nb_enfants: values.nombreEnfants,
+            situation_familiale:
+              toOptionalText(values.socialSituationFamiliale) ??
+              toOptionalText(values.situationFamiliale),
+            age_circoncision: isMale(values.sexe ?? "") ? toOptionalInteger(values.ageCirconcision) : undefined,
+            environnement_animal: toOptionalText(values.environnementAnimal),
+            revenu_mensuel: toOptionalText(values.revenuMensuel),
+            taille_menage: values.tailleMenages,
+            nb_pieces: values.nombreDePieces,
+            relations_environnement: toOptionalText(values.relationsEnvironnementales),
+          },
+          female_data: isFemale(values.sexe ?? "") ? {
+            menarche: values.menarche,
+            regularite_cycles: toOptionalText(values.regulariteCycles),
+            contraception: toOptionalText(values.contraception),
+            nb_grossesses: values.nbGrossesses,
+            nb_cesariennes: values.nbCesariennes,
+            menopause: values.menopause,
+            age_menopause: values.ageMenopause,
+            symptomes_menopause: toOptionalText(values.symptomesMenopause),
+          } : undefined,
+        });
+      } else {
+        if (!editingPatientId) return;
+        createdPatient = await updatePatientMutation.mutateAsync({
+          id: editingPatientId,
+          data: {
+            nom: nomValue,
+            prenom: prenomValue,
+            telephone: toOptionalText(values.telephone),
+            email: toOptionalText(values.email),
+            date_naissance: dateNouvelleIso,
+            nss: toOptionalInteger(values.nss),
+            lieu_naissance: toOptionalText(values.lieuPatient || values.lieuNaissance),
+            sexe: toOptionalText(values.sexe),
+            nationalite: toOptionalText(values.nationalite),
+            groupe_sanguin: toOptionalText(values.groupeSanguin),
+            adresse: toOptionalText(values.adresseComplete),
+            profession: toOptionalText(values.socialProfession) ?? toOptionalText(values.profession),
+            habitudes_saines: toOptionalText(values.habitudesSaines),
+            habitudes_toxiques: toOptionalText(values.habitudesToxiques),
+            nb_enfants: values.nombreEnfants,
+            situation_familiale:
+              toOptionalText(values.socialSituationFamiliale) ??
+              toOptionalText(values.situationFamiliale),
+            age_circoncision: isMale(values.sexe ?? "") ? toOptionalInteger(values.ageCirconcision) : undefined,
+            environnement_animal: toOptionalText(values.environnementAnimal),
+            revenu_mensuel: toOptionalText(values.revenuMensuel),
+            taille_menage: values.tailleMenages,
+            nb_pieces: values.nombreDePieces,
+            relations_environnement: toOptionalText(values.relationsEnvironnementales),
+          },
+          female_data: isFemale(values.sexe ?? "") ? {
+            menarche: values.menarche,
+            regularite_cycles: toOptionalText(values.regulariteCycles),
+            contraception: toOptionalText(values.contraception),
+            nb_grossesses: values.nbGrossesses,
+            nb_cesariennes: values.nbCesariennes,
+            menopause: values.menopause,
+            age_menopause: values.ageMenopause,
+            symptomes_menopause: toOptionalText(values.symptomesMenopause),
+          } : undefined,
+        });
+      }
+
+      const partialFailures: string[] = [];
+
+      for (const entry of values.personalAntecedents) {
+        if (!(entry.type?.trim() || entry.details?.trim())) {
+          continue;
+        }
+
+        try {
+          await addAntecedentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            type: "personnel",
+            description: entry.details?.trim() || entry.type?.trim(),
+            personnel: {
+              type: entry.type?.trim(),
+              details: entry.details?.trim() || null,
+              maladie_active: entry.maladieActive,
+            },
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Antecedent personnel "${entry.type?.trim() || "sans titre"}": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
+      for (const entry of values.familyAntecedents) {
+        if (!(entry.lienParente?.trim() || entry.pathologie?.trim())) {
+          continue;
+        }
+
+        try {
+          await addAntecedentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            type: "familial",
+            description: entry.pathologie?.trim() || "Antecedent familial",
+            familial: {
+              details: entry.pathologie?.trim() || null,
+              lien_parente: entry.lienParente?.trim() || null,
+            },
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Antecedent familial "${entry.lienParente?.trim() || "sans lien"}": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
+      const treatmentsToCreate = values.traitements.filter((entry) =>
+        [entry.medicament, entry.dosage, entry.indication, entry.posologie]
+          .some((field) => (field ?? "").trim().length > 0),
+      );
+
+      for (const entry of treatmentsToCreate) {
+        if (!entry.medicament?.trim() || !entry.posologie?.trim()) {
+          partialFailures.push(
+            `Traitement "${entry.medicament?.trim() || "sans medicament"}": medicament et posologie sont obligatoires.`,
+          );
+          continue;
+        }
+
+        try {
+          const medicationsSearch = await queryClient.fetchQuery(
+            trpc.medicaments.rechercherMedicaments.queryOptions({
+              query: entry.medicament?.trim(),
+              page: 1,
+              page_size: 1,
+            }),
+          );
+
+          const matchedMedication = medicationsSearch.items[0];
+          if (!matchedMedication) {
+            partialFailures.push(
+              `Traitement "${entry.medicament?.trim()}": medicament introuvable dans la base.`,
+            );
+            continue;
+          }
+
+          await startTreatmentMutation.mutateAsync({
+            patient_id: createdPatient.id,
+            medicament_externe_id: String(matchedMedication.id),
+            dosage: toOptionalText(entry.dosage) ?? null,
+            posologie: entry.posologie?.trim(),
+            date_prescription: new Date().toISOString().slice(0, 10),
+            est_actif: entry.maladieActive,
+          });
+        } catch (error) {
+          partialFailures.push(
+            `Traitement "${entry.medicament?.trim()}": ${getMutationErrorMessage(error)}`,
+          );
+        }
+      }
+
+      toast.success(dialogMode === "edit" ? "Patient modifié avec succès!" : "Patient ajoute avec succes.");
+      
+      if (partialFailures.length > 0) {
+        toast.error(
+          `Patient cree, mais certaines donnees n'ont pas ete enregistrees:\n- ${partialFailures.join("\n- ")}`,
+          { duration: 9000 },
+        );
+      }
+
+      setCreatedPatientName([nomValue, prenomValue].filter(Boolean).join(" "));
+      setIsSuccessModalOpen(true);
       setIsNouveauPatientOpen(false);
       await patientsQuery.refetch();
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Impossible d'ajouter le patient.";
+      const message = getMutationErrorMessage(error);
       setNouveauPatientError(message);
     }
   };
@@ -220,28 +508,63 @@ function PatientsPage() {
           )}
         </div>
 
-        <NouveauPatientDialog
-          open={isNouveauPatientOpen}
-          onClose={handleCloseNouveauPatient}
-          isSubmitting={createPatientMutation.isPending}
-          submitError={nouveauPatientError}
-          onContinue={() => {
-            setIsNouveauPatientOpen(false);
-          }}
-          onAddNow={handleAddNow}
+        {dialogMode === "create" ? (
+          <NouveauPatientDialog
+            open={isNouveauPatientOpen}
+            onClose={handleCloseNouveauPatient}
+            isSubmitting={isSubmittingPatientFlow}
+            submitError={nouveauPatientError}
+            onContinue={handleSubmitPatient}
+            onAddNow={handleSubmitPatient}
+          />
+        ) : (
+          <ModifierPatientDialog
+            key={editingPatientId ?? "new"}
+            open={isNouveauPatientOpen}
+            initialData={modifierDialogData}
+            onClose={handleCloseNouveauPatient}
+            isSubmitting={isSubmittingPatientFlow}
+            submitError={nouveauPatientError}
+            onContinue={handleSubmitPatient}
+            onSave={handleSubmitPatient}
+          />
+        )}
+
+        <PatientCreatedSuccessModal
+          open={isSuccessModalOpen && dialogMode === "create"}
+          patientName={createdPatientName}
+          onClose={() => setIsSuccessModalOpen(false)}
+        />
+
+        <PatientModifiedSuccessModal
+          open={isSuccessModalOpen && dialogMode === "edit"}
+          patientName={createdPatientName}
+          onClose={() => setIsSuccessModalOpen(false)}
         />
       </main>
     </div>
   );
 }
 
+function getMutationErrorMessage(error: unknown) {
+  if (error instanceof TRPCClientError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Impossible d'ajouter le patient.";
+}
+
 function toOptionalText(value: string) {
-  const trimmed = value.trim();
+  const trimmed = (value || "").trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function toOptionalInteger(value: string) {
-  const digits = value.replace(/\D/g, "");
+  const digits = (value || "").replace(/\D/g, "");
   if (digits.length === 0) {
     return undefined;
   }
@@ -251,7 +574,7 @@ function toOptionalInteger(value: string) {
 }
 
 function toIsoDate(value: string) {
-  const trimmed = value.trim();
+  const trimmed = (value || "").trim();
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
@@ -278,7 +601,7 @@ function buildMatricule(nom: string, prenom: string, patientNumber: number) {
 
 function getMatriculeInitial(value: string) {
   return (
-    value
+    (value || "")
       .trim()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -326,8 +649,8 @@ function mapPatientRecord(patient: PatientRecord): PatientViewModel {
 }
 
 function getInitials(nom: string, prenom: string) {
-  const first = nom.trim().slice(0, 1);
-  const second = prenom.trim().slice(0, 1);
+  const first = (nom || "").trim().slice(0, 1);
+  const second = (prenom || "").trim().slice(0, 1);
   return `${first}${second}`.toUpperCase() || "PT";
 }
 
@@ -385,11 +708,11 @@ function extractConditionsText(patient: PatientRecord) {
 }
 
 function isFemale(sexeText: string) {
-  const normalized = sexeText.toLowerCase();
+  const normalized = (sexeText || "").toLowerCase();
   return normalized === "femme" || normalized.startsWith("f");
 }
 
 function isMale(sexeText: string) {
-  const normalized = sexeText.toLowerCase();
+  const normalized = (sexeText || "").toLowerCase();
   return normalized === "homme" || normalized.startsWith("m");
 }
