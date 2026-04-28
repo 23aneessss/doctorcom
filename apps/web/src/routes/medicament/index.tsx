@@ -50,7 +50,7 @@ function RouteComponent() {
       : undefined;
 
   const [searchValue, setSearchValue] = useState("");
-  const [selectedLetter, setSelectedLetter] = useState("B");
+  const [selectedLetter, setSelectedLetter] = useState("A");
   const [selectedCategory, setSelectedCategory] = useState<string>(
     MEDICATIONS_PAGE_TEXT.selectedCategory,
   );
