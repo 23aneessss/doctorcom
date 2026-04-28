@@ -24,6 +24,7 @@ export const utilisateurs = pgTable(
     avatar_url: text("avatar_url"),
     adresse: text("adresse"),
     telephone: varchar("telephone", { length: 32 }),
+    langue_interface: varchar("langue_interface", { length: 8 }).default("fr").notNull(),
     mot_de_passe_hash: text("mot_de_passe_hash").notNull(),
     date_creation: date("date_creation").notNull(),
     role: utilisateur_role_enum("role").notNull(),

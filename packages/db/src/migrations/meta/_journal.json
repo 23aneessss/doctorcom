@@ -43,6 +43,13 @@
       "when": 1775085905072,
       "tag": "0005_condemned_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777372800000,
+      "tag": "0006_add_utilisateur_langue_interface",
+      "breakpoints": true
     }
   ]
 }
