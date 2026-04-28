@@ -1,13 +1,13 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { PatientHeader } from "@/components/patients/patient-header";
 import { PatientList } from "@/components/patients/patient-list";
 import { PatientTableHeader } from "@/components/patients/patient-table-header";
@@ -15,7 +15,6 @@ import { PatientToolbar } from "@/components/patients/patient-toolbar";
 import type {
   PatientViewModel,
   PatientsFilter,
-  PatientsViewMode,
 } from "@/components/patients/patient-types";
 import styles from "@/components/patients/patients-page.module.css";
 import {
@@ -60,7 +59,6 @@ function PatientsPage() {
 
   const [searchValue, setSearchValue] = useState("");
   const [filterValue, setFilterValue] = useState<PatientsFilter>("all");
-  const [viewMode, setViewMode] = useState<PatientsViewMode>("vertical");
   const [isNouveauPatientOpen, setIsNouveauPatientOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
@@ -466,8 +464,7 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
             onSearchChange={setSearchValue}
             filterValue={filterValue}
             onFilterChange={setFilterValue}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
+            patientCount={filteredPatients.length}
             onShowAll={handleShowAll}
           />
 
@@ -499,23 +496,15 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
                   : "Ajoutez votre premier patient pour commencer."}
               </p>
             </div>
-          ) : viewMode === "vertical" ? (
+          ) : (
             <div className={styles.tableViewport}>
               <PatientTableHeader />
               <PatientList
                 patients={filteredPatients}
-                viewMode={viewMode}
                 onViewPatient={handleSeePatient}
                 onEditPatient={handleEditPatient}
               />
             </div>
-          ) : (
-            <PatientList
-              patients={filteredPatients}
-              viewMode={viewMode}
-              onViewPatient={handleSeePatient}
-              onEditPatient={handleEditPatient}
-            />
           )}
         </div>
 

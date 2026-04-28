@@ -1,7 +1,7 @@
-import { ChevronDown, LayoutGrid, List, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import type { PatientsFilter, PatientsViewMode } from "./patient-types";
+import type { PatientsFilter } from "./patient-types";
 import styles from "./patients-page.module.css";
 
 interface PatientToolbarProps {
@@ -9,8 +9,7 @@ interface PatientToolbarProps {
   onSearchChange: (value: string) => void;
   filterValue: PatientsFilter;
   onFilterChange: (value: PatientsFilter) => void;
-  viewMode: PatientsViewMode;
-  onViewModeChange: (value: PatientsViewMode) => void;
+  patientCount: number;
   onShowAll: () => void;
 }
 
@@ -26,8 +25,7 @@ export function PatientToolbar({
   onSearchChange,
   filterValue,
   onFilterChange,
-  viewMode,
-  onViewModeChange,
+  patientCount,
   onShowAll,
 }: PatientToolbarProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -41,24 +39,14 @@ export function PatientToolbar({
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (!filterWrapRef.current?.contains(target)) {
-        setIsFilterOpen(false);
-      }
+      if (!(target instanceof Node)) return;
+      if (!filterWrapRef.current?.contains(target)) setIsFilterOpen(false);
     };
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsFilterOpen(false);
-      }
+      if (event.key === "Escape") setIsFilterOpen(false);
     };
-
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
@@ -71,43 +59,20 @@ export function PatientToolbar({
         <button type="button" className={styles.seeAllButton} onClick={onShowAll}>
           Voir tout
         </button>
-
-        <div className={styles.viewModeGroup} role="group" aria-label="Mode d'affichage">
-          <button
-            type="button"
-            className={`${styles.viewModeButton} ${
-              viewMode === "vertical" ? styles.viewModeButtonActive : ""
-            }`}
-            aria-label="Affichage vertical"
-            aria-pressed={viewMode === "vertical"}
-            onClick={() => onViewModeChange("vertical")}
-          >
-            <List size={16} aria-hidden="true" />
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.viewModeButton} ${
-              viewMode === "horizontal" ? styles.viewModeButtonActive : ""
-            }`}
-            aria-label="Affichage horizontal"
-            aria-pressed={viewMode === "horizontal"}
-            onClick={() => onViewModeChange("horizontal")}
-          >
-            <LayoutGrid size={16} aria-hidden="true" />
-          </button>
-        </div>
+        <span className={styles.patientCount}>
+          {patientCount} patient{patientCount !== 1 ? "s" : ""}
+        </span>
       </div>
 
       <div className={styles.toolbarRight}>
         <label className={styles.searchWrap}>
-          <Search size={16} className={styles.searchIcon} aria-hidden="true" />
+          <Search size={15} className={styles.searchIcon} aria-hidden="true" />
           <input
             type="search"
             className={styles.searchInput}
             value={searchValue}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Recherche patient"
+            placeholder="Rechercher un patient..."
             aria-label="Recherche patient"
           />
         </label>
@@ -119,11 +84,11 @@ export function PatientToolbar({
             aria-haspopup="listbox"
             aria-expanded={isFilterOpen}
             aria-controls={filterDropdownId}
-            onClick={() => setIsFilterOpen((currentOpen) => !currentOpen)}
+            onClick={() => setIsFilterOpen((o) => !o)}
           >
             <span className={styles.filterTriggerLabel}>{activeFilterLabel}</span>
             <ChevronDown
-              size={16}
+              size={15}
               className={`${styles.filterChevron} ${isFilterOpen ? styles.filterChevronOpen : ""}`}
               aria-hidden="true"
             />
@@ -133,16 +98,13 @@ export function PatientToolbar({
             <ul id={filterDropdownId} className={styles.filterDropdown} role="listbox" aria-label="Filtrer par">
               {FILTER_OPTIONS.map((option) => {
                 const isSelected = filterValue === option.value;
-
                 return (
                   <li key={option.value} className={styles.filterOptionItem}>
                     <button
                       type="button"
                       role="option"
                       aria-selected={isSelected}
-                      className={`${styles.filterOptionButton} ${
-                        isSelected ? styles.filterOptionButtonActive : ""
-                      }`}
+                      className={`${styles.filterOptionButton} ${isSelected ? styles.filterOptionButtonActive : ""}`}
                       onClick={() => {
                         onFilterChange(option.value);
                         setIsFilterOpen(false);

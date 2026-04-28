@@ -111,7 +111,9 @@ const DEFAULT_USER: NonNullable<SidebarProps["currentUser"]> = {
 
 const SIDEBAR_STYLE_MAP = {
   sidebar: {
-    position: "relative",
+    position: "sticky",
+    top: 0,
+    alignSelf: "flex-start",
     width: 250,
     minWidth: 250,
     flexShrink: 0,
