@@ -7,9 +7,6 @@ import {
   CheckCircle,
   Warning,
 } from "@phosphor-icons/react";
-import drAdminHead from "@/assets/0849c953470bfbc456f6bb8378af8f0b2293e2d7.svg";
-import drAdminBody from "@/assets/94439e37d5eda0beeaf04124bb2db2df0848c812.svg";
-import drAdminDot from "@/assets/9eb00701539dafff1d15056cbd2a5cc50d99e8a3.svg";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 
@@ -17,7 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import styles from "./parametres.module.css";
 
-export const Route = createFileRoute("/aide/parametres")({
+export const Route = createFileRoute("/aide/agenda-rendez-vous")({
   component: RouteComponent,
   beforeLoad: async () => {
     const session = await requireSession();
@@ -39,78 +36,67 @@ function RouteComponent() {
 
   const articleSections = [
     {
-      id: "profil",
-      title: "Gerer votre profil et vos identifiants",
-      intro: "L'onglet Parametres vous permet de maintenir vos informations professionnelles a jour pour garantir la validite des documents emis et par le cabinet.",
-      subtitle: "Mettre a jour vos informations de contact",
+      id: "agenda",
+      title: "Vue de l'agenda",
+      intro:
+        "L'agenda offre une vue chronologique de tous vos rendez-vous, organisés par jour. Chaque créneau est représenté par une carte colorée pour une lecture rapide de votre charge de travail.",
+      subtitle: "Les codes couleurs",
       steps: [
-        "Rendez-vous dans l'onglet Parametres via la barre laterale gauche.",
-        "Dans la section Profil, modifiez votre nom, e-mail, numero de telephone ou l'adresse de votre cabinet.",
-        "Preferences : utilisez le menu deroulant pour changer la langue de l'interface (francais, arabe, anglais, etc.).",
-        "Cliquez sur Enregistrer les modifications pour valider.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Assurez-vous que votre adresse e-mail est correcte, car elle est le seul moyen de reinitialiser votre acces en cas d'oubli.",
-    },
-    {
-      id: "securite",
-      title: "Securite du compte",
-      intro: "La protection des donnees de sante commence par un mot de passe robuste et regulierement renouvele.",
-      subtitle: "Changer votre mot de passe",
-      steps: [
-        "Allez dans Parametres > section Securite.",
-        "Cliquez sur le bouton bleu Changer le mot de passe.",
-        "Saisissez votre mot de passe actuel, puis le nouveau (minimum 8 caracteres, incluant des chiffres et symboles).",
-        "Validez pour appliquer le changement immediatement.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Si vous avez oublie votre mot de passe, cliquez sur Mot de passe oublie ? sous le formulaire de connexion.",
-    },
-    {
-      id: "session",
-      title: "Gestion de la session",
-      intro: "Pour proteger la confidentialite des dossiers patients, il est crucial de fermer votre session lorsque vous quittez votre poste.",
-      subtitle: "Se deconnecter de doctor.com",
-      steps: [
-        "Reperez l'icone de deconnexion situee tout en bas de votre barre laterale gauche.",
-        "Cliquez sur le bouton Se deconnecter.",
-        "Vous pouvez egalement effectuer cette action depuis l'onglet Parametres, tout en bas dans la section Session.",
+        "Vert : Terminé. La consultation a été effectuée et clôturée.",
+        "Bleu ciel : Confirmé. Le rendez-vous est validé par le patient ou le secrétariat.",
+        "Orange : En attente. Le rendez-vous nécessite une confirmation.",
+        "Rouge : Annulé. Le rendez-vous a été annulé par le médecin ou le patient.",
       ],
       calloutTone: "success",
       callout:
-        "Nous recommandons de vous deconnecter systematiquement a la fin de chaque journee de consultation.",
+        "Les couleurs vous permettent d'identifier en un coup d'œil l'état de chaque créneau sans ouvrir le détail du rendez-vous.",
     },
     {
-      id: "recuperation",
-      title: "Recuperation du mot de passe",
-      intro: "Pour reinitialiser votre cle d'acces et debloquer votre session, suivez les etapes de securisation ci-dessous.",
-      subtitle: "Etapes de reinitialisation du mot de passe",
+      id: "creation",
+      title: "Créer un nouveau rendez-vous",
+      intro:
+        "L'ajout d'un rendez-vous est simplifié pour permettre une prise en charge rapide.",
+      subtitle: "Étapes de création",
       steps: [
-        "Sur la page de connexion de l'application, cliquez sur le lien Mot de passe oublie ? situe sous le formulaire.",
-        "Saisissez l'adresse e-mail associee a votre compte (celle renseignee dans vos Parametres).",
-        "Consultez votre messagerie : un e-mail de securite vous sera envoye instantanement.",
-        "Cliquez sur le bouton Reinitialiser mon mot de passe contenu dans l'e-mail.",
+        "Cliquez sur le bouton bleu \"+ Ajouter un RDV\" en haut à droite de votre écran Agenda.",
+        "Recherche Patient : Saisissez le nom ou l'ID du patient. Si c'est un nouveau patient, l'option de création apparaîtra.",
+        "Détails du RDV : Sélectionnez la date, l'heure de début et le type de consultation.",
+        "Statut : Par défaut, le RDV est mis \"En attente\". Vous pouvez le passer en \"Confirmé\" immédiatement.",
+        "Notes : Ajoutez des notes internes (ex : \"Apporter anciens résultats\").",
+        "Cliquez sur \"Confirmer le rendez-vous\".",
       ],
-      calloutTone: "success",
+      calloutTone: "warning",
       callout:
-        "Pour des raisons de securite, le lien de recuperation expire apres quelques minutes. Si vous ne recevez pas l'e-mail, verifiez votre dossier Courriers indesirables (Spams).",
+        "Le mini-calendrier à droite de l'écran reste toujours visible pour vous aider à trouver un créneau libre.",
+    },
+    {
+      id: "modify",
+      title: "Modifier ou annuler un rendez-vous",
+      intro:
+        "La gestion des imprévus est au cœur du module Agenda.",
+      subtitle: "Procédure de modification",
+      steps: [
+        "Cliquez directement sur la carte du rendez-vous dans l'agenda pour ouvrir les détails.",
+        "Modifiez l'heure ou la date si nécessaire.",
+        "Pour annuler : changez le statut en \"Annulé\".",
+        "Validez pour mettre à jour votre planning.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Un rendez-vous annulé reste visible dans l'historique du patient.",
     },
   ] as const;
 
   const articleLinks = [
-    "Modifier vos informations de profil",
-    "Changer votre mot de passe",
-    "Se deconnecter de Doctor.com",
-    "Recuperation du mot de passe oublie",
+    "Vue de l'agenda et codes couleurs",
+    "Créer un nouveau rendez-vous",
+    "Modifier ou annuler un rendez-vous",
   ] as const;
 
   const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
-    "Modifier vos informations de profil": "profil",
-    "Changer votre mot de passe": "securite",
-    "Se deconnecter de Doctor.com": "session",
-    "Recuperation du mot de passe oublie": "recuperation",
+    "Vue de l'agenda et codes couleurs": "agenda",
+    "Créer un nouveau rendez-vous": "creation",
+    "Modifier ou annuler un rendez-vous": "modify",
   };
 
   const scrollToArticleSection = (targetId: string) => {
@@ -119,18 +105,18 @@ function RouteComponent() {
   };
 
   const relatedQuestions = [
-    "Puis-je rester connecte sur plusieurs appareils ?",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?",
-    "doctor.com est-il accessible sur mobile ?",
+    "Comment voir mes rendez-vous à venir en un clin d'œil ?",
+    "Puis-je rechercher un rendez-vous spécifique ?",
+    "Comment retrouver rapidement le dossier d'un patient depuis l'agenda ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
-    "Puis-je rester connecte sur plusieurs appareils ?":
-      "Oui, vous pouvez rester connecte sur plusieurs appareils, mais nous recommandons de fermer la session sur les postes partages pour proteger l'acces au compte.",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?":
-      "Mettez a jour votre adresse e-mail dans Parametres des que possible, puis contactez le support si vous ne pouvez plus recevoir les messages de recuperation.",
-    "doctor.com est-il accessible sur mobile ?":
-      "Oui, doctor.com est accessible sur mobile pour consulter l'aide et suivre votre activité depuis un smartphone ou une tablette.",
+    "Comment voir mes rendez-vous à venir en un clin d'œil ?":
+      "Consultez la colonne \"Prochains rendez-vous\" à droite de votre agenda ou directement sur votre tableau de bord (Accueil).",
+    "Puis-je rechercher un rendez-vous spécifique ?":
+      "Oui, utilisez la barre de recherche en haut à droite pour filtrer par nom de patient ou type de consultation.",
+    "Comment retrouver rapidement le dossier d'un patient depuis l'agenda ?":
+      "Pour gagner du temps entre deux consultations, cliquez simplement sur le nom du patient (en bleu) à l'intérieur de sa carte de rendez-vous. L'application vous redirigera instantanément vers son profil complet.",
   };
 
   const [openRelatedQuestion, setOpenRelatedQuestion] = useState<string>("");
@@ -141,18 +127,37 @@ function RouteComponent() {
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
-          <section className={patientsStyles.hero} style={{ "--patients-hero-texture": `url(${headerTexture})`, marginLeft: "clamp(0.9rem, 2vw, 1.8rem)", marginRight: "clamp(0.9rem, 2vw, 1.8rem)", padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)" } as any} aria-labelledby="parametres-page-title">
+          <section
+            className={patientsStyles.hero}
+            style={{
+              "--patients-hero-texture": `url(${headerTexture})`,
+              marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
+              marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
+              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
+            } as any}
+            aria-labelledby="agenda-page-title"
+          >
             <div className={patientsStyles.heroInner}>
               <div className={patientsStyles.heroText}>
-                <h1 className={patientsStyles.heroTitle} id="parametres-page-title" style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}>Parametre</h1>
-                <p className={patientsStyles.heroSubtitle} style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}>Connexion, mot de passe, récupération de compte</p>
+                <h1
+                  className={patientsStyles.heroTitle}
+                  id="agenda-page-title"
+                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
+                >
+                  Agenda & Rendez-vous
+                </h1>
+                <p
+                  className={patientsStyles.heroSubtitle}
+                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
+                >
+                  Planning, couleurs et suivi des consultations
+                </p>
               </div>
             </div>
           </section>
 
           <div className={styles.columns}>
-            <section className={styles.articleColumn} aria-label="Guide parametres">
-
+            <section className={styles.articleColumn} aria-label="Guide agenda">
               <Link to="/aide" className={styles.backLink}>
                 <ArrowLeft size={17} weight="bold" aria-hidden="true" />
                 Retour aux categories
@@ -190,10 +195,8 @@ function RouteComponent() {
 
               <section className={styles.supportCard}>
                 <div>
-                  <h3 className={styles.supportTitle}>Vous n'avez pas trouve votre reponse ?</h3>
-                  <p className={styles.supportDescription}>
-                    Notre equipe est disponible pour vous aider.
-                  </p>
+                  <h3 className={styles.supportTitle}>Vous n'avez pas trouvé votre réponse ?</h3>
+                  <p className={styles.supportDescription}>Notre équipe est disponible pour vous aider.</p>
                 </div>
 
                 <button type="button" className={styles.supportButton}>
@@ -221,12 +224,11 @@ function RouteComponent() {
               </section>
 
               <section className={styles.sideCard}>
-                <h2 className={styles.sideTitle}>Questions lies</h2>
+                <h2 className={styles.sideTitle}>Questions liées</h2>
                 <ul className={styles.sideList}>
                   {relatedQuestions.map((item) => {
                     const answer = faqAnswersByQuestion[item];
-                    const hasAnswer = typeof answer === "string" && answer.length > 0;
-                    const isOpen = hasAnswer && openRelatedQuestion === item;
+                    const isOpen = openRelatedQuestion === item;
 
                     return (
                       <li key={item} className={styles.sideQuestionItem}>
@@ -247,9 +249,7 @@ function RouteComponent() {
                           />
                         </button>
 
-                        <div
-                          className={`${styles.sideAnswerWrap} ${isOpen ? styles.sideAnswerWrapOpen : ""}`}
-                        >
+                        <div className={`${styles.sideAnswerWrap} ${isOpen ? styles.sideAnswerWrapOpen : ""}`}>
                           <div className={styles.sideAnswerInner}>
                             <p className={styles.sideAnswerText}>{answer}</p>
                           </div>

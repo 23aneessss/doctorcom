@@ -61,7 +61,7 @@ function RouteComponent() {
       title: "Accueil",
       description: "Statistiques, KPIs et actions rapides.",
       icon: <House size={20} weight="fill" />,
-      href: "/dashboard",
+      href: "/aide/accueil",
     },
     {
       id: "parametres",
@@ -75,28 +75,28 @@ function RouteComponent() {
       title: "Patients",
       description: "Dossiers, fiches et assistant IA medical.",
       icon: <User size={20} weight="fill" />,
-      href: "/patients",
+      href: "/aide/patients",
     },
     {
       id: "agenda",
       title: "Agenda & Rendez-vous",
       description: "Planification, modification et statuts.",
       icon: <CalendarAgendaIcon />,
-      href: "/agenda",
+      href: "/aide/agenda-rendez-vous",
     },
     {
       id: "ordonnances",
       title: "Ordonnances",
       description: "Creation, impression et suivi des prescriptions.",
       icon: <Note size={20} weight="fill" />,
-      href: "/ordonnance",
+      href: "/aide/ordonnances",
     },
     {
       id: "medicaments",
       title: "Medicaments",
       description: "Catalogue, prescriptions et statistiques.",
       icon: <Pill size={20} weight="fill" />,
-      href: "/medicament",
+      href: "/aide/medicaments",
     },
   ] as const;
 

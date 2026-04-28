@@ -20,8 +20,13 @@ import { Route as MedicamentIndexRouteImport } from './routes/medicament/index'
 import { Route as AideIndexRouteImport } from './routes/aide/index'
 import { Route as AgendaIndexRouteImport } from './routes/agenda/index'
 import { Route as PatientsIdRouteImport } from './routes/patients.$id'
+import { Route as AidePatientsRouteImport } from './routes/aide/patients'
 import { Route as AideParametresRouteImport } from './routes/aide/parametres'
+import { Route as AideOrdonnancesRouteImport } from './routes/aide/ordonnances'
+import { Route as AideMedicamentsRouteImport } from './routes/aide/medicaments'
 import { Route as AideFaqRouteImport } from './routes/aide/faq'
+import { Route as AideAgendaRendezVousRouteImport } from './routes/aide/agenda-rendez-vous'
+import { Route as AideAccueilRouteImport } from './routes/aide/accueil'
 import { Route as AgendaModifierRouteImport } from './routes/agenda/modifier'
 import { Route as AgendaAjouterRouteImport } from './routes/agenda/ajouter'
 import { Route as PatientsIdIndexRouteImport } from './routes/patients.$id/index'
@@ -91,14 +96,39 @@ const PatientsIdRoute = PatientsIdRouteImport.update({
   path: '/patients/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AidePatientsRoute = AidePatientsRouteImport.update({
+  id: '/aide/patients',
+  path: '/aide/patients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AideParametresRoute = AideParametresRouteImport.update({
   id: '/aide/parametres',
   path: '/aide/parametres',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AideOrdonnancesRoute = AideOrdonnancesRouteImport.update({
+  id: '/aide/ordonnances',
+  path: '/aide/ordonnances',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AideMedicamentsRoute = AideMedicamentsRouteImport.update({
+  id: '/aide/medicaments',
+  path: '/aide/medicaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AideFaqRoute = AideFaqRouteImport.update({
   id: '/aide/faq',
   path: '/aide/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AideAgendaRendezVousRoute = AideAgendaRendezVousRouteImport.update({
+  id: '/aide/agenda-rendez-vous',
+  path: '/aide/agenda-rendez-vous',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AideAccueilRoute = AideAccueilRouteImport.update({
+  id: '/aide/accueil',
+  path: '/aide/accueil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendaModifierRoute = AgendaModifierRouteImport.update({
@@ -176,8 +206,13 @@ export interface FileRoutesByFullPath {
   '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/accueil': typeof AideAccueilRoute
+  '/aide/agenda-rendez-vous': typeof AideAgendaRendezVousRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/medicaments': typeof AideMedicamentsRoute
+  '/aide/ordonnances': typeof AideOrdonnancesRoute
   '/aide/parametres': typeof AideParametresRoute
+  '/aide/patients': typeof AidePatientsRoute
   '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda/': typeof AgendaIndexRoute
   '/aide/': typeof AideIndexRoute
@@ -204,8 +239,13 @@ export interface FileRoutesByTo {
   '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/accueil': typeof AideAccueilRoute
+  '/aide/agenda-rendez-vous': typeof AideAgendaRendezVousRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/medicaments': typeof AideMedicamentsRoute
+  '/aide/ordonnances': typeof AideOrdonnancesRoute
   '/aide/parametres': typeof AideParametresRoute
+  '/aide/patients': typeof AidePatientsRoute
   '/agenda': typeof AgendaIndexRoute
   '/aide': typeof AideIndexRoute
   '/medicament': typeof MedicamentIndexRoute
@@ -232,8 +272,13 @@ export interface FileRoutesById {
   '/sidebar-test': typeof SidebarTestRoute
   '/agenda/ajouter': typeof AgendaAjouterRoute
   '/agenda/modifier': typeof AgendaModifierRoute
+  '/aide/accueil': typeof AideAccueilRoute
+  '/aide/agenda-rendez-vous': typeof AideAgendaRendezVousRoute
   '/aide/faq': typeof AideFaqRoute
+  '/aide/medicaments': typeof AideMedicamentsRoute
+  '/aide/ordonnances': typeof AideOrdonnancesRoute
   '/aide/parametres': typeof AideParametresRoute
+  '/aide/patients': typeof AidePatientsRoute
   '/patients/$id': typeof PatientsIdRouteWithChildren
   '/agenda/': typeof AgendaIndexRoute
   '/aide/': typeof AideIndexRoute
@@ -262,8 +307,13 @@ export interface FileRouteTypes {
     | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
+    | '/aide/accueil'
+    | '/aide/agenda-rendez-vous'
     | '/aide/faq'
+    | '/aide/medicaments'
+    | '/aide/ordonnances'
     | '/aide/parametres'
+    | '/aide/patients'
     | '/patients/$id'
     | '/agenda/'
     | '/aide/'
@@ -290,8 +340,13 @@ export interface FileRouteTypes {
     | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
+    | '/aide/accueil'
+    | '/aide/agenda-rendez-vous'
     | '/aide/faq'
+    | '/aide/medicaments'
+    | '/aide/ordonnances'
     | '/aide/parametres'
+    | '/aide/patients'
     | '/agenda'
     | '/aide'
     | '/medicament'
@@ -317,8 +372,13 @@ export interface FileRouteTypes {
     | '/sidebar-test'
     | '/agenda/ajouter'
     | '/agenda/modifier'
+    | '/aide/accueil'
+    | '/aide/agenda-rendez-vous'
     | '/aide/faq'
+    | '/aide/medicaments'
+    | '/aide/ordonnances'
     | '/aide/parametres'
+    | '/aide/patients'
     | '/patients/$id'
     | '/agenda/'
     | '/aide/'
@@ -346,8 +406,13 @@ export interface RootRouteChildren {
   SidebarTestRoute: typeof SidebarTestRoute
   AgendaAjouterRoute: typeof AgendaAjouterRoute
   AgendaModifierRoute: typeof AgendaModifierRoute
+  AideAccueilRoute: typeof AideAccueilRoute
+  AideAgendaRendezVousRoute: typeof AideAgendaRendezVousRoute
   AideFaqRoute: typeof AideFaqRoute
+  AideMedicamentsRoute: typeof AideMedicamentsRoute
+  AideOrdonnancesRoute: typeof AideOrdonnancesRoute
   AideParametresRoute: typeof AideParametresRoute
+  AidePatientsRoute: typeof AidePatientsRoute
   PatientsIdRoute: typeof PatientsIdRouteWithChildren
   AgendaIndexRoute: typeof AgendaIndexRoute
   AideIndexRoute: typeof AideIndexRoute
@@ -436,6 +501,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aide/patients': {
+      id: '/aide/patients'
+      path: '/aide/patients'
+      fullPath: '/aide/patients'
+      preLoaderRoute: typeof AidePatientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aide/parametres': {
       id: '/aide/parametres'
       path: '/aide/parametres'
@@ -443,11 +515,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AideParametresRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aide/ordonnances': {
+      id: '/aide/ordonnances'
+      path: '/aide/ordonnances'
+      fullPath: '/aide/ordonnances'
+      preLoaderRoute: typeof AideOrdonnancesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aide/medicaments': {
+      id: '/aide/medicaments'
+      path: '/aide/medicaments'
+      fullPath: '/aide/medicaments'
+      preLoaderRoute: typeof AideMedicamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aide/faq': {
       id: '/aide/faq'
       path: '/aide/faq'
       fullPath: '/aide/faq'
       preLoaderRoute: typeof AideFaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aide/agenda-rendez-vous': {
+      id: '/aide/agenda-rendez-vous'
+      path: '/aide/agenda-rendez-vous'
+      fullPath: '/aide/agenda-rendez-vous'
+      preLoaderRoute: typeof AideAgendaRendezVousRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aide/accueil': {
+      id: '/aide/accueil'
+      path: '/aide/accueil'
+      fullPath: '/aide/accueil'
+      preLoaderRoute: typeof AideAccueilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agenda/modifier': {
@@ -582,8 +682,13 @@ const rootRouteChildren: RootRouteChildren = {
   SidebarTestRoute: SidebarTestRoute,
   AgendaAjouterRoute: AgendaAjouterRoute,
   AgendaModifierRoute: AgendaModifierRoute,
+  AideAccueilRoute: AideAccueilRoute,
+  AideAgendaRendezVousRoute: AideAgendaRendezVousRoute,
   AideFaqRoute: AideFaqRoute,
+  AideMedicamentsRoute: AideMedicamentsRoute,
+  AideOrdonnancesRoute: AideOrdonnancesRoute,
   AideParametresRoute: AideParametresRoute,
+  AidePatientsRoute: AidePatientsRoute,
   PatientsIdRoute: PatientsIdRouteWithChildren,
   AgendaIndexRoute: AgendaIndexRoute,
   AideIndexRoute: AideIndexRoute,

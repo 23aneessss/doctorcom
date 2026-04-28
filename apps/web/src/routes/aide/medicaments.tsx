@@ -7,9 +7,6 @@ import {
   CheckCircle,
   Warning,
 } from "@phosphor-icons/react";
-import drAdminHead from "@/assets/0849c953470bfbc456f6bb8378af8f0b2293e2d7.svg";
-import drAdminBody from "@/assets/94439e37d5eda0beeaf04124bb2db2df0848c812.svg";
-import drAdminDot from "@/assets/9eb00701539dafff1d15056cbd2a5cc50d99e8a3.svg";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 
@@ -17,7 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
 import styles from "./parametres.module.css";
 
-export const Route = createFileRoute("/aide/parametres")({
+export const Route = createFileRoute("/aide/medicaments")({
   component: RouteComponent,
   beforeLoad: async () => {
     const session = await requireSession();
@@ -39,78 +36,65 @@ function RouteComponent() {
 
   const articleSections = [
     {
-      id: "profil",
-      title: "Gerer votre profil et vos identifiants",
-      intro: "L'onglet Parametres vous permet de maintenir vos informations professionnelles a jour pour garantir la validite des documents emis et par le cabinet.",
-      subtitle: "Mettre a jour vos informations de contact",
+      id: "recherche",
+      title: "Rechercher et Filtrer",
+      intro:
+        "Trouvez instantanément la molécule ou le produit dont vous avez besoin.",
+      subtitle: "Rechercher un médicament",
       steps: [
-        "Rendez-vous dans l'onglet Parametres via la barre laterale gauche.",
-        "Dans la section Profil, modifiez votre nom, e-mail, numero de telephone ou l'adresse de votre cabinet.",
-        "Preferences : utilisez le menu deroulant pour changer la langue de l'interface (francais, arabe, anglais, etc.).",
-        "Cliquez sur Enregistrer les modifications pour valider.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Assurez-vous que votre adresse e-mail est correcte, car elle est le seul moyen de reinitialiser votre acces en cas d'oubli.",
-    },
-    {
-      id: "securite",
-      title: "Securite du compte",
-      intro: "La protection des donnees de sante commence par un mot de passe robuste et regulierement renouvele.",
-      subtitle: "Changer votre mot de passe",
-      steps: [
-        "Allez dans Parametres > section Securite.",
-        "Cliquez sur le bouton bleu Changer le mot de passe.",
-        "Saisissez votre mot de passe actuel, puis le nouveau (minimum 8 caracteres, incluant des chiffres et symboles).",
-        "Validez pour appliquer le changement immediatement.",
-      ],
-      calloutTone: "warning",
-      callout:
-        "Si vous avez oublie votre mot de passe, cliquez sur Mot de passe oublie ? sous le formulaire de connexion.",
-    },
-    {
-      id: "session",
-      title: "Gestion de la session",
-      intro: "Pour proteger la confidentialite des dossiers patients, il est crucial de fermer votre session lorsque vous quittez votre poste.",
-      subtitle: "Se deconnecter de doctor.com",
-      steps: [
-        "Reperez l'icone de deconnexion situee tout en bas de votre barre laterale gauche.",
-        "Cliquez sur le bouton Se deconnecter.",
-        "Vous pouvez egalement effectuer cette action depuis l'onglet Parametres, tout en bas dans la section Session.",
+        "Par texte : Utilisez la barre de recherche pour une DCI (Dénomination Commune Internationale) ou un nom commercial.",
+        "Par index : Cliquez sur une lettre (ex : \"B\") pour lister tous les produits correspondants par ordre alphabétique.",
+        "Par catégorie : Utilisez le menu déroulant à droite pour filtrer par famille thérapeutique (ex : Antibiotique, Antihypertenseur).",
       ],
       calloutTone: "success",
       callout:
-        "Nous recommandons de vous deconnecter systematiquement a la fin de chaque journee de consultation.",
+        "La combinaison de recherche, d'index alphabétique et de filtres réduit considérablement le temps nécessaire pour accéder à une fiche.",
     },
     {
-      id: "recuperation",
-      title: "Recuperation du mot de passe",
-      intro: "Pour reinitialiser votre cle d'acces et debloquer votre session, suivez les etapes de securisation ci-dessous.",
-      subtitle: "Etapes de reinitialisation du mot de passe",
+      id: "base",
+      title: "Enrichir la base de données",
+      intro:
+        "Ductor.com vous permet de devenir l'éditeur de votre propre base de connaissances médicales.",
+      subtitle: "Consulter et Modifier une fiche",
       steps: [
-        "Sur la page de connexion de l'application, cliquez sur le lien Mot de passe oublie ? situe sous le formulaire.",
-        "Saisissez l'adresse e-mail associee a votre compte (celle renseignee dans vos Parametres).",
-        "Consultez votre messagerie : un e-mail de securite vous sera envoye instantanement.",
-        "Cliquez sur le bouton Reinitialiser mon mot de passe contenu dans l'e-mail.",
+        "Cliquez sur \"Voir\" (pour consulter) ou sur l'icône \"Crayon\" orange (pour modifier) afin d’accéder aux détails du médicament.",
+        "Classification : Définissez la famille, le nom générique et la forme (Comprimé, Sirop, etc.).",
+        "Posologie : Renseignez les doses adultes/enfants et la fréquence d'administration.",
+        "Informations Cliniques : Saisissez les indications, contre-indications et précautions d'emploi.",
+        "Sécurité : Précisez les risques liés à la grossesse ou à l'allaitement.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Une fiche riche en détails cliniques permet à l'Assistant IA de générer des alertes de sécurité plus précises lors des prescriptions.",
+    },
+    {
+      id: "ajout",
+      title: "Ajouter un nouveau médicament",
+      intro:
+        "Complétez la base lorsque la référence recherchée n'existe pas encore.",
+      subtitle: "Procédure d'ajout",
+      steps: [
+        "Si une référence est absente du catalogue (8 333 références initiales), cliquez sur le bouton bleu \"+ Ajouter un médicament\".",
+        "Remplissez les champs obligatoires (Nom, Catégorie, Dosage).",
+        "Plus vous complétez les sections \"Informations Cliniques\" et \"Sécurité\", plus l'IA sera capable de vous alerter efficacement lors d'une future ordonnance.",
+        "Note : Nous vous encourageons vivement à vérifier et compléter les fiches des molécules que vous prescrivez le plus fréquemment.",
       ],
       calloutTone: "success",
       callout:
-        "Pour des raisons de securite, le lien de recuperation expire apres quelques minutes. Si vous ne recevez pas l'e-mail, verifiez votre dossier Courriers indesirables (Spams).",
+        "Une base de données détaillée aide l'Assistant IA à fournir des alertes de sécurité plus fines et plus fiables.",
     },
   ] as const;
 
   const articleLinks = [
-    "Modifier vos informations de profil",
-    "Changer votre mot de passe",
-    "Se deconnecter de Doctor.com",
-    "Recuperation du mot de passe oublie",
+    "Utilisation de la recherche",
+    "Consulter et modifier une fiche de médicament",
+    "Ajout d’un médicament manquant à la base",
   ] as const;
 
   const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
-    "Modifier vos informations de profil": "profil",
-    "Changer votre mot de passe": "securite",
-    "Se deconnecter de Doctor.com": "session",
-    "Recuperation du mot de passe oublie": "recuperation",
+    "Utilisation de la recherche": "recherche",
+    "Consulter et modifier une fiche de médicament": "base",
+    "Ajout d’un médicament manquant à la base": "ajout",
   };
 
   const scrollToArticleSection = (targetId: string) => {
@@ -119,18 +103,18 @@ function RouteComponent() {
   };
 
   const relatedQuestions = [
-    "Puis-je rester connecte sur plusieurs appareils ?",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?",
-    "doctor.com est-il accessible sur mobile ?",
+    "Pourquoi remplir les contre-indications manuellement ?",
+    "Puis-je supprimer un médicament ajouté par erreur ?",
+    "Comment retrouver tous mes antibiotiques ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
-    "Puis-je rester connecte sur plusieurs appareils ?":
-      "Oui, vous pouvez rester connecte sur plusieurs appareils, mais nous recommandons de fermer la session sur les postes partages pour proteger l'acces au compte.",
-    "Je n'ai plus acces a mon adresse e-mail de recuperation, que faire ?":
-      "Mettez a jour votre adresse e-mail dans Parametres des que possible, puis contactez le support si vous ne pouvez plus recevoir les messages de recuperation.",
-    "doctor.com est-il accessible sur mobile ?":
-      "Oui, doctor.com est accessible sur mobile pour consulter l'aide et suivre votre activité depuis un smartphone ou une tablette.",
+    "Pourquoi remplir les contre-indications manuellement ?":
+      "Cela vous permet de personnaliser les alertes de sécurité selon vos protocoles cliniques et de garantir que l'IA se base sur des données que vous avez validées.",
+    "Puis-je supprimer un médicament ajouté par erreur ?":
+      "Oui, utilisez l'icône Corbeille (orange) située sur la carte du médicament pour le retirer. Une confirmation vous sera demandée pour éviter toute suppression accidentelle.",
+    "Comment retrouver tous mes antibiotiques ?":
+      "Sélectionnez simplement la catégorie \"Antibiotique\" dans le menu des filtres pour afficher l'ensemble des fiches liées.",
   };
 
   const [openRelatedQuestion, setOpenRelatedQuestion] = useState<string>("");
@@ -141,18 +125,40 @@ function RouteComponent() {
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
-          <section className={patientsStyles.hero} style={{ "--patients-hero-texture": `url(${headerTexture})`, marginLeft: "clamp(0.9rem, 2vw, 1.8rem)", marginRight: "clamp(0.9rem, 2vw, 1.8rem)", padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)" } as any} aria-labelledby="parametres-page-title">
+          <section
+            className={patientsStyles.hero}
+            style={{
+              "--patients-hero-texture": `url(${headerTexture})`,
+              marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
+              marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
+              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
+            } as any}
+            aria-labelledby="medicaments-page-title"
+          >
             <div className={patientsStyles.heroInner}>
               <div className={patientsStyles.heroText}>
-                <h1 className={patientsStyles.heroTitle} id="parametres-page-title" style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}>Parametre</h1>
-                <p className={patientsStyles.heroSubtitle} style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}>Connexion, mot de passe, récupération de compte</p>
+                <h1
+                  className={patientsStyles.heroTitle}
+                  id="medicaments-page-title"
+                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
+                >
+                  Médicaments
+                </h1>
+                <p
+                  className={patientsStyles.heroSubtitle}
+                  style={{
+                    marginTop: "0.8rem",
+                    fontSize: "clamp(0.8rem, 1.1vw, 1rem)",
+                  }}
+                >
+                  Catalogue, recherche et enrichissement des fiches
+                </p>
               </div>
             </div>
           </section>
 
           <div className={styles.columns}>
-            <section className={styles.articleColumn} aria-label="Guide parametres">
-
+            <section className={styles.articleColumn} aria-label="Guide medicaments">
               <Link to="/aide" className={styles.backLink}>
                 <ArrowLeft size={17} weight="bold" aria-hidden="true" />
                 Retour aux categories
@@ -175,7 +181,9 @@ function RouteComponent() {
 
                   <div
                     className={`${styles.callout} ${
-                      section.calloutTone === "success" ? styles.calloutSuccess : styles.calloutWarning
+                      section.calloutTone === "success"
+                        ? styles.calloutSuccess
+                        : styles.calloutWarning
                     }`}
                   >
                     {section.calloutTone === "success" ? (
@@ -190,9 +198,9 @@ function RouteComponent() {
 
               <section className={styles.supportCard}>
                 <div>
-                  <h3 className={styles.supportTitle}>Vous n'avez pas trouve votre reponse ?</h3>
+                  <h3 className={styles.supportTitle}>Vous n'avez pas trouvé votre réponse ?</h3>
                   <p className={styles.supportDescription}>
-                    Notre equipe est disponible pour vous aider.
+                    Notre équipe est disponible pour vous aider.
                   </p>
                 </div>
 
@@ -221,12 +229,11 @@ function RouteComponent() {
               </section>
 
               <section className={styles.sideCard}>
-                <h2 className={styles.sideTitle}>Questions lies</h2>
+                <h2 className={styles.sideTitle}>Questions liées</h2>
                 <ul className={styles.sideList}>
                   {relatedQuestions.map((item) => {
                     const answer = faqAnswersByQuestion[item];
-                    const hasAnswer = typeof answer === "string" && answer.length > 0;
-                    const isOpen = hasAnswer && openRelatedQuestion === item;
+                    const isOpen = openRelatedQuestion === item;
 
                     return (
                       <li key={item} className={styles.sideQuestionItem}>
@@ -234,7 +241,9 @@ function RouteComponent() {
                           type="button"
                           className={styles.sideQuestionButton}
                           onClick={() => {
-                            setOpenRelatedQuestion((current) => (current === item ? "" : item));
+                            setOpenRelatedQuestion((current) =>
+                              current === item ? "" : item
+                            );
                           }}
                           aria-expanded={isOpen}
                         >
@@ -242,13 +251,17 @@ function RouteComponent() {
                           <CaretDown
                             size={14}
                             weight="bold"
-                            className={`${styles.sideQuestionIcon} ${isOpen ? styles.sideQuestionIconOpen : ""}`}
+                            className={`${styles.sideQuestionIcon} ${
+                              isOpen ? styles.sideQuestionIconOpen : ""
+                            }`}
                             aria-hidden="true"
                           />
                         </button>
 
                         <div
-                          className={`${styles.sideAnswerWrap} ${isOpen ? styles.sideAnswerWrapOpen : ""}`}
+                          className={`${styles.sideAnswerWrap} ${
+                            isOpen ? styles.sideAnswerWrapOpen : ""
+                          }`}
                         >
                           <div className={styles.sideAnswerInner}>
                             <p className={styles.sideAnswerText}>{answer}</p>
