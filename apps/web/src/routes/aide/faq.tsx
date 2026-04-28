@@ -1,6 +1,8 @@
 import { CaretDown, Question, ArrowLeft } from "@phosphor-icons/react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
+import patientsStyles from "@/components/patients/patients-page.module.css";
 
 import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
@@ -271,9 +273,39 @@ function RouteComponent() {
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
+          {/* ── Hero header ── */}
+          <section
+            className={patientsStyles.hero}
+            style={{
+              "--patients-hero-texture": `url(${headerTexture})`,
+              marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
+              marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
+              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
+            } as any}
+            aria-labelledby="faq-page-title"
+          >
+            <div className={patientsStyles.heroInner}>
+              <div className={patientsStyles.heroText}>
+                <h1
+                  className={patientsStyles.heroTitle}
+                  id="faq-page-title"
+                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
+                >
+                  Foire Aux Questions
+                </h1>
+                <p
+                  className={patientsStyles.heroSubtitle}
+                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
+                >
+                  Toutes les réponses aux questions fréquentes
+                </p>
+              </div>
+            </div>
+          </section>
+
           <Link to="/aide" className={styles.backLink}>
             <ArrowLeft size={18} weight="bold" aria-hidden="true" />
-            Retour aux categories
+            Retour aux catégories
           </Link>
 
           <section className={styles.faqCard} aria-label="Foire aux questions">
