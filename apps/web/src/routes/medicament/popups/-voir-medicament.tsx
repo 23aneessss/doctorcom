@@ -202,25 +202,53 @@ export function VoirMedicamentDialog({
 
       {/* ── Info principale ── */}
       <DetailSectionCard className="mt-[24px]">
-        <div className="grid grid-cols-[1fr_1fr] gap-x-[24px] gap-y-[20px]">
-          <EditableField form={form} isEditing={isEditing} label="Catégorie" value={summary.category} icon={<Tag className="size-[14px] text-[#265284]" strokeWidth={1.8} />} asTag />
+        <div className="flex flex-col gap-[18px]">
+
+          {/* Row 1 — Identifiers: two short fields, equal height */}
+          <div className="grid grid-cols-2 gap-x-[24px]">
+            <EditableField form={form} isEditing={isEditing} label="Catégorie" value={summary.category} icon={<Tag className="size-[14px] text-[#265284]" strokeWidth={1.8} />} asTag />
+            <EditableField form={form} isEditing={isEditing} label="Nom générique" name="nom_generique" value={summary.genericName} />
+          </div>
+
+          {/* Row 2 — Family fields: both short one-line values */}
+          <div className="grid grid-cols-2 gap-x-[24px]">
+            <EditableField form={form} isEditing={isEditing} label="Famille" name="famille_pharmacologique" value={summary.family} />
+            <EditableField form={form} isEditing={isEditing} label="Famille pharmacologique" name="famille_pharmacologique" value={summary.pharmacologicalFamily} />
+          </div>
+
+          {/* Row 3 — Usage: full width, long expandable */}
           <EditableField form={form} isEditing={isEditing} label="Usage" name="indications" value={summary.usage} icon={<ClipboardList className="size-[14px] text-[#265284]" strokeWidth={1.8} />} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Famille" name="famille_pharmacologique" value={summary.family} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Dosage" value={summary.dosage} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Nom générique" name="nom_generique" value={summary.genericName} />
-          <EditableField form={form} isEditing={isEditing} label="Classe thérapeutique" name="classe_therapeutique" value={summary.classification || "-"} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Famille pharmacologique" name="famille_pharmacologique" value={summary.pharmacologicalFamily} fullWidth collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Forme" name="presentations" value={summary.forme} fullWidth collapsible />
+
+          {/* Row 4 — Dosage + Classe: similar height, both collapsible */}
+          <div className="grid grid-cols-2 gap-x-[24px]">
+            <EditableField form={form} isEditing={isEditing} label="Dosage" value={summary.dosage} collapsible />
+            <EditableField form={form} isEditing={isEditing} label="Classe thérapeutique" name="classe_therapeutique" value={summary.classification || "-"} collapsible />
+          </div>
+
+          {/* Row 5 — Forme: full width, very long expandable */}
+          <EditableField form={form} isEditing={isEditing} label="Forme" name="presentations" value={summary.forme} collapsible />
+
         </div>
       </DetailSectionCard>
 
       {/* ── Posologie ── */}
       <DetailSectionCard className="mt-[20px]" title="Posologie" icon={<Pill className="size-[15px] text-[#265284]" strokeWidth={1.8} />}>
-        <div className="grid grid-cols-[1fr_1fr] gap-x-[24px] gap-y-[20px]">
+        <div className="flex flex-col gap-[18px]">
+
+          {/* Posologie adulte: full width — often very long */}
           <EditableField form={form} isEditing={isEditing} label="Posologie adulte" name="posologie_adulte" value={summary.adultDosage} multiline collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Posologie enfant" name="posologie_enfant" value={summary.childDosage} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Dose maximale" name="dose_maximale" value={summary.maxDose} collapsible />
-          <EditableField form={form} isEditing={isEditing} label="Fréquence d'administration" name="frequence_administration" value={summary.administrationFrequency} />
+
+          {/* Shorter dosage fields: same-height pair */}
+          <div className="grid grid-cols-2 gap-x-[24px]">
+            <EditableField form={form} isEditing={isEditing} label="Posologie enfant" name="posologie_enfant" value={summary.childDosage} collapsible />
+            <EditableField form={form} isEditing={isEditing} label="Dose maximale" name="dose_maximale" value={summary.maxDose} collapsible />
+          </div>
+
+          {/* Fréquence: half-width */}
+          <div className="grid grid-cols-2 gap-x-[24px]">
+            <EditableField form={form} isEditing={isEditing} label="Fréquence d'administration" name="frequence_administration" value={summary.administrationFrequency} />
+          </div>
+
         </div>
       </DetailSectionCard>
 
@@ -309,14 +337,13 @@ function EditableField({
   minHeight?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const containerClass = fullWidth ? "col-span-2" : "";
   const boxClass = `rounded-[10px] border border-[#deeef8] bg-[#f8fbff] px-4 py-[10px] font-['Inter'] text-[13px] leading-[21px] text-[#1a3d5c] ${minHeight ?? ""}`;
   const isLong = value && value.length > 80;
   const showToggle = collapsible && isLong && !isEditing;
 
   if (!isEditing || !name) {
     return (
-      <div className={containerClass}>
+      <div>
         {!hideLabel ? (
           <div className="mb-[7px] flex items-center gap-[6px]">
             {icon}
@@ -362,7 +389,7 @@ function EditableField({
   }
 
   return (
-    <div className={containerClass}>
+    <div>
       {!hideLabel ? (
         <div className="mb-[7px] flex items-center gap-[6px]">
           {icon}
