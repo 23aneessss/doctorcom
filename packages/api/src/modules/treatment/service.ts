@@ -61,13 +61,6 @@ export class TreatmentService {
       });
     }
 
-    if (existingTreatment.source_type === "ordonnance") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
-      });
-    }
-
     const payload = await this.normalizeUpdateInput(data.input);
     if (Object.keys(payload).length === 0) {
       throw new TRPCError({
@@ -110,13 +103,6 @@ export class TreatmentService {
       });
     }
 
-    if (existingTreatment.source_type === "ordonnance") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
-      });
-    }
-
     const stoppedTreatment = await treatmentRepository.stopTreatment(
       data.db,
       data.treatment_id,
@@ -146,13 +132,6 @@ export class TreatmentService {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Traitement introuvable.",
-      });
-    }
-
-    if (existingTreatment.source_type === "ordonnance") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
       });
     }
 

@@ -1,16 +1,22 @@
+import { env } from "@doctor.com/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  CheckCircle2,
+  Download,
   Eye,
   FileArchive,
   FileText,
   FolderOpen,
+  Loader2,
   Mail,
   Plus,
   Printer,
+  Search,
+  ShieldAlert,
   Stethoscope,
   Trash2,
 } from "lucide-react";
@@ -59,6 +65,39 @@ type DocumentRow = {
   est_archive: boolean;
 };
 
+type DocumentAnalysisResult = {
+  validated: boolean;
+  confidence: number;
+  identity_flag: "match" | "mismatch" | "uncertain";
+  identity: {
+    verifiable: boolean;
+    patient_match: boolean;
+    confidence: number;
+    details: string;
+    matched_fields: string[];
+    mismatched_fields: { field: string; expected: string; found: string }[];
+    risk_level: "low" | "medium" | "high";
+  };
+  suggestions?: Array<{
+    suggestion_id: string;
+    table: string;
+    field: string;
+    category: string;
+    current_value: string | null;
+    suggested_value: string;
+    reason: string;
+    confidence: number;
+    severity?: "normal" | "abnormal" | "critical";
+  }>;
+  extraction_stats: {
+    documents_total: number;
+    documents_processed: number;
+    low_confidence_fields: number;
+    processing_time_ms: number;
+    cache_hit: boolean;
+  };
+};
+
 type LettreRow = {
   id: string;
   documents_patient_id: string;
@@ -92,7 +131,7 @@ type CertificatRow = {
 };
 
 type PopupEventDetail = {
-  type: "ordonnance";
+  type: "ordonnance" | "document";
 };
 
 type RendezVousLite = {
@@ -116,6 +155,10 @@ function RouteComponent() {
   const { id } = Route.useParams();
   const [activeTab, setActiveTab] = useState<DocumentTab>("ordonnances");
   const [expandedOrdonnanceId, setExpandedOrdonnanceId] = useState<string | null>(null);
+  const [documentSearch, setDocumentSearch] = useState("");
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [documentAnalysisResult, setDocumentAnalysisResult] =
+    useState<DocumentAnalysisResult | null>(null);
 
   const ordonnancesQuery = useQuery({
     ...trpc.ordonnance.getOrdonnancesByPatient.queryOptions({ patientId: id }),
@@ -172,6 +215,30 @@ function RouteComponent() {
       .filter((item) => !item.est_archive)
       .sort((left, right) => right.date_upload.localeCompare(left.date_upload));
   }, [documents]);
+
+  const visibleDocuments = useMemo(() => {
+    const normalizedSearch = documentSearch.trim().toLowerCase();
+    return sortedDocuments.filter((document) => {
+      if (!normalizedSearch) return true;
+
+      return [
+        document.nom_document,
+        document.description ?? "",
+        document.type_fichier,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
+    });
+  }, [documentSearch, sortedDocuments]);
+
+  const selectedDocuments = useMemo(() => {
+    const selectedSet = new Set(selectedDocumentIds);
+    return sortedDocuments.filter((document) => selectedSet.has(document.id));
+  }, [selectedDocumentIds, sortedDocuments]);
+
+  const documentsForVerification =
+    selectedDocuments.length > 0 ? selectedDocuments : visibleDocuments;
 
   const sortedLettres = useMemo(() => {
     return [...lettres].sort((left, right) => right.date_creation.localeCompare(left.date_creation));
@@ -231,9 +298,114 @@ function RouteComponent() {
     },
   });
 
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentIds: string[]) => {
+      await Promise.all(
+        documentIds.map((documentId) =>
+          trpcClient.documents.supprimerDocument.mutate({ id: documentId }),
+        ),
+      );
+      return documentIds;
+    },
+    onSuccess: async (documentIds) => {
+      const deletedIds = new Set(documentIds);
+      setSelectedDocumentIds((current) => current.filter((id) => !deletedIds.has(id)));
+      await Promise.all([
+        queryClient.invalidateQueries(
+          trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id }),
+        ),
+        queryClient.invalidateQueries(trpc.patient.getPatientFullRecord.queryFilter({ id })),
+      ]);
+      toast.success(
+        documentIds.length > 1
+          ? "Documents selectionnes supprimes"
+          : "Document supprime",
+      );
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const documentAnalysisMutation = useMutation({
+    mutationFn: async (documentKeys: string[]) => {
+      return (await trpcClient.ai.documentAnomaly.analyzeDocuments.mutate({
+        patient_id: id,
+        document_keys: documentKeys,
+      })) as DocumentAnalysisResult;
+    },
+    onSuccess: (result) => {
+      setDocumentAnalysisResult(result);
+      if (result.identity_flag === "mismatch") {
+        toast.warning("Au moins un document ne semble pas correspondre au patient.");
+        return;
+      }
+      toast.success("Verification des documents terminee");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const openOrdonnancePopup = () => {
     const detail: PopupEventDetail = { type: "ordonnance" };
     window.dispatchEvent(new CustomEvent("patient-popup-open", { detail }));
+  };
+
+  const openDocumentPopup = () => {
+    window.dispatchEvent(
+      new CustomEvent("patient-popup-open", { detail: { type: "document" } }),
+    );
+  };
+
+  const toggleDocumentSelection = (documentId: string) => {
+    setSelectedDocumentIds((current) =>
+      current.includes(documentId)
+        ? current.filter((id) => id !== documentId)
+        : [...current, documentId],
+    );
+  };
+
+  const toggleVisibleDocuments = () => {
+    const visibleIds = visibleDocuments.map((document) => document.id);
+    const allVisibleSelected =
+      visibleIds.length > 0 &&
+      visibleIds.every((documentId) => selectedDocumentIds.includes(documentId));
+
+    setSelectedDocumentIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((documentId) => !visibleIds.includes(documentId));
+      }
+
+      return Array.from(new Set([...current, ...visibleIds]));
+    });
+  };
+
+  const deleteSelectedDocuments = () => {
+    if (selectedDocumentIds.length === 0) {
+      toast.info("Aucun document selectionne.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Supprimer ${selectedDocumentIds.length} document(s) selectionne(s) ? Cette action est irreversible.`,
+    );
+    if (!confirmed) return;
+
+    deleteDocumentMutation.mutate(selectedDocumentIds);
+  };
+
+  const runDocumentVerification = () => {
+    if (documentsForVerification.length === 0) {
+      toast.info("Aucun document a verifier.");
+      return;
+    }
+
+    documentAnalysisMutation.mutate(
+      documentsForVerification
+        .slice(0, 10)
+        .map((document) => document.chemin_fichier),
+    );
   };
 
   const formatDate = (value: string | null | undefined) => {
@@ -340,6 +512,16 @@ function RouteComponent() {
           >
             <Plus className="size-4" />
             Nouvelle ordonnance
+          </button>
+        ) : null}
+        {activeTab === "documents" ? (
+          <button
+            className="inline-flex h-[42px] w-[220px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[20px] py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
+            onClick={openDocumentPopup}
+            type="button"
+          >
+            <Plus className="size-4" />
+            Nouveau document
           </button>
         ) : null}
       </div>
@@ -540,29 +722,171 @@ function RouteComponent() {
       ) : null}
 
       {activeTab === "documents" ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3 md:flex-row">
+                <label className="relative flex h-[40px] flex-1 items-center">
+                  <Search className="pointer-events-none absolute left-3 size-4 text-[#64748b]" />
+                  <input
+                    className="h-full w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc] pl-9 pr-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none placeholder:text-[#94a3b8] focus:border-[#76bbdd]"
+                    onChange={(event) => setDocumentSearch(event.target.value)}
+                    placeholder="Rechercher un document"
+                    value={documentSearch}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  className="h-[40px] cursor-pointer rounded-[10px] border-[1.2px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                  onClick={toggleVisibleDocuments}
+                  type="button"
+                >
+                  {visibleDocuments.length > 0 &&
+                  visibleDocuments.every((document) =>
+                    selectedDocumentIds.includes(document.id),
+                  )
+                    ? "Deselectionner"
+                    : "Tout selectionner"}
+                </button>
+                {selectedDocumentIds.length > 0 ? (
+                  <button
+                    className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-[#fecaca] bg-white px-3 font-['Inter'] text-[12px] font-semibold text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={deleteDocumentMutation.isPending}
+                    onClick={deleteSelectedDocuments}
+                    type="button"
+                  >
+                    {deleteDocumentMutation.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    Supprimer la selection
+                  </button>
+                ) : null}
+                <button
+                  className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#f97316] px-4 font-['Inter'] text-[12px] font-semibold text-white transition-colors hover:bg-[#ea6a13] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={
+                    documentAnalysisMutation.isPending ||
+                    documentsForVerification.length === 0
+                  }
+                  onClick={runDocumentVerification}
+                  type="button"
+                >
+                  {documentAnalysisMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ShieldAlert className="size-4" />
+                  )}
+                  Verifier
+                </button>
+              </div>
+            </div>
+
+            <DocumentAnalysisBanner
+              isLoading={documentAnalysisMutation.isPending}
+              result={documentAnalysisResult}
+            />
+          </div>
+
           {sortedDocuments.length === 0 ? (
             <EmptyState text="Aucun document patient" />
           ) : (
-            sortedDocuments.map((document) => (
-              <article
-                key={document.id}
-                className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-4"
-              >
-                <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
-                  {document.nom_document}
-                </p>
-                <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                  Type : {document.type_document}
-                </p>
-                <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                  Upload : {formatDate(document.date_upload)}
-                </p>
-                {document.description ? (
-                  <p className="mt-2 font-['Inter'] text-[13px] text-[#4b6787]">{document.description}</p>
-                ) : null}
-              </article>
-            ))
+            <div className="flex flex-col gap-3">
+              {visibleDocuments.length === 0 ? (
+                <EmptyState text="Aucun document ne correspond aux filtres" />
+              ) : (
+                visibleDocuments.map((document) => {
+                  const isSelected = selectedDocumentIds.includes(document.id);
+                  const viewUrl = getDocumentFileUrl(document.id);
+                  const downloadUrl = getDocumentFileUrl(document.id, true);
+                  return (
+                    <article
+                      key={document.id}
+                      className={cn(
+                        "rounded-[14px] border-[0.8px] bg-white p-4 transition-colors",
+                        isSelected ? "border-[#76bbdd] bg-[#f8fbff]" : "border-[#c2e0ef]",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <button
+                            aria-label={`Selectionner ${document.nom_document}`}
+                            aria-pressed={isSelected}
+                            className={cn(
+                              "mt-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[9px] border-[1.4px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#76bbdd] focus:ring-offset-2",
+                              isSelected
+                                ? "border-[#052ca0] bg-[#052ca0] text-white shadow-[0px_3px_8px_rgba(5,44,160,0.22)]"
+                                : "border-[#c2e0ef] bg-white text-transparent hover:border-[#76bbdd] hover:bg-[#f0f6ff]",
+                            )}
+                            onClick={() => toggleDocumentSelection(document.id)}
+                            type="button"
+                          >
+                            <CheckCircle2 className="size-4" />
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
+                                {document.nom_document}
+                              </p>
+                              <span className="rounded-full bg-[#eaf3fb] px-2 py-1 font-['Inter'] text-[11px] font-medium text-[#265284]">
+                                {document.type_document}
+                              </span>
+                            </div>
+                            <div className="mt-2 grid gap-2 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)] md:grid-cols-3">
+                              <span>Upload : {formatDate(document.date_upload)}</span>
+                              <span>Format : {document.type_fichier}</span>
+                              <span>Taille : {formatFileSize(document.taille_fichier)}</span>
+                            </div>
+                            {document.description ? (
+                              <p className="mt-2 font-['Inter'] text-[13px] leading-5 text-[#4b6787]">
+                                {document.description}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <a
+                            className="inline-flex size-9 items-center justify-center rounded-[10px] border-[1.2px] border-[#c2e0ef] bg-white text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                            href={viewUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                            title="Voir"
+                          >
+                            <Eye className="size-4" />
+                          </a>
+                          <a
+                            className="inline-flex size-9 items-center justify-center rounded-[10px] border-[1.2px] border-[#c2e0ef] bg-white text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                            download
+                            href={downloadUrl}
+                            title="Telecharger"
+                          >
+                            <Download className="size-4" />
+                          </a>
+                          <button
+                            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-[10px] border-[1.2px] border-[#fecaca] bg-white text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={deleteDocumentMutation.isPending}
+                            onClick={() => {
+                              const confirmed = window.confirm(
+                                "Supprimer ce document ? Cette action est irreversible.",
+                              );
+                              if (!confirmed) return;
+                              deleteDocumentMutation.mutate([document.id]);
+                            }}
+                            title="Supprimer"
+                            type="button"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
       ) : null}
@@ -608,6 +932,108 @@ function DocumentTabButton({
   );
 }
 
+function DocumentAnalysisBanner({
+  isLoading,
+  result,
+}: {
+  isLoading: boolean;
+  result: DocumentAnalysisResult | null;
+}) {
+  if (isLoading) {
+    return (
+      <div className="mt-4 flex items-center gap-2 rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[12px] font-medium text-[#265284]">
+        <Loader2 className="size-4 animate-spin" />
+        Verification des documents en cours
+      </div>
+    );
+  }
+
+  if (!result) return null;
+
+  const isMismatch = result.identity_flag === "mismatch";
+
+  return (
+    <div
+      className={cn(
+        "mt-4 rounded-[12px] border-[0.8px] px-3 py-3",
+        isMismatch ? "border-[#fed7aa] bg-[#fff7ed]" : "border-[#bbf7d0] bg-[#f0fdf4]",
+      )}
+    >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-2">
+          {isMismatch ? (
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#c2410c]" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#15803d]" />
+          )}
+          <div>
+            <p
+              className={cn(
+                "font-['Inter'] text-[13px] font-semibold",
+                isMismatch ? "text-[#c2410c]" : "text-[#166534]",
+              )}
+            >
+              {getIdentityLabel(result.identity_flag)}
+            </p>
+            <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#4b6787]">
+              {result.identity.details}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {(result.suggestions ?? []).length > 0 ? (
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {(result.suggestions ?? []).slice(0, 4).map((suggestion) => (
+            <div
+              key={suggestion.suggestion_id}
+              className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2"
+            >
+              <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                {formatSuggestionValue(suggestion.field)} : {formatSuggestionValue(suggestion.suggested_value)}
+              </p>
+              <p className="mt-1 font-['Inter'] text-[11px] leading-4 text-[#64748b]">
+                {suggestion.reason}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getIdentityLabel(flag: DocumentAnalysisResult["identity_flag"]) {
+  switch (flag) {
+    case "match":
+      return "Identite confirmee";
+    case "mismatch":
+      return "Identite a verifier";
+    case "uncertain":
+    default:
+      return "Identite incertaine";
+  }
+}
+
+function formatSuggestionValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map(formatSuggestionValue).filter(Boolean).join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, nestedValue]) => {
+        const formatted = formatSuggestionValue(nestedValue);
+        return formatted ? `${key}: ${formatted}` : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(value);
+}
+
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -615,6 +1041,17 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-['Inter'] text-[12px] font-semibold text-[#265284]">{value}</p>
     </div>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} o`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} Ko`;
+  return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function getDocumentFileUrl(documentId: string, download = false) {
+  const query = download ? "?download=1" : "";
+  return `${env.VITE_SERVER_URL}/api/upload/document/${documentId}/file${query}`;
 }
 
 function EmptyState({ text }: { text: string }) {

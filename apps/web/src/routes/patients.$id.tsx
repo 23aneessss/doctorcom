@@ -48,6 +48,8 @@ import { AjouterTraitementDialog } from "@/routes/patients.$id/popups/ajouter-tr
 import { ModifierTraitementDialog } from "@/routes/patients.$id/popups/modifier-traitement";
 import { NouvelleOrdonnanceDialog } from "@/routes/patients.$id/popups/nouvelle-ordonnance";
 import { NouvelleVaccinationDialog } from "@/routes/patients.$id/popups/nouvelle-vaccination";
+import { NouveauDocumentPatientDialog } from "@/routes/patients.$id/popups/nouveau-document-patient";
+import { NouveauVoyageDialog } from "@/routes/patients.$id/popups/nouveau-voyage";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -128,6 +130,13 @@ type VaccinationDialogValues = {
   notes?: string | null;
 };
 
+type VoyageDialogValues = {
+  destination?: string;
+  date?: string;
+  duree_jours?: number | null;
+  epidemies_destination?: string | null;
+};
+
 type PatientPopupEventDetail = {
   type:
     | "suivi"
@@ -136,13 +145,16 @@ type PatientPopupEventDetail = {
     | "antecedent-familial"
     | "traitement"
     | "ordonnance"
-    | "vaccination";
+    | "document"
+    | "vaccination"
+    | "voyage";
   mode?: "create" | "edit" | "delete";
   suiviId?: string;
   examenId?: string;
   antecedentId?: string;
   traitementId?: string;
   vaccinationId?: string;
+  voyageId?: string;
   initialValues?:
     | SuiviDialogValues
     | ConsultationDialogValues
@@ -150,7 +162,8 @@ type PatientPopupEventDetail = {
     | AntecedentFamilialDialogValues
     | TraitementDialogValues
     | OrdonnanceDialogValues
-    | VaccinationDialogValues;
+    | VaccinationDialogValues
+    | VoyageDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -239,6 +252,7 @@ function PatientLayout() {
   const [isTraitementOpen, setIsTraitementOpen] = useState(false);
   const [isNouvelleOrdonnanceOpen, setIsNouvelleOrdonnanceOpen] =
     useState(false);
+  const [isNouveauDocumentOpen, setIsNouveauDocumentOpen] = useState(false);
   const [traitementMode, setTraitementMode] = useState<"create" | "edit">(
     "create",
   );
@@ -260,6 +274,14 @@ function PatientLayout() {
   );
   const [vaccinationValues, setVaccinationValues] = useState<
     VaccinationDialogValues | undefined
+  >(undefined);
+  const [isVoyageOpen, setIsVoyageOpen] = useState(false);
+  const [voyageMode, setVoyageMode] = useState<"create" | "edit" | "delete">(
+    "create",
+  );
+  const [voyageId, setVoyageId] = useState<string | undefined>(undefined);
+  const [voyageValues, setVoyageValues] = useState<
+    VoyageDialogValues | undefined
   >(undefined);
 
   useEffect(() => {
@@ -344,6 +366,10 @@ function PatientLayout() {
         setIsNouvelleOrdonnanceOpen(true);
       }
 
+      if (customEvent.detail?.type === "document") {
+        setIsNouveauDocumentOpen(true);
+      }
+
       if (customEvent.detail?.type === "vaccination") {
         setVaccinationMode(customEvent.detail.mode ?? "create");
         setVaccinationId(customEvent.detail.vaccinationId);
@@ -353,6 +379,17 @@ function PatientLayout() {
             | undefined) ?? undefined,
         );
         setIsVaccinationOpen(true);
+      }
+
+      if (customEvent.detail?.type === "voyage") {
+        setVoyageMode(customEvent.detail.mode ?? "create");
+        setVoyageId(customEvent.detail.voyageId);
+        setVoyageValues(
+          (customEvent.detail.initialValues as
+            | VoyageDialogValues
+            | undefined) ?? undefined,
+        );
+        setIsVoyageOpen(true);
       }
     };
 
@@ -623,10 +660,32 @@ function PatientLayout() {
     ]);
   };
 
+  const handleDocumentChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
+      ),
+    ]);
+  };
+
   const handleVaccinationChanged = async () => {
     await Promise.all([
       queryClient.invalidateQueries(
         trpc.vaccination.getPatientVaccinations.queryFilter({ patient_id: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
+      ),
+    ]);
+  };
+
+  const handleVoyageChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.travel.getPatientVoyages.queryFilter({ patient_id: id }),
       ),
       queryClient.invalidateQueries(
         trpc.patient.getPatientFullRecord.queryFilter({ id }),
@@ -972,7 +1031,7 @@ function PatientLayout() {
               <div className="flex flex-col gap-[8px] justify-center">
                 {!isEditing ? (
                   <button
-                    className="bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                     onClick={() => {
                       form.reset({
                         nom: patient.nom ?? "",
@@ -994,14 +1053,14 @@ function PatientLayout() {
                 ) : (
                   <>
                     <button
-                      className="bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                       onClick={() => setIsEditing(false)}
                       type="button"
                     >
                       Annuler
                     </button>
                     <button
-                      className="bg-[#f97316] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
+                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
                       onClick={() => form.handleSubmit()}
                       disabled={updatePatientMutation.isPending}
                       type="button"
@@ -1039,7 +1098,7 @@ function PatientLayout() {
                   layout="centered"
                   specialIcon={<DocumentsIcon />}
                   onClick={() => {
-                    setIsNouvelleOrdonnanceOpen(true);
+                    setIsNouveauDocumentOpen(true);
                   }}
                 />
                 <ActionButton
@@ -1231,6 +1290,13 @@ function PatientLayout() {
             values={ordonnanceValues}
           />
 
+          <NouveauDocumentPatientDialog
+            onCreated={handleDocumentChanged}
+            onOpenChange={setIsNouveauDocumentOpen}
+            open={isNouveauDocumentOpen}
+            patientId={id}
+          />
+
           <NouvelleVaccinationDialog
             mode={vaccinationMode}
             onCreated={handleVaccinationChanged}
@@ -1246,6 +1312,23 @@ function PatientLayout() {
             patientId={id}
             vaccinationId={vaccinationId}
             values={vaccinationValues}
+          />
+
+          <NouveauVoyageDialog
+            mode={voyageMode}
+            onCreated={handleVoyageChanged}
+            onOpenChange={(nextOpen) => {
+              setIsVoyageOpen(nextOpen);
+              if (!nextOpen) {
+                setVoyageMode("create");
+                setVoyageId(undefined);
+                setVoyageValues(undefined);
+              }
+            }}
+            open={isVoyageOpen}
+            patientId={id}
+            voyageId={voyageId}
+            values={voyageValues}
           />
         </div>
       </div>
@@ -1328,10 +1411,10 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[195px] px-[16px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
+        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
         layout === "suivi"
           ? "flex items-center"
-          : "flex items-center justify-center gap-[10px]",
+          : "flex items-center justify-start",
       )}
       type="button"
     >
@@ -1345,9 +1428,11 @@ function ActionButton({
         </>
       ) : (
         <>
-          <Plus className="size-[14px] shrink-0" />
-          <span>{label}</span>
-          <div className="size-[14px] shrink-0">{specialIcon}</div>
+          <div className="flex items-center gap-[10px]">
+            <Plus className="size-[14px] shrink-0" />
+            <span>{label}</span>
+          </div>
+          <div className="ml-auto size-[14px] shrink-0">{specialIcon}</div>
         </>
       )}
     </button>

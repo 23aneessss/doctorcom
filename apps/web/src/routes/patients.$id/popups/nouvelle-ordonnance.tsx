@@ -78,6 +78,8 @@ type MedicationAnomaly = {
   severity: AnomalySeverity;
   message: string;
   details?: string;
+  related_medicaments?: string[];
+  source?: "rules" | "ai";
 };
 
 type GlobalAnomaly = {
@@ -681,10 +683,6 @@ export function NouvelleOrdonnanceDialog({
     const anomaliesByMedicationId = new Map<string, MedicationAnomaly[]>();
 
     for (const anomaly of anomalyResult?.anomalies_par_medicament ?? []) {
-      if (!ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code)) {
-        continue;
-      }
-
       const items = anomaliesByMedicationId.get(anomaly.medicament_externe_id) ?? [];
       items.push(anomaly);
       anomaliesByMedicationId.set(anomaly.medicament_externe_id, items);
@@ -788,7 +786,6 @@ export function NouvelleOrdonnanceDialog({
       0,
     );
   }, [rowAnalysisById]);
-  const totalGlobalAnomalies = displayedGlobalAnomalies.length;
   const contradictionGlobalAnomalies = useMemo(() => {
     return displayedGlobalAnomalies.filter((anomaly) =>
       ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code),
@@ -1120,12 +1117,6 @@ export function NouvelleOrdonnanceDialog({
     createOrdonnanceMutation.isPending || previewMutation.isPending;
   const showManualEditor = mode === "manuel";
   const hasRightPanel = showMedicationAiPanel;
-  const showAnomalySection =
-    anomalyStatus === "loading" ||
-    anomalyStatus === "error" ||
-    (anomalyStatus === "success" && hasContradictionAnomaly) ||
-    staleRowsCount > 0 ||
-    (anomalyStatus === "idle" && confirmedRowsCount > 0);
   const isRowConfirmable = (row: OrdonnanceRow) => {
     return Boolean(
       row.medicament_externe_id.trim() && row.posologie.trim(),
@@ -1514,6 +1505,18 @@ export function NouvelleOrdonnanceDialog({
                                             <p className="font-['Inter'] text-[12px] font-semibold">
                                               {anomaly.message}
                                             </p>
+                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                              {anomaly.source === "ai" ? (
+                                                <span className="rounded-full bg-white/70 px-1.5 py-0.5 font-['Inter'] text-[9px] font-semibold uppercase tracking-[0.2px]">
+                                                  IA
+                                                </span>
+                                              ) : null}
+                                              {anomaly.related_medicaments?.length ? (
+                                                <span className="rounded-full bg-white/70 px-1.5 py-0.5 font-['Inter'] text-[9px] font-semibold">
+                                                  avec {anomaly.related_medicaments.join(", ")}
+                                                </span>
+                                              ) : null}
+                                            </div>
                                             {anomaly.details ? (
                                               <p className="mt-1 font-['Inter'] text-[11px] leading-5 opacity-90">
                                                 {anomaly.details}
@@ -1779,7 +1782,7 @@ export function NouvelleOrdonnanceDialog({
                 </div>
               ) : null}
 
-              {showAnomalySection ? (
+              {false ? (
                 <div className="mt-4 rounded-[14px] border border-[#c2e0ef] bg-[#f8fbff] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -1949,7 +1952,7 @@ export function NouvelleOrdonnanceDialog({
                             Resume IA
                           </p>
                           <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#0f3460]">
-                            {anomalyResult.ai_summary}
+                            {anomalyResult?.ai_summary}
                           </p>
                         </div>
                       ) : null}

@@ -3,7 +3,7 @@ import type { db as databaseClient } from "@doctor.com/db";
 import { patients } from "@doctor.com/db/schema";
 import { user as authUser } from "@doctor.com/db/schema/auth";
 import { eq } from "drizzle-orm";
-import { uploadFile } from "../../infrastructure/storage";
+import { deleteFile, getObjectNameFromUrl, uploadFile } from "../../infrastructure/storage";
 import {
   envoyerCertificatMedical,
   envoyerLettreOrientation,
@@ -275,6 +275,12 @@ export class DocumentsService {
         code: "INTERNAL_SERVER_ERROR",
         message: "Echec de suppression du document.",
       });
+    }
+
+    try {
+      await deleteFile(getObjectNameFromUrl(existing.chemin_fichier));
+    } catch (error) {
+      console.warn("[documents] Failed to delete stored file:", error);
     }
 
     return { success: true };

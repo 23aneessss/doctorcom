@@ -10,9 +10,10 @@ import {
   Pencil,
   Plus,
   Power,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,6 +126,22 @@ function RouteComponent() {
     },
   });
 
+  const reactivateMutation = useMutation({
+    mutationFn: async (treatmentId: string) => {
+      return trpcClient.treatment.updateTreatment.mutate({
+        treatment_id: treatmentId,
+        donnees: { est_actif: true },
+      });
+    },
+    onSuccess: async () => {
+      await invalidateTreatmentQueries();
+      toast.success("Traitement reactive");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const openPopup = (detail: PopupEventDetail) => {
     window.dispatchEvent(
       new CustomEvent("patient-popup-open", {
@@ -134,11 +151,6 @@ function RouteComponent() {
   };
 
   const openEditDialog = (treatment: TreatmentRow) => {
-    if (treatment.source_type === "ordonnance") {
-      toast.info("Les traitements d'ordonnance se gerent depuis le module ordonnance");
-      return;
-    }
-
     const details = detailsMap.get(treatment.medicament_externe_id);
     openPopup({
       type: "traitement",
@@ -158,8 +170,13 @@ function RouteComponent() {
     });
   };
 
-  const handleOrdonnanceLockedAction = () => {
-    toast.info("Les traitements d'ordonnance se gerent depuis le module ordonnance");
+  const handleDeleteTreatment = (treatment: TreatmentRow) => {
+    const confirmed = window.confirm(
+      `Supprimer definitivement le traitement "${treatment.nom_medicament}" ?`,
+    );
+    if (!confirmed) return;
+
+    deleteMutation.mutate(treatment.id);
   };
 
   return (
@@ -210,30 +227,12 @@ function RouteComponent() {
                     stopMutation.variables === treatment.id
                   }
                   onDelete={() => {
-                    if (isOrdonnance) {
-                      handleOrdonnanceLockedAction();
-                      return;
-                    }
-
-                    const confirmed = window.confirm(
-                      `Supprimer definitivement le traitement "${treatment.nom_medicament}" ?`,
-                    );
-                    if (!confirmed) return;
-
-                    deleteMutation.mutate(treatment.id);
+                    handleDeleteTreatment(treatment);
                   }}
                   onEdit={() => {
-                    if (isOrdonnance) {
-                      handleOrdonnanceLockedAction();
-                      return;
-                    }
                     openEditDialog(treatment);
                   }}
                   onStop={() => {
-                    if (isOrdonnance) {
-                      handleOrdonnanceLockedAction();
-                      return;
-                    }
                     stopMutation.mutate(treatment.id);
                   }}
                   treatment={treatment}
@@ -258,24 +257,74 @@ function RouteComponent() {
           ) : (
             inactiveTreatments.map((treatment) => {
               const details = detailsMap.get(treatment.medicament_externe_id);
+              const isOrdonnance = treatment.source_type === "ordonnance";
+              const isReactivating =
+                reactivateMutation.isPending &&
+                reactivateMutation.variables === treatment.id;
+              const isDeleting =
+                deleteMutation.isPending && deleteMutation.variables === treatment.id;
               return (
                 <div
                   key={treatment.id}
-                  className="flex flex-col gap-2 rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f9fafb] px-[12.8px] py-[12.8px] sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f9fafb] px-[12.8px] py-[12.8px] sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="min-w-0">
-                    <h3 className="truncate font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
-                      {treatment.nom_medicament}
-                    </h3>
-                    <p className="line-clamp-2 font-['Inter'] text-[12px] leading-4 text-[#4b6787]">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+                        {treatment.nom_medicament}
+                      </h3>
+                      {isOrdonnance ? (
+                        <span className="inline-flex items-center gap-1 rounded-[8px] border-[0.8px] border-[#c2e0ef] bg-white px-2 py-[2px] font-['Poppins'] text-[12px] leading-4 text-[#265284]">
+                          Ordonnance
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 line-clamp-2 font-['Inter'] text-[12px] leading-4 text-[#4b6787]">
                       {details?.indications[0]?.indication ?? "-"}
                     </p>
+                    <p className="mt-1 font-['Inter'] text-[12px] leading-4 text-[#64748b]">
+                      Prescrit le : {formatTreatmentDate(treatment.date_prescription)}
+                    </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1 rounded-[8px] border-[0.8px] border-[#d1d5dc] bg-[#f3f4f6] px-2 py-[2px] text-[#6a7282]">
-                    <CircleSlash className="size-3" />
-                    <span className="font-['Poppins'] text-[12px] leading-4">
-                      Inactif
-                    </span>
+                  <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                    <div className="flex items-center gap-1 rounded-[8px] border-[0.8px] border-[#d1d5dc] bg-[#f3f4f6] px-2 py-[2px] text-[#6a7282]">
+                      <CircleSlash className="size-3" />
+                      <span className="font-['Poppins'] text-[12px] leading-4">
+                        Inactif
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <HistoryActionButton
+                        ariaLabel="Modifier le traitement"
+                        disabled={isDeleting || isReactivating}
+                        onClick={() => {
+                          openEditDialog(treatment);
+                        }}
+                        title="Modifier"
+                        tone="orange"
+                      >
+                        <Pencil className="size-4 text-[#f77a21]" />
+                      </HistoryActionButton>
+                      <HistoryActionButton
+                        ariaLabel="Reactiver le traitement"
+                        disabled={isDeleting || isReactivating}
+                        onClick={() => {
+                          reactivateMutation.mutate(treatment.id);
+                        }}
+                        title="Reactiver"
+                      >
+                        <RotateCcw className="size-4 text-[#0f3460]" />
+                      </HistoryActionButton>
+                      <HistoryActionButton
+                        ariaLabel="Supprimer le traitement"
+                        disabled={isDeleting || isReactivating}
+                        onClick={() => handleDeleteTreatment(treatment)}
+                        title="Supprimer"
+                        tone="orange"
+                      >
+                        <Trash2 className="size-4 text-[#f77a21]" />
+                      </HistoryActionButton>
+                    </div>
                   </div>
                 </div>
               );
@@ -339,7 +388,7 @@ function TreatmentCard({
           <button
             className="flex h-[35px] w-[93px] cursor-pointer items-center justify-center gap-[3px] rounded-[10px] border border-[#c2e0ef] bg-white px-3 font-['Poppins'] text-[12px] leading-4 text-[#f97316] transition-colors hover:bg-[#fff7ed]"
             onClick={onEdit}
-            title={isOrdonnance ? "A gerer depuis le module ordonnance" : "Modifier"}
+            title="Modifier"
             type="button"
           >
             <Pencil className="size-4 shrink-0" />
@@ -350,7 +399,7 @@ function TreatmentCard({
             className="flex h-[36px] w-[105px] cursor-pointer items-center justify-center gap-1 rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#265284] transition-colors hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isStopping}
             onClick={onStop}
-            title={isOrdonnance ? "A gerer depuis le module ordonnance" : "Desactiver"}
+            title="Desactiver"
             type="button"
           >
             <Power className="size-4 shrink-0" />
@@ -362,7 +411,7 @@ function TreatmentCard({
             className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white transition-colors hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isDeleting}
             onClick={onDelete}
-            title={isOrdonnance ? "A gerer depuis le module ordonnance" : "Supprimer"}
+            title="Supprimer"
             type="button"
           >
             <Trash2 className="size-4 text-[#265284]" />
@@ -396,6 +445,40 @@ function TreatmentCard({
         </p>
       </div>
     </article>
+  );
+}
+
+function HistoryActionButton({
+  ariaLabel,
+  children,
+  disabled,
+  onClick,
+  title,
+  tone = "default",
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+  title: string;
+  tone?: "default" | "orange";
+}) {
+  return (
+    <button
+      aria-label={ariaLabel}
+      className={cn(
+        "flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        tone === "orange"
+          ? "border-[#f77a21] hover:bg-[#fff7ed]"
+          : "border-[#c2e0ef] hover:bg-[#f8fafc]",
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      title={title}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
