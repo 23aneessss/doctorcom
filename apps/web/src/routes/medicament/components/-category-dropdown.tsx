@@ -12,6 +12,7 @@ export function CategoryDropdown({
   onSelect: (category: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -55,27 +56,31 @@ export function CategoryDropdown({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-[31px] top-[61px] z-10 w-[290px] overflow-hidden border border-[#BFC5C9] bg-white shadow-[0px_10px_24px_rgba(15,52,96,0.12)]">
+        <div className="absolute right-0 top-[61px] z-10 w-[290px] overflow-hidden border border-[#9FA4A8] bg-white shadow-[0px_10px_24px_rgba(15,52,96,0.12)]">
           {categories.map((category, index) => {
-            const isHighlighted = category === "Antibiotique";
+            const isHighlighted =
+              hoveredCategory === category ||
+              (selectedCategory === category && category !== categories[0]);
 
             return (
               <button
                 key={category}
                 type="button"
-                className="flex h-[27px] w-full items-center px-[16px] text-left"
+                className="flex h-[40px] w-full items-center px-[16px] text-left transition-colors"
                 onClick={() => {
                   onSelect(category);
                   setIsOpen(false);
                 }}
+                onMouseEnter={() => setHoveredCategory(category)}
+                onMouseLeave={() => setHoveredCategory(null)}
                 style={{
                   backgroundColor: isHighlighted ? "#7D8287" : "#FFFFFF",
                 }}
               >
                 <span
-                  className="font-['Inter'] text-[14px] leading-none"
+                  className="font-['Plus_Jakarta_Sans'] text-[16px] leading-none"
                   style={{
-                    color: isHighlighted ? "#FFFFFF" : "#4A5565",
+                    color: isHighlighted ? "#FFFFFF" : "#0F3460",
                     fontWeight: index === 0 ? 500 : 400,
                   }}
                 >

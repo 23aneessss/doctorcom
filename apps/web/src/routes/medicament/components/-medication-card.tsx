@@ -1,11 +1,9 @@
+import { Trash2 } from "lucide-react";
+
 import linkOutlineIcon from "./0bfcd7686f0dd9db316efa2ed4de20daa139f9e4.svg";
 import linkSlashIcon from "./b5bd840c227881f698eab2cc9f4278fed5a208ec.svg";
 import eyeIcon from "./158f0a8159edfb6da48fd13114421bbe48fb7682.svg";
 import pencilIcon from "./80bad5cc01254c23b6c35b19fee9da9ff831e85a.svg";
-import trashOutlineIcon from "./5f90c638bf7814caa6931545573b2fc3f2f3bdd9.svg";
-import trashTopIcon from "./b2c2d57769ae703dd073c007161e49736bdc644b.svg";
-import trashLidIcon from "./d3e51cd57aa6028f083904e9eb1b0d0603abff6b.svg";
-import trashLineIcon from "./c4138c8bc8da2374075c67f126a8da57c7a2feb4.svg";
 
 type MedicationCardProps = {
   id: number;
@@ -56,10 +54,10 @@ export function MedicationCard({
       </div>
 
       <div className="flex max-w-full min-w-0 items-center gap-[7px] overflow-hidden">
-        <span className="min-w-0 max-w-[140px] truncate rounded-[8px] bg-[#052CA0] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-white">
+        <span className="h-[30px] w-[134.667px] shrink-0 truncate rounded-[8px] border border-[#052CA0] bg-[#052CA0] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-white shadow-[0_0_0_1px_#052CA0]">
           {primaryTag}
         </span>
-        <span className="min-w-0 max-w-[130px] truncate rounded-[8px] border border-[#C2E0EF] bg-[#FFFDFB] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-[#052CA0]">
+        <span className="h-[31.333px] w-[124.667px] shrink-0 truncate rounded-[8px] border border-[#C2E0EF] bg-[#FFFDFB] px-[12px] py-[6px] font-['Plus_Jakarta_Sans'] text-[12px] font-semibold leading-[18px] text-[#052CA0] shadow-[0_0_0_1px_#C2E0EF]">
           {secondaryTag}
         </span>
       </div>
@@ -99,15 +97,9 @@ export function MedicationCard({
           type="button"
           disabled={isDeleting}
           onClick={() => onDelete(id)}
-          className="flex h-[33.333px] w-[41.333px] items-center justify-center rounded-[10px] border border-[#052CA0] bg-[#FFFDFB]"
+          className="flex h-[33.333px] w-[41.333px] items-center justify-center rounded-[10px] border border-[#052CA0] bg-[#FFFDFB] transition-colors hover:bg-[#F7FAFD] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <div className="relative size-[16px]">
-            <img alt="" aria-hidden="true" className="absolute left-[2px] top-[4px] h-[12px] w-[10.667px] max-w-none" src={trashOutlineIcon} />
-            <img alt="" aria-hidden="true" className="absolute left-[3.333px] top-[4px] h-[4px] w-[6.667px] max-w-none" src={trashTopIcon} />
-            <img alt="" aria-hidden="true" className="absolute left-[1.333px] top-[1.333px] h-[1.333px] w-[13.333px] max-w-none" src={trashLidIcon} />
-            <img alt="" aria-hidden="true" className="absolute left-[6.667px] top-[7.333px] h-[5.333px] w-[1.333px] max-w-none" src={trashLineIcon} />
-            <img alt="" aria-hidden="true" className="absolute left-[8.667px] top-[7.333px] h-[5.333px] w-[1.333px] max-w-none" src={trashLineIcon} />
-          </div>
+          <Trash2 className="size-[14px] text-[#F77A21]" strokeWidth={1.9} />
         </button>
       </div>
     </article>
