@@ -1,5 +1,6 @@
 // apps/web/src/components/agenda/upcoming-list.tsx
 import type { UpcomingItem, AgendaSlotStatus, AgendaTone } from "./types";
+import { UpcomingAppointmentsSkeleton } from "@/components/page-skeletons";
 
 const STATUS_META: Record<AgendaSlotStatus, { label: string; tone: AgendaTone }> = {
   booked: { label: "Confirmé", tone: "blue" },
@@ -46,9 +47,14 @@ const getToneStyles = (tone: AgendaTone) => {
 
 interface UpcomingListProps {
   items: UpcomingItem[];
+  isLoading?: boolean;
 }
 
-export function UpcomingList({ items }: UpcomingListProps) {
+export function UpcomingList({ items, isLoading = false }: UpcomingListProps) {
+  if (isLoading) {
+    return <UpcomingAppointmentsSkeleton />;
+  }
+
   if (!items || items.length === 0) {
     return (
       <div className="mt-4 flex min-h-24 items-center justify-center rounded-[16px] border border-dashed border-[rgba(15,52,96,0.18)] bg-[rgba(194,224,239,0.14)] p-4 text-center font-['Inter',sans-serif] text-sm font-medium leading-5 text-[#395271]">

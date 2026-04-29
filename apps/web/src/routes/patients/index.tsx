@@ -3,11 +3,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import Sidebar from "@/components/sidebar";
+import { PatientsTableSkeleton } from "@/components/page-skeletons";
 import { PatientHeader } from "@/components/patients/patient-header";
 import { PatientList } from "@/components/patients/patient-list";
 import { PatientTableHeader } from "@/components/patients/patient-table-header";
@@ -544,10 +545,7 @@ function PatientsPage() {
           />
 
           {patientsQuery.isLoading ? (
-            <div className={styles.statusBox}>
-              <Loader2 size={22} className="animate-spin" aria-hidden="true" />
-              <p className={styles.statusTitle}>Chargement des patients...</p>
-            </div>
+            <PatientsTableSkeleton />
           ) : patientsQuery.isError ? (
             <div className={styles.statusBox}>
               <AlertCircle size={22} aria-hidden="true" />

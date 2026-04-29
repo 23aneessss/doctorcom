@@ -591,7 +591,10 @@ function RouteComponent() {
                 <h2 className="m-0 font-['Inter',sans-serif] text-[1.125rem] leading-none font-semibold text-[#1f2937]">
                   Prochains rendez-vous
                 </h2>
-                <UpcomingList items={filteredUpcomingItems} />
+                <UpcomingList
+                  items={filteredUpcomingItems}
+                  isLoading={upcomingSlotsQuery.isLoading}
+                />
               </section>
             </aside>
           </div>

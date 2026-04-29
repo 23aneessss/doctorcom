@@ -7,6 +7,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/sidebar";
+import { MedicationCatalogSkeleton } from "@/components/page-skeletons";
 import { requireSession } from "@/lib/require-session";
 import { trpc, trpcClient } from "@/utils/trpc";
 
@@ -240,9 +241,7 @@ function RouteComponent() {
               </div>
 
               {mobileCatalogQuery.isLoading || advancedSearchQuery.isLoading ? (
-                <div className="ml-[67px] mt-[30px] font-['Inter'] text-[14px] text-[#0f3460]">
-                  Chargement des médicaments...
-                </div>
+                <MedicationCatalogSkeleton />
               ) : displayedItems.length === 0 ? (
                 <div className="ml-[67px] mt-[30px] flex h-[352px] w-[1091px] max-w-[calc(100%-67px)] flex-col items-center justify-center gap-[13px] rounded-[14px] border-[0.67px] border-[#C2E0EF] bg-white px-6 py-8 shadow-[0px_4px_20px_rgba(194,224,239,0.2)]">
                   <div className="flex size-[82px] items-center justify-center rounded-full bg-[rgba(194,224,239,0.3)]">
