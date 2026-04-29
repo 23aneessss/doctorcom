@@ -1,6 +1,15 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
+
+import dotenv from "dotenv";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+
+for (const envPath of ["./apps/server/.env", "../../apps/server/.env", "./.env"]) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath, quiet: true });
+    break;
+  }
+}
 
 export const env = createEnv({
   server: {

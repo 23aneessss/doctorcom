@@ -1,9 +1,18 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
+
+import dotenv from "dotenv";
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import * as schema from "./schema";
+
+for (const envPath of ["./apps/server/.env", "../../apps/server/.env", "./.env"]) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath, quiet: true });
+    break;
+  }
+}
 
 const connectionString = process.env.MEDICATIONS_DATABASE_URL;
 

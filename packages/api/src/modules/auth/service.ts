@@ -16,6 +16,7 @@ export interface UpdateMyProfileInput {
   avatar_url?: string | null;
   telephone?: string;
   adresse?: string;
+  langue_interface?: string;
 }
 
 export class AuthService {
@@ -273,6 +274,11 @@ export class AuthService {
     const adresse = input.adresse?.trim();
     if (adresse) {
       normalized.adresse = adresse;
+    }
+
+    const langueInterface = input.langue_interface?.trim();
+    if (langueInterface) {
+      normalized.langue_interface = langueInterface;
     }
 
     return normalized;

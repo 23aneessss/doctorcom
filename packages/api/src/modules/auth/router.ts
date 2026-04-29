@@ -11,6 +11,7 @@ const updateMyProfileInputSchema = z.object({
   avatar_url: z.string().trim().url().optional().nullable(),
   telephone: z.string().trim().min(1).max(32).optional(),
   adresse: z.string().trim().min(1).optional(),
+  langue_interface: z.enum(["fr", "ar", "en"]).optional(),
 });
 
 const updateMobileProfileInputSchema = z.object({

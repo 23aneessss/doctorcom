@@ -186,6 +186,9 @@ const medicationRelatedKeywords = [
   "toux",
 ];
 
+const comparisonPattern =
+  /(compare|comparer|comparaison|comparison|difference|différence|differences|différences|versus|\bvs\b)/i;
+
 export class MedicationAssistantService {
   async chat(data: {
     db: DatabaseClient;
@@ -318,6 +321,7 @@ export class MedicationAssistantService {
     const shortlistedCandidates = this.buildShortlist(
       scoredCandidates,
       detectedIntent,
+      structuredQuery,
       policyProfile,
       maxCandidates,
     );
@@ -443,10 +447,7 @@ export class MedicationAssistantService {
   ): MedicationAssistantIntent {
     const normalizedQuestion = this.normalizeText(question);
 
-    if (
-      /(compare|comparer|difference|différence|versus|\bvs\b)/i.test(question) ||
-      selectedIds.length >= 2
-    ) {
+    if (comparisonPattern.test(question) || selectedIds.length >= 2) {
       return "compare";
     }
 
@@ -478,14 +479,15 @@ export class MedicationAssistantService {
     heuristicIntent: MedicationAssistantIntent,
     selectedIds: number[],
   ): MedicationAssistantIntent {
+    if (heuristicIntent === "compare") {
+      return "compare";
+    }
+
     if (selectedIds.length >= 2 || structuredQuery.comparison_requested) {
       return "compare";
     }
 
-    if (
-      structuredQuery.safety_topics_requested.length > 0 &&
-      heuristicIntent !== "compare"
-    ) {
+    if (structuredQuery.safety_topics_requested.length > 0) {
       return "safety";
     }
 
@@ -518,7 +520,11 @@ export class MedicationAssistantService {
       });
     }
 
-    return this.normalizeStructuredQuery(parsed, data.heuristicIntent);
+    return this.normalizeStructuredQuery(
+      parsed,
+      data.heuristicIntent,
+      this.getLastUserMessage(data.messages) ?? "",
+    );
   }
 
   private buildFallbackStructuredQuery(
@@ -528,6 +534,8 @@ export class MedicationAssistantService {
   ): StructuredMedicationQuery {
     const normalizedQuestion = this.normalizeText(question);
     const clinicalUsesMentioned: string[] = [];
+    const extractedMedicationNames =
+      selectedIds.length > 0 ? [] : this.extractMedicationNamesFromQuestion(question);
 
     if (/antipyret|fievre/.test(normalizedQuestion)) {
       clinicalUsesMentioned.push("antipyretique");
@@ -555,7 +563,7 @@ export class MedicationAssistantService {
       intent: heuristicIntent,
       normalized_user_goal: question.trim(),
       requires_patient_context: this.requiresPatientContext(question),
-      medication_names_mentioned: selectedIds.length > 0 ? [] : [],
+      medication_names_mentioned: extractedMedicationNames,
       substances_mentioned: [],
       therapeutic_classes_mentioned: [],
       clinical_uses_mentioned: [...new Set(clinicalUsesMentioned)],
@@ -566,8 +574,7 @@ export class MedicationAssistantService {
         : [],
       requested_constraints: [],
       comparison_requested:
-        heuristicIntent === "compare" ||
-        /(compare|comparer|difference|différence|versus|\bvs\b)/i.test(question),
+        heuristicIntent === "compare" || comparisonPattern.test(question),
       response_style: "concise_clinical",
       confidence: null,
     };
@@ -998,6 +1005,7 @@ export class MedicationAssistantService {
   private buildShortlist(
     candidates: CandidateMedication[],
     intent: MedicationAssistantIntent,
+    structuredQuery: StructuredMedicationQuery,
     policyProfile: MedicationPolicyProfile,
     maxCandidates: number,
   ): CandidateMedication[] {
@@ -1017,10 +1025,143 @@ export class MedicationAssistantService {
     );
 
     if (gatedCandidates.length > 0) {
+      if (intent === "compare") {
+        return this.buildComparisonShortlist(
+          gatedCandidates,
+          structuredQuery,
+          limit,
+        );
+      }
+
       return gatedCandidates.slice(0, limit);
     }
 
     return [];
+  }
+
+  private buildComparisonShortlist(
+    candidates: CandidateMedication[],
+    structuredQuery: StructuredMedicationQuery,
+    limit: number,
+  ): CandidateMedication[] {
+    const requestedTerms = [
+      ...new Set([
+        ...structuredQuery.medication_names_mentioned,
+        ...structuredQuery.substances_mentioned,
+      ]),
+    ]
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+
+    if (requestedTerms.length < 2) {
+      return candidates.slice(0, limit);
+    }
+
+    const selected: CandidateMedication[] = [];
+    const selectedIds = new Set<number>();
+
+    for (const term of requestedTerms) {
+      const bestCandidate = [...candidates]
+        .filter((candidate) => !selectedIds.has(candidate.aggregate.medicament.id))
+        .map((candidate) => ({
+          candidate,
+          specificity: this.computeComparisonSpecificity(candidate, term),
+        }))
+        .filter((item) => item.specificity > 0)
+        .sort((left, right) => {
+          if (right.specificity !== left.specificity) {
+            return right.specificity - left.specificity;
+          }
+
+          return right.candidate.score - left.candidate.score;
+        })[0]?.candidate;
+
+      if (!bestCandidate) {
+        continue;
+      }
+
+      selected.push(bestCandidate);
+      selectedIds.add(bestCandidate.aggregate.medicament.id);
+    }
+
+    const remaining = candidates.filter(
+      (candidate) => !selectedIds.has(candidate.aggregate.medicament.id),
+    );
+
+    return [...selected, ...remaining].slice(0, limit);
+  }
+
+  private computeComparisonSpecificity(
+    candidate: CandidateMedication,
+    rawTerm: string,
+  ): number {
+    const term = this.normalizeText(rawTerm);
+    if (!term) {
+      return 0;
+    }
+
+    const name = this.normalizeText(candidate.aggregate.medicament.nom_medicament);
+    const generic = this.normalizeText(candidate.aggregate.medicament.nom_generique);
+    const substances = candidate.aggregate.substances_actives.map((item) =>
+      this.normalizeText(item.nom_substance),
+    );
+    const nameTokenCount = name.split(" ").filter(Boolean).length;
+    const substanceExactMatch = substances.includes(term);
+    const nameContainsTerm = name.includes(term);
+
+    let score = 0;
+
+    if (name === term) {
+      score += 220;
+    } else if (name.startsWith(`${term} `) || name.endsWith(` ${term}`)) {
+      score += 180;
+    } else if (name.includes(term)) {
+      score += 140;
+    }
+
+    if (generic === term) {
+      score += 200;
+    } else if (generic.includes(term)) {
+      score += 130;
+    }
+
+    if (substanceExactMatch) {
+      score += 170;
+    } else if (substances.some((value) => value.includes(term))) {
+      score += 110;
+    }
+
+    if (candidate.features.is_monotherapy) {
+      score += 28;
+    }
+
+    if (candidate.features.is_combination) {
+      score -= 28;
+    }
+
+    if (nameContainsTerm && nameTokenCount > 1) {
+      score -= 18;
+    }
+
+    if (!nameContainsTerm && substanceExactMatch && nameTokenCount === 1) {
+      score += 36;
+    }
+
+    if (candidate.features.is_paracetamol_like && term.includes("paracetamol")) {
+      score += 30;
+    }
+
+    if (
+      this.normalizeText(candidate.aggregate.medicament.nom_medicament).includes(
+        "augmentin",
+      ) &&
+      term.includes("augmentin")
+    ) {
+      score += 30;
+    }
+
+    return score;
   }
 
   private passesClinicalGate(
@@ -1123,6 +1264,7 @@ export class MedicationAssistantService {
   private normalizeStructuredQuery(
     raw: unknown,
     heuristicIntent: MedicationAssistantIntent,
+    originalQuestion: string,
   ): StructuredMedicationQuery {
     const payload = this.asRecord(raw) ?? {};
 
@@ -1173,7 +1315,68 @@ export class MedicationAssistantService {
       });
     }
 
-    return validation.data;
+    return {
+      ...validation.data,
+      medication_names_mentioned: [
+        ...new Set([
+          ...this.extractMedicationNamesFromQuestion(originalQuestion),
+          ...validation.data.medication_names_mentioned,
+          ...this.extractMedicationNamesFromQuestion(
+            validation.data.normalized_user_goal,
+          ),
+        ]),
+      ].slice(0, 8),
+    };
+  }
+
+  private extractMedicationNamesFromQuestion(question: string): string[] {
+    const normalized = this.normalizeText(question);
+    if (!normalized) {
+      return [];
+    }
+
+    const betweenMatch = normalized.match(/\bentre\b\s+(.+?)\s+\bet\b\s+(.+)$/);
+    if (betweenMatch) {
+      return [(betweenMatch[1] ?? ""), (betweenMatch[2] ?? "")]
+        .map((chunk) => this.cleanMedicationMention(chunk))
+        .filter((chunk): chunk is string => Boolean(chunk))
+        .slice(0, 4);
+    }
+
+    const comparisonTail = normalized
+      .replace(
+        /\b(donne moi|peux tu|peux tu me|je veux|fais moi|montre moi|donner|donne|une|un|des|la|le|les)\b/g,
+        " ",
+      )
+      .replace(comparisonPattern, " ")
+      .replace(/\bentre\b/g, " ")
+      .trim();
+
+    if (!comparisonTail) {
+      return [];
+    }
+
+    return comparisonTail
+      .split(/\b(?:et|versus|vs)\b/g)
+      .map((chunk) => this.cleanMedicationMention(chunk))
+      .filter((chunk): chunk is string => Boolean(chunk))
+      .slice(0, 4);
+  }
+
+  private cleanMedicationMention(value: string): string | null {
+    const cleaned = value
+      .replace(
+        /\b(donne moi|peux tu|peux tu me|je veux|fais moi|montre moi|une|un|des|la|le|les|comparaison|comparison|compare|comparer|difference|differences|différence|différences)\b/g,
+        " ",
+      )
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleaned || cleaned.length < 3) {
+      return null;
+    }
+
+    return cleaned;
   }
 
   private normalizeIntent(

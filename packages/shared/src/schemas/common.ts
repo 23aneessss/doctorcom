@@ -13,7 +13,6 @@ const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 const isoDateTimeRegex =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const decimalNumberRegex = /^-?\d+(?:\.\d+)?$/;
-
 export const uuidSchema = z.string().uuid();
 export const trimmedStringSchema = z.string().trim().min(1);
 export const optionalTrimmedStringSchema = trimmedStringSchema.optional();

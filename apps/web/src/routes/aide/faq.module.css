@@ -1,0 +1,289 @@
+:root {
+  --faq-dark-blue: #0f3460;
+  --faq-deep-blue: #052ca0;
+  --faq-sky-blue: #76bbdd;
+  --faq-light-blue: #c2e0ef;
+  --faq-bg: #f3f7fb;
+  --faq-soft-blue: #eaf4fb;
+  --faq-soft-text: #6b7e99;
+  --faq-ink: #1a2b4a;
+  --faq-orange: #f77a21;
+}
+
+.pageShell {
+  display: flex;
+  height: 100vh;
+  height: 100svh;
+  min-height: 100vh;
+  min-height: 100svh;
+  background: var(--faq-bg);
+}
+
+.pageMain {
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding-top: clamp(1rem, 2vw, 1.75rem);
+  padding-right: clamp(1.6rem, 3.1vw, 2.7rem);
+  padding-bottom: clamp(1rem, 2vw, 1.75rem);
+  padding-left: clamp(1.6rem, 3.2vw, 2.8rem);
+}
+
+.pageMain::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.pageContent {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  width: min(100%, 66rem);
+  margin: 0 auto;
+}
+
+.backLink {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--faq-deep-blue);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.faqCard {
+  border-radius: 0.9375rem;
+  border: 1px solid color-mix(in srgb, var(--faq-light-blue) 72%, white);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0px 2px 8px -4px rgba(15, 52, 96, 0.08), 0px 1px 3px rgba(15, 52, 96, 0.04);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.titleRow {
+  border-bottom: 1px solid color-mix(in srgb, var(--faq-light-blue) 78%, white);
+  padding-bottom: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.titleMark {
+  color: #ef4444;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  line-height: 1;
+}
+
+.title {
+  margin: 0;
+  color: var(--faq-dark-blue);
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.groupTitle {
+  margin: 0;
+  color: var(--faq-deep-blue);
+  font-size: clamp(1rem, 1.7vw, 1.3rem);
+  font-weight: 700;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.58rem;
+}
+
+.item {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--faq-light-blue) 80%, white);
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.item:hover {
+  border-color: color-mix(in srgb, var(--faq-sky-blue) 80%, white);
+  box-shadow: 0px 3px 10px rgba(118, 187, 221, 0.14);
+}
+
+.itemOpen {
+  border: 1px solid #b8d4ea;
+  border-left: 4px solid var(--faq-deep-blue);
+  background: linear-gradient(to right, #f0f7ff, #ffffff);
+  box-shadow: 0px 4px 14px -6px rgba(15, 52, 96, 0.12);
+}
+
+.answerWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease,
+    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+  transform: translateY(-0.25rem);
+}
+
+.answerWrapOpen {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.answerInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.questionButton {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--faq-ink);
+  min-height: 3rem;
+  padding: 0.75rem 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  text-align: left;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.questionButton:disabled {
+  cursor: default;
+  opacity: 0.86;
+}
+
+.questionButton:disabled .icon {
+  color: color-mix(in srgb, var(--faq-deep-blue) 45%, white);
+}
+
+.itemOpen .questionButton {
+  color: var(--faq-deep-blue);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--faq-deep-blue) 70%, white);
+  transition: transform 0.2s ease;
+}
+
+.iconOpen {
+  transform: rotate(180deg);
+}
+
+.answer {
+  margin: 0;
+  padding: 0 0.95rem 0.95rem;
+  color: var(--faq-ink);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  max-width: 56ch;
+}
+
+.supportCard {
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--faq-light-blue) 65%, white);
+  background: linear-gradient(135deg, var(--faq-soft-blue) 0%, #f3f8fb 100%);
+  padding: clamp(1rem, 1.8vw, 1.3rem) clamp(1rem, 1.8vw, 1.3rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0px 2px 8px rgba(118, 187, 221, 0.15);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.supportCard:hover {
+  border-color: color-mix(in srgb, var(--faq-sky-blue) 75%, white);
+  box-shadow: 0px 4px 12px rgba(118, 187, 221, 0.25);
+}
+
+.supportTitle {
+  margin: 0;
+  color: var(--faq-dark-blue);
+  font-size: clamp(0.82rem, 1.2vw, 0.95rem);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.supportDescription {
+  margin: 0.22rem 0 0;
+  color: var(--faq-soft-text);
+  font-size: clamp(0.72rem, 1vw, 0.82rem);
+  line-height: 1.4;
+}
+
+.supportButton {
+  border: 0;
+  min-height: 2.2rem;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #052ca0 0%, #173fb8 100%);
+  color: #ffffff;
+  font-size: clamp(0.72rem, 1vw, 0.82rem);
+  font-weight: 700;
+  padding: 0.5rem 1.2rem;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0px 4px 12px rgba(5, 44, 160, 0.28);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.supportButton:hover {
+  box-shadow: 0px 6px 16px rgba(5, 44, 160, 0.36);
+  transform: translateY(-1px);
+}
+
+.supportButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 50rem) {
+  .pageMain {
+    padding-top: 1rem;
+    padding-right: 1.2rem;
+    padding-bottom: 1rem;
+    padding-left: 1.2rem;
+  }
+
+  .faqCard {
+    padding: 0.95rem;
+  }
+
+  .answerWrap {
+    transition-duration: 0.2s;
+  }
+
+  .answer {
+    max-width: none;
+  }
+
+  .supportCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

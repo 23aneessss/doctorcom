@@ -20,6 +20,7 @@ type DatabaseClient = RootDatabaseClient | DatabaseTransaction;
 
 type NewPatientRecord = typeof patients.$inferInsert;
 type NewPatientFemmeRecord = typeof patients_femmes.$inferInsert;
+type NewUtilisateurRecord = typeof utilisateurs.$inferInsert;
 
 export type PatientRecord = typeof patients.$inferSelect;
 export type PatientFemmeRecord = typeof patients_femmes.$inferSelect;
@@ -38,6 +39,7 @@ export type UpdatePatientInput = Partial<CreatePatientInput>;
 
 export type CreateFemalePatientInfoInput = Omit<NewPatientFemmeRecord, "id">;
 export type UpdateFemalePatientInfoInput = Partial<Omit<NewPatientFemmeRecord, "id" | "patient_id">>;
+export type CreateUtilisateurInput = Omit<NewUtilisateurRecord, "id">;
 
 export interface SearchPatientsCriteria {
   nom?: string;
@@ -73,6 +75,19 @@ export class PatientRepository {
     }
 
     return createdPatient;
+  }
+
+  async createUtilisateur(
+    database: DatabaseClient,
+    data: CreateUtilisateurInput,
+  ): Promise<UtilisateurRecord> {
+    const [createdUtilisateur] = await database.insert(utilisateurs).values(data).returning();
+
+    if (!createdUtilisateur) {
+      throw new Error("Echec de creation de l'utilisateur.");
+    }
+
+    return createdUtilisateur;
   }
 
   async updatePatient(

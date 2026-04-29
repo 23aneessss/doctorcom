@@ -110,12 +110,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -202,12 +198,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -217,9 +209,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -283,9 +273,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -550,12 +538,8 @@
           "name": "certificats_medicaux_documents_patient_id_documents_patient_id_fk",
           "tableFrom": "certificats_medicaux",
           "tableTo": "documents_patient",
-          "columnsFrom": [
-            "documents_patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["documents_patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -563,12 +547,8 @@
           "name": "certificats_medicaux_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "certificats_medicaux",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -576,12 +556,8 @@
           "name": "certificats_medicaux_suivi_id_suivi_id_fk",
           "tableFrom": "certificats_medicaux",
           "tableTo": "suivi",
-          "columnsFrom": [
-            "suivi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["suivi_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -722,12 +698,8 @@
           "name": "documents_patient_patient_id_patients_id_fk",
           "tableFrom": "documents_patient",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -735,12 +707,8 @@
           "name": "documents_patient_categorie_id_categories_documents_id_fk",
           "tableFrom": "documents_patient",
           "tableTo": "categories_documents",
-          "columnsFrom": [
-            "categorie_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["categorie_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -748,12 +716,8 @@
           "name": "documents_patient_uploade_par_utilisateur_utilisateurs_id_fk",
           "tableFrom": "documents_patient",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "uploade_par_utilisateur"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploade_par_utilisateur"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -910,12 +874,8 @@
           "name": "lettres_orientation_documents_patient_id_documents_patient_id_fk",
           "tableFrom": "lettres_orientation",
           "tableTo": "documents_patient",
-          "columnsFrom": [
-            "documents_patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["documents_patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -923,12 +883,8 @@
           "name": "lettres_orientation_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "lettres_orientation",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -936,12 +892,8 @@
           "name": "lettres_orientation_suivi_id_suivi_id_fk",
           "tableFrom": "lettres_orientation",
           "tableTo": "suivi",
-          "columnsFrom": [
-            "suivi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["suivi_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1010,12 +962,8 @@
           "name": "vaccinations_patient_patient_id_patients_id_fk",
           "tableFrom": "vaccinations_patient",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1132,12 +1080,8 @@
           "name": "flow_sessions_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "flow_sessions",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1249,12 +1193,8 @@
           "name": "memory_notes_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "memory_notes",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1345,12 +1285,8 @@
           "name": "memory_tags_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "memory_tags",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1497,12 +1433,8 @@
           "name": "pre_rempli_medicaments_pre_rempli_id_pre_rempli_ordonnance_id_fk",
           "tableFrom": "pre_rempli_medicaments",
           "tableTo": "pre_rempli_ordonnance",
-          "columnsFrom": [
-            "pre_rempli_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["pre_rempli_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1613,12 +1545,8 @@
           "name": "pre_rempli_ordonnance_categorie_pre_rempli_id_categories_pre_rempli_id_fk",
           "tableFrom": "pre_rempli_ordonnance",
           "tableTo": "categories_pre_rempli",
-          "columnsFrom": [
-            "categorie_pre_rempli_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["categorie_pre_rempli_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1626,12 +1554,8 @@
           "name": "pre_rempli_ordonnance_created_by_user_utilisateurs_id_fk",
           "tableFrom": "pre_rempli_ordonnance",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "created_by_user"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_user"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1695,12 +1619,8 @@
           "name": "antecedents_patient_id_patients_id_fk",
           "tableFrom": "antecedents",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1763,12 +1683,8 @@
           "name": "antecedents_familiaux_antecedent_id_antecedents_id_fk",
           "tableFrom": "antecedents_familiaux",
           "tableTo": "antecedents",
-          "columnsFrom": [
-            "antecedent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["antecedent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1837,12 +1753,8 @@
           "name": "antecedents_personnels_antecedent_id_antecedents_id_fk",
           "tableFrom": "antecedents_personnels",
           "tableTo": "antecedents",
-          "columnsFrom": [
-            "antecedent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["antecedent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2064,12 +1976,8 @@
           "name": "patients_cree_par_utilisateur_utilisateurs_id_fk",
           "tableFrom": "patients",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "cree_par_utilisateur"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cree_par_utilisateur"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2183,12 +2091,8 @@
           "name": "patients_femmes_patient_id_patients_id_fk",
           "tableFrom": "patients_femmes",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2263,12 +2167,8 @@
           "name": "voyages_recents_patient_id_patients_id_fk",
           "tableFrom": "voyages_recents",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2478,12 +2378,8 @@
           "name": "examen_consultation_rendez_vous_id_rendez_vous_id_fk",
           "tableFrom": "examen_consultation",
           "tableTo": "rendez_vous",
-          "columnsFrom": [
-            "rendez_vous_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rendez_vous_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2491,12 +2387,8 @@
           "name": "examen_consultation_suivi_id_suivi_id_fk",
           "tableFrom": "examen_consultation",
           "tableTo": "suivi",
-          "columnsFrom": [
-            "suivi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["suivi_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2662,12 +2554,8 @@
           "name": "rendez_vous_patient_id_patients_id_fk",
           "tableFrom": "rendez_vous",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2675,12 +2563,8 @@
           "name": "rendez_vous_suivi_id_suivi_id_fk",
           "tableFrom": "rendez_vous",
           "tableTo": "suivi",
-          "columnsFrom": [
-            "suivi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["suivi_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2688,12 +2572,8 @@
           "name": "rendez_vous_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "rendez_vous",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2801,12 +2681,8 @@
           "name": "suivi_patient_id_patients_id_fk",
           "tableFrom": "suivi",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2814,12 +2690,8 @@
           "name": "suivi_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "suivi",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3007,12 +2879,8 @@
           "name": "historique_traitements_patient_id_patients_id_fk",
           "tableFrom": "historique_traitements",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3020,12 +2888,8 @@
           "name": "historique_traitements_prescrit_par_utilisateur_utilisateurs_id_fk",
           "tableFrom": "historique_traitements",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "prescrit_par_utilisateur"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["prescrit_par_utilisateur"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3033,12 +2897,8 @@
           "name": "historique_traitements_ordonnance_id_ordonnance_id_fk",
           "tableFrom": "historique_traitements",
           "tableTo": "ordonnance",
-          "columnsFrom": [
-            "ordonnance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ordonnance_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3046,12 +2906,8 @@
           "name": "historique_traitements_ordonnance_medicament_id_ordonnance_medicaments_id_fk",
           "tableFrom": "historique_traitements",
           "tableTo": "ordonnance_medicaments",
-          "columnsFrom": [
-            "ordonnance_medicament_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ordonnance_medicament_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3177,12 +3033,8 @@
           "name": "ordonnance_rendez_vous_id_rendez_vous_id_fk",
           "tableFrom": "ordonnance",
           "tableTo": "rendez_vous",
-          "columnsFrom": [
-            "rendez_vous_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rendez_vous_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3190,12 +3042,8 @@
           "name": "ordonnance_patient_id_patients_id_fk",
           "tableFrom": "ordonnance",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3203,12 +3051,8 @@
           "name": "ordonnance_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "ordonnance",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3216,12 +3060,8 @@
           "name": "ordonnance_pre_rempli_origine_id_pre_rempli_ordonnance_id_fk",
           "tableFrom": "ordonnance",
           "tableTo": "pre_rempli_ordonnance",
-          "columnsFrom": [
-            "pre_rempli_origine_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["pre_rempli_origine_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3415,12 +3255,8 @@
           "name": "ordonnance_ai_generations_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "ordonnance_ai_generations",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3428,12 +3264,8 @@
           "name": "ordonnance_ai_generations_patient_id_patients_id_fk",
           "tableFrom": "ordonnance_ai_generations",
           "tableTo": "patients",
-          "columnsFrom": [
-            "patient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["patient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3441,12 +3273,8 @@
           "name": "ordonnance_ai_generations_suivi_id_suivi_id_fk",
           "tableFrom": "ordonnance_ai_generations",
           "tableTo": "suivi",
-          "columnsFrom": [
-            "suivi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["suivi_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3554,12 +3382,8 @@
           "name": "ordonnance_medicaments_ordonnance_id_ordonnance_id_fk",
           "tableFrom": "ordonnance_medicaments",
           "tableTo": "ordonnance",
-          "columnsFrom": [
-            "ordonnance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ordonnance_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3622,12 +3446,8 @@
           "name": "logs_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "logs",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3708,12 +3528,8 @@
           "name": "sessions_utilisateur_id_utilisateurs_id_fk",
           "tableFrom": "sessions",
           "tableTo": "utilisateurs",
-          "columnsFrom": [
-            "utilisateur_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utilisateur_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3801,6 +3617,13 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "langue_interface": {
+          "name": "langue_interface",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'fr'"
         }
       },
       "indexes": {
@@ -3832,57 +3655,32 @@
     "public.antecedent_type": {
       "name": "antecedent_type",
       "schema": "public",
-      "values": [
-        "personnel",
-        "familial"
-      ]
+      "values": ["personnel", "familial"]
     },
     "public.certificat_medical_statut": {
       "name": "certificat_medical_statut",
       "schema": "public",
-      "values": [
-        "brouillon",
-        "emis",
-        "annule"
-      ]
+      "values": ["brouillon", "emis", "annule"]
     },
     "public.certificat_medical_type": {
       "name": "certificat_medical_type",
       "schema": "public",
-      "values": [
-        "arret_travail",
-        "aptitude",
-        "scolaire",
-        "grossesse",
-        "deces"
-      ]
+      "values": ["arret_travail", "aptitude", "scolaire", "grossesse", "deces"]
     },
     "public.historique_traitement_source": {
       "name": "historique_traitement_source",
       "schema": "public",
-      "values": [
-        "manuel",
-        "ordonnance"
-      ]
+      "values": ["manuel", "ordonnance"]
     },
     "public.lettre_orientation_urgence": {
       "name": "lettre_orientation_urgence",
       "schema": "public",
-      "values": [
-        "normale",
-        "urgente",
-        "tres_urgente"
-      ]
+      "values": ["normale", "urgente", "tres_urgente"]
     },
     "public.ordonnance_ai_generation_status": {
       "name": "ordonnance_ai_generation_status",
       "schema": "public",
-      "values": [
-        "draft_ready",
-        "verifying",
-        "verified",
-        "verification_failed"
-      ]
+      "values": ["draft_ready", "verifying", "verified", "verification_failed"]
     },
     "public.rendez_vous_statut": {
       "name": "rendez_vous_statut",
@@ -3899,11 +3697,7 @@
     "public.utilisateur_role": {
       "name": "utilisateur_role",
       "schema": "public",
-      "values": [
-        "medecin",
-        "secretaire",
-        "admin"
-      ]
+      "values": ["medecin", "secretaire", "admin"]
     }
   },
   "schemas": {},

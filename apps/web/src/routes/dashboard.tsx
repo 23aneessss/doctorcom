@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
+import Sidebar from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
-import { Sidebar } from "@/components/sidebar";
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/dashboard")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
-  const sessionUser = session.data?.user;
+  const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
       ? {

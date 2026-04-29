@@ -25,7 +25,9 @@ import {
 import { ordonnanceEmbeddingTasks } from "../ai/ordonnance-recommendation/embedding-tasks";
 
 type MedicationsDatabaseClient = typeof medicationsDb;
-type MedicationsTransaction = Parameters<Parameters<typeof withMedicationsTx>[0]>[0];
+type MedicationsTransaction = Parameters<
+  Parameters<typeof withMedicationsTx>[0]
+>[0];
 
 export interface MedicamentAggregate {
   medicament: MedicamentRecord;
@@ -116,19 +118,32 @@ interface MobileMedicationDataset {
 }
 
 let mobileMedicationDatasetCache: MobileMedicationDataset | null = null;
+let mobileMedicationDatasetLoadPromise: Promise<MobileMedicationDataset> | null =
+  null;
 
 export class MedicamentsService {
-  async creerMedicament(input: CreateMedicamentAggregateInput): Promise<MedicamentAggregate> {
+  async creerMedicament(
+    input: CreateMedicamentAggregateInput,
+  ): Promise<MedicamentAggregate> {
     const normalized = this.normalizeCreateInput(input);
 
-    const aggregate = await withMedicationsTx(async (tx: MedicationsTransaction) => {
-      const medicament = await medicamentsRepository.createMedicament(tx, normalized.medicament);
-      const nested = await this.replaceNestedCollections(tx, medicament.id, normalized);
-      return {
-        medicament,
-        ...nested,
-      };
-    });
+    const aggregate = await withMedicationsTx(
+      async (tx: MedicationsTransaction) => {
+        const medicament = await medicamentsRepository.createMedicament(
+          tx,
+          normalized.medicament,
+        );
+        const nested = await this.replaceNestedCollections(
+          tx,
+          medicament.id,
+          normalized,
+        );
+        return {
+          medicament,
+          ...nested,
+        };
+      },
+    );
 
     mobileMedicationDatasetCache = null;
     ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
@@ -139,7 +154,10 @@ export class MedicamentsService {
     medicamentId: number,
     input: UpdateMedicamentAggregateInput,
   ): Promise<MedicamentAggregate> {
-    const existing = await medicamentsRepository.getMedicamentById(medicationsDb, medicamentId);
+    const existing = await medicamentsRepository.getMedicamentById(
+      medicationsDb,
+      medicamentId,
+    );
     if (!existing) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -149,27 +167,34 @@ export class MedicamentsService {
 
     const normalized = this.normalizeUpdateInput(input);
 
-    const aggregate = await withMedicationsTx(async (tx: MedicationsTransaction) => {
-      const medicament = await medicamentsRepository.updateMedicament(
-        tx,
-        medicamentId,
-        normalized.medicament,
-      );
+    const aggregate = await withMedicationsTx(
+      async (tx: MedicationsTransaction) => {
+        const medicament = await medicamentsRepository.updateMedicament(
+          tx,
+          medicamentId,
+          normalized.medicament,
+        );
 
-      if (!medicament) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Echec de mise a jour du medicament.",
-        });
-      }
+        if (!medicament) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Echec de mise a jour du medicament.",
+          });
+        }
 
-      const nested = await this.replaceNestedCollections(tx, medicamentId, normalized, false);
-      const aggregate = {
-        medicament,
-        ...nested,
-      };
-      return aggregate;
-    });
+        const nested = await this.replaceNestedCollections(
+          tx,
+          medicamentId,
+          normalized,
+          false,
+        );
+        const aggregate = {
+          medicament,
+          ...nested,
+        };
+        return aggregate;
+      },
+    );
 
     mobileMedicationDatasetCache = null;
     ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
@@ -177,7 +202,10 @@ export class MedicamentsService {
   }
 
   async supprimerMedicament(medicamentId: number): Promise<{ success: true }> {
-    const existing = await medicamentsRepository.getMedicamentById(medicationsDb, medicamentId);
+    const existing = await medicamentsRepository.getMedicamentById(
+      medicationsDb,
+      medicamentId,
+    );
     if (!existing) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -185,9 +213,11 @@ export class MedicamentsService {
       });
     }
 
-    const deleted = await withMedicationsTx(async (tx: MedicationsTransaction) => {
-      return medicamentsRepository.deleteMedicament(tx, medicamentId);
-    });
+    const deleted = await withMedicationsTx(
+      async (tx: MedicationsTransaction) => {
+        return medicamentsRepository.deleteMedicament(tx, medicamentId);
+      },
+    );
 
     if (!deleted) {
       throw new TRPCError({
@@ -202,7 +232,10 @@ export class MedicamentsService {
   }
 
   async getMedicamentById(medicamentId: number): Promise<MedicamentAggregate> {
-    const medicament = await medicamentsRepository.getMedicamentById(medicationsDb, medicamentId);
+    const medicament = await medicamentsRepository.getMedicamentById(
+      medicationsDb,
+      medicamentId,
+    );
     if (!medicament) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -220,10 +253,11 @@ export class MedicamentsService {
         medicationsDb,
         medicamentId,
       ),
-      contre_indications: await medicamentsRepository.getContreIndicationsByMedicament(
-        medicationsDb,
-        medicamentId,
-      ),
+      contre_indications:
+        await medicamentsRepository.getContreIndicationsByMedicament(
+          medicationsDb,
+          medicamentId,
+        ),
       precautions: await medicamentsRepository.getPrecautionsByMedicament(
         medicationsDb,
         medicamentId,
@@ -232,10 +266,11 @@ export class MedicamentsService {
         medicationsDb,
         medicamentId,
       ),
-      effets_indesirables: await medicamentsRepository.getEffetsIndesirablesByMedicament(
-        medicationsDb,
-        medicamentId,
-      ),
+      effets_indesirables:
+        await medicamentsRepository.getEffetsIndesirablesByMedicament(
+          medicationsDb,
+          medicamentId,
+        ),
       presentations: await medicamentsRepository.getPresentationsByMedicament(
         medicationsDb,
         medicamentId,
@@ -243,8 +278,12 @@ export class MedicamentsService {
     };
   }
 
-  async getMedicamentsAggregatesByIds(medicamentIds: number[]): Promise<MedicamentAggregate[]> {
-    const uniqueIds = [...new Set(medicamentIds)].filter((id) => Number.isInteger(id) && id > 0);
+  async getMedicamentsAggregatesByIds(
+    medicamentIds: number[],
+  ): Promise<MedicamentAggregate[]> {
+    const uniqueIds = [...new Set(medicamentIds)].filter(
+      (id) => Number.isInteger(id) && id > 0,
+    );
     if (uniqueIds.length === 0) {
       return [];
     }
@@ -259,10 +298,14 @@ export class MedicamentsService {
       }),
     );
 
-    return aggregates.filter((aggregate): aggregate is MedicamentAggregate => Boolean(aggregate));
+    return aggregates.filter((aggregate): aggregate is MedicamentAggregate =>
+      Boolean(aggregate),
+    );
   }
 
-  async rechercherMedicaments(filters: MedicamentSearchFilters): Promise<PaginatedMedicaments> {
+  async rechercherMedicaments(
+    filters: MedicamentSearchFilters,
+  ): Promise<PaginatedMedicaments> {
     return medicamentsRepository.searchMedicaments(medicationsDb, filters);
   }
 
@@ -275,7 +318,10 @@ export class MedicamentsService {
     nom_medicament: string;
     dci: string | null;
   }> {
-    const medicament = await medicamentsRepository.getMedicamentById(medicationsDb, medicamentId);
+    const medicament = await medicamentsRepository.getMedicamentById(
+      medicationsDb,
+      medicamentId,
+    );
     if (!medicament) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -334,7 +380,9 @@ export class MedicamentsService {
     };
   }
 
-  async getMobileMedicationById(medicamentId: number): Promise<MobileMedicationDetail> {
+  async getMobileMedicationById(
+    medicamentId: number,
+  ): Promise<MobileMedicationDetail> {
     const dataset = await this.getMobileMedicationDataset();
     const medication = dataset.byId.get(medicamentId);
 
@@ -352,17 +400,23 @@ export class MedicamentsService {
     return typeof value === "number" ? value : Number(value);
   }
 
-  private normalizeCreateInput(input: CreateMedicamentAggregateInput): NormalizedCreatePayload {
+  private normalizeCreateInput(
+    input: CreateMedicamentAggregateInput,
+  ): NormalizedCreatePayload {
     return {
       medicament: {
-        nom_medicament: this.requireTrimmedValue(input.nom_medicament, "Le nom du medicament est obligatoire."),
+        nom_medicament: this.requireTrimmedValue(
+          input.nom_medicament,
+          "Le nom du medicament est obligatoire.",
+        ),
         nom_generique: input.nom_generique?.trim() || null,
         classe_therapeutique: input.classe_therapeutique?.trim() || null,
         famille_pharmacologique: input.famille_pharmacologique?.trim() || null,
         posologie_adulte: input.posologie_adulte?.trim() || null,
         posologie_enfant: input.posologie_enfant?.trim() || null,
         dose_maximale: input.dose_maximale?.trim() || null,
-        frequence_administration: input.frequence_administration?.trim() || null,
+        frequence_administration:
+          input.frequence_administration?.trim() || null,
         grossesse: input.grossesse?.trim() || null,
         allaitement: input.allaitement?.trim() || null,
       },
@@ -376,7 +430,9 @@ export class MedicamentsService {
     };
   }
 
-  private normalizeUpdateInput(input: UpdateMedicamentAggregateInput): NormalizedUpdatePayload {
+  private normalizeUpdateInput(
+    input: UpdateMedicamentAggregateInput,
+  ): NormalizedUpdatePayload {
     const medicament: UpdateMedicamentInput = {};
 
     if (input.nom_medicament !== undefined) {
@@ -437,7 +493,9 @@ export class MedicamentsService {
     };
   }
 
-  private normalizeSubstances(items: CreateSubstanceInput[] | undefined): CreateSubstanceInput[] {
+  private normalizeSubstances(
+    items: CreateSubstanceInput[] | undefined,
+  ): CreateSubstanceInput[] {
     return (items ?? [])
       .map((item) => ({ nom_substance: item.nom_substance.trim() }))
       .filter((item) => item.nom_substance.length > 0);
@@ -463,7 +521,9 @@ export class MedicamentsService {
     items: CreateInteractionInput[] | undefined,
   ): CreateInteractionInput[] {
     return (items ?? [])
-      .map((item) => ({ medicament_interaction: item.medicament_interaction.trim() }))
+      .map((item) => ({
+        medicament_interaction: item.medicament_interaction.trim(),
+      }))
       .filter((item) => item.medicament_interaction.length > 0);
   }
 
@@ -527,27 +587,40 @@ export class MedicamentsService {
       return mobileMedicationDatasetCache;
     }
 
-    const [
-      medicaments,
-      indications,
-      precautions,
-      contreIndications,
-      effetsIndesirables,
-      presentations,
-      interactions,
-      substancesActives,
-    ] = await Promise.all([
-      medicamentsRepository.listAllMedicaments(medicationsDb),
-      medicamentsRepository.listAllIndications(medicationsDb),
-      medicamentsRepository.listAllPrecautions(medicationsDb),
-      medicamentsRepository.listAllContreIndications(medicationsDb),
-      medicamentsRepository.listAllEffetsIndesirables(medicationsDb),
-      medicamentsRepository.listAllPresentations(medicationsDb),
-      medicamentsRepository.listAllInteractions(medicationsDb),
-      medicamentsRepository.listAllSubstances(medicationsDb),
-    ]);
+    if (mobileMedicationDatasetLoadPromise) {
+      return mobileMedicationDatasetLoadPromise;
+    }
 
-    const groupByMedicament = <T extends { medicament_id: number | string }>(rows: T[]) => {
+    mobileMedicationDatasetLoadPromise = this.loadMobileMedicationDataset();
+
+    try {
+      return await mobileMedicationDatasetLoadPromise;
+    } finally {
+      mobileMedicationDatasetLoadPromise = null;
+    }
+  }
+
+  private async loadMobileMedicationDataset(): Promise<MobileMedicationDataset> {
+    const medicaments =
+      await medicamentsRepository.listAllMedicaments(medicationsDb);
+    const indications =
+      await medicamentsRepository.listAllIndications(medicationsDb);
+    const precautions =
+      await medicamentsRepository.listAllPrecautions(medicationsDb);
+    const contreIndications =
+      await medicamentsRepository.listAllContreIndications(medicationsDb);
+    const effetsIndesirables =
+      await medicamentsRepository.listAllEffetsIndesirables(medicationsDb);
+    const presentations =
+      await medicamentsRepository.listAllPresentations(medicationsDb);
+    const interactions =
+      await medicamentsRepository.listAllInteractions(medicationsDb);
+    const substancesActives =
+      await medicamentsRepository.listAllSubstances(medicationsDb);
+
+    const groupByMedicament = <T extends { medicament_id: number | string }>(
+      rows: T[],
+    ) => {
       const map = new Map<number, T[]>();
 
       for (const row of rows) {
@@ -560,7 +633,7 @@ export class MedicamentsService {
       return map;
     };
 
-    const unique = <T,>(values: T[]) => Array.from(new Set(values));
+    const unique = <T>(values: T[]) => Array.from(new Set(values));
 
     const indicationsMap = groupByMedicament(indications);
     const precautionsMap = groupByMedicament(precautions);
@@ -608,9 +681,14 @@ export class MedicamentsService {
             dosage: row.dosage?.trim() ?? null,
           }),
         ),
-      ).map((value) => JSON.parse(value) as { forme: string | null; dosage: string | null });
+      ).map(
+        (value) =>
+          JSON.parse(value) as { forme: string | null; dosage: string | null },
+      );
 
-      const medicationSideEffects = (sideEffectsMap.get(medicamentId) ?? []).map((row) => ({
+      const medicationSideEffects = (
+        sideEffectsMap.get(medicamentId) ?? []
+      ).map((row) => ({
         effect: row.effet.trim(),
         frequency: row.frequence?.trim() ?? null,
       }));
@@ -627,7 +705,9 @@ export class MedicamentsService {
           medicament.classe_therapeutique ??
           medicament.famille_pharmacologique,
         alphabet:
-          this.normalizeText(medicament.nom_medicament).charAt(0).toUpperCase() || "#",
+          this.normalizeText(medicament.nom_medicament)
+            .charAt(0)
+            .toUpperCase() || "#",
         searchKey: this.normalizeText(
           [
             medicament.nom_medicament,
@@ -662,8 +742,8 @@ export class MedicamentsService {
     }
 
     summaries.sort((a, b) => a.name.localeCompare(b.name, "fr-FR"));
-    const categories = unique(summaries.map((item) => item.category)).sort((a, b) =>
-      a.localeCompare(b, "fr-FR"),
+    const categories = unique(summaries.map((item) => item.category)).sort(
+      (a, b) => a.localeCompare(b, "fr-FR"),
     );
 
     mobileMedicationDatasetCache = {
@@ -684,7 +764,10 @@ export class MedicamentsService {
   ) {
     const substances_actives =
       normalized.substances_actives === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getSubstancesByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getSubstancesByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replaceSubstances(
             database,
             medicamentId,
@@ -693,7 +776,10 @@ export class MedicamentsService {
 
     const indications =
       normalized.indications === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getIndicationsByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getIndicationsByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replaceIndications(
             database,
             medicamentId,
@@ -702,7 +788,10 @@ export class MedicamentsService {
 
     const contre_indications =
       normalized.contre_indications === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getContreIndicationsByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getContreIndicationsByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replaceContreIndications(
             database,
             medicamentId,
@@ -711,7 +800,10 @@ export class MedicamentsService {
 
     const precautions =
       normalized.precautions === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getPrecautionsByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getPrecautionsByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replacePrecautions(
             database,
             medicamentId,
@@ -720,7 +812,10 @@ export class MedicamentsService {
 
     const interactions =
       normalized.interactions === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getInteractionsByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getInteractionsByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replaceInteractions(
             database,
             medicamentId,
@@ -729,7 +824,10 @@ export class MedicamentsService {
 
     const effets_indesirables =
       normalized.effets_indesirables === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getEffetsIndesirablesByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getEffetsIndesirablesByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replaceEffetsIndesirables(
             database,
             medicamentId,
@@ -738,7 +836,10 @@ export class MedicamentsService {
 
     const presentations =
       normalized.presentations === undefined && !createEmptyWhenUndefined
-        ? await medicamentsRepository.getPresentationsByMedicament(database, medicamentId)
+        ? await medicamentsRepository.getPresentationsByMedicament(
+            database,
+            medicamentId,
+          )
         : await medicamentsRepository.replacePresentations(
             database,
             medicamentId,

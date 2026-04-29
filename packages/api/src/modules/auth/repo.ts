@@ -13,6 +13,7 @@ export interface UpdateMyProfileInput {
   avatar_url?: string | null;
   telephone?: string;
   adresse?: string;
+  langue_interface?: string;
 }
 
 export type UtilisateurProfile = typeof utilisateurs.$inferSelect;
@@ -67,6 +68,10 @@ export class AuthRepository {
       updateData.adresse = input.adresse;
     }
 
+    if (input.langue_interface !== undefined) {
+      updateData.langue_interface = input.langue_interface;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return this.findUtilisateurByEmail(database, email);
     }
@@ -106,6 +111,7 @@ export class AuthRepository {
 
     return updatedAccount ?? null;
   }
+
 }
 
 export const authRepository = new AuthRepository();

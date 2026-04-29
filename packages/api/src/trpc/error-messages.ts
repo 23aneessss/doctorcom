@@ -191,6 +191,10 @@ function cleanupReadableFrenchMessage(message: string): string {
     return "Cette ordonnance est introuvable.";
   }
 
+  if (matchesAny(message, [/ordonnance ne peut etre creee que pour un rendez-vous termine/i])) {
+    return "Une ordonnance ne peut être créée que pour un rendez-vous terminé.";
+  }
+
   if (matchesAny(message, [/authentification requise\./i])) {
     return sessionMessage;
   }
@@ -215,7 +219,7 @@ export function toSimpleFrenchRuntimeMessage(
       case "TIMEOUT":
         return "Le serveur met trop de temps à répondre. Réessaie dans un instant.";
       case "PRECONDITION_FAILED":
-        return "Le service demandé n’est pas disponible pour le moment.";
+        return "Cette action ne peut pas être effectuée dans l’état actuel.";
       case "BAD_REQUEST":
       case "PARSE_ERROR":
         return genericBadRequestMessage;
@@ -245,7 +249,7 @@ export function toSimpleFrenchRuntimeMessage(
   }
 
   if (code === "PRECONDITION_FAILED") {
-    return "Le service demandé n’est pas disponible pour le moment.";
+    return cleanupReadableFrenchMessage(rawMessage);
   }
 
   if (code === "INTERNAL_SERVER_ERROR") {

@@ -1,147 +1,18 @@
 import type { CSSProperties, ComponentPropsWithoutRef, ReactNode } from "react";
 import { useState } from "react";
 
+import {
+  CalendarDots,
+  GearSix,
+  House,
+  NotePencil,
+  Pill,
+  Question,
+  UsersThree,
+} from "@phosphor-icons/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import doctorLogo from "@/assets/doctor-logo.svg";
-
-function HomeGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M11.19 4.35L4.38 9.9a1.31 1.31 0 00-.48 1.03v7.14c0 .86.7 1.56 1.56 1.56h4.18c.39 0 .7-.31.7-.7v-3.8c0-.26.2-.47.47-.47h2.38c.26 0 .47.21.47.47v3.8c0 .39.31.7.7.7h4.18c.86 0 1.56-.7 1.56-1.56v-7.14c0-.4-.18-.78-.48-1.03l-6.81-5.55a1.39 1.39 0 00-1.75 0z" />
-    </svg>
-  );
-}
-
-function PatientsGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="8" cy="9" r="2.2" />
-      <circle cx="16" cy="9.6" r="1.8" />
-      <path d="M4.9 17c.4-2 2.1-3.4 4.3-3.4h0c2.2 0 3.9 1.4 4.3 3.4" />
-      <path d="M13.6 16.8c.3-1.4 1.4-2.3 2.9-2.3h0c1.4 0 2.5.8 2.8 2.1" />
-    </svg>
-  );
-}
-
-function AgendaGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="4" y="5.5" width="16" height="14" rx="2" />
-      <path d="M8 4v3M16 4v3M4 9h16" />
-      <circle cx="9" cy="12.7" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12.7" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="12.7" r="0.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function OrdonnancesGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M8.3 3.8h6.2L18.8 8V19c0 .83-.67 1.5-1.5 1.5h-9c-.83 0-1.5-.67-1.5-1.5V5.3c0-.83.67-1.5 1.5-1.5z" />
-      <path d="M14.4 3.9V8h4.2" />
-      <path d="M10 11.2h5M10 14.2h5M10 17.2h3.2" />
-    </svg>
-  );
-}
-
-function MedicamentsGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M9 3.8h6" />
-      <path d="M10 3.8v1.8M14 3.8v1.8" />
-      <rect x="7.5" y="5.6" width="9" height="14.4" rx="2" />
-      <path d="M9.4 12.1h5.2M12 9.5v5.2" />
-      <rect x="9.2" y="15" width="5.6" height="2.8" rx="0.7" />
-    </svg>
-  );
-}
-
-function ParametresGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 4.8v2.1M12 17.1v2.1M19.2 12h-2.1M6.9 12H4.8M17.1 17.1l-1.5-1.5M8.4 8.4 6.9 6.9M6.9 17.1l1.5-1.5M17.1 6.9l-1.5 1.5" />
-      <circle cx="12" cy="12" r="3.1" />
-    </svg>
-  );
-}
-
-function AideGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="100%"
-      height="100%"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="8" />
-      <path d="M10.6 9.6a1.8 1.8 0 113 1.4c-.85.6-1.35 1.08-1.35 2.1" />
-      <circle cx="12" cy="16.3" r="0.7" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 const SIDEBAR_COLORS = {
   gradientFrom: "#0f3460",
@@ -168,7 +39,6 @@ interface SidebarProps extends Omit<
 
 interface NavItemProps {
   icon: ReactNode;
-  assetName?: string;
   label: string;
   href: string;
   isActive?: boolean;
@@ -190,61 +60,34 @@ type SidebarRouteItem = {
   href: string;
   label: string;
   icon: ReactNode;
-  assetName?: string;
   state?: NavItemProps["state"];
 };
-
-const SIDEBAR_ICON_ASSET_MODULES = {
-  ...import.meta.glob<{ default: string }>("../assets/icons/sidebar/*.svg", {
-    eager: true,
-  }),
-  ...import.meta.glob<{ default: string }>("../assets/icons/sidebar/*.png", {
-    eager: true,
-  }),
-};
-
-const SIDEBAR_ICON_URLS = Object.entries(SIDEBAR_ICON_ASSET_MODULES).reduce<
-  Record<string, string>
->((acc, [path, mod]) => {
-  const fileName = path.split("/").pop();
-  if (!fileName) {
-    return acc;
-  }
-  const key = fileName.replace(/\.(svg|png)$/i, "");
-  acc[key] = mod.default;
-  return acc;
-}, {});
 
 const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/",
     label: SIDEBAR_TEXT.accueil,
-    icon: <HomeGlyph />,
-    assetName: "home",
+    icon: <House size={24} weight="regular" />,
   },
   {
     href: "/patients",
     label: SIDEBAR_TEXT.patients,
-    icon: <PatientsGlyph />,
-    assetName: "patients",
+    icon: <UsersThree size={24} weight="fill" />,
   },
   {
     href: "/agenda",
     label: SIDEBAR_TEXT.agenda,
-    icon: <AgendaGlyph />,
-    assetName: "agenda",
+    icon: <CalendarDots size={24} weight="fill" />,
   },
   {
     href: "/ordonnance",
     label: SIDEBAR_TEXT.ordonnances,
-    icon: <OrdonnancesGlyph />,
-    assetName: "ordonnances",
+    icon: <NotePencil size={24} weight="fill" />,
   },
   {
     href: "/medicament",
     label: SIDEBAR_TEXT.medicaments,
-    icon: <MedicamentsGlyph />,
-    assetName: "medicaments",
+    icon: <Pill size={24} weight="fill" />,
   },
 ];
 
@@ -252,14 +95,12 @@ const SECONDARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/parametres",
     label: SIDEBAR_TEXT.parametres,
-    icon: <ParametresGlyph />,
-    assetName: "parametres",
+    icon: <GearSix size={24} weight="fill" />,
   },
   {
     href: "/aide",
     label: SIDEBAR_TEXT.aide,
-    icon: <AideGlyph />,
-    assetName: "aide",
+    icon: <Question size={24} weight="fill" />,
   },
 ];
 
@@ -270,7 +111,9 @@ const DEFAULT_USER: NonNullable<SidebarProps["currentUser"]> = {
 
 const SIDEBAR_STYLE_MAP = {
   sidebar: {
-    position: "relative",
+    position: "sticky",
+    top: 0,
+    alignSelf: "flex-start",
     width: 250,
     minWidth: 250,
     flexShrink: 0,
@@ -324,8 +167,8 @@ const SIDEBAR_STYLE_MAP = {
       "background-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease",
   } satisfies CSSProperties,
   iconSlot: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     flexShrink: 0,
     display: "inline-flex",
     alignItems: "center",
@@ -333,15 +176,9 @@ const SIDEBAR_STYLE_MAP = {
     color: SIDEBAR_COLORS.textActive,
   } satisfies CSSProperties,
   iconGlyph: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     display: "block",
-  } satisfies CSSProperties,
-  iconImage: {
-    width: "100%",
-    height: "100%",
-    display: "block",
-    objectFit: "contain",
   } satisfies CSSProperties,
   navLabel: {
     margin: 0,
@@ -431,39 +268,23 @@ function isRouteActive(pathname: string, href: string) {
 
 function SidebarIcon({
   icon,
-  assetName,
   opacity = 1,
 }: {
   icon: ReactNode;
-  assetName?: string;
   opacity?: number;
 }) {
-  const [assetFailed, setAssetFailed] = useState(false);
-  const iconAssetUrl = assetName ? SIDEBAR_ICON_URLS[assetName] : undefined;
-  const useAsset = Boolean(iconAssetUrl && !assetFailed);
-
   return (
     <span
       aria-hidden="true"
       style={mergeStyles(SIDEBAR_STYLE_MAP.iconSlot, { opacity })}
     >
-      {useAsset ? (
-        <img
-          src={iconAssetUrl}
-          alt=""
-          style={SIDEBAR_STYLE_MAP.iconImage}
-          onError={() => setAssetFailed(true)}
-        />
-      ) : (
-        <span style={SIDEBAR_STYLE_MAP.iconGlyph}>{icon}</span>
-      )}
+      <span style={SIDEBAR_STYLE_MAP.iconGlyph}>{icon}</span>
     </span>
   );
 }
 
 function SidebarNavItem({
   icon,
-  assetName,
   label,
   href,
   isActive = false,
@@ -500,7 +321,7 @@ function SidebarNavItem({
         : { color: SIDEBAR_COLORS.textDefault, fontSize: 16, fontWeight: 600 },
   );
 
-  const iconOpacity = visualState === "default" ? 0.7 : 1;
+  const iconOpacity = visualState === "default" ? 0.88 : 1;
 
   return (
     <button
@@ -514,7 +335,7 @@ function SidebarNavItem({
       aria-label={label}
       aria-current={isActive ? "page" : undefined}
     >
-      <SidebarIcon icon={icon} assetName={assetName} opacity={iconOpacity} />
+      <SidebarIcon icon={icon} opacity={iconOpacity} />
       <span style={labelStyle}>{label}</span>
     </button>
   );
@@ -616,7 +437,6 @@ function Sidebar({
             <li key={item.href}>
               <SidebarNavItem
                 icon={item.icon}
-                assetName={item.assetName}
                 label={item.label}
                 href={item.href}
                 isActive={isRouteActive(location.pathname, item.href)}
@@ -642,7 +462,6 @@ function Sidebar({
             <li key={item.href}>
               <SidebarNavItem
                 icon={item.icon}
-                assetName={item.assetName}
                 label={item.label}
                 href={item.href}
                 isActive={isRouteActive(location.pathname, item.href)}

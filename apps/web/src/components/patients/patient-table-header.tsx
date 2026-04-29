@@ -4,11 +4,11 @@ export function PatientTableHeader() {
   return (
     <div className={styles.tableHeader} role="row">
       <span>Patient</span>
-      <span>Age/sexe</span>
+      <span>Age / Sexe</span>
       <span>Contacts</span>
       <span>Conditions</span>
       <span>Groupe sanguin</span>
-      <span aria-hidden="true" />
+      <span className="text-right" aria-hidden="true">Actions</span>
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
 
-import { env } from "@doctor.com/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
+
+import { getServerBaseUrl } from "@/lib/server-url";
+
+const serverBaseUrl = getServerBaseUrl();
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -13,7 +16,7 @@ export const queryClient = new QueryClient({
 
       toast.error(
         networkError
-          ? `Connexion API impossible (${env.VITE_SERVER_URL}). Vérifiez le serveur et le CORS.`
+          ? `Connexion API impossible (${serverBaseUrl}). Vérifiez le serveur et le CORS.`
           : error.message,
         {
         action: {
@@ -29,7 +32,7 @@ export const queryClient = new QueryClient({
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: `${env.VITE_SERVER_URL}/trpc`,
+      url: `${serverBaseUrl}/trpc`,
       fetch(url, options) {
         return fetch(url, {
           ...options,

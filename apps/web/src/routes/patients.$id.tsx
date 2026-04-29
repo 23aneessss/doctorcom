@@ -34,7 +34,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireSession } from "@/lib/require-session";
 import { formatSexLabel, isFemaleSex } from "@/lib/patient-sex";
@@ -187,8 +187,8 @@ const tabs = [
   { label: "Traitements", to: "/patients/$id/traitement", icon: Package },
   { label: "Documents", to: "/patients/$id/document", icon: FileText },
   { label: "Vaccinations", to: "/patients/$id/vaccination", icon: Syringe },
-  { label: "Santé Féminine", to: "/patients/$id/sante-feminine", icon: User },
-  { label: "Infos Sociales", to: "/patients/$id/info-sociale", icon: House },
+  { label: "Santé féminine", to: "/patients/$id/sante-feminine", icon: User },
+  { label: "Infos sociales", to: "/patients/$id/info-sociale", icon: House },
   { label: "Voyages", to: "/patients/$id/voyage", icon: MapPin },
 ] as const;
 
@@ -288,7 +288,9 @@ function PatientLayout() {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<PatientPopupEventDetail>;
       if (customEvent.detail?.type === "suivi") {
-        setSuiviDialogMode(customEvent.detail.mode === "edit" ? "edit" : "create");
+        setSuiviDialogMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setSuiviDialogId(customEvent.detail.suiviId);
         setSuiviDialogValues(
           (customEvent.detail.initialValues as SuiviDialogValues | undefined) ??
@@ -432,7 +434,7 @@ function PatientLayout() {
         ),
       ]);
       setIsEditing(false);
-      toast.success("Données patient mises à jour");
+      toast.success("Données du patient mises à jour");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -473,7 +475,7 @@ function PatientLayout() {
     validators: {
       onSubmit: z.object({
         nom: z.string().trim().min(1, "Le nom est requis").max(255),
-        prenom: z.string().trim().min(1, "Le prenom est requis").max(255),
+        prenom: z.string().trim().min(1, "Le prénom est requis").max(255),
         telephone: z.string().max(32),
         email: z.union([z.literal(""), z.string().email()]),
         adresse: z.string().max(255),
@@ -1112,12 +1114,20 @@ function PatientLayout() {
 
           {/* Tab Navigation */}
           <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
-            <div className={cn(
-              "scrollbar-hide flex w-full max-w-full items-center overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1",
-              isFemalePatient ? "justify-start gap-1" : "justify-center gap-3"
-            )}>
+            <div
+              className={cn(
+                "scrollbar-hide flex w-full max-w-full items-center overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1",
+                isFemalePatient
+                  ? "justify-start gap-1"
+                  : "justify-center gap-3",
+              )}
+            >
               {tabs
-                .filter((tab) => tab.to !== "/patients/$id/sante-feminine" || isFemalePatient)
+                .filter(
+                  (tab) =>
+                    tab.to !== "/patients/$id/sante-feminine" ||
+                    isFemalePatient,
+                )
                 .map((tab) => {
                   const tabPath = tab.to.replace("$id", id);
                   const isActive = location.pathname === tabPath;

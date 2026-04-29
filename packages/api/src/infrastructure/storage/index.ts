@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type {} from "multer";
 import { Client } from "minio";
 import { env } from "@doctor.com/env/server";
 
@@ -67,7 +68,12 @@ export async function ensureBucketExists(): Promise<void> {
 export async function uploadFile(params: {
   file: Express.Multer.File;
   folder?: string;
-}): Promise<{ url: string; objectName: string; size: number; mimeType: string }> {
+}): Promise<{
+  url: string;
+  objectName: string;
+  size: number;
+  mimeType: string;
+}> {
   const objectName = `${params.folder ?? "documents"}/${randomUUID()}-${params.file.originalname}`;
 
   await minioClient.putObject(

@@ -47,8 +47,15 @@
     {
       "idx": 6,
       "version": "7",
+      "when": 1777372800000,
+      "tag": "0006_add_utilisateur_langue_interface",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
       "when": 1776933060000,
-      "tag": "0006_ordonnance_ai_generations",
+      "tag": "0007_ordonnance_ai_generations",
       "breakpoints": true
     }
   ]
