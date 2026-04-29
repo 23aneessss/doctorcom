@@ -243,10 +243,7 @@ function PatientsPage() {
   };
 
   const handleEditPatient = (patientId: string) => {
-    setDialogMode("edit");
-    setEditingPatientId(patientId);
-    setNouveauPatientError(null);
-    setIsNouveauPatientOpen(true);
+    void navigate({ to: "/patients/$id/general", params: { id: patientId }, search: { edit: true } });
   };
 
   const handleAddPatient = () => {
