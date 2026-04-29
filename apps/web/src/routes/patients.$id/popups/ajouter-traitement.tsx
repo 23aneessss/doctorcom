@@ -1,10 +1,11 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CircleHelp, Package, X } from "lucide-react";
+import { Check, CircleHelp, Package, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { cn } from "@/lib/utils";
 import { trpc, trpcClient } from "@/utils/trpc";
 
 type TraitementDialogValues = {
@@ -46,7 +47,7 @@ export function AjouterTraitementDialog({
       est_actif: values?.est_actif ?? true,
       prescrit_par: "Dr. Admin",
     }),
-    [values]
+    [values],
   );
 
   const form = useForm({
@@ -87,13 +88,14 @@ export function AjouterTraitementDialog({
 
   const selectedMedicationId = Number.parseInt(
     form.state.values.medicament_externe_id,
-    10
+    10,
   );
   const medicamentDetailsQuery = useQuery({
     ...trpc.medicaments.getMedicamentById.queryOptions({
-      id: Number.isInteger(selectedMedicationId) && selectedMedicationId > 0
-        ? selectedMedicationId
-        : 1,
+      id:
+        Number.isInteger(selectedMedicationId) && selectedMedicationId > 0
+          ? selectedMedicationId
+          : 1,
     }),
     enabled: open && Number.isInteger(selectedMedicationId) && selectedMedicationId > 0,
   });
@@ -108,13 +110,13 @@ export function AjouterTraitementDialog({
     if (!form.state.values.contre_indications.trim()) {
       form.setFieldValue(
         "contre_indications",
-        details.contre_indications[0]?.description ?? ""
+        details.contre_indications[0]?.description ?? "",
       );
     }
     if (!form.state.values.effets_indesirables.trim()) {
       form.setFieldValue(
         "effets_indesirables",
-        details.effets_indesirables[0]?.effet ?? ""
+        details.effets_indesirables[0]?.effet ?? "",
       );
     }
   }, [medicamentDetailsQuery.data]);
@@ -168,104 +170,156 @@ export function AjouterTraitementDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,35,65,0.2)]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,35,65,0.2)] p-4"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onOpenChange(false);
       }}
     >
-      <div className="w-[672px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
-        <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
-          <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold text-[#0f3460]">
-            Ajouter un traitement
-          </h3>
-          <div className="flex items-center gap-4">
-            <button className="flex size-5 items-center justify-center text-[#0f3460]" type="button">
-              <CircleHelp className="size-5" />
-            </button>
-            <button
-              className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460]"
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
-
+      <div className="flex max-h-[calc(100svh-32px)] w-full max-w-[672px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
         <form
-          className="flex max-h-[641px] flex-col"
+          className="flex min-h-0 w-full flex-col"
           onSubmit={(event) => {
             event.preventDefault();
             form.handleSubmit();
           }}
         >
-          <div className="space-y-5 overflow-y-auto px-6 pb-4 pt-6">
-            <FieldInput form={form} name="nom_medicament" label="DCI / Nom du médicament" required placeholder="Ex: Paracétamol 500mg" />
+          <DialogHeader title="Ajouter un traitement" onClose={() => onOpenChange(false)} />
+
+          <div className="consultation-modal-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-6 sm:px-6">
+            <FieldInput
+              form={form}
+              label="DCI / Nom du médicament"
+              name="nom_medicament"
+              placeholder="Ex: Paracétamol 500mg"
+              required
+            />
+
             {medicamentsQuery.data?.items?.length ? (
-              <div className="-mt-2 rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-2">
-                {medicamentsQuery.data.items.slice(0, 5).map((item) => (
-                  <button
-                    key={item.id}
-                    className="flex w-full items-center justify-between rounded-[8px] px-2 py-1.5 text-left hover:bg-[#f8fafc]"
-                    onClick={() => {
-                      form.setFieldValue("medicament_externe_id", String(item.id));
-                      form.setFieldValue("nom_medicament", item.nom_medicament);
-                      form.setFieldValue("indication", form.state.values.indication || "");
-                    }}
-                    type="button"
-                  >
-                    <span className="font-['Inter'] text-[14px] text-[#0f3460]">{item.nom_medicament}</span>
-                    <Package className="size-4 text-[#76bbdd]" />
-                  </button>
-                ))}
-              </div>
+              <MedicationSuggestions
+                items={medicamentsQuery.data.items.slice(0, 5)}
+                onSelect={(item) => {
+                  form.setFieldValue("medicament_externe_id", String(item.id));
+                  form.setFieldValue("nom_medicament", item.nom_medicament);
+                }}
+              />
             ) : null}
 
-            <div className="grid grid-cols-2 gap-4">
-              <FieldInput form={form} name="indication" label="Indication" required placeholder="Ex: Douleur et fièvre" />
-              <FieldInput form={form} name="dosage" label="Dosage" required placeholder="Ex: 500mg" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldInput
+                form={form}
+                label="Indication"
+                name="indication"
+                placeholder="Ex: Douleur et fièvre"
+                required
+              />
+              <FieldInput
+                form={form}
+                label="Dosage"
+                name="dosage"
+                placeholder="Ex: 500mg"
+                required
+              />
             </div>
 
-            <FieldInput form={form} name="posologie" label="Posologie" required placeholder="Ex: 1 cp x3/j" />
-            <FieldTextarea form={form} name="contre_indications" label="Contre-indications" placeholder="Ex: Insuffisance hépatique, allergie..." />
-            <FieldTextarea form={form} name="effets_indesirables" label="Effets indésirables" placeholder="Ex: Nausées, somnolence..." />
+            <FieldInput
+              form={form}
+              label="Posologie"
+              name="posologie"
+              placeholder="Ex: 1 cp x3/j"
+              required
+            />
+            <FieldTextarea
+              form={form}
+              label="Contre-indications"
+              name="contre_indications"
+              placeholder="Ex: Insuffisance hépatique, allergie..."
+            />
+            <FieldTextarea
+              form={form}
+              label="Effets indésirables"
+              name="effets_indesirables"
+              placeholder="Ex: Nausées, somnolence..."
+            />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FieldInput form={form} name="date_prescription" label="Date de prescription" placeholder="2026-03-20" />
-              <FieldInput form={form} name="prescrit_par" label="Prescrit par" readOnly />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldInput
+                form={form}
+                label="Date de prescription"
+                name="date_prescription"
+                placeholder="2026-03-20"
+              />
+              <FieldInput form={form} label="Prescrit par" name="prescrit_par" readOnly />
             </div>
 
-            <form.Field name="est_actif">
-              {(field) => (
-                <label className="flex h-[45.6px] w-full cursor-pointer items-center gap-[10px] rounded-[4px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc] py-[0.8px] pl-[12.8px] pr-[0.8px]">
-                  <input
-                    checked={field.state.value}
-                    className="peer sr-only"
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.checked)}
-                    type="checkbox"
-                  />
-                  <span className={`flex size-4 items-center justify-center rounded-[4px] border ${field.state.value ? "border-[#76bbdd] bg-[#76bbdd]" : "border-[#c2e0ef] bg-white"}`}>
-                    <svg className={`size-[12px] text-white ${field.state.value ? "opacity-100" : "opacity-0"}`} fill="none" viewBox="0 0 12 12">
-                      <path d="M2.6 6.3L5.1 8.7L9.4 4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                    </svg>
-                  </span>
-                  <span className="font-['Inter'] text-[14px] font-medium text-[#0f3460]">Traitement actif (en cours)</span>
-                </label>
-              )}
-            </form.Field>
+            <StatusCheckbox form={form} />
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t-[0.67px] border-[rgba(194,224,239,0.4)] px-5 py-[8px]">
-            <button className="h-[37.6px] rounded-[12px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#f77a21]" onClick={() => onOpenChange(false)} type="button">
-              Annuler
-            </button>
-            <button className="h-[37.6px] rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)]" disabled={createMutation.isPending} type="submit">
-              {createMutation.isPending ? "Enregistrement..." : "Ajouter"}
-            </button>
-          </div>
+          <DialogFooter
+            isPending={createMutation.isPending}
+            onCancel={() => onOpenChange(false)}
+            submitLabel="Ajouter"
+          />
         </form>
       </div>
+    </div>
+  );
+}
+
+function DialogHeader({
+  title,
+  onClose,
+}: {
+  title: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex h-[75px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
+      <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-7 text-[#0f3460]">
+        {title}
+      </h3>
+      <div className="flex items-center gap-4">
+        <button
+          aria-label="Aide"
+          className="flex size-5 items-center justify-center text-[#0f3460]"
+          type="button"
+        >
+          <CircleHelp className="size-5" />
+        </button>
+        <button
+          aria-label="Fermer"
+          className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460]"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="size-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MedicationSuggestions({
+  items,
+  onSelect,
+}: {
+  items: Array<{ id: number; nom_medicament: string }>;
+  onSelect: (item: { id: number; nom_medicament: string }) => void;
+}) {
+  return (
+    <div className="-mt-2 rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-2 shadow-[0px_8px_18px_0px_rgba(15,52,96,0.08)]">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[#f8fafc]"
+          onClick={() => onSelect(item)}
+          type="button"
+        >
+          <span className="min-w-0 truncate font-['Inter'] text-[14px] leading-5 text-[#0f3460]">
+            {item.nom_medicament}
+          </span>
+          <Package className="size-4 shrink-0 text-[#76bbdd]" />
+        </button>
+      ))}
     </div>
   );
 }
@@ -289,11 +343,11 @@ function FieldInput({
     <form.Field name={name}>
       {(field: any) => (
         <div className="space-y-[6px]">
-          <label className="font-['Inter'] text-[14px] font-medium text-[#0f3460]">
+          <label className="font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
             {label} {required ? <span className="text-[#f97316]">*</span> : null}
           </label>
           <input
-            className="h-[37.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] px-3 font-['Inter'] text-[14px] text-[#0f3460] placeholder:text-[rgba(100,116,139,0.9)]"
+            className="h-[37.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50 disabled:cursor-not-allowed disabled:bg-[#f8fafc]"
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={placeholder}
@@ -301,7 +355,9 @@ function FieldInput({
             value={field.state.value}
           />
           {field.state.meta.errors[0]?.message ? (
-            <p className="text-xs text-red-600">{field.state.meta.errors[0].message}</p>
+            <p className="font-['Inter'] text-xs text-red-600">
+              {field.state.meta.errors[0].message}
+            </p>
           ) : null}
         </div>
       )}
@@ -324,9 +380,11 @@ function FieldTextarea({
     <form.Field name={name}>
       {(field: any) => (
         <div className="space-y-[6px]">
-          <label className="font-['Inter'] text-[14px] font-medium text-[#0f3460]">{label}</label>
+          <label className="font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+            {label}
+          </label>
           <textarea
-            className="h-[57.6px] w-full resize-none rounded-[10px] border-[0.8px] border-[#c2e0ef] px-3 py-2 font-['Inter'] text-[14px] text-[#0f3460] placeholder:text-[rgba(100,116,139,0.9)]"
+            className="min-h-[57.6px] w-full resize-y rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={placeholder}
@@ -335,5 +393,70 @@ function FieldTextarea({
         </div>
       )}
     </form.Field>
+  );
+}
+
+function StatusCheckbox({ form }: { form: any }) {
+  return (
+    <form.Field name="est_actif">
+      {(field: any) => (
+        <label className="flex min-h-[45.6px] w-full cursor-pointer items-center gap-[10px] rounded-[4px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-[12.8px] py-[10px]">
+          <input
+            checked={field.state.value}
+            className="peer sr-only"
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.checked)}
+            type="checkbox"
+          />
+          <span
+            className={cn(
+              "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+              field.state.value
+                ? "border-[#76bbdd] bg-[#76bbdd]"
+                : "border-[#c2e0ef] bg-white",
+            )}
+          >
+            <Check
+              className={cn(
+                "size-[12px] text-white",
+                field.state.value ? "opacity-100" : "opacity-0",
+              )}
+            />
+          </span>
+          <span className="font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+            Traitement actif (en cours)
+          </span>
+        </label>
+      )}
+    </form.Field>
+  );
+}
+
+function DialogFooter({
+  isPending,
+  onCancel,
+  submitLabel,
+}: {
+  isPending: boolean;
+  onCancel: () => void;
+  submitLabel: string;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-end gap-3 border-t-[0.67px] border-[rgba(194,224,239,0.4)] px-5 py-[8px]">
+      <button
+        className="h-[37.6px] cursor-pointer rounded-[12px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-[#f77a21] transition-colors hover:bg-[#fff7ed]"
+        onClick={onCancel}
+        type="button"
+      >
+        Annuler
+      </button>
+      <button
+        className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isPending}
+        type="submit"
+      >
+        {isPending ? "Enregistrement..." : submitLabel}
+      </button>
+    </div>
   );
 }

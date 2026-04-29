@@ -131,14 +131,15 @@ Build Turbo de tous les workspaces qui exposent `build`.
 ```bash
 bun run dev
 ```
-Lance `turbo dev` (multi-workspace).
+Lance tous les workspaces de dev (`server`, `web`, `native`).
 
 ```bash
+bun run dev:core
 bun run dev:server
 bun run dev:web
 bun run dev:native
 ```
-Lance un workspace cible.
+`dev:core` lance seulement `server` + `web`. Les autres commandes ciblent un workspace precis.
 
 ## Base de donnees
 
@@ -235,7 +236,7 @@ bun run --cwd apps/web check-types
 
 Verifier `apps/server/.env`:
 
-- `CORS_ORIGIN=http://localhost:5173`
+- `CORS_ORIGIN=http://localhost:3001`
 - `BETTER_AUTH_URL=http://localhost:3000`
 
 ## Références utiles dans le repo

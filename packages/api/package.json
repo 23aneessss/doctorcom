@@ -11,6 +11,9 @@
     "./routers/index": {
       "default": "./src/routers/index.ts"
     },
+    "./infrastructure/scheduler": {
+      "default": "./src/infrastructure/scheduler/index.ts"
+    },
     "./infrastructure/storage": {
       "default": "./src/infrastructure/storage/index.ts"
     },

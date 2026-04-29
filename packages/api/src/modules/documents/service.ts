@@ -1,9 +1,14 @@
 import { TRPCError } from "@trpc/server";
+import type {} from "multer";
 import type { db as databaseClient } from "@doctor.com/db";
 import { patients } from "@doctor.com/db/schema";
 import { user as authUser } from "@doctor.com/db/schema/auth";
 import { eq } from "drizzle-orm";
-import { uploadFile } from "../../infrastructure/storage";
+import {
+  deleteFile,
+  getObjectNameFromUrl,
+  uploadFile,
+} from "../../infrastructure/storage";
 import {
   envoyerCertificatMedical,
   envoyerLettreOrientation,
@@ -114,15 +119,25 @@ export class DocumentsService {
     id: string;
     input: UpdateCategorieInput;
   }): Promise<CategorieDocumentRecord> {
-    const existing = await documentsRepository.getCategorieById(data.db, data.id);
+    const existing = await documentsRepository.getCategorieById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Categorie introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Categorie introuvable.",
+      });
     }
 
-    const updated = await documentsRepository.updateCategorie(data.db, data.id, {
-      nom: data.input.nom?.trim(),
-      description: data.input.description,
-    });
+    const updated = await documentsRepository.updateCategorie(
+      data.db,
+      data.id,
+      {
+        nom: data.input.nom?.trim(),
+        description: data.input.description,
+      },
+    );
 
     if (!updated) {
       throw new TRPCError({
@@ -134,17 +149,30 @@ export class DocumentsService {
     return updated;
   }
 
-  async supprimerCategorie(data: { db: DatabaseClient; id: string }): Promise<{ success: true }> {
-    const existing = await documentsRepository.getCategorieById(data.db, data.id);
+  async supprimerCategorie(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<{ success: true }> {
+    const existing = await documentsRepository.getCategorieById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Categorie introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Categorie introuvable.",
+      });
     }
 
-    const relatedDocuments = await documentsRepository.getDocumentsByCategorie(data.db, data.id);
+    const relatedDocuments = await documentsRepository.getDocumentsByCategorie(
+      data.db,
+      data.id,
+    );
     if (relatedDocuments.length > 0) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: "Impossible de supprimer cette catégorie : des documents y sont associés.",
+        message:
+          "Impossible de supprimer cette catégorie : des documents y sont associés.",
       });
     }
 
@@ -159,7 +187,9 @@ export class DocumentsService {
     return { success: true };
   }
 
-  async getToutesCategories(data: { db: DatabaseClient }): Promise<CategorieDocumentRecord[]> {
+  async getToutesCategories(data: {
+    db: DatabaseClient;
+  }): Promise<CategorieDocumentRecord[]> {
     return documentsRepository.getAllCategories(data.db);
   }
 
@@ -237,9 +267,15 @@ export class DocumentsService {
     id: string;
     input: UpdateDocumentServiceInput;
   }): Promise<DocumentPatientRecord> {
-    const existing = await documentsRepository.getDocumentById(data.db, data.id);
+    const existing = await documentsRepository.getDocumentById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
     const payload: UpdateDocumentInput = {
@@ -252,7 +288,11 @@ export class DocumentsService {
       description: data.input.description,
     };
 
-    const updated = await documentsRepository.updateDocument(data.db, data.id, payload);
+    const updated = await documentsRepository.updateDocument(
+      data.db,
+      data.id,
+      payload,
+    );
     if (!updated) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -263,10 +303,19 @@ export class DocumentsService {
     return updated;
   }
 
-  async supprimerDocument(data: { db: DatabaseClient; id: string }): Promise<{ success: true }> {
-    const existing = await documentsRepository.getDocumentById(data.db, data.id);
+  async supprimerDocument(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<{ success: true }> {
+    const existing = await documentsRepository.getDocumentById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
     const deleted = await documentsRepository.deleteDocument(data.db, data.id);
@@ -277,13 +326,25 @@ export class DocumentsService {
       });
     }
 
+    try {
+      await deleteFile(getObjectNameFromUrl(existing.chemin_fichier));
+    } catch (error) {
+      console.warn("[documents] Failed to delete stored file:", error);
+    }
+
     return { success: true };
   }
 
-  async getDocumentById(data: { db: DatabaseClient; id: string }): Promise<DocumentPatientRecord> {
+  async getDocumentById(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<DocumentPatientRecord> {
     const item = await documentsRepository.getDocumentById(data.db, data.id);
     if (!item) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
     return item;
@@ -301,16 +362,32 @@ export class DocumentsService {
     patientId: string;
     typeDocument: string;
   }): Promise<DocumentPatientRecord[]> {
-    return documentsRepository.getDocumentsByType(data.db, data.patientId, data.typeDocument);
+    return documentsRepository.getDocumentsByType(
+      data.db,
+      data.patientId,
+      data.typeDocument,
+    );
   }
 
-  async archiverDocument(data: { db: DatabaseClient; id: string }): Promise<DocumentPatientRecord> {
-    const existing = await documentsRepository.getDocumentById(data.db, data.id);
+  async archiverDocument(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<DocumentPatientRecord> {
+    const existing = await documentsRepository.getDocumentById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
-    const archived = await documentsRepository.archiverDocument(data.db, data.id);
+    const archived = await documentsRepository.archiverDocument(
+      data.db,
+      data.id,
+    );
     if (!archived) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -321,13 +398,25 @@ export class DocumentsService {
     return archived;
   }
 
-  async restaurerDocument(data: { db: DatabaseClient; id: string }): Promise<DocumentPatientRecord> {
-    const existing = await documentsRepository.getDocumentById(data.db, data.id);
+  async restaurerDocument(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<DocumentPatientRecord> {
+    const existing = await documentsRepository.getDocumentById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
-    const restored = await documentsRepository.restaurerDocument(data.db, data.id);
+    const restored = await documentsRepository.restaurerDocument(
+      data.db,
+      data.id,
+    );
     if (!restored) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -342,7 +431,10 @@ export class DocumentsService {
     db: DatabaseClient;
     input: CreateLettreServiceInput;
     userEmail: string;
-  }): Promise<{ document: DocumentPatientRecord; lettre: LettreOrientationRecord }> {
+  }): Promise<{
+    document: DocumentPatientRecord;
+    lettre: LettreOrientationRecord;
+  }> {
     await this.assertPatientExists(data.db, data.input.document.patient_id);
     await this.assertSuiviExists(data.db, data.input.lettre.suivi_id);
     const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
@@ -395,7 +487,10 @@ export class DocumentsService {
   }): Promise<LettreOrientationRecord> {
     const existing = await documentsRepository.getLettreById(data.db, data.id);
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Lettre introuvable.",
+      });
     }
     const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
@@ -410,7 +505,11 @@ export class DocumentsService {
       date_modification: this.nowIsoDate(),
     };
 
-    const updated = await documentsRepository.updateLettre(data.db, data.id, payload);
+    const updated = await documentsRepository.updateLettre(
+      data.db,
+      data.id,
+      payload,
+    );
     if (!updated) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -421,10 +520,16 @@ export class DocumentsService {
     return updated;
   }
 
-  async supprimerLettre(data: { db: DatabaseClient; id: string }): Promise<{ success: true }> {
+  async supprimerLettre(data: {
+    db: DatabaseClient;
+    id: string;
+  }): Promise<{ success: true }> {
     const existing = await documentsRepository.getLettreById(data.db, data.id);
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Lettre introuvable.",
+      });
     }
 
     const deleted = await documentsRepository.deleteLettre(data.db, data.id);
@@ -441,13 +546,22 @@ export class DocumentsService {
   async getLettreById(data: {
     db: DatabaseClient;
     id: string;
-  }): Promise<{ lettre: LettreOrientationRecord; document: DocumentPatientRecord }> {
+  }): Promise<{
+    lettre: LettreOrientationRecord;
+    document: DocumentPatientRecord;
+  }> {
     const lettre = await documentsRepository.getLettreById(data.db, data.id);
     if (!lettre) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Lettre introuvable.",
+      });
     }
 
-    const document = await documentsRepository.getDocumentById(data.db, lettre.documents_patient_id);
+    const document = await documentsRepository.getDocumentById(
+      data.db,
+      lettre.documents_patient_id,
+    );
     if (!document) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -476,7 +590,10 @@ export class DocumentsService {
     db: DatabaseClient;
     input: CreateCertificatServiceInput;
     userEmail: string;
-  }): Promise<{ document: DocumentPatientRecord; certificat: CertificatMedicalRecord }> {
+  }): Promise<{
+    document: DocumentPatientRecord;
+    certificat: CertificatMedicalRecord;
+  }> {
     await this.assertPatientExists(data.db, data.input.document.patient_id);
     await this.assertSuiviExists(data.db, data.input.certificat.suivi_id);
     const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
@@ -529,9 +646,15 @@ export class DocumentsService {
     input: UpdateCertificatServiceInput;
     userEmail: string;
   }): Promise<CertificatMedicalRecord> {
-    const existing = await documentsRepository.getCertificatById(data.db, data.id);
+    const existing = await documentsRepository.getCertificatById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Certificat introuvable.",
+      });
     }
     const utilisateur = await this.resolveUtilisateur(data.db, data.userEmail);
 
@@ -548,7 +671,11 @@ export class DocumentsService {
       date_modification: this.nowIsoDate(),
     };
 
-    const updated = await documentsRepository.updateCertificat(data.db, data.id, payload);
+    const updated = await documentsRepository.updateCertificat(
+      data.db,
+      data.id,
+      payload,
+    );
     if (!updated) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -563,12 +690,21 @@ export class DocumentsService {
     db: DatabaseClient;
     id: string;
   }): Promise<{ success: true }> {
-    const existing = await documentsRepository.getCertificatById(data.db, data.id);
+    const existing = await documentsRepository.getCertificatById(
+      data.db,
+      data.id,
+    );
     if (!existing) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Certificat introuvable.",
+      });
     }
 
-    const deleted = await documentsRepository.deleteCertificat(data.db, data.id);
+    const deleted = await documentsRepository.deleteCertificat(
+      data.db,
+      data.id,
+    );
     if (!deleted) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -582,10 +718,19 @@ export class DocumentsService {
   async getCertificatById(data: {
     db: DatabaseClient;
     id: string;
-  }): Promise<{ certificat: CertificatMedicalRecord; document: DocumentPatientRecord }> {
-    const certificat = await documentsRepository.getCertificatById(data.db, data.id);
+  }): Promise<{
+    certificat: CertificatMedicalRecord;
+    document: DocumentPatientRecord;
+  }> {
+    const certificat = await documentsRepository.getCertificatById(
+      data.db,
+      data.id,
+    );
     if (!certificat) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Certificat introuvable.",
+      });
     }
 
     const document = await documentsRepository.getDocumentById(
@@ -641,14 +786,26 @@ export class DocumentsService {
     userEmail?: string;
     userId?: string;
   }): Promise<{ success: true; message: string }> {
-    const lettre = await documentsRepository.getLettreById(data.db, data.lettreId);
+    const lettre = await documentsRepository.getLettreById(
+      data.db,
+      data.lettreId,
+    );
     if (!lettre) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Lettre introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Lettre introuvable.",
+      });
     }
 
-    const document = await documentsRepository.getDocumentById(data.db, lettre.documents_patient_id);
+    const document = await documentsRepository.getDocumentById(
+      data.db,
+      lettre.documents_patient_id,
+    );
     if (!document) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
     const patient = await data.db
@@ -662,7 +819,10 @@ export class DocumentsService {
       .then((rows) => rows[0]);
 
     if (!patient) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Patient introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
     }
 
     if (!patient.email) {
@@ -673,10 +833,16 @@ export class DocumentsService {
     }
 
     const sessionEmail = await this.resolveSessionUserEmail(data);
-    const utilisateur = await documentsRepository.getUtilisateurByEmail(data.db, sessionEmail);
+    const utilisateur = await documentsRepository.getUtilisateurByEmail(
+      data.db,
+      sessionEmail,
+    );
 
     if (!utilisateur) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Utilisateur introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Utilisateur introuvable.",
+      });
     }
 
     const clinic: ClinicInfo = {
@@ -686,7 +852,10 @@ export class DocumentsService {
       address: utilisateur.adresse ?? "",
     };
 
-    const pdfBuffer = await exportService.exporterLettreOrientation(data.db, data.lettreId);
+    const pdfBuffer = await exportService.exporterLettreOrientation(
+      data.db,
+      data.lettreId,
+    );
 
     await envoyerLettreOrientation({
       clinic,
@@ -716,9 +885,15 @@ export class DocumentsService {
     userEmail?: string;
     userId?: string;
   }): Promise<{ success: true; message: string }> {
-    const certificat = await documentsRepository.getCertificatById(data.db, data.certificatId);
+    const certificat = await documentsRepository.getCertificatById(
+      data.db,
+      data.certificatId,
+    );
     if (!certificat) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Certificat introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Certificat introuvable.",
+      });
     }
 
     const document = await documentsRepository.getDocumentById(
@@ -726,7 +901,10 @@ export class DocumentsService {
       certificat.documents_patient_id,
     );
     if (!document) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Document introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Document introuvable.",
+      });
     }
 
     const patient = await data.db
@@ -740,7 +918,10 @@ export class DocumentsService {
       .then((rows) => rows[0]);
 
     if (!patient) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Patient introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
     }
 
     if (!patient.email) {
@@ -751,10 +932,16 @@ export class DocumentsService {
     }
 
     const sessionEmail = await this.resolveSessionUserEmail(data);
-    const utilisateur = await documentsRepository.getUtilisateurByEmail(data.db, sessionEmail);
+    const utilisateur = await documentsRepository.getUtilisateurByEmail(
+      data.db,
+      sessionEmail,
+    );
 
     if (!utilisateur) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Utilisateur introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Utilisateur introuvable.",
+      });
     }
 
     const clinic: ClinicInfo = {
@@ -764,7 +951,10 @@ export class DocumentsService {
       address: utilisateur.adresse ?? "",
     };
 
-    const pdfBuffer = await exportService.exporterCertificatMedical(data.db, data.certificatId);
+    const pdfBuffer = await exportService.exporterCertificatMedical(
+      data.db,
+      data.certificatId,
+    );
 
     await envoyerCertificatMedical({
       clinic,
@@ -788,14 +978,26 @@ export class DocumentsService {
     return { success: true, message: "Email envoyé avec succès." };
   }
 
-  private async assertPatientExists(database: DatabaseClient, patientId: string): Promise<void> {
-    const patient = await documentsRepository.getPatientById(database, patientId);
+  private async assertPatientExists(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<void> {
+    const patient = await documentsRepository.getPatientById(
+      database,
+      patientId,
+    );
     if (!patient) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Patient introuvable." });
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
     }
   }
 
-  private async assertSuiviExists(database: DatabaseClient, suiviId: string): Promise<void> {
+  private async assertSuiviExists(
+    database: DatabaseClient,
+    suiviId: string,
+  ): Promise<void> {
     const suiviItem = await documentsRepository.getSuiviById(database, suiviId);
     if (!suiviItem) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Suivi introuvable." });
@@ -814,7 +1016,10 @@ export class DocumentsService {
       });
     }
 
-    const utilisateur = await documentsRepository.findUtilisateurByEmail(database, email);
+    const utilisateur = await documentsRepository.findUtilisateurByEmail(
+      database,
+      email,
+    );
     if (!utilisateur) {
       throw new TRPCError({
         code: "UNAUTHORIZED",

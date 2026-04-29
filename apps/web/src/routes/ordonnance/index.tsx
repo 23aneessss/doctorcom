@@ -44,7 +44,8 @@ export const Route = createFileRoute("/ordonnance/")({
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type PatientSearchRow = RouterOutputs["patient"]["searchPatients"][number];
-type OrdonnanceRow = RouterOutputs["ordonnance"]["getOrdonnancesByPatient"][number];
+type OrdonnanceRow =
+  RouterOutputs["ordonnance"]["getOrdonnancesByPatient"][number];
 type CategoryRow = RouterOutputs["ordonnance"]["getToutesCategories"][number];
 type PreRempliDetail = RouterOutputs["ordonnance"]["getPreRempliById"];
 
@@ -136,7 +137,8 @@ function RouteComponent() {
       : undefined;
 
   const [templateSearchValue, setTemplateSearchValue] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE);
+  const [selectedCategory, setSelectedCategory] =
+    useState(ALL_CATEGORIES_VALUE);
   const [selectedSpecialite, setSelectedSpecialite] = useState(
     ALL_SPECIALITES_VALUE,
   );
@@ -397,8 +399,8 @@ function RouteComponent() {
             {failedQueries.length > 0 ? (
               <div className="flex items-center justify-between rounded-[14px] border border-[#f77a21] bg-[#fff7ed] px-4 py-3">
                 <p className="font-['Inter'] text-[13px] text-[#b45309]">
-                  Certaines données de la page Ordonnances n&apos;ont pas pu être
-                  chargées.
+                  Certaines données de la page Ordonnances n&apos;ont pas pu
+                  être chargées.
                 </p>
                 <button
                   className="rounded-[10px] border border-[#f77a21] px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#f77a21] transition-colors hover:bg-[#ffedd5]"
@@ -465,7 +467,9 @@ function RouteComponent() {
                   <button
                     aria-label="Voir les ordonnances suivantes"
                     className="inline-flex size-[34px] items-center justify-center rounded-full text-[#5d7b96] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
-                    disabled={recentOrdonnancesPage >= recentOrdonnancesPageCount - 1}
+                    disabled={
+                      recentOrdonnancesPage >= recentOrdonnancesPageCount - 1
+                    }
                     onClick={() =>
                       setRecentOrdonnancesPage((current) =>
                         Math.min(recentOrdonnancesPageCount - 1, current + 1),
@@ -554,18 +558,33 @@ function RouteComponent() {
                         <div className="flex items-center justify-center gap-2">
                           <ActionIconButton
                             ariaLabel="Voir l'ordonnance"
-                            icon={<Eye className="size-[13px]" strokeWidth={2} />}
-                            onClick={() => setPreviewOrdonnanceId(ordonnance.id)}
+                            icon={
+                              <Eye className="size-[13px]" strokeWidth={2} />
+                            }
+                            onClick={() =>
+                              setPreviewOrdonnanceId(ordonnance.id)
+                            }
                           />
                           <ActionIconButton
                             ariaLabel="Modifier l'ordonnance"
-                            icon={<Pencil className="size-[13px]" strokeWidth={2} />}
-                            onClick={() => setEditingOrdonnanceId(ordonnance.id)}
+                            icon={
+                              <Pencil className="size-[13px]" strokeWidth={2} />
+                            }
+                            onClick={() =>
+                              setEditingOrdonnanceId(ordonnance.id)
+                            }
                           />
                           <ActionIconButton
                             ariaLabel="Imprimer l'ordonnance"
-                            icon={<Printer className="size-[13px]" strokeWidth={2} />}
-                            onClick={() => void handlePrintOrdonnance(ordonnance.id)}
+                            icon={
+                              <Printer
+                                className="size-[13px]"
+                                strokeWidth={2}
+                              />
+                            }
+                            onClick={() =>
+                              void handlePrintOrdonnance(ordonnance.id)
+                            }
                           />
                         </div>
                       </article>
@@ -595,7 +614,9 @@ function RouteComponent() {
                 <div className="relative">
                   <select
                     className="h-[42px] w-full appearance-none rounded-[13px] border border-[#cfe1ec] bg-[#f2f8fd] px-3.5 pr-10 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
-                    onChange={(event) => setSelectedCategory(event.target.value)}
+                    onChange={(event) =>
+                      setSelectedCategory(event.target.value)
+                    }
                     value={selectedCategory}
                   >
                     <option value={ALL_CATEGORIES_VALUE}>
@@ -616,7 +637,9 @@ function RouteComponent() {
                 <div className="relative">
                   <select
                     className="h-[42px] w-full appearance-none rounded-[13px] border border-[#cfe1ec] bg-[#f2f8fd] px-3.5 pr-10 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
-                    onChange={(event) => setSelectedSpecialite(event.target.value)}
+                    onChange={(event) =>
+                      setSelectedSpecialite(event.target.value)
+                    }
                     value={selectedSpecialite}
                   >
                     <option value={ALL_SPECIALITES_VALUE}>
@@ -641,7 +664,9 @@ function RouteComponent() {
                   />
                   <input
                     className="h-[42px] w-full rounded-[13px] border border-[#cfe1ec] bg-[#eef6fc] pl-[40px] pr-3.5 font-['Plus_Jakarta_Sans'] text-[13px] font-medium text-[#21496f] outline-none transition-[border-color,background-color,box-shadow] placeholder:text-[rgba(38,82,132,0.42)] focus:border-[#9fcbdf] focus:bg-[#fafdff] focus:shadow-[0_8px_20px_-18px_rgba(15,52,96,0.28)]"
-                    onChange={(event) => setTemplateSearchValue(event.target.value)}
+                    onChange={(event) =>
+                      setTemplateSearchValue(event.target.value)
+                    }
                     placeholder="Rechercher un médicament..."
                     value={templateSearchValue}
                   />
@@ -694,20 +719,20 @@ function RouteComponent() {
                         </div>
 
                         <div className="mt-auto flex items-center gap-[10px] pt-5">
-                        <button
-                          className="h-[36px] w-full rounded-[13px] bg-[#76bbdd] font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-white shadow-[0px_8px_16px_-10px_rgba(118,187,221,0.72)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#69b2d6] hover:shadow-[0px_14px_22px_-14px_rgba(118,187,221,0.78)]"
-                          onClick={() => handleUseTemplate(item.id)}
-                          type="button"
-                        >
-                          Utiliser
-                        </button>
-                        <button
-                          className="h-[36px] rounded-[13px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#f77a21] transition-[background-color,border-color] duration-200 ease-out hover:bg-[#fff7ed]"
-                          onClick={() => handleEditTemplate(item.id)}
-                          type="button"
-                        >
-                          Modifier
-                        </button>
+                          <button
+                            className="h-[36px] w-full rounded-[13px] bg-[#76bbdd] font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-white shadow-[0px_8px_16px_-10px_rgba(118,187,221,0.72)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#69b2d6] hover:shadow-[0px_14px_22px_-14px_rgba(118,187,221,0.78)]"
+                            onClick={() => handleUseTemplate(item.id)}
+                            type="button"
+                          >
+                            Utiliser
+                          </button>
+                          <button
+                            className="h-[36px] rounded-[13px] border border-[#f77a21] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#f77a21] transition-[background-color,border-color] duration-200 ease-out hover:bg-[#fff7ed]"
+                            onClick={() => handleEditTemplate(item.id)}
+                            type="button"
+                          >
+                            Modifier
+                          </button>
                         </div>
                       </div>
                     </article>
@@ -755,10 +780,7 @@ function RouteComponent() {
   );
 }
 
-function SectionHeading(props: {
-  icon: React.ReactNode;
-  title: string;
-}) {
+function SectionHeading(props: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2">
       {props.icon}
@@ -1015,9 +1037,7 @@ function UtiliserPreRempliDialog({
 
     if (
       medicaments.length === 0 ||
-      medicaments.some(
-        (row) => !row.medicament_externe_id || !row.posologie,
-      )
+      medicaments.some((row) => !row.medicament_externe_id || !row.posologie)
     ) {
       toast.error(
         "Chaque médicament renseigné doit être sélectionné et avoir une posologie.",
@@ -1441,108 +1461,115 @@ function OrdonnancePreviewDialog({
                 "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-        <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
-          <div>
-            <p className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-[28px] text-[#0f3460]">
-              Aperçu de l'ordonnance
-            </p>
-            <p className="mt-1 font-['Inter'] text-[13px] text-[#6d879d]">
-              {ordonnance.patientName} · {formatDisplayDate(ordonnance.date)}
-            </p>
-          </div>
-          <button
-            aria-label="Fermer l'aperçu"
-            className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc]"
-            onClick={onClose}
-            type="button"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-
-        <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
-          <div className="rounded-[18px] border border-[#d9edf7] bg-[#f8fbff] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
               <div>
-                <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
-                  Patient
+                <p className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-[28px] text-[#0f3460]">
+                  Aperçu de l'ordonnance
                 </p>
-                <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[17px] font-semibold text-[#0f3460]">
-                  {ordonnance.patientName}
-                </p>
-                <p className="font-['Inter'] text-[12px] font-semibold text-[#365a78]">
-                  #{ordonnance.patientMatricule || "Sans matricule"}
-                </p>
-              </div>
-              <div className="flex flex-col items-start gap-2 sm:items-end">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-[#dcecf6] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#5d728a]">
-                  <CalendarDays className="size-4" />
+                <p className="mt-1 font-['Inter'] text-[13px] text-[#6d879d]">
+                  {ordonnance.patientName} ·{" "}
                   {formatDisplayDate(ordonnance.date)}
-                </div>
-                <OrdonnanceTypeBadge type={ordonnance.type} />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <p className="font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-[#0f3460]">
-              Médicaments prescrits
-            </p>
-            {ordonnance.medicaments.map((medicament, index) => (
-              <div
-                className="rounded-[16px] border border-[#e1eef6] bg-white px-4 py-3"
-                key={medicament.id}
-              >
-                <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
-                  {index + 1}. {medicament.nom_medicament}
                 </p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <PreviewInfo label="Posologie" value={medicament.posologie} />
-                  <PreviewInfo
-                    label="Durée"
-                    value={medicament.duree_traitement ?? "—"}
-                  />
-                  <PreviewInfo label="Dosage" value={medicament.dosage ?? "—"} />
-                  <PreviewInfo
-                    label="Instructions"
-                    value={medicament.instructions ?? "—"}
-                  />
+              </div>
+              <button
+                aria-label="Fermer l'aperçu"
+                className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc]"
+                onClick={onClose}
+                type="button"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+              <div className="rounded-[18px] border border-[#d9edf7] bg-[#f8fbff] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                      Patient
+                    </p>
+                    <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[17px] font-semibold text-[#0f3460]">
+                      {ordonnance.patientName}
+                    </p>
+                    <p className="font-['Inter'] text-[12px] font-semibold text-[#365a78]">
+                      #{ordonnance.patientMatricule || "Sans matricule"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#dcecf6] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#5d728a]">
+                      <CalendarDays className="size-4" />
+                      {formatDisplayDate(ordonnance.date)}
+                    </div>
+                    <OrdonnanceTypeBadge type={ordonnance.type} />
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
 
-          {ordonnance.remarques ? (
-            <div className="mt-5 rounded-[16px] border border-[#e1eef6] bg-[#fbfdff] px-4 py-3">
-              <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
-                Remarques
-              </p>
-              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#365a78]">
-                {ordonnance.remarques}
-              </p>
+              <div className="mt-5 space-y-3">
+                <p className="font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-[#0f3460]">
+                  Médicaments prescrits
+                </p>
+                {ordonnance.medicaments.map((medicament, index) => (
+                  <div
+                    className="rounded-[16px] border border-[#e1eef6] bg-white px-4 py-3"
+                    key={medicament.id}
+                  >
+                    <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
+                      {index + 1}. {medicament.nom_medicament}
+                    </p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <PreviewInfo
+                        label="Posologie"
+                        value={medicament.posologie}
+                      />
+                      <PreviewInfo
+                        label="Durée"
+                        value={medicament.duree_traitement ?? "—"}
+                      />
+                      <PreviewInfo
+                        label="Dosage"
+                        value={medicament.dosage ?? "—"}
+                      />
+                      <PreviewInfo
+                        label="Instructions"
+                        value={medicament.instructions ?? "—"}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {ordonnance.remarques ? (
+                <div className="mt-5 rounded-[16px] border border-[#e1eef6] bg-[#fbfdff] px-4 py-3">
+                  <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                    Remarques
+                  </p>
+                  <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#365a78]">
+                    {ordonnance.remarques}
+                  </p>
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
 
-        <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
-          <button
-            className="h-[38px] rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff]"
-            onClick={onClose}
-            type="button"
-          >
-            Fermer
-          </button>
-          <button
-            className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#0a3ac7]"
-            onClick={() => onPrint(ordonnance.id)}
-            type="button"
-          >
-            <Printer className="size-4" />
-            Imprimer
-          </button>
+            <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
+              <button
+                className="h-[38px] rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff]"
+                onClick={onClose}
+                type="button"
+              >
+                Fermer
+              </button>
+              <button
+                className="inline-flex h-[38px] items-center gap-2 rounded-[12px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#0a3ac7]"
+                onClick={() => onPrint(ordonnance.id)}
+                type="button"
+              >
+                <Printer className="size-4" />
+                Imprimer
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
       </div>
     </>
   );
@@ -1870,7 +1897,8 @@ function OrdonnanceEditDialog({
         <div
           className="flex max-h-[calc(100vh-64px)] w-full max-w-[600px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] transition-[height,transform] duration-300 ease-out"
           style={{
-            animation: "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+            animation:
+              "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
           <div className="flex h-[68px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] px-5">
@@ -1999,9 +2027,7 @@ function OrdonnanceEditDialog({
                               <button
                                 key={item.id}
                                 className="w-full cursor-pointer rounded-[6px] px-2 py-1.5 text-left hover:bg-[#f8fafc]"
-                                onMouseDown={(event) =>
-                                  event.preventDefault()
-                                }
+                                onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => {
                                   updateRow(row.localId, {
                                     medicament_externe_id: String(item.id),
@@ -2100,7 +2126,10 @@ function OrdonnanceEditDialog({
             <button
               className="mt-3 flex h-[42px] min-h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[10px] border-[1.6px] border-dashed border-[#265284] py-0 font-['Inter'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f8fbff]"
               onClick={() =>
-                setRows((current) => [...current, createEmptyEditMedicationRow()])
+                setRows((current) => [
+                  ...current,
+                  createEmptyEditMedicationRow(),
+                ])
               }
               type="button"
             >
@@ -2209,7 +2238,10 @@ function useDialogScrollLock(isOpen: boolean) {
   }, [isOpen]);
 }
 
-function PreviewInfo(props: { label: string; value: string | null | undefined }) {
+function PreviewInfo(props: {
+  label: string;
+  value: string | null | undefined;
+}) {
   return (
     <div>
       <p className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
@@ -2282,28 +2314,23 @@ function ActionIconButton(props: {
   );
 }
 
-function OrdonnanceTypeBadge(props: {
-  type: "ia" | "preRemplie" | "manuel";
-}) {
+function OrdonnanceTypeBadge(props: { type: "ia" | "preRemplie" | "manuel" }) {
   const config =
     props.type === "ia"
       ? {
           label: "IA",
-          className:
-            "border-[#e9d4ff] bg-[#faf5ff] text-[#8200db]",
+          className: "border-[#e9d4ff] bg-[#faf5ff] text-[#8200db]",
           icon: <Sparkles className="size-[12px]" strokeWidth={1.8} />,
         }
       : props.type === "preRemplie"
         ? {
             label: "Pré-remplie",
-            className:
-              "border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]",
+            className: "border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]",
             icon: <FilePlus2 className="size-[12px]" strokeWidth={1.8} />,
           }
         : {
             label: "Manuel",
-            className:
-              "border-[#bedbff] bg-[#eff6ff] text-[#1447e6]",
+            className: "border-[#bedbff] bg-[#eff6ff] text-[#1447e6]",
             icon: <SquarePen className="size-[12px]" strokeWidth={1.8} />,
           };
 
@@ -2326,7 +2353,10 @@ function EmptySectionState(props: { text: string }) {
 }
 
 function buildFullName(patient: PatientSearchRow) {
-  return [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
+  return (
+    [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() ||
+    "Patient inconnu"
+  );
 }
 
 function buildInitials(fullName: string) {
@@ -2340,9 +2370,7 @@ function buildInitials(fullName: string) {
     return "PT";
   }
 
-  return parts
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
 function formatDisplayDate(date: string) {
@@ -2362,7 +2390,13 @@ function formatDisplayDate(date: string) {
   });
 }
 
-function inferOrdonnanceType(ordonnance: OrdonnanceRow): "ia" | "preRemplie" | "manuel" {
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function inferOrdonnanceType(
+  ordonnance: OrdonnanceRow,
+): "ia" | "preRemplie" | "manuel" {
   if (ordonnance.pre_rempli_origine_id) {
     return "preRemplie";
   }

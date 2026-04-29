@@ -24,6 +24,15 @@ if (!connectionString) {
 
 export const medicationsPool = new Pool({
   connectionString,
+  max: 5,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 10_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+});
+
+medicationsPool.on("error", (error) => {
+  console.error("[medications-db.pool] idle client error", error);
 });
 
 export const medicationsDb = drizzle({

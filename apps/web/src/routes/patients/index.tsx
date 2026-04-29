@@ -30,6 +30,7 @@ import { PatientCreatedSuccessModal } from "@/components/patients/popups/patient
 import { PatientModifiedSuccessModal } from "@/components/patients/popups/patient-modified-success-modal";
 
 import { requireSession } from "@/lib/require-session";
+import { formatSexLabel, isFemaleSex, isMaleSex } from "@/lib/patient-sex";
 
 export const Route = createFileRoute("/patients/")({
   component: PatientsPage,
@@ -68,12 +69,14 @@ function PatientsPage() {
   const [createdPatientName, setCreatedPatientName] = useState<string>("");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
-const editPatientQuery = useQuery({
+  const editPatientQuery = useQuery({
     ...trpc.patient.getPatient.queryOptions({ id: editingPatientId ?? "" }),
     enabled: !!editingPatientId,
   });
 
-  const initialDialogData = useMemo((): Partial<NouveauPatientFormValues> | undefined => {
+  const initialDialogData = useMemo(():
+    | Partial<NouveauPatientFormValues>
+    | undefined => {
     if (dialogMode !== "edit" || !editPatientQuery.data) {
       return undefined;
     }
@@ -83,8 +86,10 @@ const editPatientQuery = useQuery({
       prenom: patient.prenom,
       profession: patient.profession ?? "",
       sexe: patient.sexe ?? "",
-      lieuPatient: patient.lieu_naissance ?? "",
-      dateNouvelle: patient.date_naissance ? new Date(patient.date_naissance).toLocaleDateString("fr-FR") : "",
+      lieuNaissance: patient.lieu_naissance ?? "",
+      dateNaissance: patient.date_naissance
+        ? new Date(patient.date_naissance).toLocaleDateString("fr-FR")
+        : "",
       nss: patient.nss?.toString() ?? "",
       nationalite: patient.nationalite ?? "",
       telephone: patient.telephone ?? "",
@@ -94,7 +99,9 @@ const editPatientQuery = useQuery({
     };
   }, [dialogMode, editPatientQuery.data]);
 
-  const modifierDialogData = useMemo((): Partial<ModifierPatientSubmissionValues> | undefined => {
+  const modifierDialogData = useMemo(():
+    | Partial<ModifierPatientSubmissionValues>
+    | undefined => {
     if (dialogMode !== "edit" || !editPatientQuery.data) {
       return undefined;
     }
@@ -104,16 +111,23 @@ const editPatientQuery = useQuery({
       nom: patient.nom || "",
       prenom: patient.prenom || "",
       profession: patient.profession ?? "",
-      sexe: (patient.sexe ?? "").toLowerCase().startsWith("f") ? "Femme" : (patient.sexe ?? "").toLowerCase().startsWith("m") || (patient.sexe ?? "").toLowerCase().startsWith("h") ? "Homme" : "Autre",
+      sexe: (patient.sexe ?? "").toLowerCase().startsWith("f")
+        ? "Femme"
+        : (patient.sexe ?? "").toLowerCase().startsWith("m") ||
+            (patient.sexe ?? "").toLowerCase().startsWith("h")
+          ? "Homme"
+          : "Autre",
       lieuNaissance: patient.lieu_naissance ?? "",
-      dateNaissance: patient.date_naissance ? new Date(patient.date_naissance).toLocaleDateString("fr-FR") : "",
+      dateNaissance: patient.date_naissance
+        ? new Date(patient.date_naissance).toLocaleDateString("fr-FR")
+        : "",
       nss: patient.nss?.toString() ?? "",
       nationalite: patient.nationalite ?? "",
       telephone: patient.telephone ?? "",
       email: patient.email ?? "",
       situationFamiliale: patient.situation_familiale ?? "",
       adresseComplete: patient.adresse ?? "",
-      
+
       groupeSanguin: patient.groupe_sanguin ?? "",
       ageCirconcision: patient.age_circoncision?.toString() ?? "",
       revenuMensuel: patient.revenu_mensuel?.toString() ?? "",
@@ -127,9 +141,22 @@ const editPatientQuery = useQuery({
       environnementAnimal: patient.environnement_animal ?? "",
       relationsEnvironnementales: patient.relations_environnement ?? "",
 
-      personalAntecedents: [{ id: "temp-1", type: "", details: "", maladieActive: false }],
-      familyAntecedents: [{ id: "temp-2", lienParente: "", pathologie: "", pathology: "" }],
-      traitements: [{ id: "temp-3", medicament: "", dosage: "", indication: "", posologie: "", maladieActive: true }],
+      personalAntecedents: [
+        { id: "temp-1", type: "", details: "", maladieActive: false },
+      ],
+      familyAntecedents: [
+        { id: "temp-2", lienParente: "", pathologie: "", pathology: "" },
+      ],
+      traitements: [
+        {
+          id: "temp-3",
+          medicament: "",
+          dosage: "",
+          indication: "",
+          posologie: "",
+          maladieActive: true,
+        },
+      ],
 
       menarche: patient.female_info?.menarche ?? undefined,
       regulariteCycles: patient.female_info?.regularite_cycles ?? undefined,
@@ -142,7 +169,17 @@ const editPatientQuery = useQuery({
     };
   }, [dialogMode, editPatientQuery.data]);
 
-  const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
+  const patientsQuery = useQuery(
+    trpc.patient.searchPatients.queryOptions(
+      {},
+      {
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        staleTime: 60_000,
+      },
+    ),
+  );
   const createPatientMutation = useMutation(
     trpc.patient.createPatient.mutationOptions(),
   );
@@ -187,11 +224,11 @@ const editPatientQuery = useQuery({
 
       const matchesFilter =
         filterValue === "all" ||
-        (filterValue === "female" && isFemale(patient.sexeText)) ||
-        (filterValue === "male" && isMale(patient.sexeText)) ||
+        (filterValue === "female" && isFemaleSex(patient.sexeText)) ||
+        (filterValue === "male" && isMaleSex(patient.sexeText)) ||
         (filterValue === "other" &&
-          !isFemale(patient.sexeText) &&
-          !isMale(patient.sexeText));
+          !isFemaleSex(patient.sexeText) &&
+          !isMaleSex(patient.sexeText));
 
       return matchesSearch && matchesFilter;
     });
@@ -227,10 +264,14 @@ const editPatientQuery = useQuery({
     setIsNouveauPatientOpen(false);
   };
 
-const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [key: string]: any }) => {
+  const handleSubmitPatient = async (
+    values: NouveauPatientSubmissionValues & { [key: string]: any },
+  ) => {
     setNouveauPatientError(null);
 
-    const dateNouvelleIso = toIsoDate(values.dateNouvelle || values.dateNaissance);
+    const dateNouvelleIso = toIsoDate(
+      values.dateNouvelle || values.dateNaissance,
+    );
     if (!dateNouvelleIso) {
       setNouveauPatientError(
         "Date de naissance invalide. Utilisez le format JJ/MM/AAAA.",
@@ -247,7 +288,7 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
 
     try {
       let createdPatient: { id: string };
-      
+
       if (dialogMode === "create") {
         createdPatient = await createPatientMutation.mutateAsync({
           patient: {
@@ -262,35 +303,45 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
             ),
             date_naissance: dateNouvelleIso,
             nss: toOptionalInteger(values.nss),
-            lieu_naissance: toOptionalText(values.lieuPatient || values.lieuNaissance),
+            lieu_naissance: toOptionalText(
+              values.lieuPatient || values.lieuNaissance,
+            ),
             sexe: toOptionalText(values.sexe),
             nationalite: toOptionalText(values.nationalite),
             groupe_sanguin: toOptionalText(values.groupeSanguin),
             adresse: toOptionalText(values.adresseComplete),
-            profession: toOptionalText(values.socialProfession) ?? toOptionalText(values.profession),
+            profession:
+              toOptionalText(values.socialProfession) ??
+              toOptionalText(values.profession),
             habitudes_saines: toOptionalText(values.habitudesSaines),
             habitudes_toxiques: toOptionalText(values.habitudesToxiques),
             nb_enfants: values.nombreEnfants,
             situation_familiale:
               toOptionalText(values.socialSituationFamiliale) ??
               toOptionalText(values.situationFamiliale),
-            age_circoncision: isMale(values.sexe ?? "") ? toOptionalInteger(values.ageCirconcision) : undefined,
+            age_circoncision: isMaleSex(values.sexe ?? "")
+              ? toOptionalInteger(values.ageCirconcision)
+              : undefined,
             environnement_animal: toOptionalText(values.environnementAnimal),
             revenu_mensuel: toOptionalText(values.revenuMensuel),
             taille_menage: values.tailleMenages,
             nb_pieces: values.nombreDePieces,
-            relations_environnement: toOptionalText(values.relationsEnvironnementales),
+            relations_environnement: toOptionalText(
+              values.relationsEnvironnementales,
+            ),
           },
-          female_data: isFemale(values.sexe ?? "") ? {
-            menarche: values.menarche,
-            regularite_cycles: toOptionalText(values.regulariteCycles),
-            contraception: toOptionalText(values.contraception),
-            nb_grossesses: values.nbGrossesses,
-            nb_cesariennes: values.nbCesariennes,
-            menopause: values.menopause,
-            age_menopause: values.ageMenopause,
-            symptomes_menopause: toOptionalText(values.symptomesMenopause),
-          } : undefined,
+          female_data: isFemaleSex(values.sexe ?? "")
+            ? {
+                menarche: values.menarche,
+                regularite_cycles: toOptionalText(values.regulariteCycles),
+                contraception: toOptionalText(values.contraception),
+                nb_grossesses: values.nbGrossesses,
+                nb_cesariennes: values.nbCesariennes,
+                menopause: values.menopause,
+                age_menopause: values.ageMenopause,
+                symptomes_menopause: toOptionalText(values.symptomesMenopause),
+              }
+            : undefined,
         });
       } else {
         if (!editingPatientId) return;
@@ -303,35 +354,47 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
             email: toOptionalText(values.email),
             date_naissance: dateNouvelleIso,
             nss: toOptionalInteger(values.nss),
-            lieu_naissance: toOptionalText(values.lieuPatient || values.lieuNaissance),
+            lieu_naissance: toOptionalText(
+              values.lieuPatient || values.lieuNaissance,
+            ),
             sexe: toOptionalText(values.sexe),
             nationalite: toOptionalText(values.nationalite),
             groupe_sanguin: toOptionalText(values.groupeSanguin),
             adresse: toOptionalText(values.adresseComplete),
-            profession: toOptionalText(values.socialProfession) ?? toOptionalText(values.profession),
+            profession:
+              toOptionalText(values.socialProfession) ??
+              toOptionalText(values.profession),
             habitudes_saines: toOptionalText(values.habitudesSaines),
             habitudes_toxiques: toOptionalText(values.habitudesToxiques),
             nb_enfants: values.nombreEnfants,
             situation_familiale:
               toOptionalText(values.socialSituationFamiliale) ??
               toOptionalText(values.situationFamiliale),
-            age_circoncision: isMale(values.sexe ?? "") ? toOptionalInteger(values.ageCirconcision) : undefined,
+            age_circoncision: isMaleSex(values.sexe ?? "")
+              ? toOptionalInteger(values.ageCirconcision)
+              : undefined,
             environnement_animal: toOptionalText(values.environnementAnimal),
             revenu_mensuel: toOptionalText(values.revenuMensuel),
             taille_menage: values.tailleMenages,
             nb_pieces: values.nombreDePieces,
-            relations_environnement: toOptionalText(values.relationsEnvironnementales),
+            relations_environnement: toOptionalText(
+              values.relationsEnvironnementales,
+            ),
+            female_data: isFemaleSex(values.sexe ?? "")
+              ? {
+                  menarche: values.menarche,
+                  regularite_cycles: toOptionalText(values.regulariteCycles),
+                  contraception: toOptionalText(values.contraception),
+                  nb_grossesses: values.nbGrossesses,
+                  nb_cesariennes: values.nbCesariennes,
+                  menopause: values.menopause,
+                  age_menopause: values.ageMenopause,
+                  symptomes_menopause: toOptionalText(
+                    values.symptomesMenopause,
+                  ),
+                }
+              : undefined,
           },
-          female_data: isFemale(values.sexe ?? "") ? {
-            menarche: values.menarche,
-            regularite_cycles: toOptionalText(values.regulariteCycles),
-            contraception: toOptionalText(values.contraception),
-            nb_grossesses: values.nbGrossesses,
-            nb_cesariennes: values.nbCesariennes,
-            menopause: values.menopause,
-            age_menopause: values.ageMenopause,
-            symptomes_menopause: toOptionalText(values.symptomesMenopause),
-          } : undefined,
         });
       }
 
@@ -350,7 +413,7 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
             personnel: {
               type: entry.type?.trim(),
               details: entry.details?.trim() || null,
-              maladie_active: entry.maladieActive,
+              est_actif: entry.maladieActive,
             },
           });
         } catch (error) {
@@ -383,8 +446,12 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
       }
 
       const treatmentsToCreate = values.traitements.filter((entry) =>
-        [entry.medicament, entry.dosage, entry.indication, entry.posologie]
-          .some((field) => (field ?? "").trim().length > 0),
+        [
+          entry.medicament,
+          entry.dosage,
+          entry.indication,
+          entry.posologie,
+        ].some((field) => (field ?? "").trim().length > 0),
       );
 
       for (const entry of treatmentsToCreate) {
@@ -427,8 +494,12 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
         }
       }
 
-      toast.success(dialogMode === "edit" ? "Patient modifié avec succès!" : "Patient ajoute avec succes.");
-      
+      toast.success(
+        dialogMode === "edit"
+          ? "Patient modifié avec succès!"
+          : "Patient ajoute avec succes.",
+      );
+
       if (partialFailures.length > 0) {
         toast.error(
           `Patient cree, mais certaines donnees n'ont pas ete enregistrees:\n- ${partialFailures.join("\n- ")}`,
@@ -449,6 +520,10 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
   const handleShowAll = () => {
     setSearchValue("");
     setFilterValue("all");
+  };
+
+  const handleRetryPatients = () => {
+    void patientsQuery.refetch();
   };
 
   return (
@@ -482,6 +557,13 @@ const handleSubmitPatient = async (values: NouveauPatientSubmissionValues & { [k
               <p className={styles.statusDescription}>
                 {patientsQuery.error.message}
               </p>
+              <button
+                type="button"
+                className={styles.statusActionButton}
+                onClick={handleRetryPatients}
+              >
+                Reessayer
+              </button>
             </div>
           ) : filteredPatients.length === 0 ? (
             <div className={styles.statusBox}>
@@ -558,12 +640,12 @@ function getMutationErrorMessage(error: unknown) {
   return "Impossible d'ajouter le patient.";
 }
 
-function toOptionalText(value: string) {
+function toOptionalText(value: string | null | undefined) {
   const trimmed = (value || "").trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function toOptionalInteger(value: string) {
+function toOptionalInteger(value: string | null | undefined) {
   const digits = (value || "").replace(/\D/g, "");
   if (digits.length === 0) {
     return undefined;
@@ -573,7 +655,7 @@ function toOptionalInteger(value: string) {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-function toIsoDate(value: string) {
+function toIsoDate(value: string | null | undefined) {
   const trimmed = (value || "").trim();
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
@@ -674,24 +756,6 @@ function computeAge(dateNaissance: string) {
   return Math.max(age, 0);
 }
 
-function formatSexLabel(sexe: string | null) {
-  const normalized = (sexe ?? "").trim().toLowerCase();
-
-  if (normalized === "f" || normalized.startsWith("fem")) {
-    return "Femme";
-  }
-
-  if (
-    normalized === "m" ||
-    normalized.startsWith("mas") ||
-    normalized.startsWith("hom")
-  ) {
-    return "Homme";
-  }
-
-  return sexe?.trim() || "Non renseigne";
-}
-
 function extractConditionsText(patient: PatientRecord) {
   const withConditions = patient as PatientRecord & {
     conditions?: string[] | null;
@@ -705,14 +769,4 @@ function extractConditionsText(patient: PatientRecord) {
   }
 
   return "Non renseigne";
-}
-
-function isFemale(sexeText: string) {
-  const normalized = (sexeText || "").toLowerCase();
-  return normalized === "femme" || normalized.startsWith("f");
-}
-
-function isMale(sexeText: string) {
-  const normalized = (sexeText || "").toLowerCase();
-  return normalized === "homme" || normalized.startsWith("m");
 }

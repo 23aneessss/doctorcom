@@ -7,9 +7,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    tanstackRouter({
-      routeFileIgnorePattern: "^popups$|^sidebar-test\\.tsx$",
-    }),
+    tanstackRouter({ routeFileIgnorePattern: "^popups$" }),
     react(),
   ],
   resolve: {

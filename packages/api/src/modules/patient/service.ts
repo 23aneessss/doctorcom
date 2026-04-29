@@ -18,7 +18,10 @@ import {
 type DatabaseClient = typeof databaseClient;
 type PatientSession = Exclude<SessionUtilisateur, null>;
 
-type CreatePatientData = Omit<CreatePatientInput, "cree_par_utilisateur" | "revenu_mensuel"> & {
+type CreatePatientData = Omit<
+  CreatePatientInput,
+  "cree_par_utilisateur" | "revenu_mensuel"
+> & {
   revenu_mensuel?: string | number | null;
 };
 
@@ -65,16 +68,28 @@ export class PatientService {
     await this.ensureNoMatriculeConflict(data.db, data.input.patient.matricule);
     await this.ensureNoNssConflict(data.db, data.input.patient.nss);
 
-    this.ensureAgeCirconcisionRule(data.input.patient.sexe, data.input.patient.age_circoncision);
+    this.ensureAgeCirconcisionRule(
+      data.input.patient.sexe,
+      data.input.patient.age_circoncision,
+    );
 
     const patientPayload: CreatePatientInput = {
       ...data.input.patient,
-      revenu_mensuel: this.normalizeNumericValue(data.input.patient.revenu_mensuel),
+      revenu_mensuel: this.normalizeNumericValue(
+        data.input.patient.revenu_mensuel,
+      ),
       cree_par_utilisateur: utilisateur.id,
     };
 
-    const patient = await patientRepository.createPatient(data.db, patientPayload);
-    const femaleInfo = await this.handleFemaleInfoForCreate(data.db, patient, data.input.female_data);
+    const patient = await patientRepository.createPatient(
+      data.db,
+      patientPayload,
+    );
+    const femaleInfo = await this.handleFemaleInfoForCreate(
+      data.db,
+      patient,
+      data.input.female_data,
+    );
 
     return {
       ...patient,
@@ -89,7 +104,10 @@ export class PatientService {
   }): Promise<PatientRecord & { female_info: PatientFemmeRecord | null }> {
     await this.resolveUtilisateur(data.db, data.session);
 
-    const existingPatient = await patientRepository.getPatientById(data.db, data.input.id);
+    const existingPatient = await patientRepository.getPatientById(
+      data.db,
+      data.input.id,
+    );
     if (!existingPatient) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -106,14 +124,26 @@ export class PatientService {
       patientData.matricule !== undefined &&
       patientData.matricule !== existingPatient.matricule
     ) {
-      await this.ensureNoMatriculeConflict(data.db, patientData.matricule, existingPatient.id);
+      await this.ensureNoMatriculeConflict(
+        data.db,
+        patientData.matricule,
+        existingPatient.id,
+      );
     }
 
-    if (patientData.nss !== undefined && patientData.nss !== existingPatient.nss) {
-      await this.ensureNoNssConflict(data.db, patientData.nss, existingPatient.id);
+    if (
+      patientData.nss !== undefined &&
+      patientData.nss !== existingPatient.nss
+    ) {
+      await this.ensureNoNssConflict(
+        data.db,
+        patientData.nss,
+        existingPatient.id,
+      );
     }
 
-    const normalizedPatientData = this.normalizePatientUpdatePayload(patientData);
+    const normalizedPatientData =
+      this.normalizePatientUpdatePayload(patientData);
     const updatedPatient = await patientRepository.updatePatient(
       data.db,
       existingPatient.id,
@@ -147,7 +177,10 @@ export class PatientService {
   }): Promise<{ success: boolean }> {
     await this.resolveUtilisateur(data.db, data.session);
 
-    const existingPatient = await patientRepository.getPatientById(data.db, data.id);
+    const existingPatient = await patientRepository.getPatientById(
+      data.db,
+      data.id,
+    );
     if (!existingPatient) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -214,7 +247,10 @@ export class PatientService {
   }): Promise<PatientRecord> {
     await this.resolveUtilisateur(data.db, data.session);
 
-    const patient = await patientRepository.getPatientByMatricule(data.db, data.matricule);
+    const patient = await patientRepository.getPatientByMatricule(
+      data.db,
+      data.matricule,
+    );
     if (!patient) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -235,9 +271,11 @@ export class PatientService {
     const criteres: SearchPatientsCriteria = {
       nom: this.normalizeOptionalText(data.criteres.nom) ?? undefined,
       prenom: this.normalizeOptionalText(data.criteres.prenom) ?? undefined,
-      matricule: this.normalizeOptionalText(data.criteres.matricule) ?? undefined,
+      matricule:
+        this.normalizeOptionalText(data.criteres.matricule) ?? undefined,
       nss: data.criteres.nss,
-      telephone: this.normalizeOptionalText(data.criteres.telephone) ?? undefined,
+      telephone:
+        this.normalizeOptionalText(data.criteres.telephone) ?? undefined,
       sexe: this.normalizeOptionalText(data.criteres.sexe) ?? undefined,
     };
 
@@ -250,12 +288,22 @@ export class PatientService {
     id: string;
   }): Promise<{
     patient: PatientRecord & { female_info: PatientFemmeRecord | null };
-    antecedents: Awaited<ReturnType<typeof patientRepository.getPatientAntecedents>>;
-    vaccinations: Awaited<ReturnType<typeof patientRepository.getPatientVaccinations>>;
-    rendez_vous: Awaited<ReturnType<typeof patientRepository.getPatientRendezVous>>;
+    antecedents: Awaited<
+      ReturnType<typeof patientRepository.getPatientAntecedents>
+    >;
+    vaccinations: Awaited<
+      ReturnType<typeof patientRepository.getPatientVaccinations>
+    >;
+    rendez_vous: Awaited<
+      ReturnType<typeof patientRepository.getPatientRendezVous>
+    >;
     suivi: Awaited<ReturnType<typeof patientRepository.getPatientSuivis>>;
-    ordonnances: Awaited<ReturnType<typeof patientRepository.getPatientOrdonnances>>;
-    documents: Awaited<ReturnType<typeof patientRepository.getPatientDocuments>>;
+    ordonnances: Awaited<
+      ReturnType<typeof patientRepository.getPatientOrdonnances>
+    >;
+    documents: Awaited<
+      ReturnType<typeof patientRepository.getPatientDocuments>
+    >;
     voyages: Awaited<ReturnType<typeof patientRepository.getPatientVoyages>>;
   }> {
     const patient = await this.getPatientById({
@@ -264,16 +312,28 @@ export class PatientService {
       id: data.id,
     });
 
-    const [antecedents, vaccinations, rendezVous, suivis, ordonnances, documents, voyages] =
-      await Promise.all([
-        patientRepository.getPatientAntecedents(data.db, data.id),
-        patientRepository.getPatientVaccinations(data.db, data.id),
-        patientRepository.getPatientRendezVous(data.db, data.id),
-        patientRepository.getPatientSuivis(data.db, data.id),
-        patientRepository.getPatientOrdonnances(data.db, data.id),
-        patientRepository.getPatientDocuments(data.db, data.id),
-        patientRepository.getPatientVoyages(data.db, data.id),
-      ]);
+    const antecedents = await patientRepository.getPatientAntecedents(
+      data.db,
+      data.id,
+    );
+    const vaccinations = await patientRepository.getPatientVaccinations(
+      data.db,
+      data.id,
+    );
+    const rendezVous = await patientRepository.getPatientRendezVous(
+      data.db,
+      data.id,
+    );
+    const suivis = await patientRepository.getPatientSuivis(data.db, data.id);
+    const ordonnances = await patientRepository.getPatientOrdonnances(
+      data.db,
+      data.id,
+    );
+    const documents = await patientRepository.getPatientDocuments(
+      data.db,
+      data.id,
+    );
+    const voyages = await patientRepository.getPatientVoyages(data.db, data.id);
 
     return {
       patient,
@@ -305,18 +365,27 @@ export class PatientService {
     db: DatabaseClient;
     session: PatientSession;
     id: string;
-  }): Promise<{ imc: number; taille_m: number; poids_kg: number; examen: ExamenConsultationRecord }> {
+  }): Promise<{
+    imc: number;
+    taille_m: number;
+    poids_kg: number;
+    examen: ExamenConsultationRecord;
+  }> {
     await this.getPatientById({
       db: data.db,
       session: data.session,
       id: data.id,
     });
 
-    const examen = await patientRepository.getPatientLastExamen(data.db, data.id);
+    const examen = await patientRepository.getPatientLastExamen(
+      data.db,
+      data.id,
+    );
     if (!examen || examen.taille === null || examen.poids === null) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Aucun examen avec taille et poids n'a ete trouve pour ce patient.",
+        message:
+          "Aucun examen avec taille et poids n'a ete trouve pour ce patient.",
       });
     }
 
@@ -326,7 +395,8 @@ export class PatientService {
     if (taille <= 0 || poids <= 0) {
       throw new TRPCError({
         code: "NOT_FOUND",
-        message: "Les valeurs de taille et de poids de l'examen sont invalides.",
+        message:
+          "Les valeurs de taille et de poids de l'examen sont invalides.",
       });
     }
 
@@ -345,20 +415,26 @@ export class PatientService {
     db: DatabaseClient;
     session: PatientSession;
     id: string;
-  }): Promise<Awaited<ReturnType<typeof patientRepository.getPatientRendezVous>>> {
+  }): Promise<
+    Awaited<ReturnType<typeof patientRepository.getPatientRendezVous>>
+  > {
     await this.getPatientById({
       db: data.db,
       session: data.session,
       id: data.id,
     });
 
-    const rendezVous = await patientRepository.getPatientRendezVous(data.db, data.id);
+    const rendezVous = await patientRepository.getPatientRendezVous(
+      data.db,
+      data.id,
+    );
     const today = new Date().toISOString().slice(0, 10);
 
     return rendezVous
       .filter(
         (item) =>
-          (item.statut === "planifie" || item.statut === "confirme") && item.date >= today,
+          (item.statut === "planifie" || item.statut === "confirme") &&
+          item.date >= today,
       )
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -371,9 +447,13 @@ export class PatientService {
     patient: PatientRecord & { female_info: PatientFemmeRecord | null };
     age: number;
     imc: number | null;
-    antecedents: Awaited<ReturnType<typeof patientRepository.getPatientAntecedents>>;
+    antecedents: Awaited<
+      ReturnType<typeof patientRepository.getPatientAntecedents>
+    >;
     last_examen: ExamenConsultationRecord | null;
-    upcoming_appointments: Awaited<ReturnType<typeof patientRepository.getPatientRendezVous>>;
+    upcoming_appointments: Awaited<
+      ReturnType<typeof patientRepository.getPatientRendezVous>
+    >;
   }> {
     const patient = await this.getPatientById({
       db: data.db,
@@ -381,20 +461,21 @@ export class PatientService {
       id: data.id,
     });
 
-    const [ageResult, antecedents, lastExamen, upcomingAppointments] = await Promise.all([
-      this.getPatientAge({
-        db: data.db,
-        session: data.session,
-        id: data.id,
-      }),
-      patientRepository.getPatientAntecedents(data.db, data.id),
-      patientRepository.getPatientLastExamen(data.db, data.id),
-      this.getPatientUpcomingAppointments({
-        db: data.db,
-        session: data.session,
-        id: data.id,
-      }),
-    ]);
+    const [ageResult, antecedents, lastExamen, upcomingAppointments] =
+      await Promise.all([
+        this.getPatientAge({
+          db: data.db,
+          session: data.session,
+          id: data.id,
+        }),
+        patientRepository.getPatientAntecedents(data.db, data.id),
+        patientRepository.getPatientLastExamen(data.db, data.id),
+        this.getPatientUpcomingAppointments({
+          db: data.db,
+          session: data.session,
+          id: data.id,
+        }),
+      ]);
 
     let imc: number | null = null;
     if (lastExamen && lastExamen.taille !== null && lastExamen.poids !== null) {
@@ -428,7 +509,28 @@ export class PatientService {
       });
     }
 
-    const utilisateur = await patientRepository.findUtilisateurByEmail(database, email);
+    let utilisateur: UtilisateurRecord | null;
+
+    try {
+      utilisateur = await patientRepository.findUtilisateurByEmail(
+        database,
+        email,
+      );
+    } catch (error) {
+      console.error("PatientService.resolveUtilisateur query failed", {
+        email,
+        code: this.getErrorCode(error),
+        error,
+      });
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          "La verification du compte utilisateur a echoue. Verifiez la connexion a la base et la table utilisateurs.",
+        cause: error,
+      });
+    }
+
     if (utilisateur) {
       return utilisateur;
     }
@@ -450,7 +552,8 @@ export class PatientService {
         role: "medecin",
       });
     } catch (error) {
-      const concurrentUtilisateur = await patientRepository.findUtilisateurByEmail(database, email);
+      const concurrentUtilisateur =
+        await patientRepository.findUtilisateurByEmail(database, email);
       if (concurrentUtilisateur) {
         return concurrentUtilisateur;
       }
@@ -468,7 +571,10 @@ export class PatientService {
     matricule: string,
     excludedPatientId?: string,
   ): Promise<void> {
-    const existingPatient = await patientRepository.getPatientByMatricule(database, matricule);
+    const existingPatient = await patientRepository.getPatientByMatricule(
+      database,
+      matricule,
+    );
     if (existingPatient && existingPatient.id !== excludedPatientId) {
       throw new TRPCError({
         code: "CONFLICT",
@@ -486,7 +592,11 @@ export class PatientService {
       return;
     }
 
-    const hasConflict = await patientRepository.hasNssConflict(database, nss, excludedPatientId);
+    const hasConflict = await patientRepository.hasNssConflict(
+      database,
+      nss,
+      excludedPatientId,
+    );
     if (hasConflict) {
       throw new TRPCError({
         code: "CONFLICT",
@@ -506,7 +616,8 @@ export class PatientService {
     if (this.isFemaleSexe(sexe)) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Le champ age_circoncision est reserve aux patients masculins.",
+        message:
+          "Le champ age_circoncision est reserve aux patients masculins.",
       });
     }
   }
@@ -538,7 +649,10 @@ export class PatientService {
       return null;
     }
 
-    const existingFemaleInfo = await patientRepository.getFemalePatientInfo(database, patient.id);
+    const existingFemaleInfo = await patientRepository.getFemalePatientInfo(
+      database,
+      patient.id,
+    );
     if (!femaleData) {
       return existingFemaleInfo;
     }
@@ -562,14 +676,18 @@ export class PatientService {
     return patientRepository.createFemalePatientInfo(database, payload);
   }
 
-  private normalizeFemaleData(data: FemalePatientInfoInput): UpdateFemalePatientInfoInput {
+  private normalizeFemaleData(
+    data: FemalePatientInfoInput,
+  ): UpdateFemalePatientInfoInput {
     const payload: UpdateFemalePatientInfoInput = {};
 
     if (data.menarche !== undefined) {
       payload.menarche = data.menarche;
     }
     if (data.regularite_cycles !== undefined) {
-      payload.regularite_cycles = this.normalizeOptionalText(data.regularite_cycles);
+      payload.regularite_cycles = this.normalizeOptionalText(
+        data.regularite_cycles,
+      );
     }
     if (data.contraception !== undefined) {
       payload.contraception = this.normalizeOptionalText(data.contraception);
@@ -587,7 +705,9 @@ export class PatientService {
       payload.age_menopause = data.age_menopause;
     }
     if (data.symptomes_menopause !== undefined) {
-      payload.symptomes_menopause = this.normalizeOptionalText(data.symptomes_menopause);
+      payload.symptomes_menopause = this.normalizeOptionalText(
+        data.symptomes_menopause,
+      );
     }
 
     return payload;
@@ -684,7 +804,9 @@ export class PatientService {
     return (sexe ?? "").trim().toLowerCase() === "feminin";
   }
 
-  private normalizeOptionalText(value: string | null | undefined): string | null | undefined {
+  private normalizeOptionalText(
+    value: string | null | undefined,
+  ): string | null | undefined {
     if (value === undefined) {
       return undefined;
     }
@@ -737,6 +859,15 @@ export class PatientService {
     }
 
     return String(value);
+  }
+
+  private getErrorCode(error: unknown): string | null {
+    if (typeof error !== "object" || error === null || !("code" in error)) {
+      return null;
+    }
+
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : null;
   }
 }
 

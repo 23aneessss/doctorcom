@@ -10,9 +10,12 @@ import { eq } from "drizzle-orm";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
   anomalyFlagRepository,
+  type CorePatientData,
   type FullPatientData,
   type MedicationWithDetails,
   type ActiveTreatment,
+  type PatientAntecedentData,
+  type PatientFemaleData,
 } from "./repo";
 
 const ANOMALY_FLAG_LOG_SCOPE = "ai/anomaly-flag";
@@ -95,6 +98,8 @@ export interface MedicationAnomaly {
   severity: AnomalySeverity;
   message: string;
   details?: string;
+  related_medicaments?: string[];
+  source?: "rules" | "ai";
 }
 
 export interface GlobalAnomaly {
@@ -105,7 +110,15 @@ export interface GlobalAnomaly {
   details?: string;
 }
 
+export interface MedicationAnomalyAssessment {
+  medicament_externe_id: string;
+  nom_medicament: string;
+  anomaly: MedicationAnomaly | null;
+  anomalies: MedicationAnomaly[];
+}
+
 export interface PrescriptionCheckResult {
+  medicaments: MedicationAnomalyAssessment[];
   anomalies_par_medicament: MedicationAnomaly[];
   anomalies_globales: GlobalAnomaly[];
   ai_summary: string | null;
@@ -127,47 +140,166 @@ interface PatientContext {
   antecedentsPersonnels: string[];
 }
 
+function getMedicationLookupKey(medicamentExterneId: string): string {
+  const parsed = parseInt(medicamentExterneId, 10);
+  return Number.isNaN(parsed) ? medicamentExterneId.trim() : String(parsed);
+}
+
+function getMedicationDetails(
+  prescribed: PrescribedMedication,
+  medicationMap: Map<string, MedicationWithDetails>,
+): MedicationWithDetails | undefined {
+  return medicationMap.get(getMedicationLookupKey(prescribed.medicament_externe_id));
+}
+
+function getTreatmentMedicationDetails(
+  treatment: ActiveTreatment,
+  medicationMap: Map<string, MedicationWithDetails>,
+): MedicationWithDetails | undefined {
+  return medicationMap.get(getMedicationLookupKey(treatment.medicament_externe_id));
+}
+
+function severityWeight(severity: AnomalySeverity): number {
+  switch (severity) {
+    case "error":
+      return 3;
+    case "warning":
+      return 2;
+    case "info":
+    default:
+      return 1;
+  }
+}
+
+function selectPrimaryAnomaly(
+  anomalies: MedicationAnomaly[],
+): MedicationAnomaly | null {
+  if (anomalies.length === 0) return null;
+
+  return [...anomalies].sort((a, b) => {
+    const severityDiff = severityWeight(b.severity) - severityWeight(a.severity);
+    if (severityDiff !== 0) return severityDiff;
+    return a.code.localeCompare(b.code);
+  })[0]!;
+}
+
+function buildFullPatientData(
+  patient: CorePatientData,
+  donnees_femme: PatientFemaleData | null,
+  antecedents: PatientAntecedentData[],
+): FullPatientData {
+  return {
+    patient,
+    donnees_femme,
+    antecedents,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Zod schema for AI structured output
 // ---------------------------------------------------------------------------
 
+const AI_ANOMALY_CODES = [
+  "AI_DOSAGE_CONCERN",
+  "AI_COHERENCE_CONCERN",
+  "AI_INTERACTION_CONCERN",
+  "AI_ADDITIONAL_FLAG",
+] as const;
+
+type AiAnomalyCode = (typeof AI_ANOMALY_CODES)[number];
+
+const aiMedicationAnomalySchema = z.object({
+  code: z.string().optional().describe("Code de l'anomalie"),
+  severity: z
+    .string()
+    .optional()
+    .describe("Severite: error, warning ou info"),
+  message: z.string().optional().describe("Description de l'anomalie en francais"),
+  details: z
+    .union([z.string(), z.null()])
+    .optional()
+    .describe("Details supplementaires"),
+  related_medicaments: z
+    .union([z.array(z.string()), z.string(), z.null()])
+    .optional()
+    .describe("Autres medicaments impliques, si applicable"),
+}).passthrough();
+
+const aiMedicationAnalysisSchema = z
+  .object({
+    medicament_externe_id: z
+      .string()
+      .optional()
+      .describe("Identifiant medicament_externe_id fourni en entree"),
+    nom_medicament: z.string().optional().describe("Nom du medicament concerne"),
+    medicament_concerne: z
+      .string()
+      .optional()
+      .describe("Nom du medicament concerne, format legacy tolere"),
+    anomaly: aiMedicationAnomalySchema
+      .nullable()
+      .optional()
+      .describe("Anomalie optionnelle pour ce medicament, ou null"),
+    anomalies: z
+      .array(aiMedicationAnomalySchema)
+      .optional()
+      .describe("Liste d'anomalies, format alternatif tolere"),
+    code: z.string().optional(),
+    severity: z.string().optional(),
+    message: z.string().optional(),
+    details: z.union([z.string(), z.null()]).optional(),
+    related_medicaments: z
+      .union([z.array(z.string()), z.string(), z.null()])
+      .optional(),
+  })
+  .passthrough();
+
+const aiMedicationAnalysisEntrySchema = z.union([
+  aiMedicationAnalysisSchema,
+  z.string(),
+]);
+
 const aiAnomalyResultSchema = z.object({
-  anomalies_supplementaires: z
-    .array(
-      z.object({
-        medicament_concerne: z
-          .string()
-          .describe("Nom du medicament concerne"),
-        code: z
-          .enum([
-            "AI_DOSAGE_CONCERN",
-            "AI_COHERENCE_CONCERN",
-            "AI_ADDITIONAL_FLAG",
-          ])
-          .describe("Code de l'anomalie"),
-        severity: z
-          .enum(["error", "warning", "info"])
-          .describe("Severite: error, warning ou info"),
-        message: z
-          .string()
-          .describe("Description de l'anomalie en francais"),
-        details: z
-          .string()
-          .optional()
-          .describe("Details supplementaires"),
-      }),
-    )
+  analyses_par_medicament: z
+    .array(aiMedicationAnalysisEntrySchema)
+    .optional()
     .describe(
-      "Anomalies supplementaires detectees par l'IA, au-dela des regles automatiques",
+      "Une entree par medicament prescrit, dans le meme perimetre que l'entree utilisateur",
     ),
+  anomalies_supplementaires: z
+    .array(aiMedicationAnalysisEntrySchema)
+    .optional()
+    .describe("Ancien format tolere pour compatibilite"),
   resume: z
     .string()
+    .optional()
     .describe(
       "Resume global en francais de l'evaluation de securite de l'ordonnance",
     ),
-});
+}).passthrough();
 
-type AiAnomalyResult = z.infer<typeof aiAnomalyResultSchema>;
+type AiRawAnomalyResult = z.infer<typeof aiAnomalyResultSchema>;
+type AiRawMedicationAnalysis = NonNullable<
+  AiRawAnomalyResult["analyses_par_medicament"]
+>[number];
+type AiRawMedicationAnomaly = z.infer<typeof aiMedicationAnomalySchema>;
+
+interface AiMedicationAnalysis {
+  medicament_externe_id: string;
+  nom_medicament: string;
+  anomaly: {
+    code: AiAnomalyCode;
+    severity: AnomalySeverity;
+    message: string;
+    details?: string;
+    related_medicaments?: string[];
+  } | null;
+}
+
+interface AiAnomalyResult {
+  analyses_par_medicament: AiMedicationAnalysis[];
+  resume: string;
+}
 
 // ---------------------------------------------------------------------------
 // AI system prompt
@@ -176,19 +308,36 @@ type AiAnomalyResult = z.infer<typeof aiAnomalyResultSchema>;
 const AI_SYSTEM_PROMPT = `Vous etes un expert pharmaceutique charge de verifier la securite d'une ordonnance medicale.
 
 Votre role:
-1. Analyser les medicaments prescrits en tenant compte du profil du patient (age, sexe, antecedents, traitements en cours).
+1. Analyser tous les medicaments prescrits ensemble en tenant compte du profil du patient (age, sexe, antecedents, traitements en cours).
 2. Identifier des anomalies que les regles automatiques n'auraient pas detectees:
    - Dosages inappropries pour le profil du patient (age, poids estime, fonction renale presumee)
    - Incoherences therapeutiques (medicaments redondants, associations illogiques)
+   - Interactions potentielles entre medicaments prescrits dans la meme entree
+   - Interactions potentielles avec les traitements actifs deja suivis par le patient
    - Tout autre probleme de securite pertinent
 3. Ne PAS repeter les anomalies deja detectees par les regles automatiques (elles vous sont fournies).
-4. Si l'ordonnance vous semble correcte et sans anomalie supplementaire, retournez un tableau vide pour anomalies_supplementaires.
+4. Retourner exactement une entree dans analyses_par_medicament pour chaque medicament prescrit fourni en entree. Utiliser anomaly: null si aucun probleme supplementaire n'est detecte pour ce medicament.
 5. Le resume doit etre concis (2-4 phrases) et donner un avis global sur la securite de l'ordonnance.
+6. analyses_par_medicament doit etre un tableau d'objets JSON, jamais un tableau de chaines.
+7. Si une interaction concerne deux medicaments prescrits dans l'entree, mettez une anomaly sur les deux medicaments avec code AI_INTERACTION_CONCERN et indiquez l'autre medicament dans related_medicaments.
 
 Codes disponibles:
 - AI_DOSAGE_CONCERN: probleme de dosage ou posologie
 - AI_COHERENCE_CONCERN: incoherence therapeutique, redondance ou association illogique
+- AI_INTERACTION_CONCERN: interaction potentielle non deja couverte par les regles automatiques
 - AI_ADDITIONAL_FLAG: tout autre probleme de securite
+
+Exemple de forme attendue:
+{
+  "resume": "Avis global...",
+  "analyses_par_medicament": [
+    {
+      "medicament_externe_id": "6838",
+      "nom_medicament": "TRAMADOL ARROW",
+      "anomaly": null
+    }
+  ]
+}
 
 Repondez en francais.`;
 
@@ -325,6 +474,223 @@ function medicationNameMatches(
   return false;
 }
 
+function findMatchingInteraction(
+  medDetails: MedicationWithDetails,
+  targetName: string,
+  targetGenericName: string | null,
+): string | undefined {
+  return medDetails.interactions.find((inter) =>
+    medicationNameMatches(
+      inter.medicament_interaction,
+      targetName,
+      targetGenericName,
+    ),
+  )?.medicament_interaction;
+}
+
+function normalizeAiSeverity(value: string | undefined): AnomalySeverity {
+  const normalized = normalizeText(value ?? "");
+  if (normalized === "error" || normalized === "erreur") return "error";
+  if (normalized === "info" || normalized === "information") return "info";
+  return "warning";
+}
+
+function normalizeAiCode(value: string | undefined): AiAnomalyCode {
+  const raw = (value ?? "").trim().toUpperCase();
+  if ((AI_ANOMALY_CODES as readonly string[]).includes(raw)) {
+    return raw as AiAnomalyCode;
+  }
+
+  const normalized = normalizeText(raw);
+  if (normalized.includes("dosage") || normalized.includes("posologie")) {
+    return "AI_DOSAGE_CONCERN";
+  }
+  if (normalized.includes("interaction")) {
+    return "AI_INTERACTION_CONCERN";
+  }
+  if (
+    normalized.includes("coherence") ||
+    normalized.includes("redond") ||
+    normalized.includes("association")
+  ) {
+    return "AI_COHERENCE_CONCERN";
+  }
+  return "AI_ADDITIONAL_FLAG";
+}
+
+function normalizeAiRelatedMedicaments(
+  value: string | string[] | null | undefined,
+): string[] | undefined {
+  if (!value) return undefined;
+
+  const related = Array.isArray(value)
+    ? value
+    : value.split(/[,;]/g).map((item) => item.trim());
+
+  const normalized = related.filter((item) => item.length > 0);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function medicationMatchesAnyName(
+  prescribed: PrescribedMedication,
+  medDetails: MedicationWithDetails | undefined,
+  normalizedNames: string[],
+): boolean {
+  const candidateNames = [
+    prescribed.medicament_externe_id,
+    getMedicationLookupKey(prescribed.medicament_externe_id),
+    medDetails?.nom_medicament,
+    medDetails?.nom_generique,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeText(value))
+    .filter((value) => value.length > 0);
+
+  return normalizedNames.some((name) =>
+    candidateNames.some(
+      (candidateName) =>
+        candidateName === name ||
+        (name.length > 3 && candidateName.includes(name)) ||
+        (candidateName.length > 3 && name.includes(candidateName)),
+    ),
+  );
+}
+
+function medicationAnomalyKey(anomaly: MedicationAnomaly): string {
+  return [
+    getMedicationLookupKey(anomaly.medicament_externe_id),
+    anomaly.code,
+    anomaly.message,
+    anomaly.details ?? "",
+    [...(anomaly.related_medicaments ?? [])].sort().join("|"),
+  ].join("::");
+}
+
+function pushMedicationAnomalyOnce(
+  anomalies: MedicationAnomaly[],
+  anomaly: MedicationAnomaly,
+): boolean {
+  const key = medicationAnomalyKey(anomaly);
+  const exists = anomalies.some((candidate) => medicationAnomalyKey(candidate) === key);
+
+  if (exists) {
+    return false;
+  }
+
+  anomalies.push(anomaly);
+  return true;
+}
+
+function rawAiAnalysisMatchesMedication(params: {
+  analysis: AiRawMedicationAnalysis;
+  prescribed: PrescribedMedication;
+  medDetails: MedicationWithDetails | undefined;
+}): boolean {
+  if (typeof params.analysis === "string") {
+    const normalized = normalizeText(params.analysis);
+    return (
+      normalized.includes(
+        normalizeText(getMedicationLookupKey(params.prescribed.medicament_externe_id)),
+      ) ||
+      normalized.includes(normalizeText(params.medDetails?.nom_medicament ?? ""))
+    );
+  }
+
+  const rawId = params.analysis.medicament_externe_id;
+  if (
+    rawId &&
+    getMedicationLookupKey(rawId) ===
+      getMedicationLookupKey(params.prescribed.medicament_externe_id)
+  ) {
+    return true;
+  }
+
+  const rawName =
+    params.analysis.nom_medicament ?? params.analysis.medicament_concerne;
+  if (!rawName) return false;
+
+  const normalizedRawName = normalizeText(rawName);
+  return (
+    normalizeText(params.medDetails?.nom_medicament ?? "") === normalizedRawName ||
+    normalizeText(params.prescribed.medicament_externe_id) === normalizedRawName
+  );
+}
+
+function normalizeRawAiAnomaly(
+  anomaly: AiRawMedicationAnomaly | AiRawMedicationAnalysis,
+): AiMedicationAnalysis["anomaly"] {
+  if (!anomaly || typeof anomaly === "string") return null;
+
+  const message = anomaly.message?.trim();
+  if (!message) return null;
+
+  const details =
+    typeof anomaly.details === "string" && anomaly.details.trim().length > 0
+      ? anomaly.details.trim()
+      : undefined;
+  const related_medicaments = normalizeAiRelatedMedicaments(
+    anomaly.related_medicaments,
+  );
+
+  return {
+    code: normalizeAiCode(anomaly.code),
+    severity: normalizeAiSeverity(anomaly.severity),
+    message,
+    ...(details ? { details } : {}),
+    ...(related_medicaments ? { related_medicaments } : {}),
+  };
+}
+
+function normalizeAiResult(
+  rawResult: AiRawAnomalyResult,
+  prescribedMeds: PrescribedMedication[],
+  medicationMap: Map<string, MedicationWithDetails>,
+): AiAnomalyResult {
+  const rawAnalyses =
+    rawResult.analyses_par_medicament ??
+    rawResult.anomalies_supplementaires ??
+    [];
+
+  return {
+    resume:
+      rawResult.resume?.trim() ??
+      "Analyse IA effectuee. Aucun resume supplementaire fourni.",
+    analyses_par_medicament: prescribedMeds.map((prescribed) => {
+      const medDetails = getMedicationDetails(prescribed, medicationMap);
+      const matchingRawAnalysis = rawAnalyses.find((analysis) =>
+        rawAiAnalysisMatchesMedication({
+          analysis,
+          prescribed,
+          medDetails,
+        }),
+      );
+
+      const rawAnomaly =
+        typeof matchingRawAnalysis === "object"
+          ? (matchingRawAnalysis.anomaly ??
+            matchingRawAnalysis.anomalies?.[0] ??
+            (matchingRawAnalysis.message || matchingRawAnalysis.code
+              ? matchingRawAnalysis
+              : null))
+          : null;
+
+      const rawName =
+        typeof matchingRawAnalysis === "object"
+          ? (matchingRawAnalysis.nom_medicament ??
+            matchingRawAnalysis.medicament_concerne)
+          : undefined;
+
+      return {
+        medicament_externe_id: prescribed.medicament_externe_id,
+        nom_medicament:
+          medDetails?.nom_medicament ??
+          rawName ??
+          `Medicament #${prescribed.medicament_externe_id}`,
+        anomaly: rawAnomaly ? normalizeRawAiAnomaly(rawAnomaly) : null,
+      };
+    }),
+  };
+}
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -398,17 +764,17 @@ export class AnomalyFlagService {
       valid_medicament_ids_count: validMedicamentIds.length,
     });
 
-    const patientDataPromise = (async () => {
+    const patientCorePromise = (async () => {
       const startedAt = Date.now();
       try {
         const result = await withTimeout(
-          anomalyFlagRepository.getFullPatientData(data.db, data.patient_id),
+          anomalyFlagRepository.getCorePatientData(data.db, data.patient_id),
           BRANCH_TIMEOUT_MS,
-          "getFullPatientData",
+          "getCorePatientData",
         );
 
         logInfo("branch fetch completed", {
-          branch: "getFullPatientData",
+          branch: "getCorePatientData",
           branch_duration_ms: Date.now() - startedAt,
           patient_found: Boolean(result),
         });
@@ -416,7 +782,59 @@ export class AnomalyFlagService {
         return result;
       } catch (error) {
         logError("branch fetch failed", {
-          branch: "getFullPatientData",
+          branch: "getCorePatientData",
+          branch_duration_ms: Date.now() - startedAt,
+          error: branchErrorMessage(error),
+        });
+        throw error;
+      }
+    })();
+
+    const femaleDataPromise = (async () => {
+      const startedAt = Date.now();
+      try {
+        const result = await withTimeout(
+          anomalyFlagRepository.getPatientFemaleData(data.db, data.patient_id),
+          BRANCH_TIMEOUT_MS,
+          "getPatientFemaleData",
+        );
+
+        logInfo("branch fetch completed", {
+          branch: "getPatientFemaleData",
+          branch_duration_ms: Date.now() - startedAt,
+          female_data_found: Boolean(result),
+        });
+
+        return result;
+      } catch (error) {
+        logError("branch fetch failed", {
+          branch: "getPatientFemaleData",
+          branch_duration_ms: Date.now() - startedAt,
+          error: branchErrorMessage(error),
+        });
+        throw error;
+      }
+    })();
+
+    const antecedentsPromise = (async () => {
+      const startedAt = Date.now();
+      try {
+        const result = await withTimeout(
+          anomalyFlagRepository.getPatientAntecedents(data.db, data.patient_id),
+          BRANCH_TIMEOUT_MS,
+          "getPatientAntecedents",
+        );
+
+        logInfo("branch fetch completed", {
+          branch: "getPatientAntecedents",
+          branch_duration_ms: Date.now() - startedAt,
+          antecedents_count: result.length,
+        });
+
+        return result;
+      } catch (error) {
+        logError("branch fetch failed", {
+          branch: "getPatientAntecedents",
           branch_duration_ms: Date.now() - startedAt,
           error: branchErrorMessage(error),
         });
@@ -477,20 +895,28 @@ export class AnomalyFlagService {
       }
     })();
 
-    const [patientDataResult, medicationDetailsResult, activeTreatmentsResult] =
+    const [
+      patientCoreResult,
+      femaleDataResult,
+      antecedentsResult,
+      medicationDetailsResult,
+      activeTreatmentsResult,
+    ] =
       await Promise.allSettled([
-        patientDataPromise,
+        patientCorePromise,
+        femaleDataPromise,
+        antecedentsPromise,
         medicationDetailsPromise,
         activeTreatmentsPromise,
       ]);
 
-    if (patientDataResult.status === "rejected") {
+    if (patientCoreResult.status === "rejected") {
       checkpoint("parallel_fetch_failed", {
-        failed_branch: "getFullPatientData",
+        failed_branch: "getCorePatientData",
       });
       logError("patient data branch failed", {
-        branch: "getFullPatientData",
-        error: branchErrorMessage(patientDataResult.reason),
+        branch: "getCorePatientData",
+        error: branchErrorMessage(patientCoreResult.reason),
       });
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -499,7 +925,7 @@ export class AnomalyFlagService {
       });
     }
 
-    const patientData = patientDataResult.value;
+    const patientCore = patientCoreResult.value;
     const medicationDetails =
       medicationDetailsResult.status === "fulfilled"
         ? medicationDetailsResult.value
@@ -508,8 +934,46 @@ export class AnomalyFlagService {
       activeTreatmentsResult.status === "fulfilled"
         ? activeTreatmentsResult.value
         : [];
+    let activeTreatmentMedicationDetails: MedicationWithDetails[] = [];
+    const femaleData =
+      femaleDataResult.status === "fulfilled" ? femaleDataResult.value : null;
+    const antecedents =
+      antecedentsResult.status === "fulfilled" ? antecedentsResult.value : [];
 
     const fetchDegradedAnomalies: GlobalAnomaly[] = [];
+
+    if (femaleDataResult.status === "rejected") {
+      fetchDegradedAnomalies.push({
+        code: "PATIENT_CONTEXT_DEGRADED",
+        severity: "info",
+        message:
+          "Certaines donnees patient n'ont pas pu etre chargees completement. Analyse effectuee avec un contexte partiel.",
+        medicaments_concernes: [],
+      });
+      logWarn("patient female data branch degraded", {
+        branch: "getPatientFemaleData",
+        error: branchErrorMessage(femaleDataResult.reason),
+      });
+    }
+
+    if (antecedentsResult.status === "rejected") {
+      const alreadyAdded = fetchDegradedAnomalies.some(
+        (anomaly) => anomaly.code === "PATIENT_CONTEXT_DEGRADED",
+      );
+      if (!alreadyAdded) {
+        fetchDegradedAnomalies.push({
+          code: "PATIENT_CONTEXT_DEGRADED",
+          severity: "info",
+          message:
+            "Certaines donnees patient n'ont pas pu etre chargees completement. Analyse effectuee avec un contexte partiel.",
+          medicaments_concernes: [],
+        });
+      }
+      logWarn("patient antecedents branch degraded", {
+        branch: "getPatientAntecedents",
+        error: branchErrorMessage(antecedentsResult.reason),
+      });
+    }
 
     if (medicationDetailsResult.status === "rejected") {
       fetchDegradedAnomalies.push({
@@ -545,7 +1009,7 @@ export class AnomalyFlagService {
     }
 
     checkpoint("parallel_fetch_completed", {
-      patient_found: Boolean(patientData),
+      patient_found: Boolean(patientCore),
       medication_details_count: medicationDetails.length,
       active_treatments_count: activeTreatments.length,
       medication_fetch_degraded: medicationDetailsResult.status === "rejected",
@@ -554,7 +1018,7 @@ export class AnomalyFlagService {
     });
 
     // 4. Validate patient exists
-    if (!patientData) {
+    if (!patientCore) {
       checkpoint("patient_validated_not_found", { patient_id: data.patient_id });
       logWarn("patient not found", {
         patient_id: data.patient_id,
@@ -566,6 +1030,12 @@ export class AnomalyFlagService {
       });
     }
     checkpoint("patient_validated");
+
+    const patientData = buildFullPatientData(
+      patientCore,
+      femaleData,
+      antecedents,
+    );
 
     // 5. Build patient context
     const age = computePatientAge(patientData.patient.date_naissance);
@@ -594,13 +1064,47 @@ export class AnomalyFlagService {
       medication_map_size: medicationMap.size,
     });
 
+    const activeTreatmentMedicamentIds = activeTreatments
+      .map((treatment) => parseInt(treatment.medicament_externe_id, 10))
+      .filter((id) => !Number.isNaN(id));
+    const activeTreatmentIdsToFetch = activeTreatmentMedicamentIds.filter(
+      (id) => !medicationMap.has(String(id)),
+    );
+
+    if (activeTreatmentIdsToFetch.length > 0) {
+      try {
+        activeTreatmentMedicationDetails = await withTimeout(
+          anomalyFlagRepository.getMedicationsByIds(activeTreatmentIdsToFetch),
+          BRANCH_TIMEOUT_MS,
+          "getActiveTreatmentMedicationDetails",
+        );
+
+        for (const med of activeTreatmentMedicationDetails) {
+          medicationMap.set(String(med.id), med);
+        }
+
+        checkpoint("active_treatment_medication_details_loaded", {
+          requested_ids_count: activeTreatmentIdsToFetch.length,
+          resolved_medications_count: activeTreatmentMedicationDetails.length,
+        });
+      } catch (error) {
+        logWarn("active treatment medication details degraded", {
+          branch: "getActiveTreatmentMedicationDetails",
+          error: branchErrorMessage(error),
+        });
+        checkpoint("active_treatment_medication_details_degraded", {
+          requested_ids_count: activeTreatmentIdsToFetch.length,
+        });
+      }
+    }
+
     // 7. Phase 1: Rule-based checks
     const anomaliesParMedicament: MedicationAnomaly[] = [];
     const anomaliesGlobales: GlobalAnomaly[] = [...fetchDegradedAnomalies];
 
     // Per-medication rules
     for (const prescribed of data.medicaments) {
-      const medDetails = medicationMap.get(prescribed.medicament_externe_id);
+      const medDetails = getMedicationDetails(prescribed, medicationMap);
 
       if (!medDetails) {
         // Medication not found in external DB — info anomaly
@@ -661,6 +1165,7 @@ export class AnomalyFlagService {
     this.checkDrugInteractions(
       data.medicaments,
       medicationMap,
+      anomaliesParMedicament,
       anomaliesGlobales,
     );
 
@@ -669,6 +1174,7 @@ export class AnomalyFlagService {
       data.medicaments,
       medicationMap,
       activeTreatments,
+      anomaliesParMedicament,
       anomaliesGlobales,
     );
 
@@ -678,8 +1184,8 @@ export class AnomalyFlagService {
     });
 
     // 8. Phase 2: AI second pass (if available)
-    let aiSummary: string | null = null;
     let aiAvailable = false;
+    let aiSummary: string | null = null;
 
     if (env.GEMINI_API_KEY) {
       try {
@@ -700,19 +1206,24 @@ export class AnomalyFlagService {
 
         aiAvailable = true;
         aiSummary = aiResult.resume;
-
         // Merge AI anomalies into per-medication list
         let aiMergeMatchedCount = 0;
         let aiMergeUnknownCount = 0;
 
-        for (const aiAnomaly of aiResult.anomalies_supplementaires) {
+        for (const aiAnalysis of aiResult.analyses_par_medicament) {
+          if (!aiAnalysis.anomaly) {
+            continue;
+          }
+
           // Try to find the matching prescribed medication
           const matchingPrescribed = data.medicaments.find((m) => {
-            const med = medicationMap.get(m.medicament_externe_id);
+            const med = getMedicationDetails(m, medicationMap);
             return (
-              med &&
-              normalizeText(med.nom_medicament) ===
-                normalizeText(aiAnomaly.medicament_concerne)
+              getMedicationLookupKey(m.medicament_externe_id) ===
+                getMedicationLookupKey(aiAnalysis.medicament_externe_id) ||
+              (med &&
+                normalizeText(med.nom_medicament) ===
+                  normalizeText(aiAnalysis.nom_medicament))
             );
           });
 
@@ -720,49 +1231,101 @@ export class AnomalyFlagService {
             aiMergeMatchedCount += 1;
           } else {
             aiMergeUnknownCount += 1;
+            continue;
           }
 
-          anomaliesParMedicament.push({
-            medicament_externe_id:
-              matchingPrescribed?.medicament_externe_id ?? "unknown",
-            nom_medicament: aiAnomaly.medicament_concerne,
-            code: aiAnomaly.code,
-            severity: aiAnomaly.severity,
-            message: aiAnomaly.message,
-            details: aiAnomaly.details,
-          });
+          const medDetails = getMedicationDetails(matchingPrescribed, medicationMap);
+          const aiMedicationAnomaly: MedicationAnomaly = {
+            medicament_externe_id: matchingPrescribed.medicament_externe_id,
+            nom_medicament:
+              medDetails?.nom_medicament ?? aiAnalysis.nom_medicament,
+            code: aiAnalysis.anomaly.code,
+            severity: aiAnalysis.anomaly.severity,
+            message: aiAnalysis.anomaly.message,
+            details: aiAnalysis.anomaly.details,
+            related_medicaments: aiAnalysis.anomaly.related_medicaments,
+            source: "ai",
+          };
+
+          pushMedicationAnomalyOnce(anomaliesParMedicament, aiMedicationAnomaly);
+
+          if (
+            aiAnalysis.anomaly.code === "AI_INTERACTION_CONCERN"
+          ) {
+            const relatedNames = [
+              ...(aiAnalysis.anomaly.related_medicaments ?? []),
+              aiAnalysis.anomaly.message,
+              aiAnalysis.anomaly.details ?? "",
+            ]
+              .map((name) => normalizeText(name))
+              .filter((name) => name.length > 0);
+
+            for (const candidate of data.medicaments) {
+              if (
+                getMedicationLookupKey(candidate.medicament_externe_id) ===
+                getMedicationLookupKey(matchingPrescribed.medicament_externe_id)
+              ) {
+                continue;
+              }
+
+              const candidateDetails = getMedicationDetails(candidate, medicationMap);
+              const isRelated = medicationMatchesAnyName(
+                candidate,
+                candidateDetails,
+                relatedNames,
+              );
+
+              if (!isRelated) continue;
+
+              const sourceName =
+                medDetails?.nom_medicament ?? aiAnalysis.nom_medicament;
+              pushMedicationAnomalyOnce(anomaliesParMedicament, {
+                ...aiMedicationAnomaly,
+                medicament_externe_id: candidate.medicament_externe_id,
+                nom_medicament:
+                  candidateDetails?.nom_medicament ??
+                  `Medicament #${candidate.medicament_externe_id}`,
+                related_medicaments: [sourceName],
+              });
+            }
+          }
         }
 
         checkpoint("ai_completed", {
-          ai_anomalies_count: aiResult.anomalies_supplementaires.length,
+          ai_analyses_count: aiResult.analyses_par_medicament.length,
           ai_merge_matched_count: aiMergeMatchedCount,
           ai_merge_unknown_count: aiMergeUnknownCount,
         });
       } catch (error) {
-        logError("ai analysis failed, using rule-based results", {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        logError("ai analysis failed", {
           patient_id: data.patient_id,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
           total_duration_ms: Date.now() - requestStartedAt,
         });
-
-        // AI failed — return rule-based results only
-        aiAvailable = false;
-        aiSummary = null;
-        anomaliesGlobales.push({
-          code: "AI_UNAVAILABLE",
-          severity: "info",
-          message:
-            "L'analyse IA n'a pas pu etre effectuee. Resultats bases sur les regles automatiques uniquement.",
-          medicaments_concernes: [],
+        checkpoint("ai_failed", {
+          anomalies_globales_count: anomaliesGlobales.length,
         });
 
-        checkpoint("ai_failed_fallback", {
-          anomalies_globales_count: anomaliesGlobales.length,
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "L'analyse IA de l'ordonnance a echoue. Aucun resultat de fallback par regles n'a ete retourne.",
+          cause: error,
         });
       }
     } else {
-      logWarn("ai analysis skipped: GEMINI_API_KEY missing");
-      checkpoint("ai_skipped_no_key");
+      logError("ai analysis unavailable: GEMINI_API_KEY missing", {
+        patient_id: data.patient_id,
+      });
+      checkpoint("ai_unavailable_no_key");
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          "L'analyse IA de l'ordonnance est indisponible: GEMINI_API_KEY manquante.",
+      });
     }
 
     checkpoint("response_ready", {
@@ -771,12 +1334,44 @@ export class AnomalyFlagService {
       ai_available: aiAvailable,
     });
 
+    const medicationAssessments = this.buildMedicationAssessments(
+      data.medicaments,
+      medicationMap,
+      anomaliesParMedicament,
+    );
+
     return {
+      medicaments: medicationAssessments,
       anomalies_par_medicament: anomaliesParMedicament,
       anomalies_globales: anomaliesGlobales,
       ai_summary: aiSummary,
       ai_available: aiAvailable,
     };
+  }
+
+  private buildMedicationAssessments(
+    prescribedMeds: PrescribedMedication[],
+    medicationMap: Map<string, MedicationWithDetails>,
+    anomalies: MedicationAnomaly[],
+  ): MedicationAnomalyAssessment[] {
+    return prescribedMeds.map((prescribed) => {
+      const medDetails = getMedicationDetails(prescribed, medicationMap);
+      const medicationAnomalies = anomalies.filter(
+        (anomaly) =>
+          getMedicationLookupKey(anomaly.medicament_externe_id) ===
+          getMedicationLookupKey(prescribed.medicament_externe_id),
+      );
+
+      return {
+        medicament_externe_id: prescribed.medicament_externe_id,
+        nom_medicament:
+          medDetails?.nom_medicament ??
+          medicationAnomalies[0]?.nom_medicament ??
+          `Medicament #${prescribed.medicament_externe_id}`,
+        anomaly: selectPrimaryAnomaly(medicationAnomalies),
+        anomalies: medicationAnomalies,
+      };
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -949,72 +1544,77 @@ export class AnomalyFlagService {
   private checkDrugInteractions(
     prescribedMeds: PrescribedMedication[],
     medicationMap: Map<string, MedicationWithDetails>,
-    anomalies: GlobalAnomaly[],
+    medicationAnomalies: MedicationAnomaly[],
+    globalAnomalies: GlobalAnomaly[],
   ): void {
     const checkedPairs = new Set<string>();
 
     for (let i = 0; i < prescribedMeds.length; i++) {
-      const medA = medicationMap.get(
-        prescribedMeds[i]!.medicament_externe_id,
-      );
+      const prescribedA = prescribedMeds[i]!;
+      const medA = getMedicationDetails(prescribedA, medicationMap);
       if (!medA) continue;
 
       for (let j = i + 1; j < prescribedMeds.length; j++) {
-        const medB = medicationMap.get(
-          prescribedMeds[j]!.medicament_externe_id,
-        );
+        const prescribedB = prescribedMeds[j]!;
+        const medB = getMedicationDetails(prescribedB, medicationMap);
         if (!medB) continue;
 
         const pairKey = [medA.id, medB.id].sort().join("-");
         if (checkedPairs.has(pairKey)) continue;
         checkedPairs.add(pairKey);
 
-        // Check if A's interactions mention B
-        const aInteractsWithB = medA.interactions.some((inter) =>
-          medicationNameMatches(
-            inter.medicament_interaction,
-            medB.nom_medicament,
-            medB.nom_generique,
-          ),
+        const interactionFromA = findMatchingInteraction(
+          medA,
+          medB.nom_medicament,
+          medB.nom_generique,
+        );
+        const interactionFromB = findMatchingInteraction(
+          medB,
+          medA.nom_medicament,
+          medA.nom_generique,
         );
 
-        // Check if B's interactions mention A
-        const bInteractsWithA = medB.interactions.some((inter) =>
-          medicationNameMatches(
-            inter.medicament_interaction,
-            medA.nom_medicament,
-            medA.nom_generique,
-          ),
-        );
+        if (interactionFromA || interactionFromB) {
+          const interactionDetail = interactionFromA ?? interactionFromB;
+          const message = `Interaction detectee entre ${medA.nom_medicament} et ${medB.nom_medicament}.`;
 
-        if (aInteractsWithB || bInteractsWithA) {
-          // Find the specific interaction text for details
-          const interactionDetail =
-            medA.interactions.find((inter) =>
-              medicationNameMatches(
-                inter.medicament_interaction,
-                medB.nom_medicament,
-                medB.nom_generique,
-              ),
-            )?.medicament_interaction ??
-            medB.interactions.find((inter) =>
-              medicationNameMatches(
-                inter.medicament_interaction,
-                medA.nom_medicament,
-                medA.nom_generique,
-              ),
-            )?.medicament_interaction;
-
-          anomalies.push({
+          globalAnomalies.push({
             code: "DRUG_INTERACTION",
             severity: "error",
-            message: `Interaction detectee entre ${medA.nom_medicament} et ${medB.nom_medicament}.`,
+            message,
             medicaments_concernes: [
               medA.nom_medicament,
               medB.nom_medicament,
             ],
             details: interactionDetail,
           });
+
+          pushMedicationAnomalyOnce(
+            medicationAnomalies,
+            {
+              medicament_externe_id: prescribedA.medicament_externe_id,
+              nom_medicament: medA.nom_medicament,
+              code: "DRUG_INTERACTION",
+              severity: "error",
+              message,
+              details: interactionDetail,
+              related_medicaments: [medB.nom_medicament],
+              source: "rules",
+            },
+          );
+          pushMedicationAnomalyOnce(
+            medicationAnomalies,
+            {
+              medicament_externe_id: prescribedB.medicament_externe_id,
+              nom_medicament: medB.nom_medicament,
+              code: "DRUG_INTERACTION",
+              severity: "error",
+              message,
+              details: interactionDetail,
+              related_medicaments: [medA.nom_medicament],
+              source: "rules",
+            },
+          );
         }
       }
     }
@@ -1028,47 +1628,66 @@ export class AnomalyFlagService {
     prescribedMeds: PrescribedMedication[],
     medicationMap: Map<string, MedicationWithDetails>,
     activeTreatments: ActiveTreatment[],
-    anomalies: GlobalAnomaly[],
+    medicationAnomalies: MedicationAnomaly[],
+    globalAnomalies: GlobalAnomaly[],
   ): void {
     if (activeTreatments.length === 0) return;
 
     for (const prescribed of prescribedMeds) {
-      const medDetails = medicationMap.get(prescribed.medicament_externe_id);
+      const medDetails = getMedicationDetails(prescribed, medicationMap);
       if (!medDetails) continue;
 
       for (const treatment of activeTreatments) {
         // Skip if the existing treatment is the same medication
-        if (treatment.medicament_externe_id === prescribed.medicament_externe_id) {
+        if (
+          getMedicationLookupKey(treatment.medicament_externe_id) ===
+          getMedicationLookupKey(prescribed.medicament_externe_id)
+        ) {
           continue;
         }
 
-        // Check if the prescribed medication's interactions mention the active treatment
-        const interacts = medDetails.interactions.some((inter) =>
-          medicationNameMatches(
-            inter.medicament_interaction,
-            treatment.nom_medicament,
-            null, // no generic name available for active treatments
-          ),
+        const treatmentDetails = getTreatmentMedicationDetails(
+          treatment,
+          medicationMap,
         );
+        const interactionFromPrescription = findMatchingInteraction(
+          medDetails,
+          treatment.nom_medicament,
+          treatmentDetails?.nom_generique ?? null,
+        );
+        const interactionFromTreatment = treatmentDetails
+          ? findMatchingInteraction(
+              treatmentDetails,
+              medDetails.nom_medicament,
+              medDetails.nom_generique,
+            )
+          : undefined;
 
-        if (interacts) {
-          const interactionDetail = medDetails.interactions.find((inter) =>
-            medicationNameMatches(
-              inter.medicament_interaction,
-              treatment.nom_medicament,
-              null,
-            ),
-          )?.medicament_interaction;
+        if (interactionFromPrescription || interactionFromTreatment) {
+          const interactionDetail =
+            interactionFromPrescription ?? interactionFromTreatment;
+          const message = `Interaction detectee entre ${medDetails.nom_medicament} (prescrit) et ${treatment.nom_medicament} (traitement actif en cours).`;
 
-          anomalies.push({
+          globalAnomalies.push({
             code: "EXISTING_TREATMENT_INTERACTION",
             severity: "error",
-            message: `Interaction detectee entre ${medDetails.nom_medicament} (prescrit) et ${treatment.nom_medicament} (traitement actif en cours).`,
+            message,
             medicaments_concernes: [
               medDetails.nom_medicament,
               treatment.nom_medicament,
             ],
             details: interactionDetail,
+          });
+
+          pushMedicationAnomalyOnce(medicationAnomalies, {
+            medicament_externe_id: prescribed.medicament_externe_id,
+            nom_medicament: medDetails.nom_medicament,
+            code: "EXISTING_TREATMENT_INTERACTION",
+            severity: "error",
+            message,
+            details: interactionDetail,
+            related_medicaments: [treatment.nom_medicament],
+            source: "rules",
           });
         }
       }
@@ -1110,7 +1729,11 @@ export class AnomalyFlagService {
       ],
     });
 
-    return result.object as AiAnomalyResult;
+    return normalizeAiResult(
+      result.object as AiRawAnomalyResult,
+      prescribedMeds,
+      medicationMap,
+    );
   }
 
   private buildAiUserPrompt(
@@ -1158,14 +1781,21 @@ export class AnomalyFlagService {
 
     // Prescribed medications
     const medLines = prescribedMeds.map((m) => {
-      const details = medicationMap.get(m.medicament_externe_id);
+      const details = getMedicationDetails(m, medicationMap);
       const name = details?.nom_medicament ?? `Medicament #${m.medicament_externe_id}`;
-      let line = `- ${name}: ${m.posologie}`;
+      let line = `- id=${m.medicament_externe_id}; nom=${name}; posologie=${m.posologie}`;
       if (m.dosage) line += ` (dosage: ${m.dosage})`;
       if (m.duree_traitement) line += ` — duree: ${m.duree_traitement}`;
       if (details?.dose_maximale) line += ` [dose max: ${details.dose_maximale}]`;
       if (details?.classe_therapeutique)
         line += ` [classe: ${details.classe_therapeutique}]`;
+      if (details?.interactions.length) {
+        const knownInteractions = details.interactions
+          .slice(0, 8)
+          .map((interaction) => interaction.medicament_interaction)
+          .join("; ");
+        line += ` [interactions connues: ${knownInteractions}]`;
+      }
       return line;
     });
     sections.push(`## Medicaments prescrits\n${medLines.join("\n")}`);
@@ -1173,11 +1803,28 @@ export class AnomalyFlagService {
     // Active treatments
     if (activeTreatments.length > 0) {
       const treatLines = activeTreatments.map(
-        (t) =>
-          `- ${t.nom_medicament}: ${t.posologie}${t.dosage ? ` (${t.dosage})` : ""}`,
+        (t) => {
+          const treatmentDetails = getTreatmentMedicationDetails(t, medicationMap);
+          let line = `- id=${t.medicament_externe_id}; nom=${t.nom_medicament}; posologie=${t.posologie}${t.dosage ? ` (${t.dosage})` : ""}`;
+          if (treatmentDetails?.nom_generique) {
+            line += ` [generique: ${treatmentDetails.nom_generique}]`;
+          }
+          if (treatmentDetails?.interactions.length) {
+            const knownInteractions = treatmentDetails.interactions
+              .slice(0, 8)
+              .map((interaction) => interaction.medicament_interaction)
+              .join("; ");
+            line += ` [interactions connues: ${knownInteractions}]`;
+          }
+          return line;
+        },
       );
       sections.push(`## Traitements actifs en cours\n${treatLines.join("\n")}`);
     }
+
+    sections.push(
+      `## Format attendu\nRetournez analyses_par_medicament avec exactement ${prescribedMeds.length} entree(s), une pour chaque id de medicament prescrit ci-dessus. Pour un medicament sans anomalie supplementaire, utilisez anomaly: null.`,
+    );
 
     // Already detected anomalies (so AI doesn't duplicate)
     const allExisting = [

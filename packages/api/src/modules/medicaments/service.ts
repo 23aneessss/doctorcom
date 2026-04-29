@@ -22,6 +22,7 @@ import {
   type SubstanceActiveRecord,
   type UpdateMedicamentInput,
 } from "./repo";
+import { ordonnanceEmbeddingTasks } from "../ai/ordonnance-recommendation/embedding-tasks";
 
 type MedicationsDatabaseClient = typeof medicationsDb;
 type MedicationsTransaction = Parameters<Parameters<typeof withMedicationsTx>[0]>[0];
@@ -120,16 +121,18 @@ export class MedicamentsService {
   async creerMedicament(input: CreateMedicamentAggregateInput): Promise<MedicamentAggregate> {
     const normalized = this.normalizeCreateInput(input);
 
-    return withMedicationsTx(async (tx: MedicationsTransaction) => {
+    const aggregate = await withMedicationsTx(async (tx: MedicationsTransaction) => {
       const medicament = await medicamentsRepository.createMedicament(tx, normalized.medicament);
       const nested = await this.replaceNestedCollections(tx, medicament.id, normalized);
-      mobileMedicationDatasetCache = null;
-
       return {
         medicament,
         ...nested,
       };
     });
+
+    mobileMedicationDatasetCache = null;
+    ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
+    return aggregate;
   }
 
   async mettreAJourMedicament(
@@ -146,7 +149,7 @@ export class MedicamentsService {
 
     const normalized = this.normalizeUpdateInput(input);
 
-    return withMedicationsTx(async (tx: MedicationsTransaction) => {
+    const aggregate = await withMedicationsTx(async (tx: MedicationsTransaction) => {
       const medicament = await medicamentsRepository.updateMedicament(
         tx,
         medicamentId,
@@ -161,12 +164,16 @@ export class MedicamentsService {
       }
 
       const nested = await this.replaceNestedCollections(tx, medicamentId, normalized, false);
-      mobileMedicationDatasetCache = null;
-      return {
+      const aggregate = {
         medicament,
         ...nested,
       };
+      return aggregate;
     });
+
+    mobileMedicationDatasetCache = null;
+    ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
+    return aggregate;
   }
 
   async supprimerMedicament(medicamentId: number): Promise<{ success: true }> {
@@ -178,9 +185,9 @@ export class MedicamentsService {
       });
     }
 
-    const deleted = await withMedicationsTx(async (tx: MedicationsTransaction) =>
-      medicamentsRepository.deleteMedicament(tx, medicamentId),
-    );
+    const deleted = await withMedicationsTx(async (tx: MedicationsTransaction) => {
+      return medicamentsRepository.deleteMedicament(tx, medicamentId);
+    });
 
     if (!deleted) {
       throw new TRPCError({
@@ -190,6 +197,7 @@ export class MedicamentsService {
     }
 
     mobileMedicationDatasetCache = null;
+    ordonnanceEmbeddingTasks.scheduleDelete(medicamentId);
     return { success: true };
   }
 
@@ -235,8 +243,31 @@ export class MedicamentsService {
     };
   }
 
+  async getMedicamentsAggregatesByIds(medicamentIds: number[]): Promise<MedicamentAggregate[]> {
+    const uniqueIds = [...new Set(medicamentIds)].filter((id) => Number.isInteger(id) && id > 0);
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    const aggregates = await Promise.all(
+      uniqueIds.map(async (medicamentId) => {
+        try {
+          return await this.getMedicamentById(medicamentId);
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    return aggregates.filter((aggregate): aggregate is MedicamentAggregate => Boolean(aggregate));
+  }
+
   async rechercherMedicaments(filters: MedicamentSearchFilters): Promise<PaginatedMedicaments> {
     return medicamentsRepository.searchMedicaments(medicationsDb, filters);
+  }
+
+  async listAllMedicaments(): Promise<MedicamentRecord[]> {
+    return medicamentsRepository.listAllMedicaments(medicationsDb);
   }
 
   async getMedicamentSnapshot(medicamentId: number): Promise<{

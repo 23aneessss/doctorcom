@@ -37,6 +37,7 @@ import { z } from "zod";
 import Sidebar from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireSession } from "@/lib/require-session";
+import { formatSexLabel, isFemaleSex } from "@/lib/patient-sex";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
 import { NouveauSuiviDialog } from "@/routes/patients.$id/popups/nouveau-suivi";
 import { ModifierAntecedentFamilialDialog } from "@/routes/patients.$id/popups/modifier-antecedent-familial";
@@ -46,6 +47,9 @@ import { NouvelAntecedentPersonnelDialog } from "@/routes/patients.$id/popups/no
 import { AjouterTraitementDialog } from "@/routes/patients.$id/popups/ajouter-traitement";
 import { ModifierTraitementDialog } from "@/routes/patients.$id/popups/modifier-traitement";
 import { NouvelleOrdonnanceDialog } from "@/routes/patients.$id/popups/nouvelle-ordonnance";
+import { NouvelleVaccinationDialog } from "@/routes/patients.$id/popups/nouvelle-vaccination";
+import { NouveauDocumentPatientDialog } from "@/routes/patients.$id/popups/nouveau-document-patient";
+import { NouveauVoyageDialog } from "@/routes/patients.$id/popups/nouveau-voyage";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -120,26 +124,46 @@ type OrdonnanceDialogValues = {
   }>;
 };
 
+type VaccinationDialogValues = {
+  vaccin?: string;
+  date_vaccination?: string;
+  notes?: string | null;
+};
+
+type VoyageDialogValues = {
+  destination?: string;
+  date?: string;
+  duree_jours?: number | null;
+  epidemies_destination?: string | null;
+};
+
 type PatientPopupEventDetail = {
   type:
     | "suivi"
     | "consultation"
-    | "Antécédent-personnel"
-    | "Antécédent-familial"
+    | "antecedent-personnel"
+    | "antecedent-familial"
     | "traitement"
-    | "ordonnance";
-  mode?: "create" | "edit";
+    | "ordonnance"
+    | "document"
+    | "vaccination"
+    | "voyage";
+  mode?: "create" | "edit" | "delete";
   suiviId?: string;
   examenId?: string;
   antecedentId?: string;
   traitementId?: string;
+  vaccinationId?: string;
+  voyageId?: string;
   initialValues?:
     | SuiviDialogValues
     | ConsultationDialogValues
     | AntecedentPersonnelDialogValues
     | AntecedentFamilialDialogValues
     | TraitementDialogValues
-    | OrdonnanceDialogValues;
+    | OrdonnanceDialogValues
+    | VaccinationDialogValues
+    | VoyageDialogValues;
 };
 
 export const Route = createFileRoute("/patients/$id")({
@@ -228,6 +252,7 @@ function PatientLayout() {
   const [isTraitementOpen, setIsTraitementOpen] = useState(false);
   const [isNouvelleOrdonnanceOpen, setIsNouvelleOrdonnanceOpen] =
     useState(false);
+  const [isNouveauDocumentOpen, setIsNouveauDocumentOpen] = useState(false);
   const [traitementMode, setTraitementMode] = useState<"create" | "edit">(
     "create",
   );
@@ -240,12 +265,32 @@ function PatientLayout() {
   const [ordonnanceValues, setOrdonnanceValues] = useState<
     OrdonnanceDialogValues | undefined
   >(undefined);
+  const [isVaccinationOpen, setIsVaccinationOpen] = useState(false);
+  const [vaccinationMode, setVaccinationMode] = useState<
+    "create" | "edit" | "delete"
+  >("create");
+  const [vaccinationId, setVaccinationId] = useState<string | undefined>(
+    undefined,
+  );
+  const [vaccinationValues, setVaccinationValues] = useState<
+    VaccinationDialogValues | undefined
+  >(undefined);
+  const [isVoyageOpen, setIsVoyageOpen] = useState(false);
+  const [voyageMode, setVoyageMode] = useState<"create" | "edit" | "delete">(
+    "create",
+  );
+  const [voyageId, setVoyageId] = useState<string | undefined>(undefined);
+  const [voyageValues, setVoyageValues] = useState<
+    VoyageDialogValues | undefined
+  >(undefined);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<PatientPopupEventDetail>;
       if (customEvent.detail?.type === "suivi") {
-        setSuiviDialogMode(customEvent.detail.mode ?? "create");
+        setSuiviDialogMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setSuiviDialogId(customEvent.detail.suiviId);
         setSuiviDialogValues(
           (customEvent.detail.initialValues as SuiviDialogValues | undefined) ??
@@ -254,7 +299,9 @@ function PatientLayout() {
         setIsNouveauSuiviOpen(true);
       }
       if (customEvent.detail?.type === "consultation") {
-        setConsultationDialogMode(customEvent.detail.mode ?? "create");
+        setConsultationDialogMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setConsultationDialogId(customEvent.detail.examenId);
         const initial =
           (customEvent.detail.initialValues as
@@ -273,8 +320,10 @@ function PatientLayout() {
         setIsNouvelleConsultationOpen(true);
       }
 
-      if (customEvent.detail?.type === "Antécédent-personnel") {
-        setAntecedentPersonnelMode(customEvent.detail.mode ?? "create");
+      if (customEvent.detail?.type === "antecedent-personnel") {
+        setAntecedentPersonnelMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setAntecedentPersonnelId(customEvent.detail.antecedentId);
         setAntecedentPersonnelValues(
           (customEvent.detail.initialValues as
@@ -284,8 +333,10 @@ function PatientLayout() {
         setIsAntecedentPersonnelOpen(true);
       }
 
-      if (customEvent.detail?.type === "Antécédent-familial") {
-        setAntecedentFamilialMode(customEvent.detail.mode ?? "create");
+      if (customEvent.detail?.type === "antecedent-familial") {
+        setAntecedentFamilialMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setAntecedentFamilialId(customEvent.detail.antecedentId);
         setAntecedentFamilialValues(
           (customEvent.detail.initialValues as
@@ -296,7 +347,9 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "traitement") {
-        setTraitementMode(customEvent.detail.mode ?? "create");
+        setTraitementMode(
+          customEvent.detail.mode === "edit" ? "edit" : "create",
+        );
         setTraitementId(customEvent.detail.traitementId);
         setTraitementValues(
           (customEvent.detail.initialValues as
@@ -313,6 +366,32 @@ function PatientLayout() {
             | undefined) ?? undefined,
         );
         setIsNouvelleOrdonnanceOpen(true);
+      }
+
+      if (customEvent.detail?.type === "document") {
+        setIsNouveauDocumentOpen(true);
+      }
+
+      if (customEvent.detail?.type === "vaccination") {
+        setVaccinationMode(customEvent.detail.mode ?? "create");
+        setVaccinationId(customEvent.detail.vaccinationId);
+        setVaccinationValues(
+          (customEvent.detail.initialValues as
+            | VaccinationDialogValues
+            | undefined) ?? undefined,
+        );
+        setIsVaccinationOpen(true);
+      }
+
+      if (customEvent.detail?.type === "voyage") {
+        setVoyageMode(customEvent.detail.mode ?? "create");
+        setVoyageId(customEvent.detail.voyageId);
+        setVoyageValues(
+          (customEvent.detail.initialValues as
+            | VoyageDialogValues
+            | undefined) ?? undefined,
+        );
+        setIsVoyageOpen(true);
       }
     };
 
@@ -368,12 +447,8 @@ function PatientLayout() {
 
   const patientAge = ageData.age;
   const fullName = `${patient.prenom} ${patient.nom}`;
-  const sexeLabel =
-    patient.sexe === "M"
-      ? "Homme"
-      : patient.sexe === "F"
-        ? "Femme"
-        : (patient.sexe ?? "");
+  const isFemalePatient = isFemaleSex(patient.sexe);
+  const sexeLabel = formatSexLabel(patient.sexe);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -583,6 +658,39 @@ function PatientLayout() {
       ),
       queryClient.invalidateQueries(
         trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id }),
+      ),
+    ]);
+  };
+
+  const handleDocumentChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
+      ),
+    ]);
+  };
+
+  const handleVaccinationChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.vaccination.getPatientVaccinations.queryFilter({ patient_id: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
+      ),
+    ]);
+  };
+
+  const handleVoyageChanged = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.travel.getPatientVoyages.queryFilter({ patient_id: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.patient.getPatientFullRecord.queryFilter({ id }),
       ),
     ]);
   };
@@ -925,7 +1033,7 @@ function PatientLayout() {
               <div className="flex flex-col gap-[8px] justify-center">
                 {!isEditing ? (
                   <button
-                    className="bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                     onClick={() => {
                       form.reset({
                         nom: patient.nom ?? "",
@@ -947,14 +1055,14 @@ function PatientLayout() {
                 ) : (
                   <>
                     <button
-                      className="bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                       onClick={() => setIsEditing(false)}
                       type="button"
                     >
                       Annuler
                     </button>
                     <button
-                      className="bg-[#f97316] rounded-[10px] h-[40px] w-[195px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
+                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
                       onClick={() => form.handleSubmit()}
                       disabled={updatePatientMutation.isPending}
                       type="button"
@@ -992,7 +1100,7 @@ function PatientLayout() {
                   layout="centered"
                   specialIcon={<DocumentsIcon />}
                   onClick={() => {
-                    setIsNouvelleOrdonnanceOpen(true);
+                    setIsNouveauDocumentOpen(true);
                   }}
                 />
                 <ActionButton
@@ -1006,30 +1114,43 @@ function PatientLayout() {
 
           {/* Tab Navigation */}
           <div className="overflow-hidden rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-[10px]">
-            <div className="scrollbar-hide flex w-full max-w-full items-center justify-start gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1 md:justify-start md:gap-1">
-              {tabs.map((tab) => {
-                const tabPath = tab.to.replace("$id", id);
-                const isActive = location.pathname === tabPath;
-                return (
-                  <Link
-                    key={tab.to}
-                    to={tab.to}
-                    params={{ id }}
-                    className={cn(
-                      "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
-                      isActive
-                        ? "bg-[#f97316] text-white"
-                        : "text-[#0f3460] hover:bg-[#f8fafc]",
-                    )}
-                  >
-                    <tab.icon
-                      className="size-4 shrink-0 text-current"
-                      strokeWidth={1.75}
-                    />
-                    <span>{tab.label}</span>
-                  </Link>
-                );
-              })}
+            <div
+              className={cn(
+                "scrollbar-hide flex w-full max-w-full items-center overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x px-1",
+                isFemalePatient
+                  ? "justify-start gap-1"
+                  : "justify-center gap-3",
+              )}
+            >
+              {tabs
+                .filter(
+                  (tab) =>
+                    tab.to !== "/patients/$id/sante-feminine" ||
+                    isFemalePatient,
+                )
+                .map((tab) => {
+                  const tabPath = tab.to.replace("$id", id);
+                  const isActive = location.pathname === tabPath;
+                  return (
+                    <Link
+                      key={tab.to}
+                      to={tab.to}
+                      params={{ id }}
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-[6px] rounded-[14px] px-3 py-1.5 font-['Plus_Jakarta_Sans'] font-medium text-[12px] leading-[16px] whitespace-nowrap transition-colors",
+                        isActive
+                          ? "bg-[#f97316] text-white"
+                          : "text-[#0f3460] hover:bg-[#f8fafc]",
+                      )}
+                    >
+                      <tab.icon
+                        className="size-4 shrink-0 text-current"
+                        strokeWidth={1.75}
+                      />
+                      <span>{tab.label}</span>
+                    </Link>
+                  );
+                })}
             </div>
           </div>
 
@@ -1178,6 +1299,47 @@ function PatientLayout() {
             patientId={id}
             values={ordonnanceValues}
           />
+
+          <NouveauDocumentPatientDialog
+            onCreated={handleDocumentChanged}
+            onOpenChange={setIsNouveauDocumentOpen}
+            open={isNouveauDocumentOpen}
+            patientId={id}
+          />
+
+          <NouvelleVaccinationDialog
+            mode={vaccinationMode}
+            onCreated={handleVaccinationChanged}
+            onOpenChange={(nextOpen) => {
+              setIsVaccinationOpen(nextOpen);
+              if (!nextOpen) {
+                setVaccinationMode("create");
+                setVaccinationId(undefined);
+                setVaccinationValues(undefined);
+              }
+            }}
+            open={isVaccinationOpen}
+            patientId={id}
+            vaccinationId={vaccinationId}
+            values={vaccinationValues}
+          />
+
+          <NouveauVoyageDialog
+            mode={voyageMode}
+            onCreated={handleVoyageChanged}
+            onOpenChange={(nextOpen) => {
+              setIsVoyageOpen(nextOpen);
+              if (!nextOpen) {
+                setVoyageMode("create");
+                setVoyageId(undefined);
+                setVoyageValues(undefined);
+              }
+            }}
+            open={isVoyageOpen}
+            patientId={id}
+            voyageId={voyageId}
+            values={voyageValues}
+          />
         </div>
       </div>
     </div>
@@ -1259,10 +1421,10 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[195px] px-[16px] font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
+        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
         layout === "suivi"
           ? "flex items-center"
-          : "flex items-center justify-center gap-[10px]",
+          : "flex items-center justify-start",
       )}
       type="button"
     >
@@ -1276,9 +1438,11 @@ function ActionButton({
         </>
       ) : (
         <>
-          <Plus className="size-[14px] shrink-0" />
-          <span>{label}</span>
-          <div className="size-[14px] shrink-0">{specialIcon}</div>
+          <div className="flex items-center gap-[10px]">
+            <Plus className="size-[14px] shrink-0" />
+            <span>{label}</span>
+          </div>
+          <div className="ml-auto size-[14px] shrink-0">{specialIcon}</div>
         </>
       )}
     </button>

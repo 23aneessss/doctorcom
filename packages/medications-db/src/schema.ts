@@ -1,4 +1,27 @@
-import { index, integer, pgTable, serial, text } from "drizzle-orm/pg-core";
+import {
+  customType,
+  index,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from "drizzle-orm/pg-core";
+
+const vector = customType<{
+  data: number[];
+  driverData: string;
+  config: { dimensions: number };
+}>({
+  dataType(config) {
+    return `vector(${config?.dimensions ?? 3072})`;
+  },
+  toDriver(value) {
+    return `[${value.join(",")}]`;
+  },
+});
 
 export const medicaments = pgTable(
   "medicaments",
@@ -107,4 +130,27 @@ export const presentations = pgTable(
     dosage: text("dosage"),
   },
   (table) => [index("presentations_medicament_id_idx").on(table.medicament_id)],
+);
+
+export const medicament_embeddings = pgTable(
+  "medicament_embeddings",
+  {
+    medicament_id: integer("medicament_id")
+      .notNull()
+      .references(() => medicaments.id, { onDelete: "cascade" })
+      .primaryKey(),
+    embedding: vector("embedding", { dimensions: 3072 }).notNull(),
+    embedding_model: varchar("embedding_model", { length: 120 }).notNull(),
+    embedding_content_hash: varchar("embedding_content_hash", { length: 128 }).notNull(),
+    embedding_payload_preview: text("embedding_payload_preview"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("medicament_embeddings_updated_at_idx").on(table.updated_at),
+    uniqueIndex("medicament_embeddings_content_hash_idx").on(
+      table.medicament_id,
+      table.embedding_content_hash,
+    ),
+  ],
 );

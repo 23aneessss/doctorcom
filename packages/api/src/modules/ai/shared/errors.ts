@@ -13,7 +13,8 @@ function extractStatus(error: unknown): number | null {
 
 function extractMessage(error: unknown): string {
   if (error instanceof Error) {
-    return error.message;
+    const cause = "cause" in error ? extractMessage(error.cause) : "";
+    return cause ? `${error.message} ${cause}` : error.message;
   }
 
   if (typeof error === "string") {
@@ -61,7 +62,11 @@ export function toSimpleFrenchAiMessage(error: unknown): string {
     message.includes("schema") ||
     message.includes("constraint") ||
     message.includes("invalid") ||
-    message.includes("json")
+    message.includes("json") ||
+    message.includes("no object generated") ||
+    message.includes("could not parse") ||
+    message.includes("did not match") ||
+    message.includes("tool was not called")
   ) {
     return "La réponse du service d’aide médicale n’a pas pu être exploitée. Réessaie avec une demande plus simple.";
   }

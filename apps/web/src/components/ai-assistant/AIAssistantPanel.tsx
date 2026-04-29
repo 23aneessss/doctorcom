@@ -92,11 +92,13 @@ interface Message {
   text: string;
   status?: MessageStatus;
   thinkingText?: string;
+  reflectionText?: string | null;
   resultCard?: ResultCard;
 }
 
 interface AssistantResponsePayload {
   done: string;
+  reflectionText?: string | null;
   card?: ResultCard;
 }
 
@@ -123,8 +125,22 @@ interface HypothesisGenerationResult {
 
 interface OrdonnanceGenerationResult {
   clinical_problem_basis: { chief_problem: string };
-  recommendations: unknown[];
+  status: "ready" | "blocked";
+  ordonnance_draft: {
+    remarques: string | null;
+    medicaments: Array<{
+      medicament_externe_id: string;
+      nom_medicament: string;
+      dci: string | null;
+      dosage: string | null;
+      posologie: string;
+      duree_traitement: string | null;
+      instructions: string | null;
+      justification: string;
+    }>;
+  } | null;
   global_warnings: string[];
+  verification_justification?: string | null;
   disclaimer: string;
 }
 
@@ -156,6 +172,22 @@ interface MedicationSuggestionResultItem {
   warnings: string[];
 }
 
+interface OrdonnanceAsyncGenerationResult {
+  generation_id: string;
+  verification_status:
+    | "draft_ready"
+    | "verifying"
+    | "verified"
+    | "verification_failed";
+  verification_error: string | null;
+  verification_justification: string | null;
+  poll_after_ms: number;
+  result: OrdonnanceGenerationResult;
+  draft_result: OrdonnanceGenerationResult;
+  verified_result: OrdonnanceGenerationResult | null;
+  updated_at: string;
+}
+
 type PatientRendezVousLite = {
   id: string;
   suivi_id: string | null;
@@ -165,7 +197,6 @@ type PatientRendezVousLite = {
 };
 
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
-const CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH = 280;
 const diagnosticActionLabel = "Proposer une hypothese diagnostique";
 const ordonnanceActionLabel = "Recommander une ordonnance";
 const documentActionLabel = "Verifier un document medical";
@@ -263,52 +294,6 @@ const cDiscussionText = "#08233f";
 const cDiscussionMuted = "#334155";
 const cDiscussionBorder = "#c2e0ef";
 const cDiscussionCardBg = "#f8fafc";
-
-function isOrdonnanceViewRecommendation(
-  recommendation: unknown,
-): recommendation is {
-  label: string;
-  rationale: string;
-  warnings: string[];
-  ordonnance_draft: {
-    remarques: string | null;
-    medicaments: Array<{
-      medicament_externe_id: string;
-      nom_medicament: string;
-      dosage: string | null;
-      posologie: string;
-      duree_traitement: string | null;
-      instructions: string | null;
-      justification: string;
-    }>;
-  };
-} {
-  if (!recommendation || typeof recommendation !== "object") {
-    return false;
-  }
-
-  return (
-    "label" in recommendation &&
-    "rationale" in recommendation &&
-    "warnings" in recommendation &&
-    "ordonnance_draft" in recommendation
-  );
-}
-
-function isMedicationSuggestion(
-  recommendation: unknown,
-): recommendation is MedicationSuggestionResultItem {
-  if (!recommendation || typeof recommendation !== "object") {
-    return false;
-  }
-
-  return (
-    "medicament_externe_id" in recommendation &&
-    "nom_medicament" in recommendation &&
-    "posologie" in recommendation &&
-    "justification" in recommendation
-  );
-}
 
 function selectLatestExamen<
   T extends {
@@ -449,7 +434,8 @@ export function AIAssistantPanel() {
   const currentRendezVous = useMemo(
     () =>
       selectLatestCompletedRendezVous(
-        ((patientFullRecordQuery.data?.rendez_vous ?? []) as PatientRendezVousLite[]),
+        (patientFullRecordQuery.data?.rendez_vous ??
+          []) as PatientRendezVousLite[],
         currentSuivi?.id ?? null,
       ),
     [currentSuivi?.id, patientFullRecordQuery.data?.rendez_vous],
@@ -497,10 +483,7 @@ export function AIAssistantPanel() {
         })),
       });
     },
-    onSuccess: async (
-      _: unknown,
-      payload: OrdonnanceViewPayload,
-    ) => {
+    onSuccess: async (_: unknown, payload: OrdonnanceViewPayload) => {
       await Promise.all([
         queryClient.invalidateQueries(
           trpc.ordonnance.getOrdonnancesByPatient.queryFilter({
@@ -508,7 +491,9 @@ export function AIAssistantPanel() {
           }),
         ),
         queryClient.invalidateQueries(
-          trpc.patient.getPatientFullRecord.queryFilter({ id: payload.patientId }),
+          trpc.patient.getPatientFullRecord.queryFilter({
+            id: payload.patientId,
+          }),
         ),
         queryClient.invalidateQueries(
           trpc.treatment.getActivePatientTreatments.queryFilter({
@@ -572,6 +557,7 @@ export function AIAssistantPanel() {
               ...message,
               status: "done",
               text: payload.done,
+              reflectionText: payload.reflectionText,
               resultCard: payload.card,
             }
           : message,
@@ -590,6 +576,20 @@ export function AIAssistantPanel() {
       ),
     );
     setIsProcessing(false);
+    scrollToBottom();
+  };
+
+  const appendAssistantResult = (payload: AssistantResponsePayload) => {
+    const assistantMsg: Message = {
+      id: ++idRef.current,
+      type: "assistant",
+      text: payload.done,
+      status: "done",
+      reflectionText: payload.reflectionText,
+      resultCard: payload.card,
+    };
+
+    setMessages((prev) => [...prev, assistantMsg]);
     scrollToBottom();
   };
 
@@ -672,18 +672,124 @@ export function AIAssistantPanel() {
       rendezVousId: string | null;
     },
   ): AssistantResponsePayload => {
-    const primaryRecommendation = result.recommendations.find((item) =>
-      isOrdonnanceViewRecommendation(item),
-    );
-
-    if (
-      !primaryRecommendation ||
-      !isOrdonnanceViewRecommendation(primaryRecommendation)
-    ) {
+    if (result.status === "blocked" || !result.ordonnance_draft) {
+      const legacyResult = result as unknown as {
+        recommendations?: Array<{
+          rank: number;
+          label: string;
+          rationale: string;
+          warnings: string[];
+          ordonnance_draft?: {
+            remarques?: string | null;
+            medicaments?: Array<{
+              medicament_externe_id: string;
+              nom_medicament: string;
+              dci?: string | null;
+              dosage?: string | null;
+              posologie?: string;
+              duree_traitement?: string | null;
+              instructions?: string | null;
+              justification?: string;
+            }>;
+          };
+        }>;
+        clinical_problem_basis?: { chief_problem: string };
+        global_warnings?: string[];
+      };
+      if (legacyResult.recommendations?.length ?? 0 > 0) {
+        const rec = legacyResult.recommendations![0];
+        if (rec.ordonnance_draft?.medicaments?.length ?? 0 > 0) {
+          const prescription = rec.ordonnance_draft!;
+          const primaryRecommendation = {
+            label:
+              legacyResult.clinical_problem_basis?.chief_problem ??
+              "Recommandation",
+            rationale: rec.rationale,
+            warnings: rec.warnings ?? [],
+            ordonnance_draft: {
+              remarques: prescription.remarques ?? null,
+              medicaments: prescription
+                .medicaments!.slice(0, 3)
+                .map((item) => ({
+                  medicament_externe_id: item.medicament_externe_id,
+                  nom_medicament: item.nom_medicament,
+                  dci: item.dci ?? null,
+                  dosage: item.dosage ?? null,
+                  posologie: item.posologie ?? "A definir",
+                  duree_traitement: item.duree_traitement ?? null,
+                  instructions: item.instructions ?? null,
+                  justification: item.justification ?? "",
+                })),
+            },
+          };
+          const medicationSummary =
+            primaryRecommendation.ordonnance_draft.medicaments
+              .slice(0, 3)
+              .map(
+                (item) =>
+                  `${item.nom_medicament}${item.dosage ? ` ${item.dosage}` : ""}`,
+              )
+              .join(", ");
+          const durationSummary =
+            primaryRecommendation.ordonnance_draft.medicaments.find(
+              (item) => item.duree_traitement,
+            )?.duree_traitement ?? null;
+          return {
+            done: "Ordonnance preparee selon le diagnostic et les contraintes du patient.",
+            reflectionText: result.verification_justification ?? null,
+            card: {
+              title: "Ordonnance generee",
+              description: durationSummary
+                ? `${medicationSummary}, ${durationSummary}`
+                : medicationSummary,
+              buttonLabel: "Voir l'ordonnance",
+              icon: FileText,
+              view: {
+                type: "ordonnance",
+                payload: {
+                  title: currentContextLabel,
+                  patientId: source.patientId,
+                  suiviId: source.suiviId,
+                  rendezVousId: source.rendezVousId,
+                  clinicalProblem:
+                    legacyResult.clinical_problem_basis?.chief_problem ??
+                    rec.label,
+                  label: rec.label,
+                  rationale: rec.rationale,
+                  warnings: rec.warnings ?? [],
+                  globalWarnings: legacyResult.global_warnings ?? [],
+                  remarks: prescription.remarques ?? null,
+                  medications: prescription
+                    .medicaments!.slice(0, 3)
+                    .map((item) => ({
+                      medicament_externe_id: item.medicament_externe_id,
+                      nom_medicament: item.nom_medicament,
+                      dosage: item.dosage ?? null,
+                      posologie: item.posologie ?? "A definir",
+                      duree_traitement: item.duree_traitement ?? null,
+                      instructions: item.instructions ?? null,
+                      justification: item.justification ?? "",
+                    })),
+                  disclaimer:
+                    "Aide au brouillon d'ordonnance uniquement. La decision finale et la prescription appartiennent toujours au medecin.",
+                },
+              },
+            },
+          };
+        }
+      }
       throw new Error(
-        "Aucune recommandation fiable n’a pu être produite pour ce contexte.",
+        "Aucune recommandation fiable n'a pu être produite pour ce contexte.",
       );
     }
+
+    const primaryRecommendation = {
+      label: result.clinical_problem_basis.chief_problem,
+      rationale:
+        "Brouillon d'ordonnance construit a partir des candidats medicamenteux les plus pertinents pour le contexte clinique.",
+      warnings: result.global_warnings,
+      ordonnance_draft: result.ordonnance_draft,
+    };
 
     const medicationSummary = primaryRecommendation.ordonnance_draft.medicaments
       .slice(0, 3)
@@ -700,6 +806,7 @@ export function AIAssistantPanel() {
 
     return {
       done: "Ordonnance preparee selon le diagnostic et les contraintes du patient.",
+      reflectionText: result.verification_justification ?? null,
       card: {
         title: "Ordonnance generee",
         description: durationSummary
@@ -728,108 +835,6 @@ export function AIAssistantPanel() {
     };
   };
 
-  const buildOrdonnanceResponseFromMedicationSuggestions = (
-    result: OrdonnanceGenerationResult,
-    source: {
-      patientId: string;
-      suiviId: string;
-      rendezVousId: string | null;
-    },
-  ): AssistantResponsePayload => {
-    const suggestions = result.recommendations
-      .filter(isMedicationSuggestion)
-      .slice(0, 3);
-
-    if (suggestions.length === 0) {
-      throw new Error(
-        "Aucune recommandation fiable n’a pu être produite pour ce contexte.",
-      );
-    }
-
-    const sharedWarnings = [
-      ...new Set([
-        ...result.global_warnings,
-        ...suggestions.flatMap((item) => item.warnings),
-      ]),
-    ];
-
-    const medications = suggestions.map((item) => ({
-      medicament_externe_id: item.medicament_externe_id,
-      nom_medicament: item.nom_medicament,
-      dosage: item.dosage,
-      dci: item.dci,
-      posologie: item.posologie,
-      duree_traitement: item.duree_traitement,
-      instructions: item.instructions,
-      justification: item.justification,
-    }));
-
-    const medicationSummary = medications
-      .map(
-        (item) => `${item.nom_medicament}${item.dosage ? ` ${item.dosage}` : ""}`,
-      )
-      .join(", ");
-
-    return {
-      done: "Ordonnance preparee a partir des suggestions medicamenteuses les plus pertinentes pour ce patient.",
-      card: {
-        title: "Ordonnance generee",
-        description: medicationSummary,
-        buttonLabel: "Voir l'ordonnance",
-        icon: FileText,
-        view: {
-          type: "ordonnance",
-          payload: {
-            title: currentContextLabel,
-            patientId: source.patientId,
-            suiviId: source.suiviId,
-            rendezVousId: source.rendezVousId,
-            clinicalProblem: result.clinical_problem_basis.chief_problem,
-            label: "Ordonnance assistee par l'IA",
-            rationale:
-              "Cette proposition a ete reconstruite a partir des suggestions medicamenteuses les plus pertinentes pour le contexte clinique courant.",
-            warnings: sharedWarnings.slice(0, 6),
-            globalWarnings: sharedWarnings,
-            remarks:
-              "Verifier la priorisation, les interactions et la posologie finale avant validation.",
-            medications,
-            disclaimer: result.disclaimer,
-          },
-        },
-      },
-    };
-  };
-
-  const buildClinicalProblemOverride = (
-    result: HypothesisGenerationResult,
-  ): string | undefined => {
-    const normalizeSnippet = (value: string) =>
-      value.replace(/\s+/g, " ").trim();
-
-    const snippets = [
-      result.analysis.chief_problem,
-      ...result.analysis.hypotheses
-        .slice(0, 1)
-        .map((hypothesis) => hypothesis.label),
-    ]
-      .map(normalizeSnippet)
-      .filter(Boolean);
-
-    if (snippets.length === 0) {
-      return undefined;
-    }
-
-    const compactOverride = [...new Set(snippets)].join(". ");
-    if (compactOverride.length <= CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH) {
-      return compactOverride;
-    }
-
-    return `${compactOverride.slice(
-      0,
-      CLINICAL_PROBLEM_OVERRIDE_MAX_LENGTH - 3,
-    ).trimEnd()}...`;
-  };
-
   const resolveFreshClinicalContext = async () => {
     if (!currentPatientId) {
       return {
@@ -840,24 +845,28 @@ export function AIAssistantPanel() {
       };
     }
 
-    const [suivisResult, examensResult, patientFullRecordResult] = await Promise.all([
-      suivisQuery.refetch(),
-      examensQuery.refetch(),
-      patientFullRecordQuery.refetch(),
-    ]);
+    const [suivisResult, examensResult, patientFullRecordResult] =
+      await Promise.all([
+        suivisQuery.refetch(),
+        examensQuery.refetch(),
+        patientFullRecordQuery.refetch(),
+      ]);
     const freshExamens = examensResult.data ?? examensQuery.data ?? [];
     const freshSuivis = suivisResult.data ?? suivisQuery.data ?? [];
     const examen = selectLatestExamen(freshExamens);
     const suivi = selectCurrentSuiviFromLists(freshSuivis, examen);
     const rendezVous = selectLatestCompletedRendezVous(
-      ((patientFullRecordResult.data?.rendez_vous ?? []) as PatientRendezVousLite[]),
+      (patientFullRecordResult.data?.rendez_vous ??
+        []) as PatientRendezVousLite[],
       suivi?.id ?? null,
     );
 
     return { patientId: currentPatientId, suivi, examen, rendezVous };
   };
 
-  const openOrdonnanceEditorFromAssistant = (payload: OrdonnanceViewPayload) => {
+  const openOrdonnanceEditorFromAssistant = (
+    payload: OrdonnanceViewPayload,
+  ) => {
     window.dispatchEvent(
       new CustomEvent("patient-popup-open", {
         detail: {
@@ -882,6 +891,59 @@ export function AIAssistantPanel() {
     setViewerModal(null);
   };
 
+  const watchOrdonnanceVerification = (options: {
+    generationId: string;
+    source: { patientId: string; suiviId: string; rendezVousId: string | null };
+    pollAfterMs: number;
+  }) => {
+    void (async () => {
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, options.pollAfterMs),
+        );
+
+        try {
+          const status =
+            (await trpcClient.ai.ordonnanceRecommendation.getGenerationStatus.query(
+              {
+                generation_id: options.generationId,
+              },
+            )) as OrdonnanceAsyncGenerationResult;
+
+          if (status.verification_status === "verified") {
+            const verifiedResponse = buildOrdonnanceResponse(
+              status.verified_result ?? status.result,
+              options.source,
+            );
+            const justification =
+              status.verification_justification ??
+              verifiedResponse.reflectionText ??
+              "Le brouillon a ete relu par l'IA.";
+
+            appendAssistantResult({
+              ...verifiedResponse,
+              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
+              reflectionText: justification,
+            });
+            return;
+          }
+
+          if (status.verification_status === "verification_failed") {
+            appendAssistantResult({
+              done:
+                status.verification_error ??
+                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
+              reflectionText: status.verification_error,
+            });
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+    })();
+  };
+
   const sendWithResponse = (
     userText: string,
     response: { thinking: string; done: string; card?: ResultCard },
@@ -896,7 +958,9 @@ export function AIAssistantPanel() {
     });
   };
 
-  const buildAssistantChatHistory = (userText: string): AssistantChatMessageInput[] => {
+  const buildAssistantChatHistory = (
+    userText: string,
+  ): AssistantChatMessageInput[] => {
     const recentMessages = messages
       .filter(
         (message) =>
@@ -918,16 +982,8 @@ export function AIAssistantPanel() {
       userText: diagnosticActionLabel,
       thinkingText: responses[diagnosticActionLabel].thinking,
       task: async () => {
-        const { suivi, examen, patientId } = await resolveFreshClinicalContext();
-
-        if (
-          patientId &&
-          (suivisQuery.isLoading || examensQuery.isLoading)
-        ) {
-          return {
-            done: "Le contexte patient est en cours de chargement. Reessayez dans un instant.",
-          };
-        }
+        const { suivi, examen, patientId } =
+          await resolveFreshClinicalContext();
 
         if (!patientId || !suivi) {
           return {
@@ -956,73 +1012,89 @@ export function AIAssistantPanel() {
         const { patientId, suivi, examen, rendezVous } =
           await resolveFreshClinicalContext();
 
-        if (
-          patientId &&
-          (suivisQuery.isLoading || examensQuery.isLoading)
-        ) {
-          return {
-            done: "Le contexte patient est en cours de chargement. Reessayez dans un instant.",
-          };
-        }
-
         if (!patientId || !suivi) {
           return {
             done: "Ce cas necessite le contexte d'un patient ouvert pour generer une ordonnance assistee.",
           };
         }
 
-        let clinicalProblemOverride: string | undefined;
-        try {
-          const diagnosticResult = await trpcClient.ai.hypotheseDiagnostic.generate.mutate({
-            suivi_id: suivi.id,
-            examen_id: examen?.id,
-            include_historical_context: true,
-            max_historical_suivis: 5,
-            max_historical_treatments: 8,
-          });
-          clinicalProblemOverride = buildClinicalProblemOverride(diagnosticResult);
-        } catch {
-          // The ordonnance service keeps its own fallback path if the hypothesis step fails.
+        const generation =
+          (await trpcClient.ai.ordonnanceRecommendation.startAsyncOrdonnance.mutate(
+            {
+              suivi_id: suivi.id,
+              examen_id: examen?.id,
+              include_historical_context: true,
+              max_historical_suivis: 5,
+              max_historical_treatments: 8,
+            },
+          )) as OrdonnanceAsyncGenerationResult;
+
+        const source = {
+          patientId,
+          suiviId: suivi.id,
+          rendezVousId: rendezVous?.id ?? null,
+        };
+
+        if (generation.verification_status === "verification_failed") {
+          const draftResponse = buildOrdonnanceResponse(
+            generation.draft_result ?? generation.result,
+            source,
+          );
+
+          window.setTimeout(() => {
+            appendAssistantResult({
+              done:
+                generation.verification_error ??
+                "La verification IA n'a pas pu aboutir. Le brouillon initial reste disponible.",
+              reflectionText: generation.verification_error,
+            });
+          }, 450);
+
+          return {
+            ...draftResponse,
+            reflectionText: null,
+          };
         }
 
-        const result =
-          await trpcClient.ai.ordonnanceRecommendation.generate.mutate({
-            suivi_id: suivi.id,
-            examen_id: examen?.id,
-            include_historical_context: true,
-            max_historical_suivis: 5,
-            max_historical_treatments: 8,
-            clinical_problem_override: clinicalProblemOverride,
-            response_mode: "ordonnance",
-          });
-
-        if (result.recommendations.some(isOrdonnanceViewRecommendation)) {
-          return buildOrdonnanceResponse(result, {
-            patientId,
-            suiviId: suivi.id,
-            rendezVousId: rendezVous?.id ?? null,
-          });
-        }
-
-        const medicationFallback =
-          await trpcClient.ai.ordonnanceRecommendation.generate.mutate({
-            suivi_id: suivi.id,
-            examen_id: examen?.id,
-            include_historical_context: true,
-            max_historical_suivis: 5,
-            max_historical_treatments: 8,
-            clinical_problem_override: clinicalProblemOverride,
-            response_mode: "medicaments",
-          });
-
-        return buildOrdonnanceResponseFromMedicationSuggestions(
-          medicationFallback,
-          {
-            patientId,
-            suiviId: suivi.id,
-            rendezVousId: rendezVous?.id ?? null,
-          },
+        const draftResponse = buildOrdonnanceResponse(
+          generation.draft_result ?? generation.result,
+          source,
         );
+
+        if (generation.verification_status === "verified") {
+          const verifiedResponse = buildOrdonnanceResponse(
+            generation.verified_result ?? generation.result,
+            source,
+          );
+          const justification =
+            generation.verification_justification ??
+            verifiedResponse.reflectionText ??
+            "Le brouillon a ete relu par l'IA.";
+
+          window.setTimeout(() => {
+            appendAssistantResult({
+              ...verifiedResponse,
+              done: "Verification IA terminee. La version verifiee de l'ordonnance est disponible.",
+              reflectionText: justification,
+            });
+          }, 450);
+        }
+
+        if (
+          generation.verification_status === "draft_ready" ||
+          generation.verification_status === "verifying"
+        ) {
+          watchOrdonnanceVerification({
+            generationId: generation.generation_id,
+            source,
+            pollAfterMs: generation.poll_after_ms,
+          });
+        }
+
+        return {
+          ...draftResponse,
+          reflectionText: null,
+        };
       },
     });
   };
@@ -1459,6 +1531,7 @@ export function AIAssistantPanel() {
                                       <DoneBlock
                                         card={message.resultCard}
                                         onOpenView={setViewerModal}
+                                        reflectionText={message.reflectionText}
                                         text={message.text}
                                       />
                                     </motion.div>
@@ -1568,16 +1641,16 @@ export function AIAssistantPanel() {
 
       <AnimatePresence>
         {viewerModal ? (
-        <AssistantResultModal
-          isAcceptingOrdonnance={acceptOrdonnanceMutation.isPending}
-          onAcceptOrdonnance={(payload) => {
-            void acceptOrdonnanceMutation.mutateAsync(payload);
-          }}
-          onClose={() => setViewerModal(null)}
-          onEditOrdonnance={openOrdonnanceEditorFromAssistant}
-          view={viewerModal}
-        />
-      ) : null}
+          <AssistantResultModal
+            isAcceptingOrdonnance={acceptOrdonnanceMutation.isPending}
+            onAcceptOrdonnance={(payload) => {
+              void acceptOrdonnanceMutation.mutateAsync(payload);
+            }}
+            onClose={() => setViewerModal(null)}
+            onEditOrdonnance={openOrdonnanceEditorFromAssistant}
+            view={viewerModal}
+          />
+        ) : null}
       </AnimatePresence>
 
       <motion.button
@@ -1717,10 +1790,12 @@ function ThinkingBlock({ text }: { text: string }) {
 
 function DoneBlock({
   text,
+  reflectionText,
   card,
   onOpenView,
 }: {
   text: string;
+  reflectionText?: string | null;
   card?: ResultCard;
   onOpenView: (view: AssistantResultView) => void;
 }) {
@@ -1746,7 +1821,7 @@ function DoneBlock({
 
   return (
     <div className="flex flex-col gap-3">
-      <ThoughtCollapsed />
+      <ThoughtCollapsed text={reflectionText} />
 
       {textDone && parsedText.hasStructure ? (
         <StructuredAssistantText parsed={parsedText} />
@@ -1846,7 +1921,11 @@ function DoneBlock({
                   ease: "easeInOut",
                 }}
               >
-                <card.icon size={18} strokeWidth={2.15} style={{ color: cSky }} />
+                <card.icon
+                  size={18}
+                  strokeWidth={2.15}
+                  style={{ color: cSky }}
+                />
               </motion.div>
             </motion.div>
           </div>
@@ -1872,7 +1951,9 @@ interface ParsedAssistantText {
 
 function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
   const hasBodyContent =
-    parsed.intro.length > 0 || parsed.items.length > 0 || parsed.sections.length > 0;
+    parsed.intro.length > 0 ||
+    parsed.items.length > 0 ||
+    parsed.sections.length > 0;
 
   return (
     <div
@@ -1886,7 +1967,9 @@ function StructuredAssistantText({ parsed }: { parsed: ParsedAssistantText }) {
         <div
           className="px-4 py-3"
           style={{
-            borderBottom: hasBodyContent ? `1px solid ${cDiscussionBorder}` : undefined,
+            borderBottom: hasBodyContent
+              ? `1px solid ${cDiscussionBorder}`
+              : undefined,
             background: "rgba(118,187,221,0.08)",
           }}
         >
@@ -1986,9 +2069,7 @@ function parseAssistantStructuredText(text: string): ParsedAssistantText {
     return parseAssistantLineStructuredText(normalized);
   }
 
-  const intro = cleanAssistantText(
-    normalized.slice(0, matches[0]?.index ?? 0),
-  );
+  const intro = cleanAssistantText(normalized.slice(0, matches[0]?.index ?? 0));
   const sections: ParsedAssistantSection[] = [];
 
   for (let index = 0; index < matches.length; index += 1) {
@@ -2132,7 +2213,10 @@ function parseAssistantLineStructuredText(text: string): ParsedAssistantText {
       intro,
       items.length > 0 || sections.length > 0,
     ),
-    intro: normalizeStructuredIntro(intro, items.length > 0 || sections.length > 0),
+    intro: normalizeStructuredIntro(
+      intro,
+      items.length > 0 || sections.length > 0,
+    ),
     items,
     sections,
     hasStructure,
@@ -2249,7 +2333,8 @@ function isAssistantSectionHeading(line: string): boolean {
   }
 
   const words = normalizedWithoutColon.split(/\s+/);
-  const isCompactHeading = words.length <= 8 && normalizedWithoutColon.length <= 60;
+  const isCompactHeading =
+    words.length <= 8 && normalizedWithoutColon.length <= 60;
   const hasSentencePunctuation = /[.!?]$/.test(normalizedWithoutColon);
   const uppercaseRatio =
     normalizedWithoutColon.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, "").length > 0
@@ -2336,12 +2421,18 @@ function SimpleAssistantText({
   );
 }
 
-function classifyAssistantTextTone(text: string): "plain" | "notice" | "warning" {
+function classifyAssistantTextTone(
+  text: string,
+): "plain" | "notice" | "warning" {
   const normalized = text.trim().toLowerCase();
 
   if (
-    normalized.startsWith("pour répondre à cette question sur un patient précis") ||
-    normalized.startsWith("pour repondre a cette question sur un patient precis")
+    normalized.startsWith(
+      "pour répondre à cette question sur un patient précis",
+    ) ||
+    normalized.startsWith(
+      "pour repondre a cette question sur un patient precis",
+    )
   ) {
     return "notice";
   }
@@ -2580,7 +2671,9 @@ function HypothesisResultView({ payload }: { payload: HypothesisViewPayload }) {
             className="rounded-2xl px-4 py-3.5"
             style={{ background: "rgba(255,255,255,0.78)" }}
           >
-            <p style={{ fontSize: 12, fontWeight: 700, color: cDiscussionMuted }}>
+            <p
+              style={{ fontSize: 12, fontWeight: 700, color: cDiscussionMuted }}
+            >
               Synthese clinique
             </p>
             <p
@@ -2931,7 +3024,11 @@ function ListSection({
           <li
             key={`${title}-${index}-${item}`}
             className="flex items-start gap-2"
-            style={{ fontSize: 12.5, color: cDiscussionText, lineHeight: "1.65" }}
+            style={{
+              fontSize: 12.5,
+              color: cDiscussionText,
+              lineHeight: "1.65",
+            }}
           >
             {tone === "warning" ? (
               <AlertTriangle
@@ -3001,36 +3098,69 @@ function formatReadiness(value: string) {
   }
 }
 
-function ThoughtCollapsed() {
+function ThoughtCollapsed({ text }: { text?: string | null }) {
   const [expanded, setExpanded] = useState(false);
+  const reflectionText =
+    text?.trim() ||
+    "La demande a ete analysee avec les informations disponibles, puis le resultat a ete structure pour rester exploitable par le medecin.";
 
   return (
-    <motion.button
-      onClick={() => setExpanded(!expanded)}
-      className="w-fit rounded-lg px-2.5 py-1"
-      style={{ background: "transparent" }}
-      whileHover={{ background: cDiscussionCardBg }}
-      whileTap={{ scale: 0.97 }}
-    >
-      <div className="flex items-center gap-2">
-        <motion.div
-          className="flex h-4 w-4 items-center justify-center rounded-full"
-          style={{ background: cDiscussionCardBg }}
-        >
-          <Check size={9} style={{ color: cSky }} />
-        </motion.div>
-        <span
-          style={{ fontSize: 11, fontWeight: 500, color: cDiscussionMuted }}
-        >
-          Reflexion terminee
-        </span>
-        <motion.div
-          animate={{ rotate: expanded ? 90 : 0 }}
-          transition={springBouncy}
-        >
-          <ChevronRight size={10} style={{ color: cDiscussionMuted }} />
-        </motion.div>
-      </div>
-    </motion.button>
+    <div className="w-fit max-w-full">
+      <motion.button
+        onClick={() => setExpanded(!expanded)}
+        className="rounded-lg px-2.5 py-1"
+        style={{ background: "transparent" }}
+        whileHover={{ background: cDiscussionCardBg }}
+        whileTap={{ scale: 0.97 }}
+        type="button"
+      >
+        <div className="flex items-center gap-2">
+          <motion.div
+            className="flex h-4 w-4 items-center justify-center rounded-full"
+            style={{ background: cDiscussionCardBg }}
+          >
+            <Check size={9} style={{ color: cSky }} />
+          </motion.div>
+          <span
+            style={{ fontSize: 11, fontWeight: 500, color: cDiscussionMuted }}
+          >
+            Reflexion terminee
+          </span>
+          <motion.div
+            animate={{ rotate: expanded ? 90 : 0 }}
+            transition={springBouncy}
+          >
+            <ChevronRight size={10} style={{ color: cDiscussionMuted }} />
+          </motion.div>
+        </div>
+      </motion.button>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            className="mt-2 max-w-[520px] rounded-xl border px-3 py-2"
+            exit={{ opacity: 0, height: 0, y: -4 }}
+            initial={{ opacity: 0, height: 0, y: -4 }}
+            style={{
+              borderColor: cDiscussionBorder,
+              background: cDiscussionCardBg,
+              overflow: "hidden",
+            }}
+            transition={{ duration: 0.2 }}
+          >
+            <p
+              style={{
+                fontSize: 12,
+                color: cDiscussionMuted,
+                lineHeight: "1.55",
+              }}
+            >
+              {reflectionText}
+            </p>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }

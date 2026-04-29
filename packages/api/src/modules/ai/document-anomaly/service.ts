@@ -10,7 +10,11 @@ import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
 
 import type { SessionUtilisateur } from "../../../trpc/context";
-import { minioClient, storageConfig } from "../../../infrastructure/storage";
+import {
+  getObjectNameFromUrl,
+  minioClient,
+  storageConfig,
+} from "../../../infrastructure/storage";
 import { documentAnomalyRepository, type FullPatientData } from "./repo";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +48,7 @@ interface ClassifiedDocument {
 }
 
 const ANALYSIS_CACHE_TTL_MS = 5 * 60 * 1000;
+const ANALYSIS_CACHE_VERSION = 3;
 const analysisCache = new Map<
   string,
   { expiresAt: number; value: DocumentAnalysisResult }
@@ -69,9 +74,23 @@ interface ProcessedSuggestionsResult {
   suggestions: NonNullable<DocumentAnalysisResult["suggestions"]>;
 }
 
+interface DocumentSummaryResult {
+  document_summaries: DocumentAnalysisResult["document_summaries"];
+}
+
 export interface DocumentAnalysisResult {
   validated: boolean;
   confidence: number;
+  document_summaries: {
+    document_key: string;
+    title: string;
+    description: string;
+    anomalies: {
+      label: string;
+      severity: "info" | "warning" | "critical";
+      details: string;
+    }[];
+  }[];
   identity: {
     verifiable: boolean;
     patient_match: boolean;
@@ -202,7 +221,9 @@ Regles:
 
 const SUGGESTIONS_SYSTEM_PROMPT = `Vous etes un assistant medical specialise dans l'analyse de documents medicaux.
 
-Votre tache: analyser les documents medicaux et identifier des actions a proposer pour mettre a jour les donnees du patient.
+Votre tache: analyser uniquement les documents fournis et identifier des actions a proposer pour mettre a jour les donnees du patient.
+
+Regle fondamentale: chaque suggestion doit provenir explicitement du contenu visible dans un document fourni. Les donnees patient existantes servent seulement de reference de comparaison; elles ne doivent jamais etre transformees en suggestion si l'information n'est pas presente dans le document.
 
 Tables concernees (actionnables):
 - patients / patients_femmes: donnees demographiques
@@ -221,6 +242,7 @@ Pour chaque suggestion, indiquez:
 - reason: explication courte en francais
 - confidence: score 0-1
 - severity: "normal" | "abnormal" | "critical"
+- source: obligatoire, avec document_key correspondant a un document fourni et snippet contenant l'extrait ou la valeur observee dans le document
 
 Types de suggestions:
 1. DONNEES DEMOGRAPHIQUES differentes ou absentes (groupe sanguin, adresse, profession, etc.) → table: patients
@@ -229,7 +251,42 @@ Types de suggestions:
 4. TRAITEMENTS mentionnes dans les documents → table: historique_traitements
 5. VACCINATIONS mentionnees mais absentes → table: vaccinations_patient
 
-Ne suggerez PAS de modifications si confiance < 0.5. Si aucune suggestion, retournez un tableau vide. Repondez en JSON uniquement.`;
+Contraintes de sortie:
+1. Ne suggerez PAS de modifications si confiance < 0.5.
+2. Ne suggerez PAS une information uniquement parce qu'elle existe deja dans la base patient.
+3. Ne suggerez PAS de donnees generales, de contexte, ou de resume de document comme modification du dossier patient.
+4. suggested_value, current_value, field et reason doivent etre des chaines de caracteres simples, jamais des objets JSON.
+5. Si aucune suggestion documentee par une source du document n'existe, retournez un tableau vide.
+6. Repondez en JSON uniquement.`;
+
+const DOCUMENT_DESCRIPTION_SYSTEM_PROMPT = `Vous etes un assistant medical specialise dans la lecture de documents cliniques.
+
+Votre tache: decrire chaque document fourni, puis relever les anomalies visibles dans le document lui-meme.
+
+Reponse attendue (JSON):
+{
+  "document_summaries": [
+    {
+      "document_key": "cle du document",
+      "title": "titre court du document",
+      "description": "description clinique concise en francais",
+      "anomalies": [
+        {
+          "label": "nom court de l'anomalie",
+          "severity": "info" | "warning" | "critical",
+          "details": "explication courte"
+        }
+      ]
+    }
+  ]
+}
+
+Regles:
+1. Generez une entree par document analyse.
+2. La description doit resumer le type de document, la date visible si presente, et les informations medicales principales.
+3. Les anomalies sont des valeurs, incoherences, alertes cliniques ou informations administratives suspectes visibles dans le document.
+4. Si aucune anomalie n'est visible, retournez anomalies: [].
+5. Repondez en JSON uniquement.`;
 
 // ---------------------------------------------------------------------------
 // Service
@@ -292,7 +349,13 @@ export class DocumentAnomalyService {
       });
     }
 
-    // 5. Run identity verification + suggestions in parallel
+    // 5. Describe documents, then run identity verification + suggestions.
+    const documentSummaryResult = await this.generateDocumentSummaries(
+      aiModel,
+      documentParts,
+      classifiedDocuments,
+    );
+
     const [verification, suggestionsResult] =
       await Promise.all([
         this.verifyPatientIdentity(
@@ -313,6 +376,7 @@ export class DocumentAnomalyService {
           patientData,
           documentParts,
           classifiedDocuments,
+          documentSummaryResult.document_summaries,
         ),
       ]);
 
@@ -340,6 +404,7 @@ export class DocumentAnomalyService {
     const result: DocumentAnalysisResult = {
       validated: true,
       confidence: verification.confidence,
+      document_summaries: documentSummaryResult.document_summaries,
       identity: {
         verifiable: verification.verifiable,
         patient_match: verification.patient_match,
@@ -447,7 +512,55 @@ export class DocumentAnomalyService {
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 2 — Data suggestions
+  // Phase 2 — Document descriptions
+  // ---------------------------------------------------------------------------
+
+  private async generateDocumentSummaries(
+    model: LanguageModel,
+    documentParts: DocumentPart[],
+    classifiedDocuments: ClassifiedDocument[],
+  ): Promise<DocumentSummaryResult> {
+    const modalityContext = this.buildDocumentClassificationPrompt(classifiedDocuments);
+
+    try {
+      const result = await generateText({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: DOCUMENT_DESCRIPTION_SYSTEM_PROMPT,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text" as const,
+                text: `## Documents a decrire\n\n${modalityContext}\n\nGenerez d'abord une description pour chaque document, puis listez les anomalies visibles dans chaque document.\n\nRepondez uniquement avec le JSON demande.`,
+              },
+              ...documentParts,
+            ],
+          },
+        ],
+      });
+
+      const parsed = this.parseJsonFromText(result.text);
+      return this.normalizeDocumentSummaryResult(parsed, classifiedDocuments);
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[document-anomaly] generateDocumentSummaries failed:", error);
+      return {
+        document_summaries: classifiedDocuments.map((document) => ({
+          document_key: document.key,
+          title: this.fallbackDocumentTitle(document.key),
+          description: "Description indisponible pour ce document.",
+          anomalies: [],
+        })),
+      };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 3 — Data suggestions
   // ---------------------------------------------------------------------------
 
   private async generateSuggestions(
@@ -455,9 +568,11 @@ export class DocumentAnomalyService {
     patientData: FullPatientData,
     documentParts: DocumentPart[],
     classifiedDocuments: ClassifiedDocument[],
+    documentSummaries: DocumentAnalysisResult["document_summaries"],
   ): Promise<SuggestionsResult> {
     const patientContext = this.buildPatientPrompt(patientData);
     const modalityContext = this.buildDocumentClassificationPrompt(classifiedDocuments);
+    const summaryContext = this.buildDocumentSummaryPrompt(documentSummaries);
 
     try {
       const result = await generateText({
@@ -472,7 +587,7 @@ export class DocumentAnomalyService {
             content: [
               {
                 type: "text" as const,
-                text: `## Donnees actuelles du patient dans la base de donnees\n\n${patientContext}\n\n## Classification preliminaire des documents\n\n${modalityContext}\n\n## Documents medicaux a analyser\n\nComparez le contenu des documents suivants avec les donnees du patient ci-dessus. Identifiez toute information dans les documents qui differe des donnees existantes ou qui est absente de la base de donnees. Fournissez une source lorsque possible (document_key + modality + snippet).\n\nRepondez UNIQUEMENT avec un objet JSON contenant une cle "suggestions" (tableau). Pas de texte avant ou apres le JSON.`,
+                text: `## Donnees actuelles du patient dans la base de donnees\n\n${patientContext}\n\n## Classification preliminaire des documents\n\n${modalityContext}\n\n## Descriptions et anomalies deja identifiees dans les documents\n\n${summaryContext}\n\n## Documents medicaux a analyser\n\nA partir du contenu des documents fournis uniquement, proposez les modifications utiles au dossier patient. Les donnees patient ci-dessus servent seulement a verifier si l'information du document est nouvelle ou differente.\n\nPour chaque suggestion, source est obligatoire et doit contenir un document_key existant ci-dessus ainsi qu'un snippet extrait du document. Rejetez toute suggestion qui n'est pas directement justifiee par le document.\n\nRepondez UNIQUEMENT avec un objet JSON contenant une cle "suggestions" (tableau). Pas de texte avant ou apres le JSON.`,
               },
               ...documentParts,
             ],
@@ -548,6 +663,86 @@ export class DocumentAnomalyService {
     };
   }
 
+  private normalizeDocumentSummaryResult(
+    parsed: unknown,
+    classifiedDocuments: ClassifiedDocument[],
+  ): DocumentSummaryResult {
+    const fallback = classifiedDocuments.map((document) => ({
+      document_key: document.key,
+      title: this.fallbackDocumentTitle(document.key),
+      description: "Document medical importe.",
+      anomalies: [],
+    }));
+
+    if (!parsed || typeof parsed !== "object") {
+      return { document_summaries: fallback };
+    }
+
+    const obj = parsed as Record<string, unknown>;
+    const raw = Array.isArray(obj)
+      ? obj
+      : Array.isArray(obj.document_summaries)
+        ? obj.document_summaries
+        : [];
+
+    const normalized = raw
+      .filter((item: unknown) => item && typeof item === "object")
+      .map((item: unknown) => {
+        const summary = item as Record<string, unknown>;
+        const documentKey = String(summary.document_key ?? "");
+        const anomaliesRaw = Array.isArray(summary.anomalies)
+          ? summary.anomalies
+          : [];
+
+        return {
+          document_key: documentKey,
+          title:
+            typeof summary.title === "string" && summary.title.trim()
+              ? summary.title.trim()
+              : this.fallbackDocumentTitle(documentKey),
+          description:
+            typeof summary.description === "string" &&
+            summary.description.trim()
+              ? summary.description.trim()
+              : "Document medical importe.",
+          anomalies: anomaliesRaw
+            .filter((anomaly: unknown) => anomaly && typeof anomaly === "object")
+            .map((anomaly: unknown) => {
+              const item = anomaly as Record<string, unknown>;
+              const severity = String(item.severity ?? "info");
+              const normalizedSeverity: "info" | "warning" | "critical" =
+                severity === "critical"
+                  ? "critical"
+                  : severity === "warning"
+                    ? "warning"
+                    : "info";
+              return {
+                label: String(item.label ?? "Anomalie"),
+                severity: normalizedSeverity,
+                details: String(item.details ?? ""),
+              };
+            }),
+        };
+      })
+      .filter((summary) => summary.document_key);
+
+    const summariesByKey = new Map(
+      normalized.map((summary) => [summary.document_key, summary]),
+    );
+
+    return {
+      document_summaries: classifiedDocuments.map(
+        (document) =>
+          summariesByKey.get(document.key) ?? {
+            document_key: document.key,
+            title: this.fallbackDocumentTitle(document.key),
+            description: "Document medical importe.",
+            anomalies: [],
+          },
+      ),
+    };
+  }
+
   private fallbackVerification(): VerificationResult {
     return {
       verifiable: false,
@@ -573,26 +768,57 @@ export class DocumentAnomalyService {
       .map((s: unknown) => {
         const item = s as Record<string, unknown>;
         return {
-          table: String(item.table ?? "patients"),
-          field: String(item.field ?? ""),
-          category: String(item.category ?? "other") as "demographic" | "lab_value" | "antecedent" | "treatment" | "vaccination" | "other",
-          current_value: item.current_value != null ? String(item.current_value) : null,
-          suggested_value: String(item.suggested_value ?? ""),
-          reason: String(item.reason ?? ""),
+          table: this.stringifyAiValue(item.table, "patients"),
+          field: this.stringifyAiValue(item.field),
+          category: this.stringifyAiValue(item.category, "other") as "demographic" | "lab_value" | "antecedent" | "treatment" | "vaccination" | "other",
+          current_value: item.current_value != null ? this.stringifyAiValue(item.current_value) : null,
+          suggested_value: this.stringifyAiValue(item.suggested_value),
+          reason: this.stringifyAiValue(item.reason),
           confidence: typeof item.confidence === "number" ? item.confidence : 0.5,
-          severity: item.severity != null ? String(item.severity) as "normal" | "abnormal" | "critical" : undefined,
+          severity: item.severity != null ? this.stringifyAiValue(item.severity) as "normal" | "abnormal" | "critical" : undefined,
           source: item.source && typeof item.source === "object"
             ? {
-                document_key: String((item.source as Record<string, unknown>).document_key ?? "unknown"),
-                modality: String((item.source as Record<string, unknown>).modality ?? "unknown") as DocumentModality,
+                document_key: this.stringifyAiValue((item.source as Record<string, unknown>).document_key, "unknown"),
+                modality: this.stringifyAiValue((item.source as Record<string, unknown>).modality, "unknown") as DocumentModality,
                 snippet: (item.source as Record<string, unknown>).snippet != null
-                  ? String((item.source as Record<string, unknown>).snippet)
+                  ? this.stringifyAiValue((item.source as Record<string, unknown>).snippet)
                   : undefined,
               }
             : undefined,
         };
       });
     return { suggestions };
+  }
+
+  private stringifyAiValue(value: unknown, fallback = ""): string {
+    if (value == null) return fallback;
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.stringifyAiValue(item))
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      for (const key of ["description", "value", "valeur", "name", "nom", "label", "type"]) {
+        const nested = this.stringifyAiValue(record[key]);
+        if (nested) return nested;
+      }
+
+      return Object.entries(record)
+        .map(([key, nestedValue]) => {
+          const normalized = this.stringifyAiValue(nestedValue);
+          return normalized ? `${key}: ${normalized}` : "";
+        })
+        .filter(Boolean)
+        .join(", ");
+    }
+
+    return fallback;
   }
 
   // ---------------------------------------------------------------------------
@@ -635,7 +861,10 @@ export class DocumentAnomalyService {
           description: `Ajouter un antecedent: ${suggestion.suggested_value}`,
           suggestion_ids: [suggestion.suggestion_id],
         });
-      } else if (suggestion.table === "historique_traitements") {
+      } else if (
+        suggestion.table === "historique_traitements" &&
+        this.isPositiveIntegerString(suggestion.field)
+      ) {
         actions.push({
           action_id: actionId,
           mutation: "treatment.startTreatment",
@@ -666,6 +895,11 @@ export class DocumentAnomalyService {
     return actions;
   }
 
+  private isPositiveIntegerString(value: string): boolean {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0;
+  }
+
   // ---------------------------------------------------------------------------
   // MinIO document fetching
   // ---------------------------------------------------------------------------
@@ -674,7 +908,8 @@ export class DocumentAnomalyService {
     documentKeys: string[],
   ): Promise<DocumentContent[]> {
     const results = await Promise.all(
-      documentKeys.map(async (key) => {
+      documentKeys.map(async (inputKey) => {
+        const key = this.normalizeStorageObjectName(inputKey);
         try {
           const stream = await minioClient.getObject(
             storageConfig.bucket,
@@ -696,13 +931,24 @@ export class DocumentAnomalyService {
         } catch {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: `Document introuvable dans le stockage: ${key}`,
+            message: `Document introuvable dans le stockage: ${inputKey}`,
           });
         }
       }),
     );
 
     return results;
+  }
+
+  private normalizeStorageObjectName(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) return trimmed;
+
+    try {
+      return getObjectNameFromUrl(trimmed);
+    } catch {
+      return trimmed;
+    }
   }
 
   private inferMimeType(key: string): string {
@@ -801,6 +1047,41 @@ export class DocumentAnomalyService {
       .join("\n");
   }
 
+  private buildDocumentSummaryPrompt(
+    summaries: DocumentAnalysisResult["document_summaries"],
+  ): string {
+    if (summaries.length === 0) {
+      return "Aucune description de document disponible.";
+    }
+
+    return summaries
+      .map((summary) => {
+        const anomalies =
+          summary.anomalies.length > 0
+            ? summary.anomalies
+                .map(
+                  (anomaly) =>
+                    `  - ${anomaly.label} (${anomaly.severity}): ${anomaly.details}`,
+                )
+                .join("\n")
+            : "  - Aucune anomalie visible.";
+
+        return [
+          `- ${summary.document_key}`,
+          `  Titre: ${summary.title}`,
+          `  Description: ${summary.description}`,
+          `  Anomalies:`,
+          anomalies,
+        ].join("\n");
+      })
+      .join("\n\n");
+  }
+
+  private fallbackDocumentTitle(key: string): string {
+    const lastSegment = key.split("/").pop() ?? key;
+    return lastSegment.replace(/^[0-9a-f-]+-/i, "") || "Document medical";
+  }
+
   private deriveIdentityRisk(
     verification: VerificationResult,
   ): "low" | "medium" | "high" {
@@ -819,6 +1100,7 @@ export class DocumentAnomalyService {
     classifiedDocuments: ClassifiedDocument[],
   ): ProcessedSuggestionsResult {
     const deduped = new Map<string, NonNullable<DocumentAnalysisResult["suggestions"]>[number]>();
+    const validDocumentKeys = new Set(classifiedDocuments.map((document) => document.key));
 
     suggestions.forEach((suggestion, index) => {
       const suggestionId = `sug_${index + 1}`;
@@ -827,12 +1109,16 @@ export class DocumentAnomalyService {
         validationFlags.push("low_confidence");
       }
       if (!suggestion.suggested_value.trim()) {
-        validationFlags.push("empty_suggested_value");
+        return;
       }
 
-      const selectedSource =
-        suggestion.source ??
-        this.selectBestSourceForSuggestion(classifiedDocuments, suggestion.table);
+      const selectedSource = suggestion.source;
+      if (!selectedSource || !validDocumentKeys.has(selectedSource.document_key)) {
+        return;
+      }
+      if (!selectedSource.snippet?.trim()) {
+        return;
+      }
 
       const category =
         suggestion.category as NonNullable<DocumentAnalysisResult["suggestions"]>[number]["category"];
@@ -869,47 +1155,6 @@ export class DocumentAnomalyService {
     };
   }
 
-  private selectBestSourceForSuggestion(
-    classifiedDocuments: ClassifiedDocument[],
-    table: string,
-  ): { document_key: string; modality: DocumentModality; snippet?: string } {
-    const tableLower = table.toLowerCase();
-    const preferredOrder: DocumentModality[] =
-      tableLower.includes("vaccin")
-        ? ["lab_result", "clinical_note", "generic_pdf", "generic_image", "unknown"]
-        : tableLower.includes("historique_traitements") ||
-            tableLower.includes("ordonnance")
-          ? ["clinical_note", "lab_result", "generic_pdf", "generic_image", "unknown"]
-          : [
-              "lab_result",
-              "radiology_report",
-              "xray",
-              "ct_mri",
-              "ecg",
-              "clinical_note",
-              "generic_pdf",
-              "generic_image",
-              "unknown",
-            ];
-
-    const selected =
-      preferredOrder
-        .map((modality) =>
-          classifiedDocuments.find((document) => document.modality === modality),
-        )
-        .find((document) => document != null) ??
-      classifiedDocuments[0] ?? {
-        key: "unknown",
-        mimeType: "application/octet-stream",
-        modality: "unknown" as const,
-      };
-
-    return {
-      document_key: selected.key,
-      modality: selected.modality,
-    };
-  }
-
   private buildCacheKey(patientId: string, documents: DocumentContent[]): string {
     const signature = documents
       .map((document) => ({
@@ -921,7 +1166,7 @@ export class DocumentAnomalyService {
       .sort((a, b) => a.key.localeCompare(b.key));
 
     return createHash("sha256")
-      .update(JSON.stringify({ patientId, signature }))
+      .update(JSON.stringify({ version: ANALYSIS_CACHE_VERSION, patientId, signature }))
       .digest("hex");
   }
 
@@ -932,7 +1177,18 @@ export class DocumentAnomalyService {
       analysisCache.delete(cacheKey);
       return null;
     }
-    return entry.value;
+    const value = entry.value as DocumentAnalysisResult & {
+      document_summaries?: DocumentAnalysisResult["document_summaries"];
+      proposed_actions?: DocumentAnalysisResult["proposed_actions"];
+      suggestions?: DocumentAnalysisResult["suggestions"];
+    };
+
+    return {
+      ...value,
+      document_summaries: value.document_summaries ?? [],
+      suggestions: value.suggestions ?? [],
+      proposed_actions: value.proposed_actions ?? [],
+    };
   }
 
   private setCachedResult(cacheKey: string, result: DocumentAnalysisResult): void {

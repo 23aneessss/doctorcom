@@ -1,5 +1,6 @@
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   CircleHelp,
   FileStack,
   FileText,
@@ -8,10 +9,13 @@ import {
   Plus,
   Printer,
   Search,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { openBase64Pdf } from "@/lib/pdf-client";
@@ -28,7 +32,10 @@ type OrdonnanceRow = {
   posologie: string;
   duree_traitement: string;
   instructions: string;
+  confirmation_state: RowConfirmationState;
 };
+
+type RowConfirmationState = "draft" | "confirmed" | "stale";
 
 type RendezVousLite = {
   id: string;
@@ -62,7 +69,62 @@ type PreRempliItem = {
   est_actif?: boolean;
 };
 
-function createEmptyRow(): OrdonnanceRow {
+type AnomalySeverity = "error" | "warning" | "info";
+
+type MedicationAnomaly = {
+  medicament_externe_id: string;
+  nom_medicament: string;
+  code: string;
+  severity: AnomalySeverity;
+  message: string;
+  details?: string;
+  related_medicaments?: string[];
+  source?: "rules" | "ai";
+};
+
+type GlobalAnomaly = {
+  code: string;
+  severity: AnomalySeverity;
+  message: string;
+  medicaments_concernes: string[];
+  details?: string;
+};
+
+type PrescriptionCheckResult = {
+  anomalies_par_medicament: MedicationAnomaly[];
+  anomalies_globales: GlobalAnomaly[];
+  ai_summary: string | null;
+  ai_available: boolean;
+};
+
+type AnomalyAnalysisStatus = "idle" | "loading" | "success" | "error";
+
+type NormalizedAnomalyDraft = {
+  rowId: string;
+  medicament_externe_id: string;
+  nom_medicament: string;
+  posologie: string;
+  dosage?: string;
+  duree_traitement?: string;
+};
+
+type RowAnalysisSummary = {
+  severity: AnomalySeverity;
+  anomalies: MedicationAnomaly[];
+};
+
+const MAX_ANALYZED_MEDICATIONS = 20;
+const ANOMALY_ANALYSIS_DEBOUNCE_MS = 700;
+const ORDONNANCE_CONTRADICTION_CODES = new Set<string>([
+  "PREGNANCY_CONTRAINDICATION",
+  "CONTRE_INDICATION_MATCH",
+  "DRUG_INTERACTION",
+  "EXISTING_TREATMENT_INTERACTION",
+]);
+
+function createEmptyRow(
+  confirmationState: RowConfirmationState = "draft",
+): OrdonnanceRow {
   return {
     id: crypto.randomUUID(),
     medicament_externe_id: "",
@@ -71,7 +133,83 @@ function createEmptyRow(): OrdonnanceRow {
     posologie: "",
     duree_traitement: "",
     instructions: "",
+    confirmation_state: confirmationState,
   };
+}
+
+function createOrdonnanceRow(
+  item: {
+    medicament_externe_id: string;
+    nom_medicament: string;
+    dosage?: string | null;
+    posologie?: string | null;
+    duree_traitement?: string | null;
+    instructions?: string | null;
+  },
+  confirmationState: RowConfirmationState,
+): OrdonnanceRow {
+  return {
+    id: crypto.randomUUID(),
+    medicament_externe_id: item.medicament_externe_id,
+    nom_medicament: item.nom_medicament,
+    dosage: item.dosage ?? "",
+    posologie: item.posologie ?? "",
+    duree_traitement: item.duree_traitement ?? "",
+    instructions: item.instructions ?? "",
+    confirmation_state: confirmationState,
+  };
+}
+
+function getSeverityClasses(severity: AnomalySeverity): string {
+  switch (severity) {
+    case "error":
+      return "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]";
+    case "warning":
+      return "border-[#fed7aa] bg-[#fff7ed] text-[#c2410c]";
+    case "info":
+    default:
+      return "border-[#c2e0ef] bg-[#f0f6ff] text-[#265284]";
+  }
+}
+
+function getSeverityLabel(severity: AnomalySeverity): string {
+  switch (severity) {
+    case "error":
+      return "Risque eleve";
+    case "warning":
+      return "Vigilance";
+    case "info":
+    default:
+      return "Information";
+  }
+}
+
+function getRowStatusLabel(state: RowConfirmationState): string {
+  switch (state) {
+    case "confirmed":
+      return "Confirme";
+    case "stale":
+      return "A reconfirmer";
+    case "draft":
+    default:
+      return "Brouillon";
+  }
+}
+
+function getRowStatusClasses(state: RowConfirmationState): string {
+  switch (state) {
+    case "confirmed":
+      return "bg-[#dcfce7] text-[#166534]";
+    case "stale":
+      return "bg-[#fff7ed] text-[#c2410c]";
+    case "draft":
+    default:
+      return "bg-[#e2e8f0] text-[#475569]";
+  }
+}
+
+function normalizeMedicationLabel(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
 }
 
 export function NouvelleOrdonnanceDialog({
@@ -127,6 +265,16 @@ export function NouvelleOrdonnanceDialog({
   const [templateActionLoadingId, setTemplateActionLoadingId] = useState<
     string | null
   >(null);
+  const [anomalyStatus, setAnomalyStatus] =
+    useState<AnomalyAnalysisStatus>("idle");
+  const [anomalyResult, setAnomalyResult] =
+    useState<PrescriptionCheckResult | null>(null);
+  const [anomalyErrorMessage, setAnomalyErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [activeRowHoverId, setActiveRowHoverId] = useState<string | null>(null);
+  const lastAnomalyPayloadKeyRef = useRef<string | null>(null);
+  const activeAnomalyRequestIdRef = useRef(0);
 
   const { data: suivis = [] } = useQuery({
     ...trpc.consultation.getPatientSuivis.queryOptions({
@@ -325,15 +473,19 @@ export function NouvelleOrdonnanceDialog({
     setSelectedRendezVousId(values.rendez_vous_id ?? "");
     setRows(
       values.medicaments?.length
-        ? values.medicaments.map((item) => ({
-            id: crypto.randomUUID(),
-            medicament_externe_id: item.medicament_externe_id,
-            nom_medicament: item.nom_medicament,
-            dosage: item.dosage ?? "",
-            posologie: item.posologie,
-            duree_traitement: item.duree_traitement ?? "",
-            instructions: item.instructions ?? "",
-          }))
+        ? values.medicaments.map((item) =>
+            createOrdonnanceRow(
+              {
+                medicament_externe_id: item.medicament_externe_id,
+                nom_medicament: item.nom_medicament,
+                dosage: item.dosage,
+                posologie: item.posologie,
+                duree_traitement: item.duree_traitement,
+                instructions: item.instructions,
+              },
+              values.mode === "pre-remplie" ? "confirmed" : "draft",
+            ),
+          )
         : [createEmptyRow()],
     );
     setRemarques(values.remarques ?? "");
@@ -348,6 +500,12 @@ export function NouvelleOrdonnanceDialog({
     setAppliedTemplateId(null);
     setTemplateActionLoadingId(null);
     setIsRowsDirty(Boolean(values.medicaments?.length));
+    setAnomalyStatus("idle");
+    setAnomalyResult(null);
+    setAnomalyErrorMessage(null);
+    setActiveRowHoverId(null);
+    lastAnomalyPayloadKeyRef.current = null;
+    activeAnomalyRequestIdRef.current += 1;
   }, [open, values]);
 
   useEffect(() => {
@@ -369,15 +527,19 @@ export function NouvelleOrdonnanceDialog({
       }
     }
 
-    const mappedRows = detail.medicaments.map((item) => ({
-      id: crypto.randomUUID(),
-      medicament_externe_id: item.medicament_externe_id,
-      nom_medicament: item.nom_medicament,
-      dosage: item.dosage ?? "",
-      posologie: item.posologie_defaut ?? "",
-      duree_traitement: item.duree_defaut ?? "",
-      instructions: item.instructions_defaut ?? "",
-    }));
+    const mappedRows = detail.medicaments.map((item) =>
+      createOrdonnanceRow(
+        {
+          medicament_externe_id: item.medicament_externe_id,
+          nom_medicament: item.nom_medicament,
+          dosage: item.dosage,
+          posologie: item.posologie_defaut,
+          duree_traitement: item.duree_defaut,
+          instructions: item.instructions_defaut,
+        },
+        "confirmed",
+      ),
+    );
 
     setRows(mappedRows.length > 0 ? mappedRows : [createEmptyRow()]);
     setIsRowsDirty(false);
@@ -415,6 +577,296 @@ export function NouvelleOrdonnanceDialog({
       return a.nom_medicament.localeCompare(b.nom_medicament, "fr");
     });
   }, [searchQuery.data, debouncedSearchTerm]);
+
+  const anomalyCheckMutation = useMutation({
+    mutationFn: async (payload: {
+      patient_id: string;
+      medicaments: Array<{
+        medicament_externe_id: string;
+        posologie: string;
+        dosage?: string;
+        duree_traitement?: string;
+      }>;
+    }) => {
+      return (await trpcClient.ai.anomalyFlag.checkPrescription.mutate(
+        payload,
+      )) as PrescriptionCheckResult;
+    },
+  });
+
+  const updateRow = (
+    rowId: string,
+    updater: (row: OrdonnanceRow) => OrdonnanceRow,
+  ) => {
+    setRows((prev) =>
+      prev.map((row) => (row.id === rowId ? updater(row) : row)),
+    );
+  };
+
+  const updateEditableRow = (
+    rowId: string,
+    updates: Partial<OrdonnanceRow>,
+  ) => {
+    updateRow(rowId, (row) => ({
+      ...row,
+      ...updates,
+      confirmation_state:
+        row.confirmation_state === "confirmed"
+          ? "stale"
+          : row.confirmation_state,
+    }));
+  };
+
+  const normalizedRows = useMemo<NormalizedAnomalyDraft[]>(() => {
+    return rows.reduce<NormalizedAnomalyDraft[]>((items, row) => {
+      const medicament_externe_id = row.medicament_externe_id.trim();
+      const posologie = row.posologie.trim();
+      const dosage = row.dosage.trim();
+      const duree_traitement = row.duree_traitement.trim();
+
+      if (!medicament_externe_id || !posologie) {
+        return items;
+      }
+
+      const normalizedRow: NormalizedAnomalyDraft = {
+        rowId: row.id,
+        medicament_externe_id,
+        nom_medicament: row.nom_medicament.trim(),
+        posologie,
+      };
+
+      if (dosage) {
+        normalizedRow.dosage = dosage;
+      }
+
+      if (duree_traitement) {
+        normalizedRow.duree_traitement = duree_traitement;
+      }
+
+      items.push(normalizedRow);
+
+      return items;
+    }, []);
+  }, [rows]);
+
+  const confirmedRows = useMemo(() => {
+    return normalizedRows.filter((row) =>
+      rows.some(
+        (candidate) =>
+          candidate.id === row.rowId &&
+          candidate.confirmation_state === "confirmed",
+      ),
+    );
+  }, [normalizedRows, rows]);
+
+  const anomalyPayloadMedicaments = useMemo(() => {
+    return confirmedRows.slice(0, MAX_ANALYZED_MEDICATIONS).map((row) => ({
+      medicament_externe_id: row.medicament_externe_id,
+      posologie: row.posologie,
+      dosage: row.dosage,
+      duree_traitement: row.duree_traitement,
+    }));
+  }, [confirmedRows]);
+
+  const anomalyPayloadKey = useMemo(() => {
+    if (!open || anomalyPayloadMedicaments.length === 0) {
+      return null;
+    }
+
+    return JSON.stringify({
+      patient_id: patientId,
+      medicaments: anomalyPayloadMedicaments,
+    });
+  }, [anomalyPayloadMedicaments, open, patientId]);
+
+  const rowAnalysisById = useMemo(() => {
+    const anomaliesByMedicationId = new Map<string, MedicationAnomaly[]>();
+
+    for (const anomaly of anomalyResult?.anomalies_par_medicament ?? []) {
+      const items = anomaliesByMedicationId.get(anomaly.medicament_externe_id) ?? [];
+      items.push(anomaly);
+      anomaliesByMedicationId.set(anomaly.medicament_externe_id, items);
+    }
+
+    const map = new Map<string, RowAnalysisSummary>();
+
+    for (const row of confirmedRows) {
+      const anomalies = [
+        ...(anomaliesByMedicationId.get(row.medicament_externe_id) ?? []),
+      ];
+
+      const rowMedicationNames = new Set(
+        [row.nom_medicament, row.medicament_externe_id]
+          .map((value) => normalizeMedicationLabel(value))
+          .filter(Boolean),
+      );
+
+      for (const globalAnomaly of anomalyResult?.anomalies_globales ?? []) {
+        if (globalAnomaly.code !== "DRUG_INTERACTION") {
+          continue;
+        }
+
+        const concernsCurrentRow = globalAnomaly.medicaments_concernes.some(
+          (medicationName) =>
+            rowMedicationNames.has(normalizeMedicationLabel(medicationName)),
+        );
+
+        if (!concernsCurrentRow) {
+          continue;
+        }
+
+        anomalies.push({
+          medicament_externe_id: row.medicament_externe_id,
+          nom_medicament: row.nom_medicament,
+          code: globalAnomaly.code,
+          severity: globalAnomaly.severity,
+          message: globalAnomaly.message,
+          details: globalAnomaly.details,
+        });
+      }
+
+      const uniqueAnomalies = anomalies.filter((anomaly, index, items) => {
+        const key = `${anomaly.code}-${anomaly.message}-${anomaly.details ?? ""}`;
+        return (
+          items.findIndex(
+            (candidate) =>
+              `${candidate.code}-${candidate.message}-${candidate.details ?? ""}` ===
+              key,
+          ) === index
+        );
+      });
+
+      if (uniqueAnomalies.length === 0) {
+        continue;
+      }
+
+      const severity = uniqueAnomalies.some((item) => item.severity === "error")
+        ? "error"
+        : uniqueAnomalies.some((item) => item.severity === "warning")
+          ? "warning"
+          : "info";
+
+      map.set(row.rowId, { severity, anomalies: uniqueAnomalies });
+    }
+
+    return map;
+  }, [anomalyResult, confirmedRows]);
+
+  const displayedGlobalAnomalies = useMemo(() => {
+    const anomalies = [...(anomalyResult?.anomalies_globales ?? [])].filter(
+      (anomaly) =>
+        ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code) ||
+        anomaly.code === "AI_UNAVAILABLE" ||
+        anomaly.code === "ACTIVE_TREATMENTS_TIMEOUT" ||
+        anomaly.code === "ACTIVE_TREATMENTS_UNAVAILABLE" ||
+        anomaly.code === "MEDICATION_DATA_DEGRADED" ||
+        anomaly.code === "MEDICATION_NOT_FOUND" ||
+        anomaly.code === "PATIENT_CONTEXT_DEGRADED",
+    );
+
+    if (confirmedRows.length > MAX_ANALYZED_MEDICATIONS) {
+      anomalies.unshift({
+        code: "ANALYSIS_LIMIT_REACHED",
+        severity: "info",
+        message: `Analyse limitee aux ${MAX_ANALYZED_MEDICATIONS} premiers medicaments complets.`,
+        medicaments_concernes: confirmedRows
+          .slice(MAX_ANALYZED_MEDICATIONS)
+          .map((item) => item.nom_medicament || item.medicament_externe_id),
+        details:
+          "Les lignes supplementaires restent enregistrables, mais elles ne sont pas incluses dans l'analyse de securite.",
+      });
+    }
+
+    return anomalies;
+  }, [anomalyResult, confirmedRows]);
+
+  const totalMedicationAnomalies = useMemo(() => {
+    return [...rowAnalysisById.values()].reduce(
+      (total, item) => total + item.anomalies.length,
+      0,
+    );
+  }, [rowAnalysisById]);
+  const contradictionGlobalAnomalies = useMemo(() => {
+    return displayedGlobalAnomalies.filter((anomaly) =>
+      ORDONNANCE_CONTRADICTION_CODES.has(anomaly.code),
+    );
+  }, [displayedGlobalAnomalies]);
+  const contradictionGlobalCount = contradictionGlobalAnomalies.length;
+  const hasContradictionAnomaly =
+    totalMedicationAnomalies + contradictionGlobalCount > 0;
+  const staleRowsCount = rows.filter((row) => row.confirmation_state === "stale").length;
+  const confirmedRowsCount = confirmedRows.length;
+  const hasHighSeverityAnomaly = useMemo(() => {
+    return [
+      ...[...rowAnalysisById.values()].flatMap((item) => item.anomalies),
+      ...contradictionGlobalAnomalies,
+    ].some((anomaly) => anomaly.severity === "error");
+  }, [contradictionGlobalAnomalies, rowAnalysisById]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!anomalyPayloadKey || anomalyPayloadMedicaments.length === 0) {
+      activeAnomalyRequestIdRef.current += 1;
+      lastAnomalyPayloadKeyRef.current = null;
+      setAnomalyStatus("idle");
+      setAnomalyResult(null);
+      setAnomalyErrorMessage(null);
+      return;
+    }
+
+    if (lastAnomalyPayloadKeyRef.current === anomalyPayloadKey) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      const requestId = activeAnomalyRequestIdRef.current + 1;
+      activeAnomalyRequestIdRef.current = requestId;
+      lastAnomalyPayloadKeyRef.current = anomalyPayloadKey;
+      setAnomalyStatus("loading");
+      setAnomalyResult(null);
+      setAnomalyErrorMessage(null);
+
+      void anomalyCheckMutation
+        .mutateAsync({
+          patient_id: patientId,
+          medicaments: anomalyPayloadMedicaments,
+        })
+        .then((result) => {
+          if (activeAnomalyRequestIdRef.current !== requestId) {
+            return;
+          }
+
+          setAnomalyResult(result);
+          setAnomalyStatus("success");
+        })
+        .catch((error) => {
+          if (activeAnomalyRequestIdRef.current !== requestId) {
+            return;
+          }
+
+          lastAnomalyPayloadKeyRef.current = null;
+          setAnomalyResult(null);
+          setAnomalyStatus("error");
+          setAnomalyErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Analyse de securite indisponible.",
+          );
+        });
+    }, mode === "manuel" ? ANOMALY_ANALYSIS_DEBOUNCE_MS : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    anomalyCheckMutation,
+    anomalyPayloadKey,
+    anomalyPayloadMedicaments,
+    mode,
+    open,
+    patientId,
+  ]);
 
   const createOrdonnanceMutation = useMutation({
     mutationFn: async () => {
@@ -594,6 +1046,10 @@ export function NouvelleOrdonnanceDialog({
     if (!open) return;
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (activeRowHoverId) {
+          setActiveRowHoverId(null);
+          return;
+        }
         if (showMedicationAiPanel) {
           setShowMedicationAiPanel(false);
           return;
@@ -604,7 +1060,7 @@ export function NouvelleOrdonnanceDialog({
 
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
-  }, [open, onOpenChange, showMedicationAiPanel]);
+  }, [activeRowHoverId, open, onOpenChange, showMedicationAiPanel]);
 
   useEffect(() => {
     if (mode === "pre-remplie" && showMedicationAiPanel) {
@@ -644,6 +1100,12 @@ export function NouvelleOrdonnanceDialog({
       setIsRowsDirty(false);
       setAppliedTemplateId(null);
       setTemplateActionLoadingId(null);
+      setAnomalyStatus("idle");
+      setAnomalyResult(null);
+      setAnomalyErrorMessage(null);
+      setActiveRowHoverId(null);
+      lastAnomalyPayloadKeyRef.current = null;
+      activeAnomalyRequestIdRef.current += 1;
     }
   }, [open]);
 
@@ -655,6 +1117,26 @@ export function NouvelleOrdonnanceDialog({
     createOrdonnanceMutation.isPending || previewMutation.isPending;
   const showManualEditor = mode === "manuel";
   const hasRightPanel = showMedicationAiPanel;
+  const isRowConfirmable = (row: OrdonnanceRow) => {
+    return Boolean(
+      row.medicament_externe_id.trim() && row.posologie.trim(),
+    );
+  };
+  const getRowConfirmButtonLabel = (row: OrdonnanceRow) => {
+    if (row.confirmation_state === "confirmed") {
+      return "Confirme";
+    }
+
+    if (row.confirmation_state === "stale") {
+      return "Reconfirmer";
+    }
+
+    return "Confirmer";
+  };
+  const confirmRow = (rowId: string) => {
+    updateRow(rowId, (row) => ({ ...row, confirmation_state: "confirmed" }));
+    setActiveRowHoverId(null);
+  };
 
   const applyTemplateRows = async (
     preRempliId: string,
@@ -666,15 +1148,19 @@ export function NouvelleOrdonnanceDialog({
         id: preRempliId,
       });
 
-      const mappedRows = detail.medicaments.map((item) => ({
-        id: crypto.randomUUID(),
-        medicament_externe_id: item.medicament_externe_id,
-        nom_medicament: item.nom_medicament,
-        dosage: item.dosage ?? "",
-        posologie: item.posologie_defaut ?? "",
-        duree_traitement: item.duree_defaut ?? "",
-        instructions: item.instructions_defaut ?? "",
-      }));
+      const mappedRows: OrdonnanceRow[] = detail.medicaments.map((item) =>
+        createOrdonnanceRow(
+          {
+            medicament_externe_id: item.medicament_externe_id,
+            nom_medicament: item.nom_medicament,
+            dosage: item.dosage,
+            posologie: item.posologie_defaut,
+            duree_traitement: item.duree_defaut,
+            instructions: item.instructions_defaut,
+          },
+          "confirmed",
+        ),
+      );
 
       setSelectedPreRempliId(preRempliId);
       setAppliedTemplateId(preRempliId);
@@ -946,26 +1432,144 @@ export function NouvelleOrdonnanceDialog({
                   {rows.map((row, index) => (
                     <div
                       key={row.id}
-                      className="rounded-[10px] border border-[#c2e0ef] bg-[#f8fafc]"
+                      className="relative rounded-[10px] border border-[#c2e0ef] bg-[#f8fafc]"
                     >
                       <div className="flex items-center justify-between border-b border-[#c2e0ef] bg-[#c2e0ef] px-4 py-2">
-                        <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#265284]">
-                          médicament {index + 1}
-                        </p>
-                        {rows.length > 1 ? (
+                        <div className="flex items-center gap-2">
+                          <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#265284]">
+                            médicament {index + 1}
+                          </p>
+                          <span className={`rounded-full px-2 py-0.5 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px] ${getRowStatusClasses(row.confirmation_state)}`}>
+                            {getRowStatusLabel(row.confirmation_state)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {row.confirmation_state === "confirmed" &&
+                          anomalyStatus === "loading" ? (
+                            <span className="inline-flex items-center justify-center rounded-[8px] border border-[#c2e0ef] bg-white p-1.5 text-[#265284]">
+                              <Loader2 className="size-3.5 animate-spin" />
+                            </span>
+                          ) : null}
+
+                          {row.confirmation_state === "confirmed" &&
+                          anomalyStatus === "success" ? (
+                            <div className="relative">
+                              <button
+                                aria-label={`Voir les remarques du médicament ${index + 1}`}
+                                className={`inline-flex cursor-pointer items-center justify-center rounded-[8px] border bg-white p-1.5 transition-colors ${
+                                  rowAnalysisById.has(row.id)
+                                    ? getSeverityClasses(
+                                        rowAnalysisById.get(row.id)?.severity ?? "info",
+                                      )
+                                    : "border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]"
+                                }`}
+                                onBlur={() => {
+                                  window.setTimeout(() => {
+                                    setActiveRowHoverId((current) =>
+                                      current === row.id ? null : current,
+                                    );
+                                  }, 100);
+                                }}
+                                onFocus={() => setActiveRowHoverId(row.id)}
+                                onMouseEnter={() => setActiveRowHoverId(row.id)}
+                                onMouseLeave={() => setActiveRowHoverId((current) =>
+                                  current === row.id ? null : current,
+                                )}
+                                type="button"
+                              >
+                                {rowAnalysisById.has(row.id) ? (
+                                  <AlertTriangle className="size-3.5" />
+                                ) : (
+                                  <ShieldCheck className="size-3.5" />
+                                )}
+                              </button>
+
+                              {activeRowHoverId === row.id ? (
+                                <div
+                                  className="absolute right-0 top-[calc(100%+8px)] z-20 w-[280px] rounded-[12px] border border-[#c2e0ef] bg-white p-3 shadow-[0px_18px_40px_rgba(15,52,96,0.16)]"
+                                  onMouseEnter={() => setActiveRowHoverId(row.id)}
+                                  onMouseLeave={() => setActiveRowHoverId(null)}
+                                >
+                                  <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#0f3460]">
+                                    {row.nom_medicament || `Médicament ${index + 1}`}
+                                  </p>
+                                  {rowAnalysisById.has(row.id) ? (
+                                    <div className="mt-2 space-y-2">
+                                      {(rowAnalysisById.get(row.id)?.anomalies ?? []).map(
+                                        (anomaly: MedicationAnomaly, anomalyIndex: number) => (
+                                          <div
+                                            key={`${row.id}-${anomaly.code}-${anomalyIndex}`}
+                                            className={`rounded-[8px] border px-2.5 py-2 ${getSeverityClasses(anomaly.severity)}`}
+                                          >
+                                            <p className="font-['Inter'] text-[12px] font-semibold">
+                                              {anomaly.message}
+                                            </p>
+                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                              {anomaly.source === "ai" ? (
+                                                <span className="rounded-full bg-white/70 px-1.5 py-0.5 font-['Inter'] text-[9px] font-semibold uppercase tracking-[0.2px]">
+                                                  IA
+                                                </span>
+                                              ) : null}
+                                              {anomaly.related_medicaments?.length ? (
+                                                <span className="rounded-full bg-white/70 px-1.5 py-0.5 font-['Inter'] text-[9px] font-semibold">
+                                                  avec {anomaly.related_medicaments.join(", ")}
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                            {anomaly.details ? (
+                                              <p className="mt-1 font-['Inter'] text-[11px] leading-5 opacity-90">
+                                                {anomaly.details}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="mt-2 rounded-[8px] border border-[#bbf7d0] bg-[#f0fdf4] px-2.5 py-2 font-['Inter'] text-[11px] text-[#166534]">
+                                      Aucun signal de securite detecte pour ce médicament dans l'ensemble confirmé actuel.
+                                    </p>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+
                           <button
-                            className="cursor-pointer rounded-[8px] border border-[#fecaca] px-2 py-1 font-['Inter'] text-[12px] text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
-                            onClick={() => {
-                              setRows((prev) =>
-                                prev.filter((item) => item.id !== row.id),
-                              );
-                              setCreatedOrdonnanceId(null);
-                            }}
+                            className={`cursor-pointer rounded-[8px] border px-2.5 py-1 font-['Inter'] text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              row.confirmation_state === "confirmed"
+                                ? "border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]"
+                                : "border-[#c2e0ef] bg-white text-[#265284] hover:bg-[#f0f6ff]"
+                            }`}
+                            disabled={
+                              row.confirmation_state === "confirmed" ||
+                              !isRowConfirmable(row)
+                            }
+                            onClick={() => confirmRow(row.id)}
                             type="button"
                           >
-                            supprimer
+                            {getRowConfirmButtonLabel(row)}
                           </button>
-                        ) : null}
+
+                          {rows.length > 1 ? (
+                            <button
+                              className="cursor-pointer rounded-[8px] border border-[#fecaca] px-2 py-1 font-['Inter'] text-[12px] text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                              onClick={() => {
+                                setRows((prev) =>
+                                  prev.filter((item) => item.id !== row.id),
+                                );
+                                setCreatedOrdonnanceId(null);
+                                setActiveRowHoverId((current) =>
+                                  current === row.id ? null : current,
+                                );
+                              }}
+                              type="button"
+                            >
+                              supprimer
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="space-y-2 p-3">
@@ -975,21 +1579,13 @@ export function NouvelleOrdonnanceDialog({
                             onChange={(event) => {
                               const value = event.target.value;
                               setSearchTerm(value);
-                              setRows((prev) =>
-                                prev.map((item) =>
-                                  item.id === row.id
-                                    ? {
-                                        ...item,
-                                        nom_medicament: value,
-                                        medicament_externe_id:
-                                          value.trim() !==
-                                          item.nom_medicament.trim()
-                                            ? ""
-                                            : item.medicament_externe_id,
-                                      }
-                                    : item,
-                                ),
-                              );
+                              updateEditableRow(row.id, {
+                                nom_medicament: value,
+                                medicament_externe_id:
+                                  value.trim() !== row.nom_medicament.trim()
+                                    ? ""
+                                    : row.medicament_externe_id,
+                              });
                               setIsRowsDirty(true);
                             }}
                             onBlur={() => {
@@ -1043,33 +1639,26 @@ export function NouvelleOrdonnanceDialog({
                                       event.preventDefault()
                                     }
                                     onClick={() => {
-                                      setRows((prev) =>
-                                        prev.map((current) =>
-                                          current.id === row.id
-                                            ? {
-                                                ...current,
-                                                medicament_externe_id: String(
-                                                  item.id,
-                                                ),
-                                                nom_medicament:
-                                                  item.nom_medicament,
-                                                posologie:
-                                                  current.posologie ||
-                                                  item.posologie_adulte ||
-                                                  item.posologie_enfant ||
-                                                  "",
-                                                dosage:
-                                                  current.dosage ||
-                                                  item.dose_maximale ||
-                                                  "",
-                                                instructions:
-                                                  current.instructions ||
-                                                  item.frequence_administration ||
-                                                  "",
-                                              }
-                                            : current,
-                                        ),
-                                      );
+                                      updateRow(row.id, (current) => ({
+                                        ...current,
+                                        medicament_externe_id: String(item.id),
+                                        nom_medicament: item.nom_medicament,
+                                        posologie:
+                                          current.posologie ||
+                                          item.posologie_adulte ||
+                                          item.posologie_enfant ||
+                                          "",
+                                        dosage:
+                                          current.dosage || item.dose_maximale || "",
+                                        instructions:
+                                          current.instructions ||
+                                          item.frequence_administration ||
+                                          "",
+                                        confirmation_state:
+                                          current.confirmation_state === "confirmed"
+                                            ? "stale"
+                                            : current.confirmation_state,
+                                      }));
                                       setActiveSearchRowId(null);
                                       setSearchTerm(item.nom_medicament);
                                       setIsRowsDirty(true);
@@ -1101,13 +1690,7 @@ export function NouvelleOrdonnanceDialog({
                             className="h-[33px] rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
                             onChange={(event) => {
                               const value = event.target.value;
-                              setRows((prev) =>
-                                prev.map((item) =>
-                                  item.id === row.id
-                                    ? { ...item, posologie: value }
-                                    : item,
-                                ),
-                              );
+                              updateEditableRow(row.id, { posologie: value });
                               setIsRowsDirty(true);
                             }}
                             placeholder="Posologie"
@@ -1117,13 +1700,9 @@ export function NouvelleOrdonnanceDialog({
                             className="h-[33px] rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
                             onChange={(event) => {
                               const value = event.target.value;
-                              setRows((prev) =>
-                                prev.map((item) =>
-                                  item.id === row.id
-                                    ? { ...item, duree_traitement: value }
-                                    : item,
-                                ),
-                              );
+                              updateEditableRow(row.id, {
+                                duree_traitement: value,
+                              });
                               setIsRowsDirty(true);
                             }}
                             placeholder="Durée"
@@ -1135,13 +1714,7 @@ export function NouvelleOrdonnanceDialog({
                           className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
                           onChange={(event) => {
                             const value = event.target.value;
-                            setRows((prev) =>
-                              prev.map((item) =>
-                                item.id === row.id
-                                  ? { ...item, dosage: value }
-                                  : item,
-                              ),
-                            );
+                            updateEditableRow(row.id, { dosage: value });
                             setIsRowsDirty(true);
                           }}
                           placeholder="Dosage"
@@ -1152,18 +1725,24 @@ export function NouvelleOrdonnanceDialog({
                           className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
                           onChange={(event) => {
                             const value = event.target.value;
-                            setRows((prev) =>
-                              prev.map((item) =>
-                                item.id === row.id
-                                  ? { ...item, instructions: value }
-                                  : item,
-                              ),
-                            );
+                            updateEditableRow(row.id, { instructions: value });
                             setIsRowsDirty(true);
                           }}
                           placeholder="Instructions..."
                           value={row.instructions}
                         />
+
+                        {row.confirmation_state === "stale" ? (
+                          <p className="rounded-[8px] border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-2 font-['Inter'] text-[11px] text-[#c2410c]">
+                            Ce médicament a été modifié après analyse. Reconfirmez-le pour relancer la vérification avec l'ensemble confirmé actuel.
+                          </p>
+                        ) : null}
+
+                        {row.confirmation_state === "draft" ? (
+                          <p className="rounded-[8px] border border-dashed border-[#c2e0ef] bg-white px-2.5 py-2 font-['Inter'] text-[11px] text-[#64748b]">
+                            Finalisez la rédaction puis cliquez sur confirmer pour inclure ce médicament dans l'analyse.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -1200,6 +1779,185 @@ export function NouvelleOrdonnanceDialog({
                     placeholder="Remarques..."
                     value={remarques}
                   />
+                </div>
+              ) : null}
+
+              {false ? (
+                <div className="mt-4 rounded-[14px] border border-[#c2e0ef] bg-[#f8fbff] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-[10px] bg-white p-2 text-[#265284] shadow-[0px_4px_14px_rgba(38,82,132,0.08)]">
+                        {anomalyStatus === "success" && !hasContradictionAnomaly ? (
+                          <ShieldCheck className="size-5 text-[#15803d]" />
+                        ) : anomalyStatus === "error" ? (
+                          <ShieldOff className="size-5 text-[#b45309]" />
+                        ) : hasHighSeverityAnomaly ? (
+                          <ShieldAlert className="size-5 text-[#b91c1c]" />
+                        ) : (
+                          <AlertTriangle className="size-5 text-[#265284]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-[#0f3460]">
+                          Analyse securite ordonnance
+                        </p>
+                        <p className="mt-1 font-['Inter'] text-[12px] text-[#5b6b80]">
+                          Verification non bloquante du sous-ensemble de medicaments confirmes avant enregistrement.
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`rounded-full px-2.5 py-1 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px] ${
+                      anomalyStatus === "success" && !hasContradictionAnomaly
+                        ? "bg-[#dcfce7] text-[#166534]"
+                        : anomalyStatus === "error"
+                          ? "bg-[#fff7ed] text-[#b45309]"
+                          : hasHighSeverityAnomaly
+                            ? "bg-[#fee2e2] text-[#b91c1c]"
+                            : "bg-[#e0f2fe] text-[#0f4c81]"
+                    }`}>
+                      {anomalyStatus === "idle"
+                        ? "En attente"
+                        : anomalyStatus === "loading"
+                          ? "Analyse en cours"
+                          : anomalyStatus === "error"
+                            ? "Analyse indisponible"
+                            : !hasContradictionAnomaly
+                              ? "Aucune anomalie"
+                              : hasHighSeverityAnomaly
+                                ? "Anomalies critiques"
+                                : "Anomalies detectees"}
+                    </span>
+                  </div>
+
+                  {anomalyStatus === "idle" ? (
+                    <p className="mt-3 rounded-[10px] border border-dashed border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[12px] text-[#5b6b80]">
+                      Confirmez un medicament redige pour l'inclure dans l'analyse. Les interactions sont verifiees sur l'ensemble actuellement confirme.
+                    </p>
+                  ) : null}
+
+                  {anomalyStatus === "loading" ? (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-[10px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[12px] text-[#265284]">
+                      <Loader2 className="size-4 animate-spin" />
+                      Analyse en cours sur les medicaments confirmes...
+                    </div>
+                  ) : null}
+
+                  {anomalyStatus === "error" ? (
+                    <div className="mt-3 rounded-[10px] border border-[#fed7aa] bg-[#fff7ed] px-3 py-2 font-['Inter'] text-[12px] text-[#b45309]">
+                      {anomalyErrorMessage ||
+                        "Analyse de securite indisponible. Vous pouvez tout de meme enregistrer l'ordonnance."}
+                    </div>
+                  ) : null}
+
+                  {anomalyStatus === "success" ? (
+                    <div className="mt-3 space-y-3">
+                      {!hasContradictionAnomaly ? (
+                        <div className="rounded-[10px] border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2 font-['Inter'] text-[12px] text-[#166534]">
+                          Aucun signal de securite detecte sur les medicaments confirmes. L'enregistrement reste disponible.
+                        </div>
+                      ) : (
+                        <div className="rounded-[10px] border border-[#fed7aa] bg-[#fffaf0] px-3 py-2 font-['Inter'] text-[12px] text-[#9a3412]">
+                          {hasHighSeverityAnomaly
+                            ? "Des anomalies importantes ont ete detectees. Verifiez les alertes ci-dessous avant d'enregistrer."
+                            : "Des points de vigilance ont ete detectes. Vous pouvez enregistrer apres revue."}
+                        </div>
+                      )}
+
+                      {displayedGlobalAnomalies.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold uppercase tracking-[0.3px] text-[#5b6b80]">
+                            Alertes globales
+                          </p>
+                          {displayedGlobalAnomalies.map((anomaly, index) => (
+                            <div
+                              key={`${anomaly.code}-${index}`}
+                              className={`rounded-[10px] border px-3 py-2 ${getSeverityClasses(anomaly.severity)}`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-['Inter'] text-[12px] font-semibold">
+                                  {anomaly.message}
+                                </p>
+                                <span className="rounded-full bg-white/70 px-2 py-0.5 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px]">
+                                  {getSeverityLabel(anomaly.severity)}
+                                </span>
+                              </div>
+                              {anomaly.details ? (
+                                <p className="mt-1 font-['Inter'] text-[11px] leading-5 opacity-90">
+                                  {anomaly.details}
+                                </p>
+                              ) : null}
+                              {anomaly.medicaments_concernes.length > 0 ? (
+                                <p className="mt-1 font-['Inter'] text-[11px] opacity-90">
+                                  Concernes: {anomaly.medicaments_concernes.join(", ")}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {staleRowsCount > 0 ? (
+                        <div className="rounded-[10px] border border-[#fed7aa] bg-[#fffaf0] px-3 py-2 font-['Inter'] text-[12px] text-[#9a3412]">
+                          {staleRowsCount} médicament{staleRowsCount > 1 ? "s" : ""} modifié{staleRowsCount > 1 ? "s" : ""} doit{staleRowsCount > 1 ? "vent" : ""} être reconfirmé{staleRowsCount > 1 ? "s" : ""} pour revenir dans l'analyse active.
+                        </div>
+                      ) : null}
+
+                      {!showManualEditor && totalMedicationAnomalies > 0 ? (
+                        <div className="space-y-2">
+                          <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold uppercase tracking-[0.3px] text-[#5b6b80]">
+                            Alertes par medicament
+                          </p>
+                          {confirmedRows.map((row) => {
+                            const anomalies = rowAnalysisById.get(row.rowId)?.anomalies ?? [];
+
+                            if (anomalies.length === 0) {
+                              return null;
+                            }
+
+                            return (
+                              <div
+                                key={`${row.rowId}-summary`}
+                                className="rounded-[10px] border border-[#c2e0ef] bg-white px-3 py-2"
+                              >
+                                <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                                  {row.nom_medicament || row.medicament_externe_id}
+                                </p>
+                                <div className="mt-2 space-y-2">
+                                  {anomalies.map((anomaly: MedicationAnomaly, index: number) => (
+                                    <div
+                                      key={`${row.rowId}-${anomaly.code}-${index}`}
+                                      className={`rounded-[8px] border px-2.5 py-2 ${getSeverityClasses(anomaly.severity)}`}
+                                    >
+                                      <p className="font-['Inter'] text-[12px] font-semibold">
+                                        {anomaly.message}
+                                      </p>
+                                      {anomaly.details ? (
+                                        <p className="mt-1 font-['Inter'] text-[11px] leading-5 opacity-90">
+                                          {anomaly.details}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      {anomalyResult?.ai_summary ? (
+                        <div className="rounded-[10px] border border-[#dbeafe] bg-white px-3 py-2">
+                          <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold uppercase tracking-[0.3px] text-[#5b6b80]">
+                            Resume IA
+                          </p>
+                          <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#0f3460]">
+                            {anomalyResult?.ai_summary}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -1276,21 +2034,24 @@ export function NouvelleOrdonnanceDialog({
                   setMode("manuel");
                   setRows((prev) => [
                     ...prev,
-                    {
-                      id: crypto.randomUUID(),
-                      medicament_externe_id: item.medicament_externe_id,
-                      nom_medicament: item.nom_medicament,
-                      dosage: "",
-                      posologie: "",
-                      duree_traitement: "",
-                      instructions: "",
-                    },
+                    createOrdonnanceRow(
+                      {
+                        medicament_externe_id: item.medicament_externe_id,
+                        nom_medicament: item.nom_medicament,
+                        dosage: item.dosage,
+                        posologie: item.posologie,
+                        duree_traitement: item.duree_traitement,
+                        instructions: item.instructions,
+                      },
+                      "draft",
+                    ) as OrdonnanceRow,
                   ]);
                   toast.success(`${item.nom_medicament} ajouté à l'ordonnance`);
                   setShowMedicationAiPanel(false);
                   setIsRowsDirty(true);
                 }}
                 open={showMedicationAiPanel}
+                suiviId={selectedSuiviId || undefined}
                 suiviLabel={selectedSuiviLabel}
                 variant="side-panel"
               />

@@ -61,13 +61,6 @@ export class TreatmentService {
       });
     }
 
-    if (existingTreatment.source_type === "ordonnance") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
-      });
-    }
-
     const payload = await this.normalizeUpdateInput(data.input);
     if (Object.keys(payload).length === 0) {
       throw new TRPCError({
@@ -110,13 +103,6 @@ export class TreatmentService {
       });
     }
 
-    if (existingTreatment.source_type === "ordonnance") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Les traitements derives d'une ordonnance se gerent depuis le module ordonnance.",
-      });
-    }
-
     const stoppedTreatment = await treatmentRepository.stopTreatment(
       data.db,
       data.treatment_id,
@@ -129,6 +115,38 @@ export class TreatmentService {
     }
 
     return stoppedTreatment;
+  }
+
+  async deleteTreatment(data: {
+    db: DatabaseClient;
+    session: TreatmentSession;
+    treatment_id: string;
+  }): Promise<TreatmentRecord> {
+    await this.resolveUtilisateur(data.db, data.session);
+
+    const existingTreatment = await treatmentRepository.getTreatmentById(
+      data.db,
+      data.treatment_id,
+    );
+    if (!existingTreatment) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Traitement introuvable.",
+      });
+    }
+
+    const deletedTreatment = await treatmentRepository.deleteTreatment(
+      data.db,
+      data.treatment_id,
+    );
+    if (!deletedTreatment) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Echec de la suppression du traitement.",
+      });
+    }
+
+    return deletedTreatment;
   }
 
   async getPatientTreatments(data: {

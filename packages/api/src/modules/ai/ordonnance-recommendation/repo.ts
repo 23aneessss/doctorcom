@@ -5,6 +5,7 @@ import {
   antecedents_personnels,
   examen_consultation,
   historique_traitements,
+  ordonnance_ai_generations,
   patients,
   patients_femmes,
   suivi,
@@ -25,10 +26,98 @@ export type AntecedentRecord = typeof antecedents.$inferSelect;
 export type AntecedentPersonnelRecord = typeof antecedents_personnels.$inferSelect;
 export type AntecedentFamilialRecord = typeof antecedents_familiaux.$inferSelect;
 export type TreatmentRecord = typeof historique_traitements.$inferSelect;
+export type OrdonnanceAiGenerationRecord = typeof ordonnance_ai_generations.$inferSelect;
 export type VoyageRecentRecord = typeof voyages_recents.$inferSelect;
 export type VaccinationRecord = typeof vaccinations_patient.$inferSelect;
 
 export class OrdonnanceRecommendationRepository {
+  async createAiGeneration(
+    database: DatabaseClient,
+    input: typeof ordonnance_ai_generations.$inferInsert,
+  ): Promise<OrdonnanceAiGenerationRecord> {
+    const [row] = await database.insert(ordonnance_ai_generations).values(input).returning();
+    return row!;
+  }
+
+  async getAiGenerationById(
+    database: DatabaseClient,
+    generationId: string,
+  ): Promise<OrdonnanceAiGenerationRecord | null> {
+    const [row] = await database
+      .select()
+      .from(ordonnance_ai_generations)
+      .where(eq(ordonnance_ai_generations.id, generationId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  async claimNextPendingAiGeneration(
+    database: DatabaseClient,
+  ): Promise<OrdonnanceAiGenerationRecord | null> {
+    const [pending] = await database
+      .select()
+      .from(ordonnance_ai_generations)
+      .where(eq(ordonnance_ai_generations.status, "draft_ready"))
+      .orderBy(desc(ordonnance_ai_generations.created_at))
+      .limit(1);
+
+    if (!pending) {
+      return null;
+    }
+
+    const [claimed] = await database
+      .update(ordonnance_ai_generations)
+      .set({
+        status: "verifying",
+        verification_started_at: new Date(),
+        verification_attempts: pending.verification_attempts + 1,
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(ordonnance_ai_generations.id, pending.id),
+          eq(ordonnance_ai_generations.status, "draft_ready"),
+        ),
+      )
+      .returning();
+
+    return claimed ?? null;
+  }
+
+  async markAiGenerationVerified(
+    database: DatabaseClient,
+    generationId: string,
+    verifiedResult: unknown,
+  ): Promise<void> {
+    await database
+      .update(ordonnance_ai_generations)
+      .set({
+        status: "verified",
+        verified_result: verifiedResult,
+        verification_error: null,
+        verification_completed_at: new Date(),
+        updated_at: new Date(),
+      })
+      .where(eq(ordonnance_ai_generations.id, generationId));
+  }
+
+  async markAiGenerationFailed(
+    database: DatabaseClient,
+    generationId: string,
+    errorMessage: string,
+  ): Promise<void> {
+    await database
+      .update(ordonnance_ai_generations)
+      .set({
+        status: "verification_failed",
+        verification_error: errorMessage,
+        verification_completed_at: new Date(),
+        updated_at: new Date(),
+      })
+      .where(eq(ordonnance_ai_generations.id, generationId));
+  }
+
   async findUtilisateurByEmail(
     database: DatabaseClient,
     email: string,
