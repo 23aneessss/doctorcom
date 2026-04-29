@@ -1,4 +1,4 @@
-import { Droplet, Eye, SquarePen } from "lucide-react";
+import { Droplet, SquarePen } from "lucide-react";
 
 import type { PatientViewModel } from "./patient-types";
 import styles from "./patients-page.module.css";
@@ -11,7 +11,11 @@ interface PatientRowProps {
 
 export function PatientRow({ patient, onViewPatient, onEditPatient }: PatientRowProps) {
   return (
-    <li className={styles.row}>
+    <li
+      className={styles.row}
+      onClick={() => onViewPatient(patient.id)}
+      style={{ cursor: "pointer" }}
+    >
       <div className={styles.patientCell}>
         <span className={styles.avatar} aria-hidden="true">
           {patient.initials}
@@ -42,17 +46,12 @@ export function PatientRow({ patient, onViewPatient, onEditPatient }: PatientRow
       <div className={styles.actions}>
         <button
           type="button"
-          aria-label="Voir le patient"
-          className={styles.rowActionButton}
-          onClick={() => onViewPatient(patient.id)}
-        >
-          <Eye size={13} strokeWidth={2} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
           aria-label="Modifier le patient"
           className={styles.rowActionButton}
-          onClick={() => onEditPatient(patient.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditPatient(patient.id);
+          }}
         >
           <SquarePen size={13} strokeWidth={2} aria-hidden="true" />
         </button>
