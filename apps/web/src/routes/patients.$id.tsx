@@ -4,6 +4,7 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useSearch,
 } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
@@ -170,6 +171,7 @@ export const Route = createFileRoute("/patients/$id")({
   component: PatientLayout,
   pendingComponent: PatientLayoutSkeleton,
   pendingMs: 0,
+  validateSearch: z.object({ edit: z.boolean().optional() }),
   beforeLoad: async () => {
     const session = await requireSession();
     return { session };
@@ -205,7 +207,8 @@ function PatientLayout() {
           avatarUrl: sessionUser.image ?? undefined,
         }
       : undefined;
-  const [isEditing, setIsEditing] = useState(false);
+  const { edit } = useSearch({ from: "/patients/$id" });
+  const [isEditing, setIsEditing] = useState(edit === true);
   const [isNouveauSuiviOpen, setIsNouveauSuiviOpen] = useState(false);
   const [isNouvelleConsultationOpen, setIsNouvelleConsultationOpen] =
     useState(false);
