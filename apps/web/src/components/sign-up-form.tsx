@@ -13,7 +13,7 @@ import { Label } from "./ui/label";
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
-    from: "/",
+    from: "/login",
   });
   const { isPending } = authClient.useSession();
 
@@ -33,7 +33,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         {
           onSuccess: () => {
             navigate({
-              to: "/dashboard",
+              to: "/patients",
             });
             toast.success("Inscription réussie");
           },
@@ -57,12 +57,12 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   }
 
   return (
-    <div className="w-full">
-      {/* Title */}
-      <h1 className="text-[40px] font-bold text-[#0f3460] leading-[1]">Créer un compte</h1>
-      
-      {/* Subtitle */}
-      <p className="text-[18px] text-[#0f3460] font-medium mt-[97px]">
+    <div className="flex w-full flex-col items-center">
+      <h1 className="text-center font-['Plus_Jakarta_Sans'] text-[36px] font-bold leading-none text-[#0f3460]">
+        Créer un compte
+      </h1>
+
+      <p className="mt-8 max-w-[360px] text-center font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-[1.45] text-[#0f3460]">
         Remplissez les informations ci-dessous pour vous inscrire
       </p>
 
@@ -70,11 +70,11 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          form.handleSubmit();
+          void form.handleSubmit();
         }}
-        className="mt-[91px]"
+        className="mt-8 flex w-full flex-col items-center"
       >
-        <div>
+        <div className="w-full max-w-[352px]">
           <form.Field name="name">
             {(field) => (
               <div className="relative">
@@ -83,7 +83,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   id={field.name}
                   name={field.name}
                   placeholder="Nom complet"
-                  className="h-[51.262px] w-[352px] pl-11 py-0 rounded-[15px] border-[3px] border-[#0f3460] bg-transparent focus-visible:ring-0 focus-visible:border-[#76BBDD] text-[#0f3460] text-[15px] font-medium placeholder:text-[#0f3460]"
+                  className="h-[51px] w-full rounded-[15px] border-[3px] border-[#0f3460] bg-transparent py-0 pl-11 text-[15px] font-medium text-[#0f3460] placeholder:text-[rgba(15,52,96,0.62)] focus-visible:border-[#76BBDD] focus-visible:ring-0"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
@@ -101,7 +101,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
-        <div className="mt-[57px]">
+        <div className="mt-5 w-full max-w-[352px]">
           <form.Field name="email">
             {(field) => (
               <div className="relative">
@@ -111,7 +111,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   name={field.name}
                   type="email"
                   placeholder="Adresse email"
-                  className="h-[51.262px] w-[352px] pl-11 py-0 rounded-[15px] border-[3px] border-[#0f3460] bg-transparent focus-visible:ring-0 focus-visible:border-[#76BBDD] text-[#0f3460] text-[15px] font-medium placeholder:text-[#0f3460]"
+                  className="h-[51px] w-full rounded-[15px] border-[3px] border-[#0f3460] bg-transparent py-0 pl-11 text-[15px] font-medium text-[#0f3460] placeholder:text-[rgba(15,52,96,0.62)] focus-visible:border-[#76BBDD] focus-visible:ring-0"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
@@ -129,7 +129,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           </form.Field>
         </div>
 
-        <div className="mt-[57px]">
+        <div className="mt-5 w-full max-w-[352px]">
           <form.Field name="password">
             {(field) => (
               <div className="relative">
@@ -139,7 +139,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                   name={field.name}
                   type="password"
                   placeholder="Mot de passe"
-                  className="h-[51.262px] w-[352px] pl-11 py-0 rounded-[15px] border-[3px] border-[#0f3460] bg-transparent focus-visible:ring-0 focus-visible:border-[#76BBDD] text-[#0f3460] text-[15px] font-medium placeholder:text-[#0f3460]"
+                  className="h-[51px] w-full rounded-[15px] border-[3px] border-[#0f3460] bg-transparent py-0 pl-11 text-[15px] font-medium text-[#0f3460] placeholder:text-[rgba(15,52,96,0.62)] focus-visible:border-[#76BBDD] focus-visible:ring-0"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
@@ -161,8 +161,8 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           {(state) => (
             <Button
               type="submit"
-              className="w-[352px] h-[51.262px] bg-[#0f3460] hover:bg-[#0f3460]/90 text-white text-[18px] font-bold rounded-[15px] mt-[97px] transition-colors"
-              disabled={!state.canSubmit || state.isSubmitting}
+              className="mt-8 h-[51px] w-full max-w-[352px] rounded-[15px] bg-[#0f3460] text-[18px] font-bold text-white transition-colors hover:bg-[#0f3460]/90"
+              disabled={state.isSubmitting}
             >
               {state.isSubmitting ? "Inscription en cours..." : "S'inscrire"}
             </Button>
@@ -170,7 +170,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         </form.Subscribe>
       </form>
 
-      <div className="mt-[182px] text-center text-sm text-[#0f3460]">
+      <div className="mt-5 text-center text-sm text-[#0f3460]">
         Vous avez déjà un compte ?{" "}
         <Button
           variant="link"

@@ -47,12 +47,11 @@ function RouteComponent() {
       </div>
 
       {/* Right Side - Form Container - Exact Figma Design */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 w-full lg:w-1/2">
-        <div 
-          className="relative w-full max-w-[533px] rounded-[0px] overflow-hidden"
-          style={{ 
-            height: "640px",
-            background: "linear-gradient(180deg, #ffffff 0%, #f5f8fa 100%)"
+      <div className="flex w-full flex-1 flex-col items-center justify-center p-5 sm:p-8 lg:w-1/2 lg:p-12">
+        <div
+          className="relative w-full max-w-[533px] overflow-hidden rounded-[28px] border border-[#e4f1f8] shadow-[0_24px_60px_-34px_rgba(15,52,96,0.42)]"
+          style={{
+            background: "linear-gradient(180deg, #ffffff 0%, #f5f8fa 100%)",
           }}
         >
           {/* Background gradient overlay - matching Figma design */}
@@ -72,7 +71,7 @@ function RouteComponent() {
           />
 
           {/* Form Content */}
-          <div className="relative z-10 w-full h-full pt-[106px] pl-[80px] pr-[80px]">
+          <div className="relative z-10 flex min-h-[640px] w-full items-center px-8 py-10 sm:px-12 lg:px-20">
             {showSignIn ? (
               <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
             ) : (
