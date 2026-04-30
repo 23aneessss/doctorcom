@@ -111,7 +111,9 @@ export function normalizeOrdonnancePdfLayout(
   }
 
   const layout = value as Partial<OrdonnancePdfTemplateLayoutConfig>;
-  const fields = layout.fields ?? {};
+  const fields = (layout.fields ?? {}) as Partial<
+    OrdonnancePdfTemplateLayoutConfig["fields"]
+  >;
 
   return {
     version: 1,
