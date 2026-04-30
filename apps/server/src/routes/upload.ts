@@ -80,8 +80,7 @@ function buildContentDisposition(filename: string, download: boolean): string {
 }
 
 function isPdfUpload(file: Express.Multer.File): boolean {
-  const filename = file.originalname.trim().toLowerCase();
-  return file.mimetype === "application/pdf" || filename.endsWith(".pdf");
+  return file.buffer.subarray(0, 5).toString("utf8") === "%PDF-";
 }
 
 async function resolveDefaultDocumentCategorieId(): Promise<string> {
@@ -124,7 +123,8 @@ router.post("/ordonnance-template", upload.single("file"), async (req, res) => {
 
     if (!isPdfUpload(req.file)) {
       res.status(400).json({
-        error: "Seuls les fichiers PDF peuvent etre importes comme template.",
+        error:
+          "Le fichier importe n'est pas un PDF valide. Exportez votre template en PDF puis reessayez.",
       });
       return;
     }

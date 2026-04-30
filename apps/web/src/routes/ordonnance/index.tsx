@@ -541,6 +541,14 @@ function RouteComponent() {
       return;
     }
 
+    const isRealPdf = await hasPdfSignature(file);
+    if (!isRealPdf) {
+      toast.error(
+        "Import refusé: ce fichier n'est pas un PDF valide. Exportez-le en PDF puis réessayez.",
+      );
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append(
@@ -1382,6 +1390,9 @@ function PdfTemplateConfigDialog({
   const [draftDescription, setDraftDescription] = useState("");
   const [dragState, setDragState] = useState<PdfTemplateDragState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewPdfError, setPreviewPdfError] = useState<string | null>(null);
+  const [isPreviewPdfLoading, setIsPreviewPdfLoading] = useState(false);
 
   const templateQuery = useQuery({
     ...trpc.ordonnance.getPdfTemplate.queryOptions({
@@ -1418,6 +1429,75 @@ function PdfTemplateConfigDialog({
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
   }, [isSaving, onClose, open]);
+
+  useEffect(() => {
+    if (!open || !templateId) {
+      setPreviewPdfUrl(null);
+      setPreviewPdfError(null);
+      setIsPreviewPdfLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    let isCancelled = false;
+
+    setPreviewPdfUrl(null);
+    setPreviewPdfError(null);
+    setIsPreviewPdfLoading(true);
+
+    const loadPreview = async () => {
+      try {
+        const response = await fetch(getPdfTemplateFileUrl(templateId), {
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(
+            payload?.error ??
+              "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+          );
+        }
+
+        const blob = await response.blob();
+        if (!(await hasPdfSignature(blob))) {
+          throw new Error(
+            "Ce template importé n'est pas un PDF valide. Supprimez-le puis importez un vrai fichier PDF.",
+          );
+        }
+
+        objectUrl = URL.createObjectURL(blob);
+        if (!isCancelled) {
+          setPreviewPdfUrl(objectUrl);
+        }
+      } catch (error) {
+        if (controller.signal.aborted || isCancelled) {
+          return;
+        }
+        setPreviewPdfError(
+          error instanceof Error
+            ? error.message
+            : "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsPreviewPdfLoading(false);
+        }
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [open, templateId]);
 
   if (!templateId) {
     return null;
@@ -1553,13 +1633,37 @@ function PdfTemplateConfigDialog({
                       height: previewHeight,
                     }}
                   >
-                    <iframe
-                      className="absolute inset-0 h-full w-full bg-white"
-                      src={`${getPdfTemplateFileUrl(templateId)}#toolbar=0&navpanes=0&scrollbar=0&page=1`}
-                      title="Aperçu du template PDF"
-                    />
-                    <div className="absolute inset-0 bg-white/20" />
-                    {PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
+                    {isPreviewPdfLoading ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f8fbff] text-center">
+                        <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
+                        <p className="font-['Inter'] text-[12px] font-medium text-[#5d728a]">
+                          Chargement du PDF…
+                        </p>
+                      </div>
+                    ) : previewPdfError ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f8fbff] px-8 text-center">
+                        <FileText className="size-8 text-[#f77a21]" />
+                        <div>
+                          <p className="font-['Inter'] text-[13px] font-semibold text-[#0f3460]">
+                            Aperçu indisponible
+                          </p>
+                          <p className="mt-1 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
+                            {previewPdfError}
+                          </p>
+                        </div>
+                      </div>
+                    ) : previewPdfUrl ? (
+                      <iframe
+                        className="absolute inset-0 h-full w-full bg-white"
+                        src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&page=1`}
+                        title="Aperçu du template PDF"
+                      />
+                    ) : null}
+                    {previewPdfUrl ? (
+                      <div className="absolute inset-0 bg-white/20" />
+                    ) : null}
+                    {previewPdfUrl
+                      ? PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
                       const field = layout.fields[fieldMeta.key];
                       if (fieldMeta.key === "remarques" && field.enabled === false) {
                         return null;
@@ -1619,7 +1723,8 @@ function PdfTemplateConfigDialog({
                           />
                         </div>
                       );
-                    })}
+                    })
+                      : null}
                   </div>
 
                   <p className="rounded-[13px] border border-[#d9edf7] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
@@ -3385,6 +3490,11 @@ function EmptySectionState(props: { text: string }) {
 
 function getPdfTemplateFileUrl(templateId: string) {
   return `${env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/file`;
+}
+
+async function hasPdfSignature(file: Blob): Promise<boolean> {
+  const header = await file.slice(0, 5).arrayBuffer();
+  return new TextDecoder().decode(header) === "%PDF-";
 }
 
 function clonePdfTemplateLayout(
