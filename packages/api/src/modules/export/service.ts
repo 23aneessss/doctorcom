@@ -211,6 +211,117 @@ export class ExportService {
     });
   }
 
+  private async exporterOrdonnanceAvecTemplatePdf(
+    db: DB,
+    data: OrdonnanceExportPayload,
+    options: { templateId: string; userEmail: string },
+  ): Promise<Buffer> {
+    const utilisateurId = await this.resolveUtilisateurIdByEmail(
+      db,
+      options.userEmail,
+    );
+    const template = await exportRepository.getOrdonnancePdfTemplateForExport(
+      db,
+      options.templateId,
+    );
+
+    if (!template || !template.est_actif) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Le template PDF selectionne est introuvable.",
+      });
+    }
+
+    if (template.utilisateur_id !== utilisateurId) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Vous n'avez pas acces a ce template PDF.",
+      });
+    }
+
+    const pdfBytes = await this.readStoredPdfBuffer(template.chemin_fichier);
+    const pdfDoc = await PdfLibDocument.load(pdfBytes);
+    const [page] = pdfDoc.getPages();
+
+    if (!page) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le template PDF ne contient aucune page utilisable.",
+      });
+    }
+
+    const { height: pageHeight } = page.getSize();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const layout = normalizeOrdonnancePdfLayout(template.layout_config);
+    const patient = this.ensurePatientExportData(data.patient);
+    const ord = data.ordonnance;
+
+    const patientText = [
+      `${this.cleanText(patient.prenom, "")} ${this.cleanText(patient.nom, "")}`.trim(),
+      `Date de naissance : ${this.formatDate(patient.date_naissance)}`,
+      `Matricule : ${this.cleanText(patient.matricule)}`,
+    ].join("\n");
+
+    const medicamentsText =
+      data.medicaments.length > 0
+        ? data.medicaments
+            .map((medicament, index) => {
+              const lines = [
+                `${index + 1}. ${this.cleanText(
+                  medicament.nom_medicament || medicament.dci,
+                  "Medicament",
+                )}`,
+                medicament.posologie
+                  ? `Posologie : ${this.cleanText(medicament.posologie)}`
+                  : null,
+                medicament.duree_traitement
+                  ? `Durée : ${this.cleanText(medicament.duree_traitement)}`
+                  : null,
+                medicament.dosage
+                  ? `Dosage : ${this.cleanText(medicament.dosage)}`
+                  : null,
+                medicament.instructions
+                  ? `Instructions : ${this.cleanText(medicament.instructions)}`
+                  : null,
+              ].filter(Boolean);
+
+              return lines.join("\n");
+            })
+            .join("\n\n")
+        : "Aucun médicament renseigné.";
+
+    this.drawMappedTextBlock(
+      page,
+      this.formatDate(ord.date_prescription),
+      layout.fields.date_prescription,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      patientText,
+      layout.fields.patient,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      medicamentsText,
+      layout.fields.medicaments,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      this.cleanText(ord.remarques, ""),
+      layout.fields.remarques,
+      pageHeight,
+      font,
+    );
+
+    return Buffer.from(await pdfDoc.save());
+  }
+
   private createPDFHeader(
     doc: PDFKit.PDFDocument,
     doctorName: string,
@@ -241,7 +352,11 @@ export class ExportService {
     doc.text(`Document généré le ${dateStr}`, 50, doc.page.height - 35);
   }
 
-  async exporterOrdonnance(db: DB, ordonnanceId: string): Promise<Buffer> {
+  async exporterOrdonnance(
+    db: DB,
+    ordonnanceId: string,
+    options: { templateId?: string | null; userEmail?: string } = {},
+  ): Promise<Buffer> {
     const data = await exportRepository.getOrdonnanceForExport(
       db,
       ordonnanceId,
@@ -256,6 +371,20 @@ export class ExportService {
     const { ordonnance: ord, medicaments } = data;
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
+
+    if (options.templateId) {
+      if (!options.userEmail) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "La session a expiré. Reconnectez-vous.",
+        });
+      }
+
+      return this.exporterOrdonnanceAvecTemplatePdf(db, data, {
+        templateId: options.templateId,
+        userEmail: options.userEmail,
+      });
+    }
 
     const doc = new PDFDocument({
       size: "A4",

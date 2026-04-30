@@ -52,6 +52,7 @@ export class ExportRepository {
         id: ordonnance_medicaments.id,
         nom_medicament: ordonnance_medicaments.nom_medicament,
         dci: ordonnance_medicaments.dci,
+        dosage: ordonnance_medicaments.dosage,
         posologie: ordonnance_medicaments.posologie,
         duree_traitement: ordonnance_medicaments.duree_traitement,
         instructions: ordonnance_medicaments.instructions,
