@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -72,6 +73,45 @@ export const pre_rempli_medicaments = pgTable(
     index("pre_rempli_medicaments_pre_rempli_id_idx").on(table.pre_rempli_id),
     index("pre_rempli_medicaments_medicament_externe_id_idx").on(
       table.medicament_externe_id,
+    ),
+  ],
+);
+
+export const ordonnance_pdf_templates = pgTable(
+  "ordonnance_pdf_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    utilisateur_id: uuid("utilisateur_id")
+      .notNull()
+      .references(() => utilisateurs.id),
+    nom: varchar("nom", { length: 255 }).notNull(),
+    description: text("description"),
+    chemin_fichier: text("chemin_fichier").notNull(),
+    type_fichier: varchar("type_fichier", { length: 64 }).notNull(),
+    taille_fichier: integer("taille_fichier").notNull(),
+    page_width: integer("page_width").notNull(),
+    page_height: integer("page_height").notNull(),
+    layout_config: jsonb("layout_config").notNull(),
+    est_actif: boolean("est_actif").notNull().default(true),
+    is_default_for_user: boolean("is_default_for_user").notNull().default(false),
+    created_at: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("ord_pdf_templates_utilisateur_id_idx").on(table.utilisateur_id),
+    index("ord_pdf_templates_default_idx").on(
+      table.utilisateur_id,
+      table.is_default_for_user,
     ),
   ],
 );

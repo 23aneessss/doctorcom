@@ -14,6 +14,7 @@ import {
   lettres_orientation,
   ordonnance,
   ordonnance_medicaments,
+  ordonnance_pdf_templates,
   patients,
   patients_femmes,
   rendez_vous,
@@ -86,6 +87,14 @@ export class ExportRepository {
       patient: patientData,
       utilisateur: utilisateurData,
     };
+  }
+
+  async getOrdonnancePdfTemplateForExport(db: DB, id: string) {
+    return db
+      .select()
+      .from(ordonnance_pdf_templates)
+      .where(eq(ordonnance_pdf_templates.id, id))
+      .then((rows) => rows[0] ?? null);
   }
 
   async getCertificatForExport(db: DB, id: string) {

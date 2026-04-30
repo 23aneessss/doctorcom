@@ -109,6 +109,34 @@ const updatePreRempliMedicamentSchema = z
     message: "Au moins un champ doit etre fourni.",
   });
 
+const pdfTemplateFieldSchema = z.object({
+  x: z.number().finite().min(0),
+  y: z.number().finite().min(0),
+  width: z.number().finite().min(20),
+  height: z.number().finite().min(16),
+  fontSize: z.number().finite().min(6).max(24),
+  lineHeight: z.number().finite().min(7).max(34).optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
+  enabled: z.boolean().optional(),
+});
+
+const pdfTemplateLayoutSchema = z.object({
+  version: z.literal(1),
+  page: z.literal(1),
+  fields: z.object({
+    date_prescription: pdfTemplateFieldSchema,
+    patient: pdfTemplateFieldSchema,
+    medicaments: pdfTemplateFieldSchema,
+    remarques: pdfTemplateFieldSchema,
+  }),
+});
+
+const updatePdfTemplateLayoutSchema = z.object({
+  nom: z.string().trim().min(1).optional(),
+  description: z.string().trim().optional().nullable(),
+  layout_config: pdfTemplateLayoutSchema,
+});
+
 export const ordonnanceRouter = createTRPCRouter({
   creerOrdonnance: protectedProcedure
     .input(createOrdonnanceInputSchema)
@@ -416,6 +444,59 @@ export const ordonnanceRouter = createTRPCRouter({
       return ordonnanceService.getPreRemplisBySpecialite({
         db: ctx.db,
         specialite: input.specialite,
+      });
+    }),
+
+  listPdfTemplates: protectedProcedure.query(async ({ ctx }) => {
+    return ordonnanceService.listPdfTemplates({
+      db: ctx.db,
+      session: ctx.session,
+    });
+  }),
+
+  getPdfTemplate: protectedProcedure
+    .input(z.object({ id: uuidSchema }))
+    .query(async ({ ctx, input }) => {
+      return ordonnanceService.getPdfTemplate({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
+      });
+    }),
+
+  updatePdfTemplateLayout: protectedProcedure
+    .input(
+      z.object({
+        id: uuidSchema,
+        data: updatePdfTemplateLayoutSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ordonnanceService.updatePdfTemplateLayout({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
+        input: input.data,
+      });
+    }),
+
+  deletePdfTemplate: protectedProcedure
+    .input(z.object({ id: uuidSchema }))
+    .mutation(async ({ ctx, input }) => {
+      return ordonnanceService.deletePdfTemplate({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
+      });
+    }),
+
+  setDefaultPdfTemplate: protectedProcedure
+    .input(z.object({ id: uuidSchema.nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      return ordonnanceService.setDefaultPdfTemplate({
+        db: ctx.db,
+        session: ctx.session,
+        id: input.id,
       });
     }),
 });

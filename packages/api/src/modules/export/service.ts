@@ -1,10 +1,26 @@
 import PDFDocument from "pdfkit";
+import {
+  PDFDocument as PdfLibDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 import { TRPCError } from "@trpc/server";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import {
+  getObjectNameFromUrl,
+  minioClient,
+  storageConfig,
+} from "../../infrastructure/storage";
+import { normalizeOrdonnancePdfLayout } from "../ordonnance/pdf-template-layout";
 import { exportRepository } from "./repo";
 
 type DB = NodePgDatabase<any>;
+type OrdonnanceExportPayload = NonNullable<
+  Awaited<ReturnType<typeof exportRepository.getOrdonnanceForExport>>
+>;
 
 export class ExportService {
   private ensureUtilisateurExportData<T>(value: T | null | undefined): T {
@@ -54,6 +70,145 @@ export class ExportService {
     }
 
     return utilisateur.id;
+  }
+
+  private cleanText(value: unknown, fallback = "Non renseigné") {
+    if (value === null || value === undefined) return fallback;
+    const normalized = String(value).replace(/\s+/g, " ").trim();
+    return normalized || fallback;
+  }
+
+  private formatDate(value: Date | string | null | undefined) {
+    if (!value) return "Non renseignée";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("fr-DZ", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+  }
+
+  private async readStoredPdfBuffer(fileUrl: string): Promise<Buffer> {
+    const objectName = getObjectNameFromUrl(fileUrl);
+    const stream = await minioClient.getObject(storageConfig.bucket, objectName);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  private wrapPdfText(text: string, width: number, font: PDFFont, fontSize: number) {
+    const lines: string[] = [];
+    const paragraphs = text.split(/\r?\n/);
+
+    for (const paragraph of paragraphs) {
+      const words = paragraph.trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) {
+        lines.push("");
+        continue;
+      }
+
+      let current = "";
+      for (const word of words) {
+        const next = current ? `${current} ${word}` : word;
+        if (font.widthOfTextAtSize(next, fontSize) <= width) {
+          current = next;
+          continue;
+        }
+
+        if (current) {
+          lines.push(current);
+          current = word;
+        } else {
+          lines.push(this.truncatePdfLine(word, width, font, fontSize));
+          current = "";
+        }
+      }
+
+      if (current) {
+        lines.push(current);
+      }
+    }
+
+    return lines;
+  }
+
+  private truncatePdfLine(
+    text: string,
+    width: number,
+    font: PDFFont,
+    fontSize: number,
+  ) {
+    const ellipsis = "...";
+    let candidate = text;
+
+    while (
+      candidate.length > 0 &&
+      font.widthOfTextAtSize(`${candidate}${ellipsis}`, fontSize) > width
+    ) {
+      candidate = candidate.slice(0, -1);
+    }
+
+    return candidate ? `${candidate}${ellipsis}` : ellipsis;
+  }
+
+  private drawMappedTextBlock(
+    page: PDFPage,
+    text: string,
+    field: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fontSize: number;
+      lineHeight?: number;
+      align?: "left" | "center" | "right";
+      enabled?: boolean;
+    },
+    pageHeight: number,
+    font: PDFFont,
+  ) {
+    if (field.enabled === false) {
+      return;
+    }
+
+    const fontSize = field.fontSize;
+    const lineHeight = field.lineHeight ?? fontSize * 1.25;
+    const maxLines = Math.max(1, Math.floor(field.height / lineHeight));
+    const wrappedLines = this.wrapPdfText(text, field.width, font, fontSize);
+    const renderedLines = wrappedLines.slice(0, maxLines);
+
+    if (wrappedLines.length > maxLines && renderedLines.length > 0) {
+      renderedLines[renderedLines.length - 1] = this.truncatePdfLine(
+        renderedLines[renderedLines.length - 1] ?? "",
+        field.width,
+        font,
+        fontSize,
+      );
+    }
+
+    renderedLines.forEach((line, index) => {
+      const lineWidth = font.widthOfTextAtSize(line, fontSize);
+      const align = field.align ?? "left";
+      const x =
+        align === "right"
+          ? field.x + Math.max(0, field.width - lineWidth)
+          : align === "center"
+            ? field.x + Math.max(0, (field.width - lineWidth) / 2)
+            : field.x;
+
+      page.drawText(line, {
+        x,
+        y: pageHeight - field.y - fontSize - index * lineHeight,
+        size: fontSize,
+        font,
+        color: rgb(15 / 255, 52 / 255, 96 / 255),
+      });
+    });
   }
 
   private createPDFHeader(

@@ -19,19 +19,28 @@ import {
   type AddOrdonnanceMedicamentInput,
   type AddPreRempliMedicamentInput,
   type CategoriePreRempliRecord,
+  type CreateOrdonnancePdfTemplateInput,
   type CreateCategorieInput,
   type CreatePreRempliInput,
+  type OrdonnancePdfTemplateRecord,
   type OrdonnanceMedicamentRecord,
   type OrdonnanceRecord,
   type PreRempliMedicamentRecord,
   type PreRempliOrdonnanceRecord,
   type UpdateCategorieInput,
+  type UpdateOrdonnancePdfTemplateInput,
   type UpdateOrdonnanceInput,
   type UpdateOrdonnanceMedicamentInput,
   type UpdatePreRempliInput,
   type UpdatePreRempliMedicamentInput,
   type UtilisateurRecord,
 } from "./repo";
+import {
+  DEFAULT_ORDONNANCE_PDF_LAYOUT,
+  DEFAULT_PDF_TEMPLATE_PAGE,
+  normalizeOrdonnancePdfLayout,
+  type OrdonnancePdfTemplateLayoutConfig,
+} from "./pdf-template-layout";
 
 type DatabaseClient = typeof databaseClient;
 type DatabaseTransaction = Parameters<Parameters<typeof withTx>[0]>[0];
@@ -125,6 +134,22 @@ export interface UpdatePreRempliMedicamentServiceInput {
   instructions_defaut?: string | null;
   ordre_affichage?: number | null;
   est_optionnel?: boolean;
+}
+
+export interface CreateOrdonnancePdfTemplateUploadInput {
+  nom: string;
+  description?: string | null;
+  chemin_fichier: string;
+  type_fichier: string;
+  taille_fichier: number;
+  page_width?: number | null;
+  page_height?: number | null;
+}
+
+export interface UpdateOrdonnancePdfTemplateLayoutInput {
+  nom?: string;
+  description?: string | null;
+  layout_config: OrdonnancePdfTemplateLayoutConfig;
 }
 
 export class OrdonnanceService {
@@ -895,6 +920,162 @@ export class OrdonnanceService {
     return { success: true };
   }
 
+  async creerPdfTemplateFromUpload(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    input: CreateOrdonnancePdfTemplateUploadInput;
+  }): Promise<OrdonnancePdfTemplateRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const nom = data.input.nom.trim();
+
+    if (!nom) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le nom du template PDF est obligatoire.",
+      });
+    }
+
+    const payload: CreateOrdonnancePdfTemplateInput = {
+      utilisateur_id: utilisateur.id,
+      nom,
+      description: data.input.description?.trim() || null,
+      chemin_fichier: data.input.chemin_fichier,
+      type_fichier: data.input.type_fichier,
+      taille_fichier: data.input.taille_fichier,
+      page_width: data.input.page_width ?? DEFAULT_PDF_TEMPLATE_PAGE.width,
+      page_height: data.input.page_height ?? DEFAULT_PDF_TEMPLATE_PAGE.height,
+      layout_config: DEFAULT_ORDONNANCE_PDF_LAYOUT,
+      est_actif: true,
+      is_default_for_user: false,
+    };
+
+    return ordonnanceRepository.createPdfTemplate(data.db, payload);
+  }
+
+  async listPdfTemplates(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+  }): Promise<OrdonnancePdfTemplateRecord[]> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    return ordonnanceRepository.getPdfTemplatesByUtilisateur(
+      data.db,
+      utilisateur.id,
+    );
+  }
+
+  async getPdfTemplate(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string;
+  }): Promise<OrdonnancePdfTemplateRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const template = await ordonnanceRepository.getPdfTemplateById(
+      data.db,
+      data.id,
+    );
+
+    return this.ensureOwnedPdfTemplate(template, utilisateur.id);
+  }
+
+  async updatePdfTemplateLayout(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string;
+    input: UpdateOrdonnancePdfTemplateLayoutInput;
+  }): Promise<OrdonnancePdfTemplateRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const existing = await ordonnanceRepository.getPdfTemplateById(
+      data.db,
+      data.id,
+    );
+    this.ensureOwnedPdfTemplate(existing, utilisateur.id);
+
+    const payload: UpdateOrdonnancePdfTemplateInput = {
+      nom: data.input.nom?.trim(),
+      description:
+        data.input.description === undefined
+          ? undefined
+          : data.input.description?.trim() || null,
+      layout_config: normalizeOrdonnancePdfLayout(data.input.layout_config),
+    };
+
+    const updated = await ordonnanceRepository.updatePdfTemplate(
+      data.db,
+      data.id,
+      payload,
+    );
+
+    if (!updated) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Echec de mise a jour du template PDF.",
+      });
+    }
+
+    return updated;
+  }
+
+  async deletePdfTemplate(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string;
+  }): Promise<{ success: true }> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const existing = await ordonnanceRepository.getPdfTemplateById(
+      data.db,
+      data.id,
+    );
+    this.ensureOwnedPdfTemplate(existing, utilisateur.id);
+
+    const deleted = await ordonnanceRepository.softDeletePdfTemplate(
+      data.db,
+      data.id,
+    );
+
+    if (!deleted) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Echec de suppression du template PDF.",
+      });
+    }
+
+    return { success: true };
+  }
+
+  async setDefaultPdfTemplate(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string | null;
+  }): Promise<{ success: true }> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+
+    if (data.id) {
+      const template = await ordonnanceRepository.getPdfTemplateById(
+        data.db,
+        data.id,
+      );
+      this.ensureOwnedPdfTemplate(template, utilisateur.id);
+    }
+
+    await withTx(async (tx) => {
+      await ordonnanceRepository.clearDefaultPdfTemplates(tx, utilisateur.id);
+
+      if (data.id) {
+        const updated = await ordonnanceRepository.updatePdfTemplate(tx, data.id, {
+          is_default_for_user: true,
+        });
+        if (!updated) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Echec de configuration du template PDF par defaut.",
+          });
+        }
+      }
+    });
+
+    return { success: true };
+  }
+
   async genererPDF(): Promise<never> {
     throw new TRPCError({
       code: "NOT_IMPLEMENTED",
@@ -1006,6 +1187,27 @@ export class OrdonnanceService {
     }
 
     return utilisateur;
+  }
+
+  private ensureOwnedPdfTemplate(
+    template: OrdonnancePdfTemplateRecord | null | undefined,
+    utilisateurId: string,
+  ): OrdonnancePdfTemplateRecord {
+    if (!template || !template.est_actif) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Template PDF introuvable.",
+      });
+    }
+
+    if (template.utilisateur_id !== utilisateurId) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Vous n'avez pas acces a ce template PDF.",
+      });
+    }
+
+    return template;
   }
 
   private resolveSessionEmail(session: OrdonnanceSession): string {
