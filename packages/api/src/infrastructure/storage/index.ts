@@ -68,13 +68,16 @@ export async function ensureBucketExists(): Promise<void> {
 export async function uploadFile(params: {
   file: Express.Multer.File;
   folder?: string;
+  objectName?: string;
 }): Promise<{
   url: string;
   objectName: string;
   size: number;
   mimeType: string;
 }> {
-  const objectName = `${params.folder ?? "documents"}/${randomUUID()}-${params.file.originalname}`;
+  const objectName =
+    params.objectName ??
+    `${params.folder ?? "documents"}/${randomUUID()}-${sanitizeObjectSegment(params.file.originalname)}`;
 
   await minioClient.putObject(
     storageConfig.bucket,
@@ -92,6 +95,52 @@ export async function uploadFile(params: {
     size: params.file.size,
     mimeType: params.file.mimetype,
   };
+}
+
+export function buildPatientDocumentObjectName(params: {
+  patientSlug: string;
+  documentType: string;
+  originalName: string;
+  date?: Date;
+}): string {
+  const datePart = (params.date ?? new Date()).toISOString().slice(0, 10);
+  const typeSlug = slugifySegment(params.documentType) || "documents";
+  const patientSlug = slugifySegment(params.patientSlug) || "patient";
+  const extension = getFileExtension(params.originalName);
+  const filename = `${typeSlug}-${datePart}-${patientSlug}-${randomUUID().slice(0, 8)}${extension}`;
+
+  return `patients/${patientSlug}/documents/${filename}`;
+}
+
+export function buildPatientStorageSlug(patient: {
+  nom?: string | null;
+  prenom?: string | null;
+  matricule?: string | null;
+  id: string;
+}): string {
+  const nameSlug = slugifySegment(
+    [patient.nom, patient.prenom, patient.matricule].filter(Boolean).join("-"),
+  );
+  return `${nameSlug || "patient"}-${patient.id.slice(0, 8)}`;
+}
+
+function getFileExtension(filename: string): string {
+  const match = filename.match(/\.([a-z0-9]{1,8})$/i);
+  return match?.[1] ? `.${match[1].toLowerCase()}` : "";
+}
+
+function sanitizeObjectSegment(value: string): string {
+  return slugifySegment(value) || "document";
+}
+
+function slugifySegment(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96);
 }
 
 export async function deleteFile(objectName: string): Promise<void> {

@@ -11,7 +11,8 @@ const suiviMutationShape = {
   patient_id: uuidSchema,
   utilisateur_id: uuidSchema,
   hypothese_diagnostic: optionalTrimmedStringSchema,
-  motif: trimmedStringSchema,
+  motif: trimmedStringSchema.optional(),
+  symptoms: z.array(trimmedStringSchema).optional(),
   historique: optionalTrimmedStringSchema,
   date_ouverture: isoDateSchema,
   date_fermeture: isoDateSchema.optional(),
@@ -23,8 +24,13 @@ export const suiviSchema = z.object({
   ...suiviMutationShape,
 });
 
-export const createSuiviSchema = z.object(suiviMutationShape);
+const suiviMutationSchema = z.object(suiviMutationShape);
 
-export const updateSuiviSchema = createSuiviSchema.partial().extend({
+export const createSuiviSchema = suiviMutationSchema.refine(
+  (value) => Boolean(value.motif || value.symptoms?.length),
+  "At least one symptom is required.",
+);
+
+export const updateSuiviSchema = suiviMutationSchema.partial().extend({
   id: uuidSchema,
 });

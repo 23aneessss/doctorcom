@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 
 import { parseModelJson as parseSharedModelJson } from "../shared/json";
-import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
+import { generateGeminiText, resolveTextProvider } from "../shared/provider";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
   orientationLetterOutputSchema,
@@ -117,7 +117,7 @@ export class DocumentRecommendationService {
     input: GenerateOrientationLetterInput;
     doctorUserId?: string | null;
   }): Promise<OrientationLetterResult> {
-    const provider = resolveGeminiProvider();
+    const provider = resolveTextProvider();
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const currentSuivi = await this.resolveAndValidateSuivi(
       data.db,
@@ -200,7 +200,7 @@ export class DocumentRecommendationService {
     input: GenerateCertificatInput;
     doctorUserId?: string | null;
   }): Promise<CertificatResult> {
-    const provider = resolveGeminiProvider();
+    const provider = resolveTextProvider();
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const currentSuivi = await this.resolveAndValidateSuivi(
       data.db,

@@ -3,11 +3,16 @@ import { generateObject } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
 
 import type { SessionUtilisateur } from "../../../trpc/context";
+import {
+  GEMINI_PROVIDER_NAME,
+  generateGeminiText,
+  resolveTextProvider,
+  type AITextProviderConfig,
+} from "../shared/provider";
 import {
   anomalyFlagRepository,
   type CorePatientData,
@@ -123,6 +128,10 @@ export interface PrescriptionCheckResult {
   anomalies_globales: GlobalAnomaly[];
   ai_summary: string | null;
   ai_available: boolean;
+  ai_provider: {
+    name: AITextProviderConfig["name"];
+    model: string;
+  } | null;
 }
 
 interface PrescribedMedication {
@@ -691,6 +700,23 @@ function normalizeAiResult(
     }),
   };
 }
+
+function parseJsonFromText(text: string): unknown {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = fenced?.[1]?.trim() ?? trimmed;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.search(/[\[{]/);
+    const end = Math.max(raw.lastIndexOf("}"), raw.lastIndexOf("]"));
+    if (start >= 0 && end > start) {
+      return JSON.parse(raw.slice(start, end + 1));
+    }
+    throw new Error("AI response did not contain valid JSON.");
+  }
+}
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -1186,12 +1212,16 @@ export class AnomalyFlagService {
     // 8. Phase 2: AI second pass (if available)
     let aiAvailable = false;
     let aiSummary: string | null = null;
+    let aiProvider: PrescriptionCheckResult["ai_provider"] = null;
 
-    if (env.GEMINI_API_KEY) {
-      try {
+    try {
+      const provider = resolveTextProvider();
+      aiProvider = { name: provider.name, model: provider.model };
         checkpoint("ai_started", {
           patient_id: data.patient_id,
           medicaments_count: data.medicaments.length,
+          provider: provider.name,
+          model: provider.model,
         });
 
         const aiResult = await this.runAiAnalysis(
@@ -1202,6 +1232,7 @@ export class AnomalyFlagService {
           activeTreatments,
           anomaliesParMedicament,
           anomaliesGlobales,
+          provider,
         );
 
         aiAvailable = true;
@@ -1295,6 +1326,8 @@ export class AnomalyFlagService {
           ai_analyses_count: aiResult.analyses_par_medicament.length,
           ai_merge_matched_count: aiMergeMatchedCount,
           ai_merge_unknown_count: aiMergeUnknownCount,
+          provider: provider.name,
+          model: provider.model,
         });
       } catch (error) {
         const errorMessage =
@@ -1302,6 +1335,8 @@ export class AnomalyFlagService {
 
         logError("ai analysis failed", {
           patient_id: data.patient_id,
+          provider: aiProvider?.name,
+          model: aiProvider?.model,
           error: errorMessage,
           total_duration_ms: Date.now() - requestStartedAt,
         });
@@ -1316,22 +1351,13 @@ export class AnomalyFlagService {
           cause: error,
         });
       }
-    } else {
-      logError("ai analysis unavailable: GEMINI_API_KEY missing", {
-        patient_id: data.patient_id,
-      });
-      checkpoint("ai_unavailable_no_key");
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "L'analyse IA de l'ordonnance est indisponible: GEMINI_API_KEY manquante.",
-      });
-    }
 
     checkpoint("response_ready", {
       anomalies_par_medicament_count: anomaliesParMedicament.length,
       anomalies_globales_count: anomaliesGlobales.length,
       ai_available: aiAvailable,
+      provider: aiProvider?.name,
+      model: aiProvider?.model,
     });
 
     const medicationAssessments = this.buildMedicationAssessments(
@@ -1346,6 +1372,7 @@ export class AnomalyFlagService {
       anomalies_globales: anomaliesGlobales,
       ai_summary: aiSummary,
       ai_available: aiAvailable,
+      ai_provider: aiProvider,
     };
   }
 
@@ -1706,9 +1733,8 @@ export class AnomalyFlagService {
     activeTreatments: ActiveTreatment[],
     existingMedAnomalies: MedicationAnomaly[],
     existingGlobalAnomalies: GlobalAnomaly[],
+    provider: AITextProviderConfig,
   ): Promise<AiAnomalyResult> {
-    const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY! });
-
     // Build the user prompt
     const userPrompt = this.buildAiUserPrompt(
       patientData,
@@ -1720,17 +1746,31 @@ export class AnomalyFlagService {
       existingGlobalAnomalies,
     );
 
-    const result = await generateObject({
-      model: google(env.GEMINI_MODEL),
-      schema: aiAnomalyResultSchema,
-      messages: [
-        { role: "system", content: AI_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    let rawResult: AiRawAnomalyResult;
+    if (provider.name === GEMINI_PROVIDER_NAME) {
+      const google = createGoogleGenerativeAI({ apiKey: provider.apiKey! });
+      const result = await generateObject({
+        model: google(provider.model),
+        schema: aiAnomalyResultSchema,
+        messages: [
+          { role: "system", content: AI_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+      });
+      rawResult = result.object as AiRawAnomalyResult;
+    } else {
+      const result = await generateGeminiText({
+        provider,
+        system: `${AI_SYSTEM_PROMPT}\n\nRepondez uniquement avec un objet JSON valide.`,
+        prompt: userPrompt,
+        timeoutMs: provider.timeoutMs,
+        temperature: 0.1,
+      });
+      rawResult = aiAnomalyResultSchema.parse(parseJsonFromText(result.text));
+    }
 
     return normalizeAiResult(
-      result.object as AiRawAnomalyResult,
+      rawResult,
       prescribedMeds,
       medicationMap,
     );

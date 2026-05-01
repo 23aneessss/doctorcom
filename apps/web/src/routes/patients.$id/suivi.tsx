@@ -24,7 +24,7 @@ type PopupEventDetail = {
   mode?: "create" | "edit";
   suiviId?: string;
   examenId?: string;
-  initialValues?: Record<string, string | undefined>;
+  initialValues?: Record<string, string | string[] | undefined>;
 };
 
 export const Route = createFileRoute("/patients/$id/suivi")({
@@ -153,7 +153,7 @@ function RouteComponent() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
-                    {suivi.motif}
+                    {formatSymptoms(suivi)}
                   </p>
                   <span
                     className={cn(
@@ -211,7 +211,7 @@ function RouteComponent() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-[30px] text-[#052ca0]">
-                      {selectedSuivi.motif}
+                      {formatSymptoms(selectedSuivi)}
                     </h3>
                     <span
                       className={cn(
@@ -246,7 +246,8 @@ function RouteComponent() {
                         mode: "edit",
                         suiviId: selectedSuivi.id,
                         initialValues: {
-                          motif: selectedSuivi.motif,
+                          motif: formatSymptoms(selectedSuivi),
+                          symptoms: getSymptoms(selectedSuivi),
                           date_ouverture: selectedSuivi.date_ouverture ?? "",
                           hypothese_diagnostic:
                             selectedSuivi.hypothese_diagnostic ?? "",
@@ -631,7 +632,7 @@ function ConsultationDetail({
         <div className="border-t border-[#c2e0ef] pt-3">
           <div className="rounded-[10px] border border-[#dbeaf3] bg-[#f6fbff] px-3 py-3">
             <p className="font-['Inter'] text-[11px] font-normal uppercase tracking-[0.275px] text-[rgba(100,116,139,0.9)]">
-              Conclusion
+              Diagnostique
             </p>
             <p className="mt-1 font-['Inter'] text-[14px] font-normal leading-[20px] text-[#0f3460]">
               {conclusion}
@@ -679,4 +680,20 @@ async function invalidateSuiviQueries(patientId: string) {
       trpc.patient.getPatientFullRecord.queryFilter({ id: patientId }),
     ),
   ]);
+}
+
+function getSymptoms(suivi: { motif?: string | null; symptoms?: string[] | null }) {
+  if (Array.isArray(suivi.symptoms) && suivi.symptoms.length > 0) {
+    return suivi.symptoms.filter((item) => item.trim().length > 0);
+  }
+
+  return (suivi.motif ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function formatSymptoms(suivi: { motif?: string | null; symptoms?: string[] | null }) {
+  const symptoms = getSymptoms(suivi);
+  return symptoms.length > 0 ? symptoms.join(", ") : "Symptoms non renseignes";
 }

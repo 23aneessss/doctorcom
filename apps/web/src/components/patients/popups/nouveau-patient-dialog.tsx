@@ -60,6 +60,7 @@ export interface NouveauPatientSubmissionValues extends NouveauPatientFormValues
   groupeSanguin: string;
   ageCirconcision: string;
   revenuMensuel: string;
+  assure: boolean;
   tailleMenages: number;
   nombreDePieces: number;
   socialProfession: string;
@@ -203,6 +204,7 @@ export function NouveauPatientDialog({
   const [groupeSanguin, setGroupeSanguin] = useState("O+");
   const [ageCirconcision, setAgeCirconcision] = useState("13 ans");
   const [revenuMensuel, setRevenuMensuel] = useState("150000 DA");
+  const [assure, setAssure] = useState(true);
   const [tailleMenages, setTailleMenages] = useState(4);
   const [nombreDePieces, setNombreDePieces] = useState(4);
   const [socialProfession, setSocialProfession] = useState("Ingenieur en Informatique");
@@ -259,6 +261,7 @@ export function NouveauPatientDialog({
         setGroupeSanguin("O+");
         setAgeCirconcision("13 ans");
         setRevenuMensuel("150000 DA");
+        setAssure(true);
         setTailleMenages(4);
         setNombreDePieces(4);
         setSocialProfession("Ingenieur en Informatique");
@@ -284,6 +287,7 @@ export function NouveauPatientDialog({
         setGroupeSanguin("");
         setAgeCirconcision("");
         setRevenuMensuel("");
+        setAssure(false);
         setTailleMenages(0);
         setNombreDePieces(0);
         setSocialProfession("");
@@ -344,6 +348,7 @@ export function NouveauPatientDialog({
     groupeSanguin,
     ageCirconcision,
     revenuMensuel,
+    assure,
     tailleMenages,
     nombreDePieces,
     socialProfession,
@@ -662,7 +667,12 @@ export function NouveauPatientDialog({
             <div className={styles.stepFourContent}>
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
               <div className={styles.socialTopGrid}>
-                <Field label="Revenu mensuel"><input className={styles.input} value={revenuMensuel} onChange={(event) => setRevenuMensuel(event.currentTarget.value)} placeholder="Ex: 2000 DA BOURSE" /></Field>
+                  <Field label={"Assur\u00e9"}>
+                    <label className={styles.checkboxPill}>
+                      <input checked={assure} onChange={(event) => setAssure(event.currentTarget.checked)} type="checkbox" />
+                      <span>{assure ? "Oui" : "Non"}</span>
+                    </label>
+                  </Field>
                 <Field label="Taille menages"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille menages">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille menages">+</button></div></div></Field>
                 <Field label="Nombre de pieces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pieces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pieces">+</button></div></div></Field>
               </div>

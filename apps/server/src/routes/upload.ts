@@ -1,9 +1,11 @@
 import express, { Router } from "express";
 import { auth } from "@doctor.com/auth";
 import { db } from "@doctor.com/db";
-import { utilisateurs } from "@doctor.com/db/schema";
+import { patients, utilisateurs } from "@doctor.com/db/schema";
 import { documentsService } from "@doctor.com/api/modules/documents/service";
 import {
+  buildPatientDocumentObjectName,
+  buildPatientStorageSlug,
   getObjectNameFromUrl,
   isStorageUnavailableError,
   minioClient,
@@ -12,6 +14,7 @@ import {
 } from "@doctor.com/api/infrastructure/storage";
 import { toSimpleFrenchRuntimeMessage } from "@doctor.com/api/trpc/error-messages";
 import { fromNodeHeaders } from "better-auth/node";
+import { eq } from "drizzle-orm";
 import multer from "multer";
 import { isStorageAvailable } from "../infrastructure/storage-state";
 
@@ -101,6 +104,44 @@ async function resolveDefaultDocumentCategorieId(): Promise<string> {
   return created.id;
 }
 
+async function resolvePatientStorageInfo(patientId: string) {
+  const [patient] = await db
+    .select({
+      id: patients.id,
+      nom: patients.nom,
+      prenom: patients.prenom,
+      matricule: patients.matricule,
+    })
+    .from(patients)
+    .where(eq(patients.id, patientId))
+    .limit(1);
+
+  if (!patient) {
+    throw new Error("Patient introuvable.");
+  }
+
+  return {
+    ...patient,
+    storageSlug: buildPatientStorageSlug(patient),
+  };
+}
+
+async function uploadPatientDocumentFile(params: {
+  file: Express.Multer.File;
+  patientId: string;
+  typeDocument: string;
+}) {
+  const patient = await resolvePatientStorageInfo(params.patientId);
+  return uploadFile({
+    file: params.file,
+    objectName: buildPatientDocumentObjectName({
+      patientSlug: patient.storageSlug,
+      documentType: params.typeDocument,
+      originalName: params.file.originalname,
+    }),
+  });
+}
+
 router.post("/document", upload.single("file"), async (req, res) => {
   try {
     if (!ensureStorageReady(res)) return;
@@ -128,7 +169,11 @@ router.post("/document", upload.single("file"), async (req, res) => {
     }
 
     const resolvedCategorieId = categorie_id ?? (await resolveDefaultDocumentCategorieId());
-    const uploaded = await uploadFile({ file: req.file, folder: "documents" });
+    const uploaded = await uploadPatientDocumentFile({
+      file: req.file,
+      patientId: patient_id,
+      typeDocument: type_document,
+    });
 
     const document = await documentsService.creerDocument({
       db,
@@ -205,184 +250,6 @@ router.get("/document/:id/file", async (req, res) => {
               code: "INTERNAL_SERVER_ERROR",
               message: err?.message,
             }),
-    });
-  }
-});
-
-router.post("/lettre", upload.single("file"), async (req, res) => {
-  try {
-    if (!ensureStorageReady(res)) return;
-
-    const session = await requireSession(req, res);
-    if (!session) return;
-
-    const utilisateurId = await requireUtilisateurId(session.user.email, res);
-    if (!utilisateurId) return;
-
-    if (!req.file) {
-      res.status(400).json({ error: "Aucun fichier fourni." });
-      return;
-    }
-
-    const body = JSON.parse(req.body.json ?? "{}");
-    const {
-      patient_id,
-      categorie_id,
-      nom_document,
-      type_document,
-      description,
-      suivi_id,
-      type_exploration,
-      examen_demande,
-      raison,
-      destinataire,
-      urgence,
-      contenu_lettre,
-    } = body;
-
-    if (
-      !patient_id ||
-      !categorie_id ||
-      !nom_document ||
-      !type_document ||
-      !suivi_id ||
-      !urgence
-    ) {
-      res.status(400).json({
-        error:
-          "Champs obligatoires manquants: patient_id, categorie_id, nom_document, type_document, suivi_id, urgence.",
-      });
-      return;
-    }
-
-    const uploaded = await uploadFile({ file: req.file, folder: "documents" });
-
-    const result = await documentsService.creerLettre({
-      db,
-      input: {
-        document: {
-          patient_id,
-          categorie_id,
-          nom_document,
-          type_document,
-          chemin_fichier: uploaded.url,
-          type_fichier: uploaded.mimeType,
-          taille_fichier: uploaded.size,
-          description: description ?? null,
-        },
-        lettre: {
-          suivi_id,
-          type_exploration: type_exploration ?? null,
-          examen_demande: examen_demande ?? null,
-          raison: raison ?? null,
-          destinataire: destinataire ?? null,
-          urgence,
-          contenu_lettre: contenu_lettre ?? null,
-        },
-      },
-      userEmail: session.user.email,
-    });
-
-    res.status(201).json(result);
-  } catch (err: any) {
-    console.error("Upload lettre error:", err);
-    res.status(500).json({
-      error: toSimpleFrenchRuntimeMessage({
-        code: "INTERNAL_SERVER_ERROR",
-        message: err?.message,
-      }),
-    });
-  }
-});
-
-router.post("/certificat", upload.single("file"), async (req, res) => {
-  try {
-    if (!ensureStorageReady(res)) return;
-
-    const session = await requireSession(req, res);
-    if (!session) return;
-
-    const utilisateurId = await requireUtilisateurId(session.user.email, res);
-    if (!utilisateurId) return;
-
-    if (!req.file) {
-      res.status(400).json({ error: "Aucun fichier fourni." });
-      return;
-    }
-
-    const body = JSON.parse(req.body.json ?? "{}");
-    const {
-      patient_id,
-      categorie_id,
-      nom_document,
-      type_document,
-      description,
-      suivi_id,
-      type_certificat,
-      date_emission,
-      date_debut,
-      date_fin,
-      diagnostic,
-      destinataire,
-      notes,
-      statut,
-    } = body;
-
-    if (
-      !patient_id ||
-      !categorie_id ||
-      !nom_document ||
-      !type_document ||
-      !suivi_id ||
-      !type_certificat ||
-      !date_emission ||
-      !statut
-    ) {
-      res.status(400).json({
-        error:
-          "Champs obligatoires manquants: patient_id, categorie_id, nom_document, type_document, suivi_id, type_certificat, date_emission, statut.",
-      });
-      return;
-    }
-
-    const uploaded = await uploadFile({ file: req.file, folder: "documents" });
-
-    const result = await documentsService.creerCertificat({
-      db,
-      input: {
-        document: {
-          patient_id,
-          categorie_id,
-          nom_document,
-          type_document,
-          chemin_fichier: uploaded.url,
-          type_fichier: uploaded.mimeType,
-          taille_fichier: uploaded.size,
-          description: description ?? null,
-        },
-        certificat: {
-          suivi_id,
-          type_certificat,
-          date_emission,
-          date_debut: date_debut ?? null,
-          date_fin: date_fin ?? null,
-          diagnostic: diagnostic ?? null,
-          destinataire: destinataire ?? null,
-          notes: notes ?? null,
-          statut,
-        },
-      },
-      userEmail: session.user.email,
-    });
-
-    res.status(201).json(result);
-  } catch (err: any) {
-    console.error("Upload certificat error:", err);
-    res.status(500).json({
-      error: toSimpleFrenchRuntimeMessage({
-        code: "INTERNAL_SERVER_ERROR",
-        message: err?.message,
-      }),
     });
   }
 });

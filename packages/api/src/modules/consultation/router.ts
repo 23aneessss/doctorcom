@@ -25,15 +25,19 @@ const optionalNullableNumericSchema = z
 const createSuiviInputSchema = z.object({
   patient_id: uuidSchema,
   hypothese_diagnostic: optionalNullableTextSchema,
-  motif: z.string().trim().min(1),
+  motif: z.string().trim().min(1).optional(),
+  symptoms: z.array(z.string().trim().min(1)).min(1).optional(),
   historique: optionalNullableTextSchema,
   date_ouverture: isoDateSchema,
+}).refine((value) => Boolean(value.motif || value.symptoms?.length), {
+  message: "Au moins un symptome doit etre fourni.",
 });
 
 const updateSuiviDataSchema = z
   .object({
     hypothese_diagnostic: optionalNullableTextSchema,
     motif: z.string().trim().min(1).optional(),
+    symptoms: z.array(z.string().trim().min(1)).min(1).optional(),
     historique: optionalNullableTextSchema,
     date_ouverture: isoDateSchema.optional(),
     date_fermeture: isoDateSchema.nullable().optional(),

@@ -41,6 +41,7 @@ const updatePatientDataSchema = updatePatientSchema
 		profession: optionalTrimmedStringSchema.nullable(),
 		situation_familiale: optionalTrimmedStringSchema.nullable(),
 		revenu_mensuel: numericSchema.nullable().optional(),
+		assure: z.boolean().nullable().optional(),
 		female_data: femalePatientInfoSchema.optional(),
 	})
 	.refine((value) => Object.keys(value).length > 0, {

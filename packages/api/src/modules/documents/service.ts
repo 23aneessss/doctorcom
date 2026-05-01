@@ -5,6 +5,8 @@ import { patients } from "@doctor.com/db/schema";
 import { user as authUser } from "@doctor.com/db/schema/auth";
 import { eq } from "drizzle-orm";
 import {
+  buildPatientDocumentObjectName,
+  buildPatientStorageSlug,
   deleteFile,
   getObjectNameFromUrl,
   uploadFile,
@@ -240,9 +242,14 @@ export class DocumentsService {
   }): Promise<DocumentPatientRecord> {
     await this.assertPatientExists(data.db, data.input.patient_id);
 
+    const patient = await this.getPatientStorageInfo(data.db, data.input.patient_id);
     const uploaded = await uploadFile({
       file: data.file,
-      folder: "documents",
+      objectName: buildPatientDocumentObjectName({
+        patientSlug: patient.storageSlug,
+        documentType: data.input.type_document,
+        originalName: data.file.originalname,
+      }),
     });
 
     const payload: CreateDocumentInput = {
@@ -992,6 +999,23 @@ export class DocumentsService {
         message: "Patient introuvable.",
       });
     }
+  }
+
+  private async getPatientStorageInfo(
+    database: DatabaseClient,
+    patientId: string,
+  ): Promise<{ storageSlug: string }> {
+    const patient = await documentsRepository.getPatientById(database, patientId);
+    if (!patient) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
+    }
+
+    return {
+      storageSlug: buildPatientStorageSlug(patient),
+    };
   }
 
   private async assertSuiviExists(

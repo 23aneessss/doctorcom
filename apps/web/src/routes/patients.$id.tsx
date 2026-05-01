@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Briefcase,
   Calendar,
+  CalendarClock,
   Droplets,
   History,
   HeartPulse,
@@ -55,6 +56,7 @@ import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 type SuiviDialogValues = {
   motif?: string;
+  symptoms?: string[];
   date_ouverture?: string;
   hypothese_diagnostic?: string;
   historique?: string;
@@ -182,6 +184,7 @@ const tabs = [
     to: "/patients/$id/general",
     icon: LayoutDashboard,
   },
+  { label: "RDV", to: "/patients/$id/rdv", icon: CalendarClock },
   { label: "Suivis", to: "/patients/$id/suivi", icon: TrendingUp },
   { label: "Antécédents", to: "/patients/$id/antecedent", icon: History },
   { label: "Traitements", to: "/patients/$id/traitement", icon: Package },
@@ -420,7 +423,7 @@ function PatientLayout() {
       profession?: string | null;
       nationalite?: string | null;
       situation_familiale?: string | null;
-      revenu_mensuel?: string | null;
+      assure?: boolean;
     }) => {
       return trpcClient.patient.updatePatient.mutate({ id, data });
     },
@@ -470,7 +473,7 @@ function PatientLayout() {
       profession: patient.profession ?? "",
       nationalite: patient.nationalite ?? "",
       situation_familiale: patient.situation_familiale ?? "",
-      revenu_mensuel: patient.revenu_mensuel ?? "",
+      assure: patient.assure ?? false,
     },
     validators: {
       onSubmit: z.object({
@@ -482,10 +485,11 @@ function PatientLayout() {
         profession: z.string().max(255),
         nationalite: z.string().max(255),
         situation_familiale: z.string().max(255),
+        assure: z.boolean(),
         revenu_mensuel: z.union([
           z.literal(""),
           z.string().regex(/^\d+(\.\d+)?$/, "Le revenu doit être numérique"),
-        ]),
+        ]).optional(),
       }),
     },
     onSubmit: async ({ value }) => {
@@ -498,7 +502,7 @@ function PatientLayout() {
         profession?: string | null;
         nationalite?: string | null;
         situation_familiale?: string | null;
-        revenu_mensuel?: string | null;
+        assure?: boolean;
       } = {};
 
       const changedValue = (next: string, current: string | null | undefined) =>
@@ -562,12 +566,8 @@ function PatientLayout() {
         nextData.situation_familiale = situationFamiliale;
       }
 
-      const revenu = normalizeOptionalField(
-        value.revenu_mensuel,
-        patient.revenu_mensuel,
-      );
-      if (revenu !== undefined) {
-        nextData.revenu_mensuel = revenu;
+      if (value.assure !== (patient.assure ?? false)) {
+        nextData.assure = value.assure;
       }
 
       if (Object.keys(nextData).length === 0) {
@@ -989,30 +989,28 @@ function PatientLayout() {
                 />
                 <PatientInfoRow
                   icon={<Wallet className="size-4" />}
-                  label="Revenu mensuel :"
+                  label={"Assur\u00e9 :"}
                   value={
                     isEditing ? (
-                      <form.Field name="revenu_mensuel">
+                      <form.Field name="assure">
                         {(field) => (
-                          <div>
+                          <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-full border border-[#c2e0ef] bg-[#f8fbff] px-2.5 font-['Poppins'] text-[13px] font-medium leading-[20px] text-[#265284]">
                             <input
-                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
-                              value={field.state.value}
+                              className="peer sr-only"
+                              checked={field.state.value}
                               onBlur={field.handleBlur}
                               onChange={(e) =>
-                                field.handleChange(e.target.value)
+                                field.handleChange(e.target.checked)
                               }
+                              type="checkbox"
                             />
-                            {field.state.meta.errors[0]?.message ? (
-                              <p className="text-xs text-red-600">
-                                {field.state.meta.errors[0].message}
-                              </p>
-                            ) : null}
-                          </div>
+                            <span className="relative h-4 w-7 rounded-full bg-[#dbeaf3] transition-colors peer-checked:bg-[#76bbdd] after:absolute after:left-0.5 after:top-0.5 after:size-3 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-3" />
+                            {field.state.value ? "Oui" : "Non"}
+                          </label>
                         )}
                       </form.Field>
-                    ) : patient.revenu_mensuel ? (
-                      `${patient.revenu_mensuel} DZD`
+                    ) : patient.assure ? (
+                      "Oui"
                     ) : (
                       "—"
                     )
@@ -1044,7 +1042,7 @@ function PatientLayout() {
                         profession: patient.profession ?? "",
                         nationalite: patient.nationalite ?? "",
                         situation_familiale: patient.situation_familiale ?? "",
-                        revenu_mensuel: patient.revenu_mensuel ?? "",
+                        assure: patient.assure ?? false,
                       });
                       setIsEditing(true);
                     }}
@@ -1107,6 +1105,9 @@ function PatientLayout() {
                   label="Ajouter rendez-vous"
                   layout="centered"
                   specialIcon={<RendezVousIcon />}
+                  onClick={() => {
+                    window.location.href = `/patients/${id}/rdv`;
+                  }}
                 />
               </div>
             </div>

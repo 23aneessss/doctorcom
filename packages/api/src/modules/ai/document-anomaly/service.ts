@@ -5,7 +5,6 @@ import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import type { db as databaseClient } from "@doctor.com/db";
-import { env } from "@doctor.com/env/server";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -15,6 +14,10 @@ import {
   minioClient,
   storageConfig,
 } from "../../../infrastructure/storage";
+import {
+  GEMINI_PROVIDER_NAME,
+  resolveTextProvider,
+} from "../shared/provider";
 import { documentAnomalyRepository, type FullPatientData } from "./repo";
 
 // ---------------------------------------------------------------------------
@@ -436,7 +439,16 @@ export class DocumentAnomalyService {
   // ---------------------------------------------------------------------------
 
   private resolveAiProvider(): LanguageModel {
-    if (!env.GEMINI_API_KEY) {
+    const provider = resolveTextProvider();
+    if (provider.name !== GEMINI_PROVIDER_NAME) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "L'analyse IA des documents PDF/images necessite Gemini pour le moment. Repassez AI_PROVIDER=gemini pour cette fonctionnalite.",
+      });
+    }
+
+    if (!provider.apiKey) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message:
@@ -445,10 +457,10 @@ export class DocumentAnomalyService {
     }
 
     const google = createGoogleGenerativeAI({
-      apiKey: env.GEMINI_API_KEY,
+      apiKey: provider.apiKey,
     });
 
-    return google(env.GEMINI_MODEL);
+    return google(provider.model);
   }
 
   // ---------------------------------------------------------------------------
@@ -1337,7 +1349,9 @@ export class DocumentAnomalyService {
         const status = s.est_actif
           ? "Actif"
           : `Cloture le ${s.date_fermeture ?? "N/A"}`;
-        let line = `- Motif: ${s.motif} (${status}, ouvert le ${s.date_ouverture})`;
+        const symptoms =
+          s.symptoms.length > 0 ? s.symptoms.join(", ") : s.motif;
+        let line = `- Symptoms: ${symptoms} (${status}, ouvert le ${s.date_ouverture})`;
         if (s.hypothese_diagnostic)
           line += `\n  Hypothese: ${s.hypothese_diagnostic}`;
         if (s.historique) line += `\n  Historique: ${s.historique}`;
@@ -1391,7 +1405,7 @@ export class DocumentAnomalyService {
           examLines.push(`Examen endocrinien: ${e.examen_endocrinien}`);
         if (e.traitement_prescrit)
           examLines.push(`Traitement prescrit: ${e.traitement_prescrit}`);
-        if (e.conclusion) examLines.push(`Conclusion: ${e.conclusion}`);
+        if (e.conclusion) examLines.push(`Diagnostique: ${e.conclusion}`);
       }
       sections.push(`## Consultations\n${examLines.join("\n")}`);
     }

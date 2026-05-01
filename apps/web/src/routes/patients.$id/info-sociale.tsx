@@ -32,7 +32,7 @@ type EditCardKey =
   | "profession"
   | "situation_familiale"
   | "nb_enfants"
-  | "revenu_mensuel"
+  | "assure"
   | "foyer"
   | "niveau_intellectuel"
   | "habitudes_saines"
@@ -44,7 +44,7 @@ type EditFormState = {
   profession: string;
   situation_familiale: string;
   nb_enfants: string;
-  revenu_mensuel: string;
+  assure: boolean;
   taille_menage: string;
   nb_pieces: string;
   niveau_intellectuel: string;
@@ -58,7 +58,7 @@ const EMPTY_FORM: EditFormState = {
   profession: "",
   situation_familiale: "",
   nb_enfants: "",
-  revenu_mensuel: "",
+  assure: false,
   taille_menage: "",
   nb_pieces: "",
   niveau_intellectuel: "",
@@ -128,12 +128,12 @@ function RouteComponent() {
         value: formatNumberValue(patient.nb_enfants),
       },
       {
-        key: "revenu_mensuel" as const,
-        label: "Revenu mensuel",
+        key: "assure" as const,
+        label: "Assur\u00e9",
         icon: Wallet,
         tone: "default" as const,
         action: "edit" as const,
-        value: formatRevenueValue(patient.revenu_mensuel),
+        value: patient.assure ? "Oui" : "Non",
       },
       {
         key: "foyer" as const,
@@ -191,7 +191,7 @@ function RouteComponent() {
       profession: patient.profession ?? "",
       situation_familiale: patient.situation_familiale ?? "",
       nb_enfants: toInputValue(patient.nb_enfants),
-      revenu_mensuel: toDecimalInputValue(patient.revenu_mensuel),
+      assure: patient.assure ?? false,
       taille_menage: toInputValue(patient.taille_menage),
       nb_pieces: toInputValue(patient.nb_pieces),
       niveau_intellectuel: patient.niveau_intellectuel ?? "",
@@ -208,7 +208,7 @@ function RouteComponent() {
   };
 
   const saveCard = (card: EditCardKey) => {
-    const data: Record<string, number | string | null> = {};
+    const data: Record<string, number | string | boolean | null> = {};
 
     if (card === "profession") {
       data.profession = normalizeTextInput(formState.profession);
@@ -229,13 +229,8 @@ function RouteComponent() {
       data.nb_enfants = parsed;
     }
 
-    if (card === "revenu_mensuel") {
-      const parsed = parseNullableDecimal(formState.revenu_mensuel);
-      if (parsed === INVALID_NUMBER) {
-        toast.error("Veuillez saisir un revenu mensuel valide.");
-        return;
-      }
-      data.revenu_mensuel = parsed;
+    if (card === "assure") {
+      data.assure = formState.assure;
     }
 
     if (card === "foyer") {
@@ -417,7 +412,7 @@ function renderPrimaryCardBody({
     );
   }
 
-  if (cardKey === "revenu_mensuel") {
+  if (cardKey === "assure") {
     if (!isEditing) {
       return (
         <p className="font-['Poppins'] text-[14px] leading-[20px] text-[#0f3460]">
@@ -427,19 +422,23 @@ function renderPrimaryCardBody({
     }
 
     return (
-      <input
-        type="text"
-        inputMode="decimal"
-        value={formState.revenu_mensuel}
-        onChange={(event) =>
-          setFormState((current) => ({
-            ...current,
-            revenu_mensuel: event.target.value.replace(/,/g, "."),
-          }))
-        }
-        placeholder="Ex: 45000"
-        className="h-10 w-full rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
-      />
+      <label className="inline-flex h-10 cursor-pointer items-center gap-3 rounded-full border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.05)]">
+        <input
+          checked={formState.assure}
+          className="peer sr-only"
+          onChange={(event) =>
+            setFormState((current) => ({
+              ...current,
+              assure: event.target.checked,
+            }))
+          }
+          type="checkbox"
+        />
+        <span className="relative h-5 w-9 rounded-full bg-[#dbeaf3] transition peer-checked:bg-[#76bbdd] peer-checked:[&>span]:translate-x-4">
+          <span className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,52,96,0.18)] transition" />
+        </span>
+        <span>{formState.assure ? "Oui" : "Non"}</span>
+      </label>
     );
   }
 
@@ -845,14 +844,6 @@ function formatNumberValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
 
-function formatRevenueValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return "N/A";
-  }
-
-  return `${stripTrailingZeros(String(value))} DZD`;
-}
-
 function formatHouseholdValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
@@ -865,18 +856,9 @@ function toInputValue(value: number | null | undefined) {
   return value === null || value === undefined ? "" : String(value);
 }
 
-function toDecimalInputValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return "";
-  return stripTrailingZeros(String(value));
-}
-
 function normalizeTextInput(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function stripTrailingZeros(value: string) {
-  return value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
 }
 
 function isNoneLikeValue(value: string) {
@@ -890,11 +872,4 @@ function parseNullableInteger(value: string) {
   if (trimmed.length === 0) return null;
   if (!/^\d+$/.test(trimmed)) return INVALID_NUMBER;
   return Number.parseInt(trimmed, 10);
-}
-
-function parseNullableDecimal(value: string) {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return INVALID_NUMBER;
-  return trimmed;
 }

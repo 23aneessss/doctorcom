@@ -65,7 +65,7 @@ type SidebarRouteItem = {
 
 const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
-    href: "/",
+    href: "/dashboard",
     label: SIDEBAR_TEXT.accueil,
     icon: <House size={24} weight="regular" />,
   },

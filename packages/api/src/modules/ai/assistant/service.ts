@@ -5,7 +5,7 @@ import type { SessionUtilisateur } from "../../../trpc/context";
 import { aiService } from "../qna/service";
 import { toSimpleFrenchAiMessage } from "../shared/errors";
 import { parseModelJson } from "../shared/json";
-import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
+import { generateGeminiText, resolveTextProvider } from "../shared/provider";
 import { medicationAssistantService } from "../medication-assistant/service";
 import {
   type AssistantChatResult,
@@ -273,7 +273,7 @@ export class AssistantOrchestratorService {
     latestUserQuestion: string;
   }): Promise<IntentGuess> {
     try {
-      const provider = resolveGeminiProvider();
+    const provider = resolveTextProvider();
       const history = data.messages
         .slice(-6)
         .map((message) => `${message.role}: ${message.content}`)

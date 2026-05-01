@@ -7,7 +7,7 @@ import { parseModelJson as parseSharedModelJson } from "../shared/json";
 import {
   generateGeminiEmbedding,
   generateGeminiText,
-  resolveGeminiProvider,
+  resolveTextProvider,
 } from "../shared/provider";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
@@ -39,12 +39,12 @@ import { ordonnanceVectorRepository } from "./vector-repo";
 
 type DatabaseClient = typeof databaseClient;
 type OrdonnanceRecommendationSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName = "google-ai-studio";
+type AIProviderName = "google-ai-studio" | "ollama";
 
 interface AIProviderConfig {
   name: AIProviderName;
   model: string;
-  apiKey: string;
+  apiKey?: string;
 }
 
 interface GenerateOrdonnanceRecommendationInput {
@@ -556,7 +556,7 @@ export class OrdonnanceRecommendationService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    return resolveGeminiProvider();
+    return resolveTextProvider();
   }
 
   private async resolveUtilisateur(

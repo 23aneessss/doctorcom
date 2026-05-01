@@ -26,6 +26,7 @@ export const suivi = pgTable(
       .references(() => utilisateurs.id),
     hypothese_diagnostic: text("hypothese_diagnostic"),
     motif: text("motif").notNull(),
+    symptoms: text("symptoms").array().notNull().default([]),
     historique: text("historique"),
     date_ouverture: date("date_ouverture").notNull(),
     date_fermeture: date("date_fermeture"),

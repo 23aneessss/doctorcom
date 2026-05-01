@@ -6,17 +6,27 @@ import { env } from "@doctor.com/env/server";
 import { mapGeminiProviderError } from "./errors";
 
 export const GEMINI_PROVIDER_NAME = "google-ai-studio" as const;
+export const OLLAMA_PROVIDER_NAME = "ollama" as const;
 
 export type GeminiProviderName = typeof GEMINI_PROVIDER_NAME;
+export type OllamaProviderName = typeof OLLAMA_PROVIDER_NAME;
+export type AITextProviderName = GeminiProviderName | OllamaProviderName;
 
-export interface GeminiProviderConfig {
-  name: GeminiProviderName;
+export interface AITextProviderConfig {
+  name: AITextProviderName;
   model: string;
-  apiKey: string;
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutMs?: number;
 }
 
+export type GeminiProviderConfig = AITextProviderConfig & {
+  name: GeminiProviderName;
+  apiKey: string;
+};
+
 export interface GeminiTextGenerationInput {
-  provider?: GeminiProviderConfig;
+  provider?: AITextProviderConfig;
   system?: string;
   prompt: string;
   timeoutMs?: number;
@@ -41,10 +51,42 @@ export function resolveGeminiProvider(): GeminiProviderConfig {
   };
 }
 
+export function resolveTextProvider(): AITextProviderConfig {
+  if (env.AI_PROVIDER === "ollama") {
+    return {
+      name: OLLAMA_PROVIDER_NAME,
+      model: env.OLLAMA_MODEL,
+      baseUrl: env.OLLAMA_BASE_URL,
+      timeoutMs: env.OLLAMA_TIMEOUT_MS,
+    };
+  }
+
+  return resolveGeminiProvider();
+}
+
 export async function generateGeminiText(
   input: GeminiTextGenerationInput,
-): Promise<{ provider: GeminiProviderConfig; text: string }> {
-  const provider = input.provider ?? resolveGeminiProvider();
+): Promise<{ provider: AITextProviderConfig; text: string }> {
+  const provider = input.provider ?? resolveTextProvider();
+  if (provider.name === OLLAMA_PROVIDER_NAME) {
+    const text = await generateOllamaText({
+      provider,
+      system: input.system,
+      prompt: input.prompt,
+      timeoutMs: input.timeoutMs,
+      temperature: input.temperature,
+    });
+
+    return { provider, text };
+  }
+
+  if (!provider.apiKey) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Le service d'aide medicale n'est pas disponible pour le moment.",
+    });
+  }
+
   const google = createGoogleGenerativeAI({
     apiKey: provider.apiKey,
   });
@@ -67,6 +109,61 @@ export async function generateGeminiText(
     };
   } catch (error) {
     throw mapGeminiProviderError(error);
+  }
+}
+
+async function generateOllamaText(input: {
+  provider: AITextProviderConfig;
+  system?: string;
+  prompt: string;
+  timeoutMs?: number;
+  temperature?: number;
+}): Promise<string> {
+  const baseUrl = input.provider.baseUrl?.replace(/\/+$/, "");
+  if (!baseUrl) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "La configuration Ollama est incomplete.",
+    });
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: input.provider.model,
+        prompt: input.system
+          ? `${input.system.trim()}\n\n${input.prompt}`
+          : input.prompt,
+        stream: false,
+        options:
+          input.temperature === undefined
+            ? undefined
+            : { temperature: input.temperature },
+      }),
+      signal: AbortSignal.timeout(
+        input.timeoutMs ?? input.provider.timeoutMs ?? env.OLLAMA_TIMEOUT_MS,
+      ),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama responded with ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { response?: unknown };
+    if (typeof payload.response !== "string" || !payload.response.trim()) {
+      throw new Error("Ollama response is empty.");
+    }
+
+    return payload.response;
+  } catch (error) {
+    throw new TRPCError({
+      code: "BAD_GATEWAY",
+      message:
+        "Le modele local Ollama n'a pas pu repondre. Verifiez OLLAMA_BASE_URL et OLLAMA_MODEL.",
+      cause: error,
+    });
   }
 }
 
