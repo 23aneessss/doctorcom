@@ -14,7 +14,10 @@ import {
   minioClient,
   storageConfig,
 } from "../../infrastructure/storage";
-import { normalizeOrdonnancePdfLayout } from "../ordonnance/pdf-template-layout";
+import {
+  normalizeOrdonnancePdfLayout,
+  type OrdonnancePdfTemplateField,
+} from "../ordonnance/pdf-template-layout";
 import { exportRepository } from "./repo";
 
 type DB = NodePgDatabase<any>;
@@ -159,16 +162,7 @@ export class ExportService {
   private drawMappedTextBlock(
     page: PDFPage,
     text: string,
-    field: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      fontSize: number;
-      lineHeight?: number;
-      align?: "left" | "center" | "right";
-      enabled?: boolean;
-    },
+    field: OrdonnancePdfTemplateField,
     pageHeight: number,
     font: PDFFont,
   ) {
@@ -208,6 +202,45 @@ export class ExportService {
         font,
         color: rgb(15 / 255, 52 / 255, 96 / 255),
       });
+    });
+  }
+
+  private drawMappedLogoBlock(
+    page: PDFPage,
+    initials: string,
+    field: OrdonnancePdfTemplateField,
+    pageHeight: number,
+    font: PDFFont,
+  ) {
+    if (field.enabled === false) {
+      return;
+    }
+
+    const size = Math.min(field.width, field.height);
+    if (size < 12) {
+      return;
+    }
+
+    const centerX = field.x + field.width / 2;
+    const centerY = pageHeight - field.y - field.height / 2;
+    page.drawEllipse({
+      x: centerX,
+      y: centerY,
+      xScale: size / 2,
+      yScale: size / 2,
+      color: rgb(15 / 255, 52 / 255, 96 / 255),
+    });
+
+    const text = this.cleanText(initials, "Dr").slice(0, 3);
+    const fontSize = Math.min(field.fontSize, size * 0.42);
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+    page.drawText(text, {
+      x: centerX - textWidth / 2,
+      y: centerY - fontSize / 3,
+      size: fontSize,
+      font,
+      color: rgb(1, 1, 1),
     });
   }
 
@@ -254,7 +287,32 @@ export class ExportService {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const layout = normalizeOrdonnancePdfLayout(template.layout_config);
     const patient = this.ensurePatientExportData(data.patient);
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
     const ord = data.ordonnance;
+    const doctorFullName = [
+      this.cleanText(utilisateur.prenom, ""),
+      this.cleanText(utilisateur.nom, ""),
+    ]
+      .join(" ")
+      .trim();
+    const doctorDisplayName = doctorFullName
+      ? `Dr. ${doctorFullName}`
+      : "Dr. Médecin";
+    const doctorInitials = doctorFullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+    const medecinText = [doctorDisplayName, "Médecin généraliste"].join("\n");
+    const cabinetText = [
+      utilisateur.adresse ? `Adresse : ${this.cleanText(utilisateur.adresse)}` : null,
+      utilisateur.telephone
+        ? `Téléphone : ${this.cleanText(utilisateur.telephone)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const patientText = [
       `${this.cleanText(patient.prenom, "")} ${this.cleanText(patient.nom, "")}`.trim(),
@@ -290,10 +348,38 @@ export class ExportService {
             .join("\n\n")
         : "Aucun médicament renseigné.";
 
+    this.drawMappedLogoBlock(
+      page,
+      doctorInitials || "Dr",
+      layout.fields.logo_medecin,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      medecinText,
+      layout.fields.medecin,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      cabinetText,
+      layout.fields.cabinet,
+      pageHeight,
+      font,
+    );
     this.drawMappedTextBlock(
       page,
       this.formatDate(ord.date_prescription),
       layout.fields.date_prescription,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      "ORDONNANCE",
+      layout.fields.titre,
       pageHeight,
       font,
     );
@@ -315,6 +401,13 @@ export class ExportService {
       page,
       this.cleanText(ord.remarques, ""),
       layout.fields.remarques,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      "Signature et cachet",
+      layout.fields.signature_cachet,
       pageHeight,
       font,
     );

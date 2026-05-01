@@ -3,6 +3,8 @@ import { env } from "@doctor.com/env/web";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import {
   CalendarDays,
   CheckCircle2,
@@ -42,6 +44,8 @@ import { openBase64Pdf } from "@/lib/pdf-client";
 import { ModifierOrdonnanceDialog } from "@/routes/ordonnance/popups/modifier-ordonnance";
 import { NouveauOrdonnanceDialog } from "@/routes/ordonnance/popups/nouveau-ordonnance";
 import { trpcClient } from "@/utils/trpc";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export const Route = createFileRoute("/ordonnance/")({
   component: RouteComponent,
@@ -121,10 +125,15 @@ type EditableOrdonnanceMedicamentRow = {
 };
 
 type PdfTemplateFieldKey =
+  | "logo_medecin"
+  | "medecin"
+  | "cabinet"
   | "date_prescription"
+  | "titre"
   | "patient"
   | "medicaments"
-  | "remarques";
+  | "remarques"
+  | "signature_cachet";
 
 type PdfTemplateFieldLayout = {
   x: number;
@@ -157,12 +166,42 @@ const ALL_SPECIALITES_VALUE = "__all_specialites__";
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 const DEFAULT_PDF_PAGE_WIDTH = 595;
 const DEFAULT_PDF_PAGE_HEIGHT = 842;
-const PDF_TEMPLATE_PREVIEW_WIDTH = 360;
+const PDF_TEMPLATE_PREVIEW_WIDTH = 560;
 
 const DEFAULT_PDF_TEMPLATE_LAYOUT: PdfTemplateLayoutConfig = {
   version: 1,
   page: 1,
   fields: {
+    logo_medecin: {
+      x: 64,
+      y: 68,
+      width: 42,
+      height: 42,
+      fontSize: 12,
+      lineHeight: 14,
+      align: "center",
+      enabled: false,
+    },
+    medecin: {
+      x: 118,
+      y: 68,
+      width: 235,
+      height: 48,
+      fontSize: 12,
+      lineHeight: 15,
+      align: "left",
+      enabled: false,
+    },
+    cabinet: {
+      x: 118,
+      y: 116,
+      width: 270,
+      height: 52,
+      fontSize: 9,
+      lineHeight: 12,
+      align: "left",
+      enabled: false,
+    },
     date_prescription: {
       x: 400,
       y: 120,
@@ -171,6 +210,16 @@ const DEFAULT_PDF_TEMPLATE_LAYOUT: PdfTemplateLayoutConfig = {
       fontSize: 11,
       lineHeight: 14,
       align: "left",
+    },
+    titre: {
+      x: 210,
+      y: 210,
+      width: 180,
+      height: 36,
+      fontSize: 18,
+      lineHeight: 22,
+      align: "center",
+      enabled: false,
     },
     patient: {
       x: 70,
@@ -200,6 +249,16 @@ const DEFAULT_PDF_TEMPLATE_LAYOUT: PdfTemplateLayoutConfig = {
       align: "left",
       enabled: true,
     },
+    signature_cachet: {
+      x: 360,
+      y: 720,
+      width: 190,
+      height: 48,
+      fontSize: 12,
+      lineHeight: 15,
+      align: "center",
+      enabled: false,
+    },
   },
 };
 
@@ -208,6 +267,21 @@ const PDF_TEMPLATE_FIELD_META: Array<{
   label: string;
   description: string;
 }> = [
+  {
+    key: "logo_medecin",
+    label: "Logo médecin",
+    description: "Repère logo, cachet visuel ou initiales du médecin.",
+  },
+  {
+    key: "medecin",
+    label: "Médecin",
+    description: "Nom, prénom et spécialité du médecin.",
+  },
+  {
+    key: "cabinet",
+    label: "Cabinet",
+    description: "Adresse, téléphone et contact du cabinet.",
+  },
   {
     key: "patient",
     label: "Patient",
@@ -219,6 +293,11 @@ const PDF_TEMPLATE_FIELD_META: Array<{
     description: "Date de prescription.",
   },
   {
+    key: "titre",
+    label: "Titre",
+    description: "Titre libre, par exemple ORDONNANCE.",
+  },
+  {
     key: "medicaments",
     label: "Médicaments",
     description: "Bloc principal des lignes de prescription.",
@@ -227,6 +306,11 @@ const PDF_TEMPLATE_FIELD_META: Array<{
     key: "remarques",
     label: "Remarques",
     description: "Notes complémentaires optionnelles.",
+  },
+  {
+    key: "signature_cachet",
+    label: "Signature",
+    description: "Mention signature et cachet du médecin.",
   },
 ];
 
@@ -1390,9 +1474,16 @@ function PdfTemplateConfigDialog({
   const [draftDescription, setDraftDescription] = useState("");
   const [dragState, setDragState] = useState<PdfTemplateDragState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [previewPdfBytes, setPreviewPdfBytes] = useState<ArrayBuffer | null>(
+    null,
+  );
   const [previewPdfError, setPreviewPdfError] = useState<string | null>(null);
   const [isPreviewPdfLoading, setIsPreviewPdfLoading] = useState(false);
+  const [renderedPreviewSize, setRenderedPreviewSize] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const templateQuery = useQuery({
     ...trpc.ordonnance.getPdfTemplate.queryOptions({
@@ -1407,6 +1498,9 @@ function PdfTemplateConfigDialog({
   const previewScale = PDF_TEMPLATE_PREVIEW_WIDTH / pageWidth;
   const previewHeight = Math.round(pageHeight * previewScale);
   const selectedField = layout.fields[selectedFieldKey];
+  const selectedFieldMeta = PDF_TEMPLATE_FIELD_META.find(
+    (field) => field.key === selectedFieldKey,
+  );
 
   useEffect(() => {
     if (!open || !template) {
@@ -1432,19 +1526,20 @@ function PdfTemplateConfigDialog({
 
   useEffect(() => {
     if (!open || !templateId) {
-      setPreviewPdfUrl(null);
+      setPreviewPdfBytes(null);
       setPreviewPdfError(null);
       setIsPreviewPdfLoading(false);
+      setRenderedPreviewSize({ width: 0, height: 0 });
       return;
     }
 
     const controller = new AbortController();
-    let objectUrl: string | null = null;
     let isCancelled = false;
 
-    setPreviewPdfUrl(null);
+    setPreviewPdfBytes(null);
     setPreviewPdfError(null);
     setIsPreviewPdfLoading(true);
+    setRenderedPreviewSize({ width: 0, height: 0 });
 
     const loadPreview = async () => {
       try {
@@ -1468,9 +1563,9 @@ function PdfTemplateConfigDialog({
           );
         }
 
-        objectUrl = URL.createObjectURL(blob);
+        const bytes = await blob.arrayBuffer();
         if (!isCancelled) {
-          setPreviewPdfUrl(objectUrl);
+          setPreviewPdfBytes(bytes);
         }
       } catch (error) {
         if (controller.signal.aborted || isCancelled) {
@@ -1493,11 +1588,77 @@ function PdfTemplateConfigDialog({
     return () => {
       isCancelled = true;
       controller.abort();
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
     };
   }, [open, templateId]);
+
+  useEffect(() => {
+    if (!open || !previewPdfBytes || !previewCanvasRef.current) {
+      return;
+    }
+
+    let isCancelled = false;
+    let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
+
+    const renderPreview = async () => {
+      try {
+        loadingTask = pdfjsLib.getDocument({
+          data: previewPdfBytes.slice(0),
+        });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: previewScale });
+        const canvas = previewCanvasRef.current;
+
+        if (!canvas || isCancelled) {
+          await pdf.destroy();
+          return;
+        }
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Canvas indisponible.");
+        }
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        await page.render({
+          canvas,
+          canvasContext: context,
+          viewport,
+        }).promise;
+
+        if (!isCancelled) {
+          setRenderedPreviewSize({
+            width: viewport.width,
+            height: viewport.height,
+          });
+        }
+
+        await pdf.destroy();
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+        setPreviewPdfError(
+          error instanceof Error
+            ? error.message
+            : "Le PDF n'a pas pu être rendu dans l'éditeur.",
+        );
+      }
+    };
+
+    void renderPreview();
+
+    return () => {
+      isCancelled = true;
+      void loadingTask?.destroy();
+    };
+  }, [open, previewPdfBytes, previewScale]);
 
   if (!templateId) {
     return null;
@@ -1590,7 +1751,7 @@ function PdfTemplateConfigDialog({
         style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
       >
         <div
-          className="flex max-h-[calc(100vh-64px)] w-full max-w-[980px] flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
+          className="flex max-h-[calc(100vh-64px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
           style={{
             animation:
               "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -1622,7 +1783,7 @@ function PdfTemplateConfigDialog({
                 <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
               </div>
             ) : (
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(280px,1fr)]">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,640px)_minmax(320px,1fr)]">
                 <div className="space-y-4">
                   <div
                     className="relative mx-auto overflow-hidden rounded-[16px] border border-[#cfe6f3] bg-white shadow-[0px_22px_44px_-30px_rgba(15,52,96,0.48)]"
@@ -1652,20 +1813,21 @@ function PdfTemplateConfigDialog({
                           </p>
                         </div>
                       </div>
-                    ) : previewPdfUrl ? (
-                      <iframe
-                        className="absolute inset-0 h-full w-full bg-white"
-                        src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&page=1`}
-                        title="Aperçu du template PDF"
+                    ) : previewPdfBytes ? (
+                      <canvas
+                        className="absolute left-0 top-0 bg-white"
+                        ref={previewCanvasRef}
                       />
                     ) : null}
-                    {previewPdfUrl ? (
-                      <div className="absolute inset-0 bg-white/20" />
+                    {previewPdfBytes && !previewPdfError ? (
+                      <div className="absolute inset-0 bg-white/5" />
                     ) : null}
-                    {previewPdfUrl
+                    {previewPdfBytes &&
+                    !previewPdfError &&
+                    renderedPreviewSize.width > 0
                       ? PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
                       const field = layout.fields[fieldMeta.key];
-                      if (fieldMeta.key === "remarques" && field.enabled === false) {
+                      if (field.enabled === false) {
                         return null;
                       }
 
@@ -1728,8 +1890,9 @@ function PdfTemplateConfigDialog({
                   </div>
 
                   <p className="rounded-[13px] border border-[#d9edf7] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
-                    Les coordonnées sont enregistrées en points PDF. Déplacez
-                    les rectangles directement, puis ajustez finement à droite.
+                    Déplacez les rectangles et tirez le point bleu pour ajuster
+                    la taille. L’aperçu utilise le même système de coordonnées
+                    que l’export PDF final.
                   </p>
                 </div>
 
@@ -1760,29 +1923,67 @@ function PdfTemplateConfigDialog({
                   </div>
 
                   <div className="rounded-[16px] border border-[#d9edf7] bg-[#f8fbff] p-3">
-                    <p className="mb-2 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
-                      Zones à placer
-                    </p>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                        Champs à imprimer
+                      </p>
+                      <p className="font-['Inter'] text-[10px] text-[#6d879d]">
+                        Activez uniquement ce qui existe sur ce PDF.
+                      </p>
+                    </div>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {PDF_TEMPLATE_FIELD_META.map((fieldMeta) => (
-                        <button
-                          className={`rounded-[12px] border px-3 py-2 text-left transition-colors ${
-                            selectedFieldKey === fieldMeta.key
-                              ? "border-[#76bbdd] bg-white shadow-[0px_10px_20px_-18px_rgba(15,52,96,0.4)]"
-                              : "border-transparent bg-white/70 hover:bg-white"
-                          }`}
-                          key={fieldMeta.key}
-                          onClick={() => setSelectedFieldKey(fieldMeta.key)}
-                          type="button"
-                        >
-                          <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
-                            {fieldMeta.label}
-                          </p>
-                          <p className="mt-0.5 font-['Inter'] text-[10px] leading-4 text-[#6d879d]">
-                            {fieldMeta.description}
-                          </p>
-                        </button>
-                      ))}
+                      {PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
+                        const field = layout.fields[fieldMeta.key];
+                        const isEnabled = field.enabled !== false;
+                        const isSelected = selectedFieldKey === fieldMeta.key;
+
+                        return (
+                          <div
+                            className={`rounded-[12px] border bg-white px-3 py-2 transition-colors ${
+                              isSelected
+                                ? "border-[#76bbdd] shadow-[0px_10px_20px_-18px_rgba(15,52,96,0.4)]"
+                                : "border-transparent hover:border-[#d9edf7]"
+                            }`}
+                            key={fieldMeta.key}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                className="min-w-0 flex-1 text-left"
+                                onClick={() => setSelectedFieldKey(fieldMeta.key)}
+                                type="button"
+                              >
+                                <p className="truncate font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                                  {fieldMeta.label}
+                                </p>
+                                <p className="mt-0.5 line-clamp-2 font-['Inter'] text-[10px] leading-4 text-[#6d879d]">
+                                  {fieldMeta.description}
+                                </p>
+                              </button>
+                              <button
+                                aria-label={`${isEnabled ? "Masquer" : "Afficher"} ${fieldMeta.label}`}
+                                className={`mt-0.5 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${
+                                  isEnabled ? "bg-[#76bbdd]" : "bg-[#dbe8f0]"
+                                }`}
+                                onClick={() => {
+                                  updateField(fieldMeta.key, {
+                                    enabled: !isEnabled,
+                                  });
+                                  setSelectedFieldKey(fieldMeta.key);
+                                }}
+                                type="button"
+                              >
+                                <span
+                                  className={`block size-4 rounded-full bg-white shadow-sm transition-transform ${
+                                    isEnabled
+                                      ? "translate-x-4"
+                                      : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1793,68 +1994,96 @@ function PdfTemplateConfigDialog({
                           Zone {getPdfFieldLabel(selectedFieldKey)}
                         </p>
                         <p className="font-['Inter'] text-[10px] text-[#6d879d]">
-                          Ajustement fin du bloc sélectionné.
+                          Position et taille se règlent directement à la souris.
                         </p>
                       </div>
-                      {selectedFieldKey === "remarques" ? (
-                        <label className="inline-flex items-center gap-2 font-['Inter'] text-[11px] text-[#365a78]">
-                          <input
-                            checked={selectedField.enabled !== false}
-                            onChange={(event) =>
-                              updateField("remarques", {
-                                enabled: event.target.checked,
-                              })
-                            }
-                            type="checkbox"
-                          />
-                          Actif
-                        </label>
-                      ) : null}
+                      <button
+                        className={`rounded-full px-3 py-1 font-['Inter'] text-[11px] font-semibold transition-colors ${
+                          selectedField.enabled !== false
+                            ? "bg-[#e5f6ff] text-[#265284]"
+                            : "bg-[#edf2f7] text-[#7a93af]"
+                        }`}
+                        onClick={() =>
+                          updateField(selectedFieldKey, {
+                            enabled: selectedField.enabled === false,
+                          })
+                        }
+                        type="button"
+                      >
+                        {selectedField.enabled !== false ? "Actif" : "Masqué"}
+                      </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <PdfNumberControl
-                        label="X"
-                        onChange={(value) =>
-                          updateField(selectedFieldKey, { x: value })
+                    <div className="space-y-4">
+                      <PdfRangeControl
+                        label={
+                          selectedFieldKey === "logo_medecin"
+                            ? "Taille des initiales"
+                            : "Taille de police"
                         }
-                        value={selectedField.x}
-                      />
-                      <PdfNumberControl
-                        label="Y"
-                        onChange={(value) =>
-                          updateField(selectedFieldKey, { y: value })
-                        }
-                        value={selectedField.y}
-                      />
-                      <PdfNumberControl
-                        label="Largeur"
-                        onChange={(value) =>
-                          updateField(selectedFieldKey, { width: value })
-                        }
-                        value={selectedField.width}
-                      />
-                      <PdfNumberControl
-                        label="Hauteur"
-                        onChange={(value) =>
-                          updateField(selectedFieldKey, { height: value })
-                        }
-                        value={selectedField.height}
-                      />
-                      <PdfNumberControl
-                        label="Police"
+                        max={48}
+                        min={6}
                         onChange={(value) =>
                           updateField(selectedFieldKey, { fontSize: value })
                         }
                         value={selectedField.fontSize}
                       />
-                      <PdfNumberControl
-                        label="Interligne"
-                        onChange={(value) =>
-                          updateField(selectedFieldKey, { lineHeight: value })
-                        }
-                        value={selectedField.lineHeight ?? selectedField.fontSize + 3}
-                      />
+                      {selectedFieldKey !== "logo_medecin" ? (
+                        <PdfRangeControl
+                          label="Interligne"
+                          max={64}
+                          min={7}
+                          onChange={(value) =>
+                            updateField(selectedFieldKey, {
+                              lineHeight: value,
+                            })
+                          }
+                          value={
+                            selectedField.lineHeight ??
+                            selectedField.fontSize + 3
+                          }
+                        />
+                      ) : null}
+
+                      {selectedFieldKey !== "logo_medecin" ? (
+                        <div>
+                          <p className="mb-2 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+                            Alignement
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(["left", "center", "right"] as const).map(
+                              (align) => (
+                                <button
+                                  className={`h-9 rounded-[10px] border font-['Inter'] text-[12px] font-semibold transition-colors ${
+                                    (selectedField.align ?? "left") === align
+                                      ? "border-[#76bbdd] bg-[#eaf7fd] text-[#0f3460]"
+                                      : "border-[#d9edf7] bg-white text-[#6d879d] hover:bg-[#f8fbff]"
+                                  }`}
+                                  key={align}
+                                  onClick={() =>
+                                    updateField(selectedFieldKey, { align })
+                                  }
+                                  type="button"
+                                >
+                                  {align === "left"
+                                    ? "Gauche"
+                                    : align === "center"
+                                      ? "Centre"
+                                      : "Droite"}
+                                </button>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-[12px] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
+                        {selectedFieldMeta?.label ?? "Champ"} : le bloc mesure{" "}
+                        {Math.round(selectedField.width)} x{" "}
+                        {Math.round(selectedField.height)} points PDF. Utilisez
+                        le rectangle dans l’aperçu pour le déplacer ou le
+                        redimensionner.
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1903,24 +2132,33 @@ function PdfTemplateConfigDialog({
   );
 }
 
-function PdfNumberControl({
+function PdfRangeControl({
   label,
   value,
+  min,
+  max,
   onChange,
 }: {
   label: string;
   value: number;
+  min: number;
+  max: number;
   onChange: (value: number) => void;
 }) {
   return (
-    <label>
-      <span className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
-        {label}
+    <label className="block">
+      <span className="flex items-center justify-between gap-3 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+        <span>{label}</span>
+        <span className="rounded-full bg-[#eef7fc] px-2 py-0.5 text-[11px] tracking-normal text-[#265284]">
+          {Math.round(value)}
+        </span>
       </span>
       <input
-        className="mt-1 h-[34px] w-full rounded-[9px] border border-[#c2e0ef] bg-white px-2 font-['Inter'] text-[12px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
-        onChange={(event) => onChange(Number(event.target.value) || 0)}
-        type="number"
+        className="mt-2 h-2 w-full accent-[#265284]"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(Number(event.target.value) || min)}
+        type="range"
         value={Math.round(value)}
       />
     </label>
@@ -3504,10 +3742,15 @@ function clonePdfTemplateLayout(
     version: 1,
     page: 1,
     fields: {
+      logo_medecin: { ...layout.fields.logo_medecin },
+      medecin: { ...layout.fields.medecin },
+      cabinet: { ...layout.fields.cabinet },
       date_prescription: { ...layout.fields.date_prescription },
+      titre: { ...layout.fields.titre },
       patient: { ...layout.fields.patient },
       medicaments: { ...layout.fields.medicaments },
       remarques: { ...layout.fields.remarques },
+      signature_cachet: { ...layout.fields.signature_cachet },
     },
   };
 }
@@ -3529,16 +3772,27 @@ function normalizePdfTemplateLayoutForEditor(
     version: 1,
     page: 1,
     fields: {
+      logo_medecin: normalizePdfField(
+        fields.logo_medecin,
+        fallback.logo_medecin,
+      ),
+      medecin: normalizePdfField(fields.medecin, fallback.medecin),
+      cabinet: normalizePdfField(fields.cabinet, fallback.cabinet),
       date_prescription: normalizePdfField(
         fields.date_prescription,
         fallback.date_prescription,
       ),
+      titre: normalizePdfField(fields.titre, fallback.titre),
       patient: normalizePdfField(fields.patient, fallback.patient),
       medicaments: normalizePdfField(
         fields.medicaments,
         fallback.medicaments,
       ),
       remarques: normalizePdfField(fields.remarques, fallback.remarques),
+      signature_cachet: normalizePdfField(
+        fields.signature_cachet,
+        fallback.signature_cachet,
+      ),
     },
   };
 }
@@ -3576,8 +3830,8 @@ function clampPdfField(
     y: clampNumber(field.y, 0, Math.max(0, pageHeight - height)),
     width,
     height,
-    fontSize: clampNumber(field.fontSize, 6, 22),
-    lineHeight: clampNumber(field.lineHeight ?? field.fontSize + 3, 8, 30),
+    fontSize: clampNumber(field.fontSize, 6, 48),
+    lineHeight: clampNumber(field.lineHeight ?? field.fontSize + 3, 7, 64),
   };
 }
 

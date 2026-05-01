@@ -114,8 +114,8 @@ const pdfTemplateFieldSchema = z.object({
   y: z.number().finite().min(0),
   width: z.number().finite().min(20),
   height: z.number().finite().min(16),
-  fontSize: z.number().finite().min(6).max(24),
-  lineHeight: z.number().finite().min(7).max(34).optional(),
+  fontSize: z.number().finite().min(6).max(48),
+  lineHeight: z.number().finite().min(7).max(64).optional(),
   align: z.enum(["left", "center", "right"]).optional(),
   enabled: z.boolean().optional(),
 });
@@ -124,10 +124,15 @@ const pdfTemplateLayoutSchema = z.object({
   version: z.literal(1),
   page: z.literal(1),
   fields: z.object({
+    logo_medecin: pdfTemplateFieldSchema,
+    medecin: pdfTemplateFieldSchema,
+    cabinet: pdfTemplateFieldSchema,
     date_prescription: pdfTemplateFieldSchema,
+    titre: pdfTemplateFieldSchema,
     patient: pdfTemplateFieldSchema,
     medicaments: pdfTemplateFieldSchema,
     remarques: pdfTemplateFieldSchema,
+    signature_cachet: pdfTemplateFieldSchema,
   }),
 });
 
