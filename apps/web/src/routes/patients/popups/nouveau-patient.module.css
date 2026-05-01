@@ -2,86 +2,121 @@
   --sidebar-width: clamp(210px, 12vw, 230px);
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 90;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-block: 1rem;
-  padding-left: calc(var(--sidebar-width) + 0.5rem);
-  padding-right: 1.5rem;
-  background: rgba(15, 52, 96, 0.28);
-  backdrop-filter: blur(3px);
+  overflow: hidden;
+  padding-block: 1.35rem;
+  padding-left: calc(var(--sidebar-width) + 1rem);
+  padding-right: 1.75rem;
+  background:
+    radial-gradient(circle at 72% 16%, rgba(118, 187, 221, 0.24), transparent 34rem),
+    rgba(10, 35, 65, 0.28);
+  backdrop-filter: blur(7px) saturate(1.05);
+  animation: patientOverlayIn 180ms ease-out;
 }
 
 .modal {
-  width: min(50rem, calc(100vw - var(--sidebar-width) - 3.5rem));
-  max-height: min(96vh, 58.4375rem);
+  width: min(61rem, calc(100vw - var(--sidebar-width) - 4rem));
+  max-height: min(92vh, 56.5rem);
   display: flex;
   flex-direction: column;
-  border-radius: 1rem;
-  border: 1px solid #d4deea;
-  background: #f8fafc;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 1.35rem;
+  border: 1px solid rgba(194, 224, 239, 0.96);
+  background: #ffffff;
+  box-shadow:
+    0 34px 70px -28px rgba(15, 52, 96, 0.46),
+    0 0 0 1px rgba(255, 255, 255, 0.44) inset;
   overflow: hidden;
+  animation: patientDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.62rem 0.95rem;
-  background: #0f3460;
+  min-height: 5rem;
+  padding: 1rem 1.35rem;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(118, 187, 221, 0.22), transparent 18rem),
+    linear-gradient(135deg, #0f3460 0%, #174875 62%, #0f3460 100%);
   color: #ffffff;
+}
+
+.headerIdentity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.headerIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: rgba(118, 187, 221, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .headerTextBlock {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.22rem;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: 1.24rem;
+  font-size: 1.35rem;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
   margin: 0;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.72);
 }
 
 .closeButton {
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 2.35rem;
+  height: 2.35rem;
   border: 0;
-  border-radius: 0.65rem;
-  background: transparent;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .closeButton:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 
 .progressBarTrack {
-  height: 8px;
+  height: 4px;
   width: 100%;
-  background: #c2e0ef;
+  background: rgba(194, 224, 239, 0.65);
 }
 
 .progressBarFill {
   display: block;
   height: 100%;
   border-radius: 0 6px 6px 0;
-  background: #00a63e;
+  background: linear-gradient(90deg, #76bbdd 0%, #00a63e 100%);
   transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -97,9 +132,10 @@
   gap: var(--step-item-gap);
   width: 100%;
   margin: 0;
-  padding: 16px 24px 1.6px;
-  background: #ffffff;
-  border-bottom: 1.6px solid #c2e0ef;
+  padding: 1.25rem 1.6rem 0.9rem;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-bottom: 1px solid rgba(194, 224, 239, 0.82);
 }
 
 .stepItem {
@@ -126,8 +162,8 @@
 }
 
 .stepDot {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -137,16 +173,21 @@
   font-weight: 700;
   color: #ffffff;
   background: #c2e0ef;
+  box-shadow: 0 8px 18px -12px rgba(15, 52, 96, 0.65);
 }
 
 .stepDotActive {
   background: linear-gradient(135deg, #265284 0%, #0f3460 100%);
-  box-shadow: 0 8px 14px rgba(38, 82, 132, 0.3);
+  box-shadow:
+    0 12px 22px -12px rgba(15, 52, 96, 0.85),
+    0 0 0 5px rgba(118, 187, 221, 0.18);
 }
 
 .stepDotDone {
   background: #00c950;
-  box-shadow: 0 0.5rem 0.875rem rgba(0, 201, 80, 0.26);
+  box-shadow:
+    0 0.5rem 0.875rem rgba(0, 201, 80, 0.26),
+    0 0 0 5px rgba(0, 201, 80, 0.1);
 }
 
 .stepLabel {
@@ -155,7 +196,7 @@
   color: rgba(100, 116, 139, 0.9);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .stepLabelActive {
@@ -165,10 +206,11 @@
 
 .stepConnector {
   position: absolute;
-  top: 21.99px;
+  top: 22.99px;
   left: calc(var(--step-content-width) + var(--step-connector-offset));
   width: var(--step-connector-width);
-  height: 4px;
+  height: 3px;
+  border-radius: 999px;
   background: #c2e0ef;
 }
 
@@ -182,23 +224,27 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(118, 187, 221, 0.08), transparent 25rem),
+    #ffffff;
 }
 
 .noticeBox {
-  margin: 0.45rem 0.95rem 0.5rem;
-  border: 1.6px solid #c2e0ef;
-  border-radius: 0.72rem;
-  background: #f8fafc;
+  margin: 0.9rem 1.35rem 0.75rem;
+  border: 1px solid rgba(194, 224, 239, 0.95);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
   color: #052ca0;
   display: flex;
   align-items: center;
-  gap: 0.42rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  box-shadow: 0 12px 26px -24px rgba(15, 52, 96, 0.45);
 }
 
 .noticeBox p {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   line-height: 1.3;
 }
 
@@ -232,8 +278,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.56rem;
-  padding: 0 0.95rem 1rem;
+  gap: 0.78rem 0.86rem;
+  padding: 0 1.35rem 1.25rem;
 }
 
 .stepTwoContent {
@@ -243,7 +289,7 @@
   scrollbar-width: none;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 0.95rem 1rem;
+  padding: 0 1.35rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -256,7 +302,7 @@
   scrollbar-width: none;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 0.95rem 1rem;
+  padding: 0 1.35rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -269,7 +315,7 @@
   scrollbar-width: none;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0.2rem 1.05rem 1.2rem;
+  padding: 0.2rem 1.35rem 1.35rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -401,10 +447,11 @@
 
 .stepFourContent .sectionBlock {
   gap: 0.75rem;
-  padding: 0.72rem;
-  border-radius: 0.72rem;
-  border: 1px solid #dbe6f2;
-  background: #ffffff;
+  padding: 0.86rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(194, 224, 239, 0.78);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 28px -26px rgba(15, 52, 96, 0.55);
 }
 
 .sectionTitle {
@@ -611,15 +658,15 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.16rem;
+  gap: 0.26rem;
 }
 
 .fieldLabel {
   color: #64748b;
-  font-size: 0.62rem;
+  font-size: 0.66rem;
   line-height: 1.25;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.045em;
   font-weight: 700;
 }
 
@@ -629,15 +676,18 @@
 
 .input {
   width: 100%;
-  min-height: 2.02rem;
-  border-radius: 0.55rem;
-  border: 1.6px solid #c2e0ef;
-  background: #ffffff;
+  min-height: 2.45rem;
+  border-radius: 0.78rem;
+  border: 1px solid #c2e0ef;
+  background: rgba(255, 255, 255, 0.96);
   color: #0f3460;
-  padding: 0.34rem 0.52rem;
-  font-size: 0.8rem;
+  padding: 0.46rem 0.72rem;
+  font-size: 0.88rem;
   outline: none;
-  transition: box-shadow 0.16s ease, border-color 0.16s ease;
+  transition:
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease;
 }
 
 .input::placeholder {
@@ -648,37 +698,41 @@
 .input:focus,
 .input:focus-visible {
   border-color: #76bbdd;
-  box-shadow: inset 0 0 0 1px #76bbdd;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 3px rgba(118, 187, 221, 0.15),
+    inset 0 0 0 1px rgba(118, 187, 221, 0.42);
 }
 
 .footer {
-  border-top: 1.6px solid #e5e7eb;
-  background: linear-gradient(90deg, #f9fafb 0%, #ffffff 100%);
-  padding: 0.58rem 0.95rem;
+  border-top: 1px solid rgba(194, 224, 239, 0.72);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.85rem 1.35rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+  box-shadow: 0 -18px 34px -34px rgba(15, 52, 96, 0.65);
 }
 
 .cancelButton,
 .addNowButton,
 .continueButton {
-  min-height: 2.05rem;
-  border-radius: 0.55rem;
-  font-size: 0.78rem;
+  min-height: 2.45rem;
+  border-radius: 0.8rem;
+  font-size: 0.86rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   border: 0;
-  padding: 0.36rem 0.72rem;
+  padding: 0.48rem 0.9rem;
   transition: filter 0.16s ease, box-shadow 0.16s ease;
 }
 
 .cancelButton {
-  border: 1.6px solid #c2e0ef;
+  border: 1px solid #c2e0ef;
   color: #64748b;
   background: #ffffff;
 }
@@ -692,7 +746,8 @@
 .addNowButton {
   min-width: 10.8rem;
   color: #ffffff;
-  background: #00a63e;
+  background: linear-gradient(135deg, #00a63e 0%, #009245 100%);
+  box-shadow: 0 14px 24px -20px rgba(0, 166, 62, 0.82);
 }
 
 .addNowButton:hover:not(:disabled) {
@@ -708,11 +763,34 @@
   min-width: 7.2rem;
   color: #ffffff;
   background: linear-gradient(90deg, #265284 0%, #0f3460 100%);
+  box-shadow: 0 14px 24px -20px rgba(15, 52, 96, 0.85);
 }
 
 .continueButton:hover {
   filter: brightness(0.96);
   box-shadow: 0 10px 16px rgba(15, 52, 96, 0.24);
+}
+
+@keyframes patientOverlayIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0) saturate(1);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(7px) saturate(1.05);
+  }
+}
+
+@keyframes patientDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 62rem) {
