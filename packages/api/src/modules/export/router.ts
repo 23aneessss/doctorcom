@@ -5,9 +5,12 @@ import { exportService } from "./service";
 
 export const exportRouter = createTRPCRouter({
   exporterOrdonnance: protectedProcedure
-    .input(z.object({ id: uuidSchema }))
+    .input(z.object({ id: uuidSchema, templateId: uuidSchema.optional().nullable() }))
     .mutation(async ({ ctx, input }) => {
-      const pdfBuffer = await exportService.exporterOrdonnance(ctx.db, input.id);
+      const pdfBuffer = await exportService.exporterOrdonnance(ctx.db, input.id, {
+        templateId: input.templateId,
+        userEmail: ctx.session.user.email,
+      });
       return {
         filename: `ordonnance-${input.id}.pdf`,
         data: pdfBuffer.toString("base64"),

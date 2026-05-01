@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
@@ -483,9 +483,14 @@ export function NouveauPatientDialog({
     <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
         <header className={styles.header}>
-          <div className={styles.headerTextBlock}>
-            <h2 className={styles.title} id="nouveau-patient-title">{dialogTitle ?? "Nouveau patient"}</h2>
-            <p className={styles.subtitle}>{`Etape ${currentStep} sur ${stepLabels.length}`}</p>
+          <div className={styles.headerIdentity}>
+            <span className={styles.headerIcon} aria-hidden="true">
+              <UserPlus size={21} strokeWidth={1.9} />
+            </span>
+            <div className={styles.headerTextBlock}>
+              <h2 className={styles.title} id="nouveau-patient-title">{dialogTitle ?? "Nouveau patient"}</h2>
+              <p className={styles.subtitle}>{`Etape ${currentStep} sur ${stepLabels.length}`}</p>
+            </div>
           </div>
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
             <X size={18} aria-hidden="true" />

@@ -3,6 +3,7 @@ import {
   categories_pre_rempli,
   ordonnance,
   ordonnance_medicaments,
+  ordonnance_pdf_templates,
   patients,
   pre_rempli_medicaments,
   pre_rempli_ordonnance,
@@ -20,12 +21,15 @@ type NewOrdonnanceMedicamentRecord = typeof ordonnance_medicaments.$inferInsert;
 type NewCategoriePreRempliRecord = typeof categories_pre_rempli.$inferInsert;
 type NewPreRempliOrdonnanceRecord = typeof pre_rempli_ordonnance.$inferInsert;
 type NewPreRempliMedicamentRecord = typeof pre_rempli_medicaments.$inferInsert;
+type NewOrdonnancePdfTemplateRecord = typeof ordonnance_pdf_templates.$inferInsert;
 
 export type OrdonnanceRecord = typeof ordonnance.$inferSelect;
 export type OrdonnanceMedicamentRecord = typeof ordonnance_medicaments.$inferSelect;
 export type CategoriePreRempliRecord = typeof categories_pre_rempli.$inferSelect;
 export type PreRempliOrdonnanceRecord = typeof pre_rempli_ordonnance.$inferSelect;
 export type PreRempliMedicamentRecord = typeof pre_rempli_medicaments.$inferSelect;
+export type OrdonnancePdfTemplateRecord =
+  typeof ordonnance_pdf_templates.$inferSelect;
 export type UtilisateurRecord = typeof utilisateurs.$inferSelect;
 
 export type CreateOrdonnanceInput = Omit<NewOrdonnanceRecord, "id">;
@@ -50,6 +54,16 @@ export type UpdatePreRempliInput = Partial<
 export type AddPreRempliMedicamentInput = Omit<NewPreRempliMedicamentRecord, "id">;
 export type UpdatePreRempliMedicamentInput = Partial<
   Omit<NewPreRempliMedicamentRecord, "id" | "pre_rempli_id">
+>;
+export type CreateOrdonnancePdfTemplateInput = Omit<
+  NewOrdonnancePdfTemplateRecord,
+  "id" | "created_at" | "updated_at"
+>;
+export type UpdateOrdonnancePdfTemplateInput = Partial<
+  Omit<
+    NewOrdonnancePdfTemplateRecord,
+    "id" | "utilisateur_id" | "created_at" | "updated_at"
+  >
 >;
 
 export class OrdonnanceRepository {
@@ -505,6 +519,105 @@ export class OrdonnanceRepository {
       .limit(1);
 
     return result ?? null;
+  }
+
+  async createPdfTemplate(
+    database: DatabaseClient,
+    data: CreateOrdonnancePdfTemplateInput,
+  ): Promise<OrdonnancePdfTemplateRecord> {
+    const [created] = await database
+      .insert(ordonnance_pdf_templates)
+      .values(data)
+      .returning();
+
+    if (!created) {
+      throw new Error("Echec de creation du template PDF d'ordonnance.");
+    }
+
+    return created;
+  }
+
+  async getPdfTemplateById(
+    database: DatabaseClient,
+    id: string,
+  ): Promise<OrdonnancePdfTemplateRecord | null> {
+    const [template] = await database
+      .select()
+      .from(ordonnance_pdf_templates)
+      .where(eq(ordonnance_pdf_templates.id, id))
+      .limit(1);
+
+    return template ?? null;
+  }
+
+  async getPdfTemplatesByUtilisateur(
+    database: DatabaseClient,
+    utilisateurId: string,
+  ): Promise<OrdonnancePdfTemplateRecord[]> {
+    return database
+      .select()
+      .from(ordonnance_pdf_templates)
+      .where(
+        and(
+          eq(ordonnance_pdf_templates.utilisateur_id, utilisateurId),
+          eq(ordonnance_pdf_templates.est_actif, true),
+        ),
+      )
+      .orderBy(
+        desc(ordonnance_pdf_templates.is_default_for_user),
+        desc(ordonnance_pdf_templates.created_at),
+      );
+  }
+
+  async updatePdfTemplate(
+    database: DatabaseClient,
+    id: string,
+    data: UpdateOrdonnancePdfTemplateInput,
+  ): Promise<OrdonnancePdfTemplateRecord | null> {
+    if (Object.keys(data).length === 0) {
+      return this.getPdfTemplateById(database, id);
+    }
+
+    const [updated] = await database
+      .update(ordonnance_pdf_templates)
+      .set({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(ordonnance_pdf_templates.id, id))
+      .returning();
+
+    return updated ?? null;
+  }
+
+  async clearDefaultPdfTemplates(
+    database: DatabaseClient,
+    utilisateurId: string,
+  ): Promise<void> {
+    await database
+      .update(ordonnance_pdf_templates)
+      .set({
+        is_default_for_user: false,
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(ordonnance_pdf_templates.utilisateur_id, utilisateurId));
+  }
+
+  async softDeletePdfTemplate(
+    database: DatabaseClient,
+    id: string,
+  ): Promise<boolean> {
+    const [updated] = await database
+      .update(ordonnance_pdf_templates)
+      .set({
+        est_actif: false,
+        is_default_for_user: false,
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(ordonnance_pdf_templates.id, id))
+      .returning({ id: ordonnance_pdf_templates.id });
+
+    return Boolean(updated);
   }
 }
 

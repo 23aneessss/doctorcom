@@ -3,6 +3,7 @@ import { auth } from "@doctor.com/auth";
 import { db } from "@doctor.com/db";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { documentsService } from "@doctor.com/api/modules/documents/service";
+import { ordonnanceService } from "@doctor.com/api/modules/ordonnance/service";
 import {
   getObjectNameFromUrl,
   isStorageUnavailableError,
@@ -78,6 +79,10 @@ function buildContentDisposition(filename: string, download: boolean): string {
   return `${download ? "attachment" : "inline"}; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+function isPdfUpload(file: Express.Multer.File): boolean {
+  return file.buffer.subarray(0, 5).toString("utf8") === "%PDF-";
+}
+
 async function resolveDefaultDocumentCategorieId(): Promise<string> {
   const categories = await documentsService.getToutesCategories({ db });
   const defaultCategory =
@@ -100,6 +105,120 @@ async function resolveDefaultDocumentCategorieId(): Promise<string> {
 
   return created.id;
 }
+
+router.post("/ordonnance-template", upload.single("file"), async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: "Aucun fichier fourni." });
+      return;
+    }
+
+    if (!isPdfUpload(req.file)) {
+      res.status(400).json({
+        error:
+          "Le fichier importe n'est pas un PDF valide. Exportez votre template en PDF puis reessayez.",
+      });
+      return;
+    }
+
+    const body = JSON.parse(req.body.json ?? "{}");
+    const originalName = req.file.originalname.replace(/\.pdf$/i, "").trim();
+    const nom =
+      typeof body.nom === "string" && body.nom.trim()
+        ? body.nom.trim()
+        : originalName || "Template ordonnance";
+    const description =
+      typeof body.description === "string" ? body.description.trim() : null;
+
+    const uploaded = await uploadFile({
+      file: req.file,
+      folder: "ordonnance-templates",
+    });
+
+    const template = await ordonnanceService.creerPdfTemplateFromUpload({
+      db,
+      session,
+      input: {
+        nom,
+        description,
+        chemin_fichier: uploaded.url,
+        type_fichier: uploaded.mimeType || "application/pdf",
+        taille_fichier: uploaded.size,
+      },
+    });
+
+    res.status(201).json(template);
+  } catch (err: any) {
+    console.error("Upload ordonnance template error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
+router.get("/ordonnance-template/:id/file", async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const template = await ordonnanceService.getPdfTemplate({
+      db,
+      session,
+      id: req.params.id,
+    });
+    const objectName = getObjectNameFromUrl(template.chemin_fichier);
+    const filename = getDocumentDownloadName(`${template.nom}.pdf`, objectName);
+    const download = req.query.download === "1" || req.query.download === "true";
+    const stream = await minioClient.getObject(storageConfig.bucket, objectName);
+
+    res.setHeader("Content-Type", template.type_fichier || "application/pdf");
+    res.setHeader("Content-Length", template.taille_fichier.toString());
+    res.setHeader("Content-Disposition", buildContentDisposition(filename, download));
+
+    stream.on("error", (error) => {
+      console.error("Ordonnance template stream error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Le fichier n'a pas pu etre lu." });
+      } else {
+        res.destroy(error);
+      }
+    });
+
+    stream.pipe(res);
+  } catch (err: any) {
+    console.error("Read ordonnance template file error:", err);
+    if (isStorageUnavailableError(err)) {
+      res.status(503).json({
+        error:
+          "Le stockage des documents est temporairement indisponible. Reessayez dans quelques instants.",
+      });
+      return;
+    }
+
+    res.status(err?.code === "NoSuchKey" ? 404 : 500).json({
+      error:
+        err?.code === "NoSuchKey"
+          ? "Le fichier associe a ce template est introuvable."
+          : toSimpleFrenchRuntimeMessage({
+              code: "INTERNAL_SERVER_ERROR",
+              message: err?.message,
+            }),
+    });
+  }
+});
 
 router.post("/document", upload.single("file"), async (req, res) => {
   try {

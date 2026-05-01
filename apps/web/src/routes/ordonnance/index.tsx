@@ -1,9 +1,13 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
+import { env } from "@doctor.com/env/web";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import {
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -14,16 +18,23 @@ import {
   FileText,
   Files,
   Loader2,
+  Move,
   Pencil,
   Plus,
   Printer,
+  RefreshCw,
+  Save,
   Search,
+  Settings2,
   Sparkles,
+  Star,
+  Trash2,
   SquarePen,
+  UploadCloud,
   X,
 } from "lucide-react";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
@@ -33,6 +44,8 @@ import { openBase64Pdf } from "@/lib/pdf-client";
 import { ModifierOrdonnanceDialog } from "@/routes/ordonnance/popups/modifier-ordonnance";
 import { NouveauOrdonnanceDialog } from "@/routes/ordonnance/popups/nouveau-ordonnance";
 import { trpcClient } from "@/utils/trpc";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export const Route = createFileRoute("/ordonnance/")({
   component: RouteComponent,
@@ -48,6 +61,10 @@ type OrdonnanceRow =
   RouterOutputs["ordonnance"]["getOrdonnancesByPatient"][number];
 type CategoryRow = RouterOutputs["ordonnance"]["getToutesCategories"][number];
 type PreRempliDetail = RouterOutputs["ordonnance"]["getPreRempliById"];
+type OrdonnancePdfTemplateRow =
+  RouterOutputs["ordonnance"]["listPdfTemplates"][number];
+type OrdonnancePdfTemplateDetail =
+  RouterOutputs["ordonnance"]["getPdfTemplate"];
 
 type RecentOrdonnanceItem = {
   id: string;
@@ -107,10 +124,195 @@ type EditableOrdonnanceMedicamentRow = {
   instructions: string;
 };
 
+type PdfTemplateFieldKey =
+  | "logo_medecin"
+  | "medecin"
+  | "cabinet"
+  | "date_prescription"
+  | "titre"
+  | "patient"
+  | "medicaments"
+  | "remarques"
+  | "signature_cachet";
+
+type PdfTemplateFieldLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  lineHeight?: number;
+  align?: "left" | "center" | "right";
+  enabled?: boolean;
+};
+
+type PdfTemplateLayoutConfig = {
+  version: 1;
+  page: 1;
+  fields: Record<PdfTemplateFieldKey, PdfTemplateFieldLayout>;
+};
+
+type PdfTemplateDragState = {
+  fieldKey: PdfTemplateFieldKey;
+  mode: "move" | "resize";
+  startClientX: number;
+  startClientY: number;
+  startField: PdfTemplateFieldLayout;
+};
+
 const RECENT_ORDONNANCES_PAGE_SIZE = 3;
 const ALL_CATEGORIES_VALUE = "__all_categories__";
 const ALL_SPECIALITES_VALUE = "__all_specialites__";
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+const DEFAULT_PDF_PAGE_WIDTH = 595;
+const DEFAULT_PDF_PAGE_HEIGHT = 842;
+const PDF_TEMPLATE_PREVIEW_WIDTH = 560;
+
+const DEFAULT_PDF_TEMPLATE_LAYOUT: PdfTemplateLayoutConfig = {
+  version: 1,
+  page: 1,
+  fields: {
+    logo_medecin: {
+      x: 64,
+      y: 68,
+      width: 42,
+      height: 42,
+      fontSize: 12,
+      lineHeight: 14,
+      align: "center",
+      enabled: false,
+    },
+    medecin: {
+      x: 118,
+      y: 68,
+      width: 235,
+      height: 48,
+      fontSize: 12,
+      lineHeight: 15,
+      align: "left",
+      enabled: false,
+    },
+    cabinet: {
+      x: 118,
+      y: 116,
+      width: 270,
+      height: 52,
+      fontSize: 9,
+      lineHeight: 12,
+      align: "left",
+      enabled: false,
+    },
+    date_prescription: {
+      x: 400,
+      y: 120,
+      width: 130,
+      height: 28,
+      fontSize: 11,
+      lineHeight: 14,
+      align: "left",
+    },
+    titre: {
+      x: 210,
+      y: 210,
+      width: 180,
+      height: 36,
+      fontSize: 18,
+      lineHeight: 22,
+      align: "center",
+      enabled: false,
+    },
+    patient: {
+      x: 70,
+      y: 170,
+      width: 240,
+      height: 88,
+      fontSize: 11,
+      lineHeight: 15,
+      align: "left",
+    },
+    medicaments: {
+      x: 70,
+      y: 285,
+      width: 460,
+      height: 310,
+      fontSize: 11,
+      lineHeight: 15,
+      align: "left",
+    },
+    remarques: {
+      x: 70,
+      y: 620,
+      width: 460,
+      height: 80,
+      fontSize: 10,
+      lineHeight: 14,
+      align: "left",
+      enabled: true,
+    },
+    signature_cachet: {
+      x: 360,
+      y: 720,
+      width: 190,
+      height: 48,
+      fontSize: 12,
+      lineHeight: 15,
+      align: "center",
+      enabled: false,
+    },
+  },
+};
+
+const PDF_TEMPLATE_FIELD_META: Array<{
+  key: PdfTemplateFieldKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "logo_medecin",
+    label: "Logo médecin",
+    description: "Repère logo, cachet visuel ou initiales du médecin.",
+  },
+  {
+    key: "medecin",
+    label: "Médecin",
+    description: "Nom, prénom et spécialité du médecin.",
+  },
+  {
+    key: "cabinet",
+    label: "Cabinet",
+    description: "Adresse, téléphone et contact du cabinet.",
+  },
+  {
+    key: "patient",
+    label: "Patient",
+    description: "Nom, matricule et date de naissance.",
+  },
+  {
+    key: "date_prescription",
+    label: "Date",
+    description: "Date de prescription.",
+  },
+  {
+    key: "titre",
+    label: "Titre",
+    description: "Titre libre, par exemple ORDONNANCE.",
+  },
+  {
+    key: "medicaments",
+    label: "Médicaments",
+    description: "Bloc principal des lignes de prescription.",
+  },
+  {
+    key: "remarques",
+    label: "Remarques",
+    description: "Notes complémentaires optionnelles.",
+  },
+  {
+    key: "signature_cachet",
+    label: "Signature",
+    description: "Mention signature et cachet du médecin.",
+  },
+];
 
 function createEmptyEditMedicationRow(): EditableOrdonnanceMedicamentRow {
   return {
@@ -154,6 +356,13 @@ function RouteComponent() {
   const [editingOrdonnanceId, setEditingOrdonnanceId] = useState<string | null>(
     null,
   );
+  const [configuringPdfTemplateId, setConfiguringPdfTemplateId] = useState<
+    string | null
+  >(null);
+  const [printingOrdonnanceId, setPrintingOrdonnanceId] = useState<
+    string | null
+  >(null);
+  const [isUploadingPdfTemplate, setIsUploadingPdfTemplate] = useState(false);
   const normalizedTemplateSearch = templateSearchValue.trim().toLowerCase();
 
   const patientsQuery = useQuery({
@@ -166,8 +375,14 @@ function RouteComponent() {
     throwOnError: false,
   });
 
+  const pdfTemplatesQuery = useQuery({
+    ...trpc.ordonnance.listPdfTemplates.queryOptions(),
+    throwOnError: false,
+  });
+
   const patientRows = patientsQuery.data ?? [];
   const categoryRows = categoriesQuery.data ?? [];
+  const pdfTemplates = pdfTemplatesQuery.data ?? [];
 
   const ordonnancesByPatientQueries = useQueries({
     queries: patientRows.map((patient) => ({
@@ -329,6 +544,7 @@ function RouteComponent() {
   const allQueries = [
     patientsQuery,
     categoriesQuery,
+    pdfTemplatesQuery,
     ...ordonnancesByPatientQueries,
     ...preRemplisByCategoryQueries,
     ...preRempliDetailQueries,
@@ -348,16 +564,21 @@ function RouteComponent() {
     await Promise.all([
       patientsQuery.refetch(),
       categoriesQuery.refetch(),
+      pdfTemplatesQuery.refetch(),
       ...ordonnancesByPatientQueries.map((query) => query.refetch()),
       ...preRemplisByCategoryQueries.map((query) => query.refetch()),
       ...preRempliDetailQueries.map((query) => query.refetch()),
     ]);
   };
 
-  const handlePrintOrdonnance = async (ordonnanceId: string) => {
+  const printOrdonnanceWithTemplate = async (
+    ordonnanceId: string,
+    templateId: string | null,
+  ) => {
     try {
       const payload = await trpcClient.export.exporterOrdonnance.mutate({
         id: ordonnanceId,
+        templateId,
       });
       openBase64Pdf({
         base64Data: payload.data,
@@ -370,6 +591,124 @@ function RouteComponent() {
           ? error.message
           : "Impossible d'ouvrir cette ordonnance.";
       toast.error(message);
+    }
+  };
+
+  const handlePrintOrdonnance = async (ordonnanceId: string) => {
+    const defaultPdfTemplate = pdfTemplates.find(
+      (template) => template.is_default_for_user,
+    );
+
+    if (defaultPdfTemplate) {
+      await printOrdonnanceWithTemplate(ordonnanceId, defaultPdfTemplate.id);
+      return;
+    }
+
+    if (pdfTemplates.length > 0) {
+      setPrintingOrdonnanceId(ordonnanceId);
+      return;
+    }
+
+    await printOrdonnanceWithTemplate(ordonnanceId, null);
+  };
+
+  const handleUploadPdfTemplate = async (file: File | null | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    const isPdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isPdf) {
+      toast.error("Import refusé: choisissez un fichier PDF.");
+      return;
+    }
+
+    const isRealPdf = await hasPdfSignature(file);
+    if (!isRealPdf) {
+      toast.error(
+        "Import refusé: ce fichier n'est pas un PDF valide. Exportez-le en PDF puis réessayez.",
+      );
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "json",
+      JSON.stringify({
+        nom: file.name.replace(/\.pdf$/i, "").trim() || "Template ordonnance",
+        description: "Template PDF personnel importé par le médecin.",
+      }),
+    );
+
+    setIsUploadingPdfTemplate(true);
+    try {
+      const response = await fetch(
+        `${env.VITE_SERVER_URL}/api/upload/ordonnance-template`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ?? "Impossible d'importer ce template PDF.",
+        );
+      }
+
+      await pdfTemplatesQuery.refetch();
+      toast.success("Template PDF importé.");
+
+      if (payload?.id) {
+        setConfiguringPdfTemplateId(payload.id);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible d'importer ce template PDF.",
+      );
+    } finally {
+      setIsUploadingPdfTemplate(false);
+    }
+  };
+
+  const handleDeletePdfTemplate = async (templateId: string) => {
+    try {
+      await trpcClient.ordonnance.deletePdfTemplate.mutate({ id: templateId });
+      await pdfTemplatesQuery.refetch();
+      toast.success("Template PDF supprimé.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible de supprimer ce template PDF.",
+      );
+    }
+  };
+
+  const handleSetDefaultPdfTemplate = async (templateId: string | null) => {
+    try {
+      await trpcClient.ordonnance.setDefaultPdfTemplate.mutate({
+        id: templateId,
+      });
+      await pdfTemplatesQuery.refetch();
+      toast.success(
+        templateId
+          ? "Template personnel défini par défaut."
+          : "Template doctor.com remis par défaut.",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible de modifier le template par défaut.",
+      );
     }
   };
 
@@ -673,6 +1012,19 @@ function RouteComponent() {
                 </label>
               </div>
 
+              <PdfTemplateManager
+                isLoading={pdfTemplatesQuery.isLoading}
+                isUploading={isUploadingPdfTemplate}
+                onConfigure={setConfiguringPdfTemplateId}
+                onDelete={(templateId) => void handleDeletePdfTemplate(templateId)}
+                onResetDefault={() => void handleSetDefaultPdfTemplate(null)}
+                onSetDefault={(templateId) =>
+                  void handleSetDefaultPdfTemplate(templateId)
+                }
+                onUpload={(file) => void handleUploadPdfTemplate(file)}
+                templates={pdfTemplates}
+              />
+
               {preRempliCards.length === 0 && categoriesQuery.isLoading ? (
                 <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
                   {Array.from({ length: 6 }).map((_, index) => (
@@ -776,6 +1128,31 @@ function RouteComponent() {
         onSaved={refreshOrdonnancePageData}
         ordonnance={editingOrdonnance}
       />
+      <PdfTemplatePrintChooserDialog
+        onChoose={(templateId) => {
+          if (!printingOrdonnanceId) {
+            return;
+          }
+          void printOrdonnanceWithTemplate(printingOrdonnanceId, templateId);
+          setPrintingOrdonnanceId(null);
+        }}
+        onClose={() => setPrintingOrdonnanceId(null)}
+        open={Boolean(printingOrdonnanceId)}
+        templates={pdfTemplates}
+      />
+      <PdfTemplateConfigDialog
+        onClose={() => setConfiguringPdfTemplateId(null)}
+        onSaved={() => void pdfTemplatesQuery.refetch()}
+        onTestPrint={(templateId) => {
+          const ordonnanceId = recentOrdonnances[0]?.id;
+          if (!ordonnanceId) {
+            toast.error("Aucune ordonnance récente disponible pour tester.");
+            return;
+          }
+          void printOrdonnanceWithTemplate(ordonnanceId, templateId);
+        }}
+        templateId={configuringPdfTemplateId}
+      />
     </div>
   );
 }
@@ -788,6 +1165,1003 @@ function SectionHeading(props: { icon: React.ReactNode; title: string }) {
         {props.title}
       </h2>
     </div>
+  );
+}
+
+function PdfTemplateManager({
+  templates,
+  isLoading,
+  isUploading,
+  onUpload,
+  onConfigure,
+  onSetDefault,
+  onResetDefault,
+  onDelete,
+}: {
+  templates: OrdonnancePdfTemplateRow[];
+  isLoading: boolean;
+  isUploading: boolean;
+  onUpload: (file: File | null | undefined) => void;
+  onConfigure: (templateId: string) => void;
+  onSetDefault: (templateId: string) => void;
+  onResetDefault: () => void;
+  onDelete: (templateId: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const hasCustomDefault = templates.some((item) => item.is_default_for_user);
+
+  return (
+    <section className="rounded-[18px] border border-[#d8edf8] bg-[linear-gradient(135deg,#f8fcff_0%,#eef7fc_100%)] px-4 py-3 shadow-[0px_12px_26px_-24px_rgba(15,52,96,0.28)]">
+      <input
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(event) => {
+          onUpload(event.target.files?.[0]);
+          event.currentTarget.value = "";
+        }}
+        ref={inputRef}
+        type="file"
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <FileStack className="size-4 text-[#265284]" />
+            <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#0f3460]">
+              Templates PDF personnels
+            </p>
+          </div>
+          <p className="mt-0.5 font-['Inter'] text-[11px] leading-4 text-[#6d879d]">
+            Option avancée: importez une ordonnance vierge, configurez les zones
+            d’écriture, puis choisissez-la à l’impression.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasCustomDefault ? (
+            <button
+              className="inline-flex h-[34px] items-center gap-1.5 rounded-[10px] border border-[#d9edf7] bg-white px-3 font-['Inter'] text-[11px] font-semibold text-[#365a78] transition-colors hover:bg-[#f8fbff]"
+              onClick={onResetDefault}
+              type="button"
+            >
+              <RefreshCw className="size-3.5" />
+              Revenir doctor.com
+            </button>
+          ) : null}
+          <button
+            className="inline-flex h-[34px] items-center gap-1.5 rounded-[10px] bg-[#052ca0] px-3 font-['Inter'] text-[11px] font-semibold text-white shadow-[0px_8px_16px_-12px_rgba(5,44,160,0.5)] transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isUploading}
+            onClick={() => inputRef.current?.click()}
+            type="button"
+          >
+            {isUploading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <UploadCloud className="size-3.5" />
+            )}
+            Importer un PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <div className="inline-flex min-h-[38px] items-center gap-2 rounded-[12px] border border-[#d9edf7] bg-white px-3">
+          <span className="inline-flex size-6 items-center justify-center rounded-full bg-[#e7f4fb]">
+            <FileText className="size-3.5 text-[#265284]" />
+          </span>
+          <div>
+            <p className="font-['Inter'] text-[11px] font-semibold text-[#0f3460]">
+              Template doctor.com
+            </p>
+            <p className="font-['Inter'] text-[10px] text-[#6d879d]">
+              Toujours disponible
+            </p>
+          </div>
+          {!hasCustomDefault ? (
+            <span className="ml-1 rounded-full bg-[#eff6ff] px-2 py-0.5 font-['Inter'] text-[10px] font-semibold text-[#1447e6]">
+              Défaut
+            </span>
+          ) : null}
+        </div>
+
+        {isLoading ? (
+          <div className="inline-flex h-[38px] items-center gap-2 rounded-[12px] border border-[#d9edf7] bg-white px-3 font-['Inter'] text-[11px] text-[#6d879d]">
+            <Loader2 className="size-3.5 animate-spin" />
+            Chargement des templates...
+          </div>
+        ) : null}
+
+        {!isLoading && templates.length === 0 ? (
+          <div className="inline-flex h-[38px] items-center rounded-[12px] border border-dashed border-[#cfe6f3] bg-white/70 px-3 font-['Inter'] text-[11px] text-[#6d879d]">
+            Aucun PDF personnel importé pour le moment.
+          </div>
+        ) : null}
+
+        {templates.map((template) => (
+          <article
+            className="inline-flex min-h-[38px] max-w-full items-center gap-2 rounded-[12px] border border-[#d9edf7] bg-white px-2.5 py-1.5"
+            key={template.id}
+          >
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-[#eaf7fd]">
+              <FileStack className="size-3.5 text-[#265284]" />
+            </span>
+            <div className="min-w-0">
+              <p className="max-w-[180px] truncate font-['Inter'] text-[11px] font-semibold text-[#0f3460]">
+                {template.nom}
+              </p>
+              <p className="font-['Inter'] text-[10px] text-[#6d879d]">
+                {formatFileSize(template.taille_fichier)}
+              </p>
+            </div>
+            {template.is_default_for_user ? (
+              <span className="rounded-full bg-[#f0fdf4] px-2 py-0.5 font-['Inter'] text-[10px] font-semibold text-[#16a34a]">
+                Défaut
+              </span>
+            ) : null}
+            <button
+              className="inline-flex size-7 items-center justify-center rounded-[8px] text-[#265284] transition-colors hover:bg-[#eef7fc]"
+              onClick={() => onConfigure(template.id)}
+              title="Configurer le mapping"
+              type="button"
+            >
+              <Settings2 className="size-3.5" />
+            </button>
+            <button
+              className="inline-flex size-7 items-center justify-center rounded-[8px] text-[#f59e0b] transition-colors hover:bg-[#fff7ed]"
+              onClick={() => onSetDefault(template.id)}
+              title="Utiliser par défaut"
+              type="button"
+            >
+              <Star className="size-3.5" />
+            </button>
+            <button
+              className="inline-flex size-7 items-center justify-center rounded-[8px] text-[#ef4444] transition-colors hover:bg-[#fef2f2]"
+              onClick={() => {
+                if (window.confirm("Supprimer ce template PDF personnel ?")) {
+                  onDelete(template.id);
+                }
+              }}
+              title="Supprimer"
+              type="button"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PdfTemplatePrintChooserDialog({
+  open,
+  templates,
+  onClose,
+  onChoose,
+}: {
+  open: boolean;
+  templates: OrdonnancePdfTemplateRow[];
+  onClose: () => void;
+  onChoose: (templateId: string | null) => void;
+}) {
+  useDialogScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <>
+      <OrdonnanceDialogMotionStyles />
+      <div
+        className="fixed inset-0 z-[150] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target) {
+            onClose();
+          }
+        }}
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
+        <div
+          className="w-full max-w-[460px] overflow-hidden rounded-[18px] border border-[#d8edf8] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
+          style={{
+            animation:
+              "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-[#e2f0f8] px-5 py-4">
+            <div>
+              <p className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold text-[#0f3460]">
+                Choisir un template d'impression
+              </p>
+              <p className="mt-1 font-['Inter'] text-[12px] text-[#6d879d]">
+                Le template doctor.com reste le choix le plus fiable.
+              </p>
+            </div>
+            <button
+              aria-label="Fermer"
+              className="inline-flex size-8 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc]"
+              onClick={onClose}
+              type="button"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="space-y-2 px-5 py-4">
+            <button
+              className="flex w-full items-center justify-between rounded-[14px] border border-[#d9edf7] bg-[#f8fbff] px-4 py-3 text-left transition-colors hover:bg-[#eef7fc]"
+              onClick={() => onChoose(null)}
+              type="button"
+            >
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-white">
+                  <FileText className="size-4 text-[#265284]" />
+                </span>
+                <div>
+                  <p className="font-['Inter'] text-[13px] font-semibold text-[#0f3460]">
+                    Template doctor.com par défaut
+                  </p>
+                  <p className="font-['Inter'] text-[11px] text-[#6d879d]">
+                    Généré automatiquement avec le layout standard.
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="size-4 text-[#6d879d]" />
+            </button>
+
+            {templates.map((template) => (
+              <button
+                className="flex w-full items-center justify-between rounded-[14px] border border-[#d9edf7] bg-white px-4 py-3 text-left transition-colors hover:bg-[#f8fbff]"
+                key={template.id}
+                onClick={() => onChoose(template.id)}
+                type="button"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eaf7fd]">
+                    <FileStack className="size-4 text-[#265284]" />
+                  </span>
+                  <div>
+                    <p className="font-['Inter'] text-[13px] font-semibold text-[#0f3460]">
+                      {template.nom}
+                    </p>
+                    <p className="font-['Inter'] text-[11px] text-[#6d879d]">
+                      {template.is_default_for_user
+                        ? "Template personnel par défaut"
+                        : formatFileSize(template.taille_fichier)}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="size-4 text-[#6d879d]" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PdfTemplateConfigDialog({
+  templateId,
+  onClose,
+  onSaved,
+  onTestPrint,
+}: {
+  templateId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onTestPrint: (templateId: string) => void;
+}) {
+  const { trpc } = Route.useRouteContext();
+  const open = Boolean(templateId);
+  useDialogScrollLock(open);
+
+  const [layout, setLayout] = useState<PdfTemplateLayoutConfig>(
+    clonePdfTemplateLayout(DEFAULT_PDF_TEMPLATE_LAYOUT),
+  );
+  const [selectedFieldKey, setSelectedFieldKey] =
+    useState<PdfTemplateFieldKey>("patient");
+  const [draftName, setDraftName] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
+  const [dragState, setDragState] = useState<PdfTemplateDragState | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [previewPdfBytes, setPreviewPdfBytes] = useState<ArrayBuffer | null>(
+    null,
+  );
+  const [previewPdfError, setPreviewPdfError] = useState<string | null>(null);
+  const [isPreviewPdfLoading, setIsPreviewPdfLoading] = useState(false);
+  const [renderedPreviewSize, setRenderedPreviewSize] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  const templateQuery = useQuery({
+    ...trpc.ordonnance.getPdfTemplate.queryOptions({
+      id: templateId ?? EMPTY_UUID,
+    }),
+    enabled: open,
+  });
+
+  const template = templateQuery.data as OrdonnancePdfTemplateDetail | undefined;
+  const pageWidth = template?.page_width ?? DEFAULT_PDF_PAGE_WIDTH;
+  const pageHeight = template?.page_height ?? DEFAULT_PDF_PAGE_HEIGHT;
+  const previewScale = PDF_TEMPLATE_PREVIEW_WIDTH / pageWidth;
+  const previewHeight = Math.round(pageHeight * previewScale);
+  const selectedField = layout.fields[selectedFieldKey];
+  const selectedFieldMeta = PDF_TEMPLATE_FIELD_META.find(
+    (field) => field.key === selectedFieldKey,
+  );
+
+  useEffect(() => {
+    if (!open || !template) {
+      return;
+    }
+
+    setDraftName(template.nom);
+    setDraftDescription(template.description ?? "");
+    setLayout(normalizePdfTemplateLayoutForEditor(template.layout_config));
+    setSelectedFieldKey("patient");
+    setDragState(null);
+    setIsSaving(false);
+  }, [open, template]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSaving) onClose();
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isSaving, onClose, open]);
+
+  useEffect(() => {
+    if (!open || !templateId) {
+      setPreviewPdfBytes(null);
+      setPreviewPdfError(null);
+      setIsPreviewPdfLoading(false);
+      setRenderedPreviewSize({ width: 0, height: 0 });
+      return;
+    }
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    setPreviewPdfBytes(null);
+    setPreviewPdfError(null);
+    setIsPreviewPdfLoading(true);
+    setRenderedPreviewSize({ width: 0, height: 0 });
+
+    const loadPreview = async () => {
+      try {
+        const response = await fetch(getPdfTemplateFileUrl(templateId), {
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(
+            payload?.error ??
+              "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+          );
+        }
+
+        const blob = await response.blob();
+        if (!(await hasPdfSignature(blob))) {
+          throw new Error(
+            "Ce template importé n'est pas un PDF valide. Supprimez-le puis importez un vrai fichier PDF.",
+          );
+        }
+
+        const bytes = await blob.arrayBuffer();
+        if (!isCancelled) {
+          setPreviewPdfBytes(bytes);
+        }
+      } catch (error) {
+        if (controller.signal.aborted || isCancelled) {
+          return;
+        }
+        setPreviewPdfError(
+          error instanceof Error
+            ? error.message
+            : "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsPreviewPdfLoading(false);
+        }
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [open, templateId]);
+
+  useEffect(() => {
+    if (!open || !previewPdfBytes || !previewCanvasRef.current) {
+      return;
+    }
+
+    let isCancelled = false;
+    let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
+
+    const renderPreview = async () => {
+      try {
+        loadingTask = pdfjsLib.getDocument({
+          data: previewPdfBytes.slice(0),
+        });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: previewScale });
+        const canvas = previewCanvasRef.current;
+
+        if (!canvas || isCancelled) {
+          await pdf.destroy();
+          return;
+        }
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Canvas indisponible.");
+        }
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        await page.render({
+          canvas,
+          canvasContext: context,
+          viewport,
+        }).promise;
+
+        if (!isCancelled) {
+          setRenderedPreviewSize({
+            width: viewport.width,
+            height: viewport.height,
+          });
+        }
+
+        await pdf.destroy();
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+        setPreviewPdfError(
+          error instanceof Error
+            ? error.message
+            : "Le PDF n'a pas pu être rendu dans l'éditeur.",
+        );
+      }
+    };
+
+    void renderPreview();
+
+    return () => {
+      isCancelled = true;
+      void loadingTask?.destroy();
+    };
+  }, [open, previewPdfBytes, previewScale]);
+
+  if (!templateId) {
+    return null;
+  }
+
+  const updateField = (
+    fieldKey: PdfTemplateFieldKey,
+    patch: Partial<PdfTemplateFieldLayout>,
+  ) => {
+    setLayout((current) => ({
+      ...current,
+      fields: {
+        ...current.fields,
+        [fieldKey]: clampPdfField(
+          {
+            ...current.fields[fieldKey],
+            ...patch,
+          },
+          pageWidth,
+          pageHeight,
+        ),
+      },
+    }));
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragState) {
+      return;
+    }
+
+    const deltaX = (event.clientX - dragState.startClientX) / previewScale;
+    const deltaY = (event.clientY - dragState.startClientY) / previewScale;
+    const startField = dragState.startField;
+
+    updateField(
+      dragState.fieldKey,
+      dragState.mode === "move"
+        ? {
+            x: startField.x + deltaX,
+            y: startField.y + deltaY,
+          }
+        : {
+            width: startField.width + deltaX,
+            height: startField.height + deltaY,
+          },
+    );
+  };
+
+  const handleSave = async () => {
+    const name = draftName.trim();
+    if (!name) {
+      toast.error("Le nom du template est obligatoire.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await trpcClient.ordonnance.updatePdfTemplateLayout.mutate({
+        id: templateId,
+        data: {
+          nom: name,
+          description: draftDescription.trim() || null,
+          layout_config: layout,
+        },
+      });
+      onSaved();
+      toast.success("Configuration du template PDF enregistrée.");
+      onClose();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible d'enregistrer la configuration.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <OrdonnanceDialogMotionStyles />
+      <div
+        className="fixed inset-0 z-[150] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target && !isSaving) {
+            onClose();
+          }
+        }}
+        style={{ animation: "ordonnanceOverlayIn 180ms ease-out" }}
+      >
+        <div
+          className="flex max-h-[calc(100vh-64px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-[22px] border border-[#cfe6f3] bg-white shadow-[0_26px_60px_-30px_rgba(15,52,96,0.45)]"
+          style={{
+            animation:
+              "ordonnanceDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
+            <div>
+              <p className="font-['Plus_Jakarta_Sans'] text-[21px] font-semibold leading-[27px] text-[#0f3460]">
+                Configurer le template PDF
+              </p>
+              <p className="mt-1 font-['Inter'] text-[12px] text-[#6d879d]">
+                Placez les zones d’écriture sur la première page du PDF.
+              </p>
+            </div>
+            <button
+              aria-label="Fermer la configuration"
+              className="inline-flex size-9 items-center justify-center rounded-full text-[#5d728a] transition-colors hover:bg-[#f0f7fc]"
+              disabled={isSaving}
+              onClick={onClose}
+              type="button"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+
+          <div className="consultation-modal-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+            {templateQuery.isLoading ? (
+              <div className="flex h-[520px] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
+              </div>
+            ) : (
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,640px)_minmax(320px,1fr)]">
+                <div className="space-y-4">
+                  <div
+                    className="relative mx-auto overflow-hidden rounded-[16px] border border-[#cfe6f3] bg-white shadow-[0px_22px_44px_-30px_rgba(15,52,96,0.48)]"
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={() => setDragState(null)}
+                    style={{
+                      width: PDF_TEMPLATE_PREVIEW_WIDTH,
+                      height: previewHeight,
+                    }}
+                  >
+                    {isPreviewPdfLoading ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f8fbff] text-center">
+                        <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
+                        <p className="font-['Inter'] text-[12px] font-medium text-[#5d728a]">
+                          Chargement du PDF…
+                        </p>
+                      </div>
+                    ) : previewPdfError ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f8fbff] px-8 text-center">
+                        <FileText className="size-8 text-[#f77a21]" />
+                        <div>
+                          <p className="font-['Inter'] text-[13px] font-semibold text-[#0f3460]">
+                            Aperçu indisponible
+                          </p>
+                          <p className="mt-1 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
+                            {previewPdfError}
+                          </p>
+                        </div>
+                      </div>
+                    ) : previewPdfBytes ? (
+                      <canvas
+                        className="absolute left-0 top-0 bg-white"
+                        ref={previewCanvasRef}
+                      />
+                    ) : null}
+                    {previewPdfBytes && !previewPdfError ? (
+                      <div className="absolute inset-0 bg-white/5" />
+                    ) : null}
+                    {previewPdfBytes &&
+                    !previewPdfError &&
+                    renderedPreviewSize.width > 0
+                      ? PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
+                      const field = layout.fields[fieldMeta.key];
+                      if (field.enabled === false) {
+                        return null;
+                      }
+
+                      const isSelected = selectedFieldKey === fieldMeta.key;
+
+                      return (
+                        <div
+                          className={`absolute cursor-move rounded-[8px] border-2 px-2 py-1 transition-colors ${
+                            isSelected
+                              ? "border-[#052ca0] bg-[#052ca0]/16"
+                              : "border-[#76bbdd] bg-[#76bbdd]/16"
+                          }`}
+                          key={fieldMeta.key}
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            setSelectedFieldKey(fieldMeta.key);
+                            event.currentTarget.setPointerCapture(
+                              event.pointerId,
+                            );
+                            setDragState({
+                              fieldKey: fieldMeta.key,
+                              mode: "move",
+                              startClientX: event.clientX,
+                              startClientY: event.clientY,
+                              startField: { ...field },
+                            });
+                          }}
+                          style={{
+                            left: field.x * previewScale,
+                            top: field.y * previewScale,
+                            width: field.width * previewScale,
+                            height: field.height * previewScale,
+                          }}
+                        >
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-['Inter'] text-[10px] font-semibold text-[#0f3460] shadow-sm">
+                            <Move className="size-3" />
+                            {fieldMeta.label}
+                          </span>
+                          <button
+                            aria-label={`Redimensionner ${fieldMeta.label}`}
+                            className="absolute bottom-[-8px] right-[-8px] size-4 rounded-full border border-white bg-[#052ca0] shadow-sm"
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setSelectedFieldKey(fieldMeta.key);
+                              setDragState({
+                                fieldKey: fieldMeta.key,
+                                mode: "resize",
+                                startClientX: event.clientX,
+                                startClientY: event.clientY,
+                                startField: { ...field },
+                              });
+                            }}
+                            type="button"
+                          />
+                        </div>
+                      );
+                    })
+                      : null}
+                  </div>
+
+                  <p className="rounded-[13px] border border-[#d9edf7] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
+                    Déplacez les rectangles et tirez le point bleu pour ajuster
+                    la taille. L’aperçu utilise le même système de coordonnées
+                    que l’export PDF final.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label>
+                      <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                        Nom
+                      </span>
+                      <input
+                        className="mt-1 h-[38px] w-full rounded-[10px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+                        onChange={(event) => setDraftName(event.target.value)}
+                        value={draftName}
+                      />
+                    </label>
+                    <label>
+                      <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                        Description
+                      </span>
+                      <input
+                        className="mt-1 h-[38px] w-full rounded-[10px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd]"
+                        onChange={(event) =>
+                          setDraftDescription(event.target.value)
+                        }
+                        value={draftDescription}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="rounded-[16px] border border-[#d9edf7] bg-[#f8fbff] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                        Champs à imprimer
+                      </p>
+                      <p className="font-['Inter'] text-[10px] text-[#6d879d]">
+                        Activez uniquement ce qui existe sur ce PDF.
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {PDF_TEMPLATE_FIELD_META.map((fieldMeta) => {
+                        const field = layout.fields[fieldMeta.key];
+                        const isEnabled = field.enabled !== false;
+                        const isSelected = selectedFieldKey === fieldMeta.key;
+
+                        return (
+                          <div
+                            className={`rounded-[12px] border bg-white px-3 py-2 transition-colors ${
+                              isSelected
+                                ? "border-[#76bbdd] shadow-[0px_10px_20px_-18px_rgba(15,52,96,0.4)]"
+                                : "border-transparent hover:border-[#d9edf7]"
+                            }`}
+                            key={fieldMeta.key}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                className="min-w-0 flex-1 text-left"
+                                onClick={() => setSelectedFieldKey(fieldMeta.key)}
+                                type="button"
+                              >
+                                <p className="truncate font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                                  {fieldMeta.label}
+                                </p>
+                                <p className="mt-0.5 line-clamp-2 font-['Inter'] text-[10px] leading-4 text-[#6d879d]">
+                                  {fieldMeta.description}
+                                </p>
+                              </button>
+                              <button
+                                aria-label={`${isEnabled ? "Masquer" : "Afficher"} ${fieldMeta.label}`}
+                                className={`mt-0.5 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${
+                                  isEnabled ? "bg-[#76bbdd]" : "bg-[#dbe8f0]"
+                                }`}
+                                onClick={() => {
+                                  updateField(fieldMeta.key, {
+                                    enabled: !isEnabled,
+                                  });
+                                  setSelectedFieldKey(fieldMeta.key);
+                                }}
+                                type="button"
+                              >
+                                <span
+                                  className={`block size-4 rounded-full bg-white shadow-sm transition-transform ${
+                                    isEnabled
+                                      ? "translate-x-4"
+                                      : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[16px] border border-[#d9edf7] bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                          Zone {getPdfFieldLabel(selectedFieldKey)}
+                        </p>
+                        <p className="font-['Inter'] text-[10px] text-[#6d879d]">
+                          Position et taille se règlent directement à la souris.
+                        </p>
+                      </div>
+                      <button
+                        className={`rounded-full px-3 py-1 font-['Inter'] text-[11px] font-semibold transition-colors ${
+                          selectedField.enabled !== false
+                            ? "bg-[#e5f6ff] text-[#265284]"
+                            : "bg-[#edf2f7] text-[#7a93af]"
+                        }`}
+                        onClick={() =>
+                          updateField(selectedFieldKey, {
+                            enabled: selectedField.enabled === false,
+                          })
+                        }
+                        type="button"
+                      >
+                        {selectedField.enabled !== false ? "Actif" : "Masqué"}
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <PdfRangeControl
+                        label={
+                          selectedFieldKey === "logo_medecin"
+                            ? "Taille des initiales"
+                            : "Taille de police"
+                        }
+                        max={48}
+                        min={6}
+                        onChange={(value) =>
+                          updateField(selectedFieldKey, { fontSize: value })
+                        }
+                        value={selectedField.fontSize}
+                      />
+                      {selectedFieldKey !== "logo_medecin" ? (
+                        <PdfRangeControl
+                          label="Interligne"
+                          max={64}
+                          min={7}
+                          onChange={(value) =>
+                            updateField(selectedFieldKey, {
+                              lineHeight: value,
+                            })
+                          }
+                          value={
+                            selectedField.lineHeight ??
+                            selectedField.fontSize + 3
+                          }
+                        />
+                      ) : null}
+
+                      {selectedFieldKey !== "logo_medecin" ? (
+                        <div>
+                          <p className="mb-2 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+                            Alignement
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(["left", "center", "right"] as const).map(
+                              (align) => (
+                                <button
+                                  className={`h-9 rounded-[10px] border font-['Inter'] text-[12px] font-semibold transition-colors ${
+                                    (selectedField.align ?? "left") === align
+                                      ? "border-[#76bbdd] bg-[#eaf7fd] text-[#0f3460]"
+                                      : "border-[#d9edf7] bg-white text-[#6d879d] hover:bg-[#f8fbff]"
+                                  }`}
+                                  key={align}
+                                  onClick={() =>
+                                    updateField(selectedFieldKey, { align })
+                                  }
+                                  type="button"
+                                >
+                                  {align === "left"
+                                    ? "Gauche"
+                                    : align === "center"
+                                      ? "Centre"
+                                      : "Droite"}
+                                </button>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-[12px] bg-[#f8fbff] px-3 py-2 font-['Inter'] text-[11px] leading-4 text-[#5d728a]">
+                        {selectedFieldMeta?.label ?? "Champ"} : le bloc mesure{" "}
+                        {Math.round(selectedField.width)} x{" "}
+                        {Math.round(selectedField.height)} points PDF. Utilisez
+                        le rectangle dans l’aperçu pour le déplacer ou le
+                        redimensionner.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 flex items-center justify-between gap-3 border-t border-[#e2f0f8] bg-white px-6 py-4">
+            <button
+              className="inline-flex h-[38px] items-center gap-2 rounded-[12px] border border-[#cfe6f3] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#365a78] transition-colors hover:bg-[#f8fbff]"
+              disabled={isSaving || templateQuery.isLoading}
+              onClick={() => onTestPrint(templateId)}
+              type="button"
+            >
+              <Printer className="size-4" />
+              Tester avec une ordonnance
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                className="h-[38px] rounded-[12px] border border-[#f77a21] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#f77a21] transition-colors hover:bg-[#fff7ed]"
+                disabled={isSaving}
+                onClick={onClose}
+                type="button"
+              >
+                Annuler
+              </button>
+              <button
+                className="inline-flex h-[38px] min-w-[170px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isSaving || templateQuery.isLoading}
+                onClick={() => void handleSave()}
+                type="button"
+              >
+                {isSaving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
+                Enregistrer la configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PdfRangeControl({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="flex items-center justify-between gap-3 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8aa0b3]">
+        <span>{label}</span>
+        <span className="rounded-full bg-[#eef7fc] px-2 py-0.5 text-[11px] tracking-normal text-[#265284]">
+          {Math.round(value)}
+        </span>
+      </span>
+      <input
+        className="mt-2 h-2 w-full accent-[#265284]"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(Number(event.target.value) || min)}
+        type="range"
+        value={Math.round(value)}
+      />
+    </label>
   );
 }
 
@@ -2350,6 +3724,147 @@ function EmptySectionState(props: { text: string }) {
       <p className="font-['Inter'] text-[13px] text-[#64748b]">{props.text}</p>
     </div>
   );
+}
+
+function getPdfTemplateFileUrl(templateId: string) {
+  return `${env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/file`;
+}
+
+async function hasPdfSignature(file: Blob): Promise<boolean> {
+  const header = await file.slice(0, 5).arrayBuffer();
+  return new TextDecoder().decode(header) === "%PDF-";
+}
+
+function clonePdfTemplateLayout(
+  layout: PdfTemplateLayoutConfig,
+): PdfTemplateLayoutConfig {
+  return {
+    version: 1,
+    page: 1,
+    fields: {
+      logo_medecin: { ...layout.fields.logo_medecin },
+      medecin: { ...layout.fields.medecin },
+      cabinet: { ...layout.fields.cabinet },
+      date_prescription: { ...layout.fields.date_prescription },
+      titre: { ...layout.fields.titre },
+      patient: { ...layout.fields.patient },
+      medicaments: { ...layout.fields.medicaments },
+      remarques: { ...layout.fields.remarques },
+      signature_cachet: { ...layout.fields.signature_cachet },
+    },
+  };
+}
+
+function normalizePdfTemplateLayoutForEditor(
+  value: unknown,
+): PdfTemplateLayoutConfig {
+  if (!value || typeof value !== "object") {
+    return clonePdfTemplateLayout(DEFAULT_PDF_TEMPLATE_LAYOUT);
+  }
+
+  const incoming = value as Partial<PdfTemplateLayoutConfig>;
+  const fields = (incoming.fields ?? {}) as Partial<
+    PdfTemplateLayoutConfig["fields"]
+  >;
+  const fallback = DEFAULT_PDF_TEMPLATE_LAYOUT.fields;
+
+  return {
+    version: 1,
+    page: 1,
+    fields: {
+      logo_medecin: normalizePdfField(
+        fields.logo_medecin,
+        fallback.logo_medecin,
+      ),
+      medecin: normalizePdfField(fields.medecin, fallback.medecin),
+      cabinet: normalizePdfField(fields.cabinet, fallback.cabinet),
+      date_prescription: normalizePdfField(
+        fields.date_prescription,
+        fallback.date_prescription,
+      ),
+      titre: normalizePdfField(fields.titre, fallback.titre),
+      patient: normalizePdfField(fields.patient, fallback.patient),
+      medicaments: normalizePdfField(
+        fields.medicaments,
+        fallback.medicaments,
+      ),
+      remarques: normalizePdfField(fields.remarques, fallback.remarques),
+      signature_cachet: normalizePdfField(
+        fields.signature_cachet,
+        fallback.signature_cachet,
+      ),
+    },
+  };
+}
+
+function normalizePdfField(
+  value: Partial<PdfTemplateFieldLayout> | undefined,
+  fallback: PdfTemplateFieldLayout,
+): PdfTemplateFieldLayout {
+  return {
+    x: finiteOrFallback(value?.x, fallback.x),
+    y: finiteOrFallback(value?.y, fallback.y),
+    width: finiteOrFallback(value?.width, fallback.width),
+    height: finiteOrFallback(value?.height, fallback.height),
+    fontSize: finiteOrFallback(value?.fontSize, fallback.fontSize),
+    lineHeight: finiteOrFallback(value?.lineHeight, fallback.lineHeight ?? 14),
+    align:
+      value?.align === "center" || value?.align === "right"
+        ? value.align
+        : "left",
+    enabled: value?.enabled ?? fallback.enabled ?? true,
+  };
+}
+
+function clampPdfField(
+  field: PdfTemplateFieldLayout,
+  pageWidth: number,
+  pageHeight: number,
+): PdfTemplateFieldLayout {
+  const width = clampNumber(field.width, 36, pageWidth);
+  const height = clampNumber(field.height, 20, pageHeight);
+
+  return {
+    ...field,
+    x: clampNumber(field.x, 0, Math.max(0, pageWidth - width)),
+    y: clampNumber(field.y, 0, Math.max(0, pageHeight - height)),
+    width,
+    height,
+    fontSize: clampNumber(field.fontSize, 6, 48),
+    lineHeight: clampNumber(field.lineHeight ?? field.fontSize + 3, 7, 64),
+  };
+}
+
+function finiteOrFallback(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
+function getPdfFieldLabel(fieldKey: PdfTemplateFieldKey) {
+  return (
+    PDF_TEMPLATE_FIELD_META.find((field) => field.key === fieldKey)?.label ??
+    fieldKey
+  );
+}
+
+function formatFileSize(size: number | null | undefined) {
+  if (!size || size <= 0) {
+    return "PDF";
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} Ko`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
 function buildFullName(patient: PatientSearchRow) {

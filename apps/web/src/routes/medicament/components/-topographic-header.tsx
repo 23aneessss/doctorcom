@@ -18,7 +18,7 @@ export function TopographicHeader({
 
   return (
     <section
-      className="relative h-[120px] w-[1091px] max-w-full overflow-hidden rounded-[15px] border bg-white px-[24px] py-[12px]"
+      className="relative h-[clamp(7.15rem,12.8vh,8.4rem)] w-full overflow-hidden rounded-[15px] border bg-white px-[clamp(1.35rem,2.8vw,2.6rem)] py-[clamp(0.75rem,1.35vh,1rem)]"
       style={{
         borderColor: "color-mix(in srgb, #c2e0ef 68%, white)",
         background:
@@ -34,10 +34,10 @@ export function TopographicHeader({
 
       <div className="relative z-[1] flex h-full items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="m-0 font-['Inter'] text-[28px] font-bold leading-[1.1] text-[#0F3460]">
+          <h1 className="m-0 font-['Inter'] text-[clamp(1.28rem,2.12vw,1.78rem)] font-bold leading-[1.1] text-[#0F3460]">
             {MEDICATIONS_PAGE_TEXT.title}
           </h1>
-          <p className="mt-[3px] font-['Inter'] text-[16px] font-semibold leading-[1.2] text-[#052CA0]">
+          <p className="mt-[0.35rem] font-['Inter'] text-[clamp(0.88rem,1.22vw,1.06rem)] font-semibold leading-[1.2] text-[#052CA0]">
             {subtitle}
           </p>
         </div>

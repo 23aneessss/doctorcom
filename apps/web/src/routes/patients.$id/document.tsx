@@ -18,6 +18,7 @@ import {
   Search,
   ShieldAlert,
   Stethoscope,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -26,6 +27,8 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { openBase64Pdf } from "@/lib/pdf-client";
+import { NouveauCertMedicalDialog } from "@/routes/patients.$id/popups/nouveau-cert-medical";
+import { NouvelleLettreOrientationDialog } from "@/routes/patients.$id/popups/nouvelle-lettre-orientation";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 type DocumentTab = "ordonnances" | "lettres" | "certificats" | "documents";
@@ -142,7 +145,11 @@ type RendezVousLite = {
 type SuiviLite = {
   id: string;
   motif: string;
+  date_ouverture?: string | null;
 };
+
+type LetterDialogMode = "manual" | "ai";
+type CertificateDialogMode = "manual" | "ai";
 
 export const Route = createFileRoute("/patients/$id/document")({
   component: RouteComponent,
@@ -159,6 +166,12 @@ function RouteComponent() {
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [documentAnalysisResult, setDocumentAnalysisResult] =
     useState<DocumentAnalysisResult | null>(null);
+  const [isLettreDialogOpen, setIsLettreDialogOpen] = useState(false);
+  const [isCertificatDialogOpen, setIsCertificatDialogOpen] = useState(false);
+  const [lettreDialogMode, setLettreDialogMode] =
+    useState<LetterDialogMode>("manual");
+  const [certificatDialogMode, setCertificatDialogMode] =
+    useState<CertificateDialogMode>("manual");
 
   const ordonnancesQuery = useQuery({
     ...trpc.ordonnance.getOrdonnancesByPatient.queryOptions({ patientId: id }),
@@ -258,9 +271,56 @@ function RouteComponent() {
     return new Map(suivis.map((item) => [item.id, item]));
   }, [patientFullRecord?.suivi]);
 
+  const refreshDocumentQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.documents.getDocumentsByPatient.queryFilter({ patientId: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.documents.getLettresByPatient.queryFilter({ patientId: id }),
+      ),
+      queryClient.invalidateQueries(
+        trpc.documents.getCertificatsByPatient.queryFilter({ patientId: id }),
+      ),
+      queryClient.invalidateQueries(trpc.patient.getPatientFullRecord.queryFilter({ id })),
+    ]);
+  };
+
   const exportMutation = useMutation({
     mutationFn: async (ordonnanceId: string) => {
       return trpcClient.export.exporterOrdonnance.mutate({ id: ordonnanceId });
+    },
+    onSuccess: (payload) => {
+      openBase64Pdf({
+        base64Data: payload.data,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const exportLettreMutation = useMutation({
+    mutationFn: async (lettreId: string) => {
+      return trpcClient.export.exporterLettreOrientation.mutate({ id: lettreId });
+    },
+    onSuccess: (payload) => {
+      openBase64Pdf({
+        base64Data: payload.data,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const exportCertificatMutation = useMutation({
+    mutationFn: async (certificatId: string) => {
+      return trpcClient.export.exporterCertificatMedical.mutate({ id: certificatId });
     },
     onSuccess: (payload) => {
       openBase64Pdf({
@@ -327,6 +387,32 @@ function RouteComponent() {
     },
   });
 
+  const deleteLettreMutation = useMutation({
+    mutationFn: async (lettreId: string) => {
+      return trpcClient.documents.supprimerLettre.mutate({ id: lettreId });
+    },
+    onSuccess: async () => {
+      await refreshDocumentQueries();
+      toast.success("Lettre d'orientation supprimée");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteCertificatMutation = useMutation({
+    mutationFn: async (certificatId: string) => {
+      return trpcClient.documents.supprimerCertificat.mutate({ id: certificatId });
+    },
+    onSuccess: async () => {
+      await refreshDocumentQueries();
+      toast.success("Certificat médical supprimé");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const documentAnalysisMutation = useMutation({
     mutationFn: async (documentKeys: string[]) => {
       return (await trpcClient.ai.documentAnomaly.analyzeDocuments.mutate({
@@ -356,6 +442,16 @@ function RouteComponent() {
     window.dispatchEvent(
       new CustomEvent("patient-popup-open", { detail: { type: "document" } }),
     );
+  };
+
+  const openLettreDialog = (mode: LetterDialogMode) => {
+    setLettreDialogMode(mode);
+    setIsLettreDialogOpen(true);
+  };
+
+  const openCertificatDialog = (mode: CertificateDialogMode) => {
+    setCertificatDialogMode(mode);
+    setIsCertificatDialogOpen(true);
   };
 
   const toggleDocumentSelection = (documentId: string) => {
@@ -514,6 +610,46 @@ function RouteComponent() {
             Nouvelle ordonnance
           </button>
         ) : null}
+        {activeTab === "lettres" ? (
+          <div className="flex items-center gap-2">
+            <button
+              className="inline-flex h-[42px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] border-[1.4px] border-[#c2e0ef] bg-white px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+              onClick={() => openLettreDialog("ai")}
+              type="button"
+            >
+              <Sparkles className="size-4" />
+              Générer IA
+            </button>
+            <button
+              className="inline-flex h-[42px] w-[236px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[20px] py-3 font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
+              onClick={() => openLettreDialog("manual")}
+              type="button"
+            >
+              <Plus className="size-4" />
+              Nouvelle lettre
+            </button>
+          </div>
+        ) : null}
+        {activeTab === "certificats" ? (
+          <div className="flex items-center gap-2">
+            <button
+              className="inline-flex h-[42px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] border-[1.4px] border-[#c2e0ef] bg-white px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+              onClick={() => openCertificatDialog("ai")}
+              type="button"
+            >
+              <Sparkles className="size-4" />
+              Générer IA
+            </button>
+            <button
+              className="inline-flex h-[42px] w-[252px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[20px] py-3 font-['Plus_Jakarta_Sans'] text-[15px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
+              onClick={() => openCertificatDialog("manual")}
+              type="button"
+            >
+              <Plus className="size-4" />
+              Nouveau certificat
+            </button>
+          </div>
+        ) : null}
         {activeTab === "documents" ? (
           <button
             className="inline-flex h-[42px] w-[220px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[20px] py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
@@ -669,20 +805,70 @@ function RouteComponent() {
               return (
                 <article
                   key={lettre.id}
-                  className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-4"
+                  className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-4 transition-colors hover:bg-[#f8fbff]"
                 >
-                  <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
-                    {linkedDocument?.nom_document ?? "Lettre d'orientation"}
-                  </p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                    Date : {formatDate(lettre.date_creation)}
-                  </p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                    Urgence : {lettre.urgence}
-                  </p>
-                  {lettre.raison ? (
-                    <p className="mt-2 font-['Inter'] text-[13px] text-[#4b6787]">{lettre.raison}</p>
-                  ) : null}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] text-[#265284]">
+                          <Mail className="size-5" />
+                        </span>
+                        <div>
+                          <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
+                            {linkedDocument?.nom_document ?? "Lettre d'orientation"}
+                          </p>
+                          <p className="font-['Inter'] text-[12px] font-medium text-[#64748b]">
+                            {lettre.destinataire || "Destinataire non renseigné"} ·{" "}
+                            {formatDate(lettre.date_creation)}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-[#c2e0ef] bg-[#f8fcff] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#265284]">
+                          {formatUrgenceLabel(lettre.urgence)}
+                        </span>
+                      </div>
+                      {lettre.raison ? (
+                        <p className="mt-3 max-w-[760px] font-['Inter'] text-[13px] leading-5 text-[#4b6787]">
+                          {lettre.raison}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                        disabled={exportLettreMutation.isPending}
+                        onClick={() => exportLettreMutation.mutate(lettre.id)}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">voir</span>
+                        <Eye className="size-4" />
+                      </button>
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                        disabled={exportLettreMutation.isPending}
+                        onClick={() => exportLettreMutation.mutate(lettre.id)}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">imprimer</span>
+                        <Printer className="size-4" />
+                      </button>
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#fecaca] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                        disabled={deleteLettreMutation.isPending}
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            "Supprimer cette lettre d'orientation ? Cette action est irréversible.",
+                          );
+                          if (!confirmed) return;
+                          deleteLettreMutation.mutate(lettre.id);
+                        }}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">supprimer</span>
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
                 </article>
               );
             })
@@ -700,20 +886,78 @@ function RouteComponent() {
               return (
                 <article
                   key={certificat.id}
-                  className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-4"
+                  className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white p-4 transition-colors hover:bg-[#f8fbff]"
                 >
-                  <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
-                    {linkedDocument?.nom_document ?? "Certificat médical"}
-                  </p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                    Type : {certificat.type_certificat}
-                  </p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                    Statut : {certificat.statut}
-                  </p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
-                    Émis le : {formatDate(certificat.date_emission)}
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] text-[#265284]">
+                          <FileArchive className="size-5" />
+                        </span>
+                        <div>
+                          <p className="font-['Poppins'] text-[14px] font-medium text-[#0f3460]">
+                            {linkedDocument?.nom_document ?? "Certificat médical"}
+                          </p>
+                          <p className="font-['Inter'] text-[12px] font-medium text-[#64748b]">
+                            {formatCertificatTypeLabel(certificat.type_certificat)} · Émis le{" "}
+                            {formatDate(certificat.date_emission)}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-[#bbf7d0] bg-[#f0fdf4] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#16a34a]">
+                          {formatCertificatStatutLabel(certificat.statut)}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 font-['Inter'] text-[12px] text-[#64748b]">
+                        {certificat.date_debut || certificat.date_fin ? (
+                          <span className="rounded-full bg-[#f8fcff] px-2.5 py-1">
+                            Période : {formatDate(certificat.date_debut)} →{" "}
+                            {formatDate(certificat.date_fin)}
+                          </span>
+                        ) : null}
+                        {certificat.destinataire ? (
+                          <span className="rounded-full bg-[#f8fcff] px-2.5 py-1">
+                            Pour : {certificat.destinataire}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                        disabled={exportCertificatMutation.isPending}
+                        onClick={() => exportCertificatMutation.mutate(certificat.id)}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">voir</span>
+                        <Eye className="size-4" />
+                      </button>
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#265284] transition-colors hover:bg-[#f0f6ff]"
+                        disabled={exportCertificatMutation.isPending}
+                        onClick={() => exportCertificatMutation.mutate(certificat.id)}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">imprimer</span>
+                        <Printer className="size-4" />
+                      </button>
+                      <button
+                        className="inline-flex h-[36px] cursor-pointer items-center gap-[6px] rounded-[10px] border-[1.6px] border-[#fecaca] bg-white px-3 font-['Inter'] text-[12px] font-medium leading-4 text-[#dc2626] transition-colors hover:border-[#fca5a5] hover:bg-[#fef2f2]"
+                        disabled={deleteCertificatMutation.isPending}
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            "Supprimer ce certificat médical ? Cette action est irréversible.",
+                          );
+                          if (!confirmed) return;
+                          deleteCertificatMutation.mutate(certificat.id);
+                        }}
+                        type="button"
+                      >
+                        <span className="whitespace-nowrap">supprimer</span>
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
                 </article>
               );
             })
@@ -890,6 +1134,21 @@ function RouteComponent() {
           )}
         </div>
       ) : null}
+
+      <NouvelleLettreOrientationDialog
+        onCreated={() => refreshDocumentQueries()}
+        onOpenChange={setIsLettreDialogOpen}
+        open={isLettreDialogOpen}
+        patientId={id}
+        startWithAi={lettreDialogMode === "ai"}
+      />
+      <NouveauCertMedicalDialog
+        onCreated={() => refreshDocumentQueries()}
+        onOpenChange={setIsCertificatDialogOpen}
+        open={isCertificatDialogOpen}
+        patientId={id}
+        startWithAi={certificatDialogMode === "ai"}
+      />
     </div>
   );
 }
@@ -1032,6 +1291,47 @@ function formatSuggestionValue(value: unknown): string {
       .join(", ");
   }
   return String(value);
+}
+
+function formatUrgenceLabel(value: LettreRow["urgence"]) {
+  switch (value) {
+    case "tres_urgente":
+      return "Très urgente";
+    case "urgente":
+      return "Urgente";
+    case "normale":
+    default:
+      return "Normale";
+  }
+}
+
+function formatCertificatTypeLabel(value: CertificatRow["type_certificat"]) {
+  switch (value) {
+    case "arret_travail":
+      return "Arrêt de travail";
+    case "aptitude":
+      return "Certificat d'aptitude";
+    case "scolaire":
+      return "Certificat scolaire";
+    case "grossesse":
+      return "Certificat de grossesse";
+    case "deces":
+      return "Certificat de décès";
+    default:
+      return value;
+  }
+}
+
+function formatCertificatStatutLabel(value: CertificatRow["statut"]) {
+  switch (value) {
+    case "emis":
+      return "Émis";
+    case "annule":
+      return "Annulé";
+    case "brouillon":
+    default:
+      return "Brouillon";
+  }
 }
 
 function InfoLine({ label, value }: { label: string; value: string }) {

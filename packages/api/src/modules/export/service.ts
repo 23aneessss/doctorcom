@@ -1,10 +1,55 @@
 import PDFDocument from "pdfkit";
+import {
+  PDFDocument as PdfLibDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 import { TRPCError } from "@trpc/server";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import {
+  getObjectNameFromUrl,
+  minioClient,
+  storageConfig,
+} from "../../infrastructure/storage";
+import {
+  normalizeOrdonnancePdfLayout,
+  type OrdonnancePdfTemplateField,
+} from "../ordonnance/pdf-template-layout";
 import { exportRepository } from "./repo";
 
 type DB = NodePgDatabase<any>;
+type OrdonnanceExportPayload = NonNullable<
+  Awaited<ReturnType<typeof exportRepository.getOrdonnanceForExport>>
+>;
+
+type ClinicalPdfPatient = {
+  nom: string;
+  prenom: string;
+  date_naissance: Date | string;
+  matricule: string;
+};
+
+type ClinicalPdfUtilisateur = {
+  nom: string;
+  prenom: string;
+  adresse: string | null;
+  telephone: string | null;
+};
+
+type ClinicalPdfSectionRow = {
+  label: string;
+  value: unknown;
+};
+
+type ClinicalPdfSection = {
+  title: string;
+  body?: string | null;
+  rows?: ClinicalPdfSectionRow[];
+  tone?: "default" | "attention";
+};
 
 export class ExportService {
   private ensureUtilisateurExportData<T>(value: T | null | undefined): T {
@@ -56,6 +101,659 @@ export class ExportService {
     return utilisateur.id;
   }
 
+  private cleanText(value: unknown, fallback = "Non renseigné") {
+    if (value === null || value === undefined) return fallback;
+    const normalized = String(value).replace(/\s+/g, " ").trim();
+    return normalized || fallback;
+  }
+
+  private formatDate(value: Date | string | null | undefined) {
+    if (!value) return "Non renseignée";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("fr-DZ", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+  }
+
+  private async readStoredPdfBuffer(fileUrl: string): Promise<Buffer> {
+    const objectName = getObjectNameFromUrl(fileUrl);
+    const stream = await minioClient.getObject(storageConfig.bucket, objectName);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  private wrapPdfText(text: string, width: number, font: PDFFont, fontSize: number) {
+    const lines: string[] = [];
+    const paragraphs = text.split(/\r?\n/);
+
+    for (const paragraph of paragraphs) {
+      const words = paragraph.trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) {
+        lines.push("");
+        continue;
+      }
+
+      let current = "";
+      for (const word of words) {
+        const next = current ? `${current} ${word}` : word;
+        if (font.widthOfTextAtSize(next, fontSize) <= width) {
+          current = next;
+          continue;
+        }
+
+        if (current) {
+          lines.push(current);
+          current = word;
+        } else {
+          lines.push(this.truncatePdfLine(word, width, font, fontSize));
+          current = "";
+        }
+      }
+
+      if (current) {
+        lines.push(current);
+      }
+    }
+
+    return lines;
+  }
+
+  private truncatePdfLine(
+    text: string,
+    width: number,
+    font: PDFFont,
+    fontSize: number,
+  ) {
+    const ellipsis = "...";
+    let candidate = text;
+
+    while (
+      candidate.length > 0 &&
+      font.widthOfTextAtSize(`${candidate}${ellipsis}`, fontSize) > width
+    ) {
+      candidate = candidate.slice(0, -1);
+    }
+
+    return candidate ? `${candidate}${ellipsis}` : ellipsis;
+  }
+
+  private drawMappedTextBlock(
+    page: PDFPage,
+    text: string,
+    field: OrdonnancePdfTemplateField,
+    pageHeight: number,
+    font: PDFFont,
+  ) {
+    if (field.enabled === false) {
+      return;
+    }
+
+    const fontSize = field.fontSize;
+    const lineHeight = field.lineHeight ?? fontSize * 1.25;
+    const maxLines = Math.max(1, Math.floor(field.height / lineHeight));
+    const wrappedLines = this.wrapPdfText(text, field.width, font, fontSize);
+    const renderedLines = wrappedLines.slice(0, maxLines);
+
+    if (wrappedLines.length > maxLines && renderedLines.length > 0) {
+      renderedLines[renderedLines.length - 1] = this.truncatePdfLine(
+        renderedLines[renderedLines.length - 1] ?? "",
+        field.width,
+        font,
+        fontSize,
+      );
+    }
+
+    renderedLines.forEach((line, index) => {
+      const lineWidth = font.widthOfTextAtSize(line, fontSize);
+      const align = field.align ?? "left";
+      const x =
+        align === "right"
+          ? field.x + Math.max(0, field.width - lineWidth)
+          : align === "center"
+            ? field.x + Math.max(0, (field.width - lineWidth) / 2)
+            : field.x;
+
+      page.drawText(line, {
+        x,
+        y: pageHeight - field.y - fontSize - index * lineHeight,
+        size: fontSize,
+        font,
+        color: rgb(15 / 255, 52 / 255, 96 / 255),
+      });
+    });
+  }
+
+  private drawMappedLogoBlock(
+    page: PDFPage,
+    initials: string,
+    field: OrdonnancePdfTemplateField,
+    pageHeight: number,
+    font: PDFFont,
+  ) {
+    if (field.enabled === false) {
+      return;
+    }
+
+    const size = Math.min(field.width, field.height);
+    if (size < 12) {
+      return;
+    }
+
+    const centerX = field.x + field.width / 2;
+    const centerY = pageHeight - field.y - field.height / 2;
+    page.drawEllipse({
+      x: centerX,
+      y: centerY,
+      xScale: size / 2,
+      yScale: size / 2,
+      color: rgb(15 / 255, 52 / 255, 96 / 255),
+    });
+
+    const text = this.cleanText(initials, "Dr").slice(0, 3);
+    const fontSize = Math.min(field.fontSize, size * 0.42);
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+    page.drawText(text, {
+      x: centerX - textWidth / 2,
+      y: centerY - fontSize / 3,
+      size: fontSize,
+      font,
+      color: rgb(1, 1, 1),
+    });
+  }
+
+  private renderDoctorComClinicalPdf({
+    title,
+    subtitle,
+    date,
+    patient,
+    utilisateur,
+    sections,
+    closingText,
+  }: {
+    title: string;
+    subtitle?: string;
+    date: Date | string | null | undefined;
+    patient: ClinicalPdfPatient;
+    utilisateur: ClinicalPdfUtilisateur;
+    sections: ClinicalPdfSection[];
+    closingText?: string;
+  }): Promise<Buffer> {
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 0,
+      bufferPages: true,
+    });
+    const chunks: Buffer[] = [];
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+
+    const colors = {
+      primary: "#123F6D",
+      primarySoft: "#EAF6FF",
+      border: "#B8DBEF",
+      borderStrong: "#78BDE3",
+      text: "#102A43",
+      muted: "#5D7285",
+      pale: "#F7FCFF",
+      attention: "#F97316",
+      attentionSoft: "#FFF7ED",
+    };
+    const page = {
+      left: 54,
+      right: doc.page.width - 54,
+      top: 42,
+      bottom: doc.page.height - 78,
+    };
+    const contentWidth = page.right - page.left;
+    let yPos = page.top;
+
+    const drawContinuationHeader = () => {
+      doc
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text(`${title} - SUITE`, page.left, page.top, {
+          width: contentWidth,
+          align: "center",
+        });
+      doc
+        .moveTo(page.left, page.top + 22)
+        .lineTo(page.right, page.top + 22)
+        .lineWidth(1)
+        .strokeColor(colors.border)
+        .stroke();
+    };
+
+    const ensureSpace = (height: number) => {
+      if (yPos + height <= page.bottom) return;
+      doc.addPage();
+      drawContinuationHeader();
+      yPos = page.top + 46;
+    };
+
+    const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(17)
+      .text(doctorName, page.left, yPos, { width: 310 });
+    yPos += 24;
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica")
+      .fontSize(9.5)
+      .text(`Adresse : ${this.cleanText(utilisateur.adresse)}`, page.left, yPos, {
+        width: 330,
+      });
+    yPos += 15;
+    doc.text(
+      `Téléphone : ${this.cleanText(utilisateur.telephone)}`,
+      page.left,
+      yPos,
+      { width: 330 },
+    );
+
+    doc
+      .roundedRect(page.right - 170, page.top, 170, 58, 12)
+      .fillAndStroke(colors.primarySoft, colors.border);
+    doc
+      .fillColor(colors.muted)
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .text("DATE DU DOCUMENT", page.right - 154, page.top + 13, {
+        width: 138,
+        align: "center",
+      });
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(this.formatDate(date), page.right - 154, page.top + 31, {
+        width: 138,
+        align: "center",
+      });
+
+    yPos = 120;
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(18)
+      .text(title, page.left, yPos, {
+        width: contentWidth,
+        align: "center",
+      });
+    if (subtitle) {
+      yPos += 24;
+      doc
+        .fillColor(colors.muted)
+        .font("Helvetica")
+        .fontSize(10.5)
+        .text(subtitle, page.left, yPos, {
+          width: contentWidth,
+          align: "center",
+        });
+    }
+    yPos += 32;
+    doc
+      .moveTo(page.left, yPos)
+      .lineTo(page.right, yPos)
+      .lineWidth(1.2)
+      .strokeColor(colors.borderStrong)
+      .stroke();
+    yPos += 22;
+
+    const patientCardHeight = 86;
+    doc
+      .roundedRect(page.left, yPos, contentWidth, patientCardHeight, 14)
+      .fillAndStroke(colors.pale, colors.border);
+    doc
+      .fillColor(colors.primary)
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .text("PATIENT", page.left + 18, yPos + 14);
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(`${patient.prenom} ${patient.nom}`, page.left + 18, yPos + 35, {
+        width: 220,
+      });
+    doc
+      .fillColor(colors.muted)
+      .font("Helvetica")
+      .fontSize(9.5)
+      .text(
+        `Date de naissance : ${this.formatDate(patient.date_naissance)}`,
+        page.left + 270,
+        yPos + 30,
+        { width: 210 },
+      )
+      .text(
+        `Matricule : ${this.cleanText(patient.matricule)}`,
+        page.left + 270,
+        yPos + 49,
+        { width: 210 },
+      );
+    yPos += patientCardHeight + 24;
+
+    sections.forEach((section) => {
+      const rows = (section.rows ?? []).filter(
+        (row) => this.cleanText(row.value, "") !== "",
+      );
+      const body = this.cleanText(section.body, "");
+      const rowHeight = rows.length > 0 ? rows.length * 19 + 8 : 0;
+      const bodyHeight =
+        body.length > 0
+          ? doc.font("Helvetica").fontSize(10).heightOfString(body, {
+              width: contentWidth - 36,
+              lineGap: 3,
+            }) + 8
+          : 0;
+      const cardHeight = Math.max(68, 42 + rowHeight + bodyHeight);
+
+      ensureSpace(cardHeight + 14);
+      const borderColor =
+        section.tone === "attention" ? colors.attention : colors.border;
+      const fillColor =
+        section.tone === "attention" ? colors.attentionSoft : "#FFFFFF";
+      doc
+        .roundedRect(page.left, yPos, contentWidth, cardHeight, 12)
+        .fillAndStroke(fillColor, borderColor);
+      doc
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text(section.title, page.left + 18, yPos + 14, {
+          width: contentWidth - 36,
+        });
+
+      let sectionY = yPos + 37;
+      rows.forEach((row) => {
+        doc
+          .fillColor(colors.muted)
+          .font("Helvetica-Bold")
+          .fontSize(8.5)
+          .text(row.label.toUpperCase(), page.left + 18, sectionY, {
+            width: 140,
+          });
+        doc
+          .fillColor(colors.text)
+          .font("Helvetica")
+          .fontSize(9.5)
+          .text(this.cleanText(row.value), page.left + 170, sectionY - 1, {
+            width: contentWidth - 188,
+          });
+        sectionY += 19;
+      });
+
+      if (body.length > 0) {
+        doc
+          .fillColor(colors.text)
+          .font("Helvetica")
+          .fontSize(10)
+          .text(body, page.left + 18, sectionY + 2, {
+            width: contentWidth - 36,
+            lineGap: 3,
+          });
+      }
+
+      yPos += cardHeight + 14;
+    });
+
+    if (closingText) {
+      const closingHeight =
+        doc.font("Helvetica").fontSize(10).heightOfString(closingText, {
+          width: contentWidth,
+          lineGap: 3,
+        }) + 18;
+      ensureSpace(closingHeight);
+      doc
+        .fillColor(colors.text)
+        .font("Helvetica")
+        .fontSize(10)
+        .text(closingText, page.left, yPos, {
+          width: contentWidth,
+          lineGap: 3,
+        });
+      yPos += closingHeight;
+    }
+
+    ensureSpace(118);
+    yPos = Math.max(yPos + 18, doc.page.height - 202);
+    doc
+      .fillColor(colors.text)
+      .font("Helvetica")
+      .fontSize(10)
+      .text("Signature et cachet du médecin", page.right - 210, yPos, {
+        width: 210,
+        align: "center",
+      });
+    doc
+      .moveTo(page.right - 210, yPos + 58)
+      .lineTo(page.right, yPos + 58)
+      .lineWidth(1)
+      .strokeColor(colors.text)
+      .stroke();
+
+    const pageRange = doc.bufferedPageRange();
+    for (
+      let pageIndex = pageRange.start;
+      pageIndex < pageRange.start + pageRange.count;
+      pageIndex += 1
+    ) {
+      doc.switchToPage(pageIndex);
+      doc
+        .moveTo(page.left, doc.page.height - 54)
+        .lineTo(page.right, doc.page.height - 54)
+        .lineWidth(0.8)
+        .strokeColor(colors.border)
+        .stroke();
+      doc
+        .fillColor(colors.muted)
+        .font("Helvetica")
+        .fontSize(8)
+        .text(
+          "Document généré par doctor.com - à vérifier et signer par le médecin.",
+          page.left,
+          doc.page.height - 40,
+          { width: contentWidth - 90 },
+        )
+        .text(
+          `Page ${pageIndex - pageRange.start + 1} / ${pageRange.count}`,
+          page.right - 80,
+          doc.page.height - 40,
+          { width: 80, align: "right" },
+        );
+    }
+
+    doc.end();
+
+    return new Promise((resolve, reject) => {
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+    });
+  }
+
+  private async exporterOrdonnanceAvecTemplatePdf(
+    db: DB,
+    data: OrdonnanceExportPayload,
+    options: { templateId: string; userEmail: string },
+  ): Promise<Buffer> {
+    const utilisateurId = await this.resolveUtilisateurIdByEmail(
+      db,
+      options.userEmail,
+    );
+    const template = await exportRepository.getOrdonnancePdfTemplateForExport(
+      db,
+      options.templateId,
+    );
+
+    if (!template || !template.est_actif) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Le template PDF selectionne est introuvable.",
+      });
+    }
+
+    if (template.utilisateur_id !== utilisateurId) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Vous n'avez pas acces a ce template PDF.",
+      });
+    }
+
+    const pdfBytes = await this.readStoredPdfBuffer(template.chemin_fichier);
+    const pdfDoc = await PdfLibDocument.load(pdfBytes);
+    const [page] = pdfDoc.getPages();
+
+    if (!page) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le template PDF ne contient aucune page utilisable.",
+      });
+    }
+
+    const { height: pageHeight } = page.getSize();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const layout = normalizeOrdonnancePdfLayout(template.layout_config);
+    const patient = this.ensurePatientExportData(data.patient);
+    const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
+    const ord = data.ordonnance;
+    const doctorFullName = [
+      this.cleanText(utilisateur.prenom, ""),
+      this.cleanText(utilisateur.nom, ""),
+    ]
+      .join(" ")
+      .trim();
+    const doctorDisplayName = doctorFullName
+      ? `Dr. ${doctorFullName}`
+      : "Dr. Médecin";
+    const doctorInitials = doctorFullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+    const medecinText = [doctorDisplayName, "Médecin généraliste"].join("\n");
+    const cabinetText = [
+      utilisateur.adresse ? `Adresse : ${this.cleanText(utilisateur.adresse)}` : null,
+      utilisateur.telephone
+        ? `Téléphone : ${this.cleanText(utilisateur.telephone)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const patientText = [
+      `${this.cleanText(patient.prenom, "")} ${this.cleanText(patient.nom, "")}`.trim(),
+      `Date de naissance : ${this.formatDate(patient.date_naissance)}`,
+      `Matricule : ${this.cleanText(patient.matricule)}`,
+    ].join("\n");
+
+    const medicamentsText =
+      data.medicaments.length > 0
+        ? data.medicaments
+            .map((medicament, index) => {
+              const lines = [
+                `${index + 1}. ${this.cleanText(
+                  medicament.nom_medicament || medicament.dci,
+                  "Medicament",
+                )}`,
+                medicament.posologie
+                  ? `Posologie : ${this.cleanText(medicament.posologie)}`
+                  : null,
+                medicament.duree_traitement
+                  ? `Durée : ${this.cleanText(medicament.duree_traitement)}`
+                  : null,
+                medicament.dosage
+                  ? `Dosage : ${this.cleanText(medicament.dosage)}`
+                  : null,
+                medicament.instructions
+                  ? `Instructions : ${this.cleanText(medicament.instructions)}`
+                  : null,
+              ].filter(Boolean);
+
+              return lines.join("\n");
+            })
+            .join("\n\n")
+        : "Aucun médicament renseigné.";
+
+    this.drawMappedLogoBlock(
+      page,
+      doctorInitials || "Dr",
+      layout.fields.logo_medecin,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      medecinText,
+      layout.fields.medecin,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      cabinetText,
+      layout.fields.cabinet,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      this.formatDate(ord.date_prescription),
+      layout.fields.date_prescription,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      "ORDONNANCE",
+      layout.fields.titre,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      patientText,
+      layout.fields.patient,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      medicamentsText,
+      layout.fields.medicaments,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      this.cleanText(ord.remarques, ""),
+      layout.fields.remarques,
+      pageHeight,
+      font,
+    );
+    this.drawMappedTextBlock(
+      page,
+      "Signature et cachet",
+      layout.fields.signature_cachet,
+      pageHeight,
+      font,
+    );
+
+    return Buffer.from(await pdfDoc.save());
+  }
+
   private createPDFHeader(
     doc: PDFKit.PDFDocument,
     doctorName: string,
@@ -86,7 +784,11 @@ export class ExportService {
     doc.text(`Document généré le ${dateStr}`, 50, doc.page.height - 35);
   }
 
-  async exporterOrdonnance(db: DB, ordonnanceId: string): Promise<Buffer> {
+  async exporterOrdonnance(
+    db: DB,
+    ordonnanceId: string,
+    options: { templateId?: string | null; userEmail?: string } = {},
+  ): Promise<Buffer> {
     const data = await exportRepository.getOrdonnanceForExport(
       db,
       ordonnanceId,
@@ -101,6 +803,20 @@ export class ExportService {
     const { ordonnance: ord, medicaments } = data;
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
+
+    if (options.templateId) {
+      if (!options.userEmail) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "La session a expiré. Reconnectez-vous.",
+        });
+      }
+
+      return this.exporterOrdonnanceAvecTemplatePdf(db, data, {
+        templateId: options.templateId,
+        userEmail: options.userEmail,
+      });
+    }
 
     const doc = new PDFDocument({
       size: "A4",
@@ -436,6 +1152,38 @@ export class ExportService {
     });
   }
 
+  private formatCertificatType(value: string | null | undefined) {
+    const labels: Record<string, string> = {
+      arret_travail: "Arrêt de travail",
+      aptitude: "Certificat d'aptitude",
+      scolaire: "Certificat scolaire",
+      grossesse: "Certificat de grossesse",
+      deces: "Certificat de décès",
+    };
+
+    return labels[value ?? ""] ?? this.cleanText(value, "Certificat médical");
+  }
+
+  private formatCertificatStatut(value: string | null | undefined) {
+    const labels: Record<string, string> = {
+      brouillon: "Brouillon",
+      emis: "Émis",
+      annule: "Annulé",
+    };
+
+    return labels[value ?? ""] ?? this.cleanText(value);
+  }
+
+  private formatLettreUrgence(value: string | null | undefined) {
+    const labels: Record<string, string> = {
+      normale: "Normale",
+      urgente: "Urgente",
+      tres_urgente: "Très urgente",
+    };
+
+    return labels[value ?? ""] ?? this.cleanText(value, "Normale");
+  }
+
   async exporterCertificatMedical(
     db: DB,
     certificatId: string,
@@ -454,96 +1202,45 @@ export class ExportService {
     const { certificat: cert } = data;
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
+    const typeLabel = this.formatCertificatType(cert.type_certificat);
+    const statutLabel = this.formatCertificatStatut(cert.statut);
+    const periode =
+      cert.date_debut || cert.date_fin
+        ? `Du ${this.formatDate(cert.date_debut)} au ${this.formatDate(cert.date_fin)}`
+        : null;
+    const certificateBody = [
+      `Je soussigné(e), Dr. ${utilisateur.prenom} ${utilisateur.nom}, certifie avoir examiné le/la patient(e) ${patient.prenom} ${patient.nom}.`,
+      cert.diagnostic
+        ? `Diagnostic ou motif clinique : ${cert.diagnostic}.`
+        : null,
+      cert.notes,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
-    const doc = new PDFDocument();
-    const chunks: Buffer[] = [];
-
-    doc.on("data", (chunk) => chunks.push(chunk));
-
-    const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
-    let yPos = this.createPDFHeader(
-      doc,
-      doctorName,
-      utilisateur.adresse || "",
-      utilisateur.telephone || "",
-    );
-
-    doc
-      .fontSize(16)
-      .font("Helvetica-Bold")
-      .text("CERTIFICAT MÉDICAL", { align: "center" });
-    yPos += 25;
-
-    doc
-      .fontSize(13)
-      .font("Helvetica-Bold")
-      .text(cert.type_certificat.toUpperCase(), { align: "center" });
-    yPos += 20;
-
-    const emitDate = new Date(cert.date_emission);
-    const dateStr = `${emitDate.getDate()}/${emitDate.getMonth() + 1}/${emitDate.getFullYear()}`;
-    doc.fontSize(11).font("Helvetica").text(`Alger, le ${dateStr}`, 50, yPos);
-    yPos += 25;
-
-    doc.fontSize(10).font("Helvetica-Bold").text("Patient:", 50, yPos);
-    yPos += 12;
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(`${patient.prenom} ${patient.nom}`, 70, yPos);
-    yPos += 12;
-    doc.text(`Date de naissance: ${patient.date_naissance}`, 70, yPos);
-    yPos += 12;
-    doc.text(`Matricule: ${patient.matricule}`, 70, yPos);
-    yPos += 20;
-
-    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
-    yPos += 15;
-
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(`Je soussigné, ${doctorName}, certifie que:`, 50, yPos);
-    yPos += 20;
-
-    if (cert.diagnostic) {
-      doc.fontSize(10).text(`Diagnostic: ${cert.diagnostic}`, 70, yPos);
-      yPos += 15;
-    }
-
-    if (cert.date_debut && cert.date_fin) {
-      doc.text(`Période: du ${cert.date_debut} au ${cert.date_fin}`, 70, yPos);
-      yPos += 15;
-    }
-
-    if (cert.destinataire) {
-      doc.text(`Établi pour: ${cert.destinataire}`, 70, yPos);
-      yPos += 15;
-    }
-
-    if (cert.notes) {
-      doc.text(`Notes: ${cert.notes}`, 70, yPos);
-      yPos += 15;
-    }
-
-    yPos += 15;
-    doc
-      .fontSize(10)
-      .font("Helvetica-Bold")
-      .text(`Statut: ${cert.statut.toUpperCase()}`, 50, yPos);
-    yPos += 25;
-
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text("Signature et cachet du médecin", 50, yPos);
-
-    this.createPDFFooter(doc, 1, 1);
-    doc.end();
-
-    return new Promise((resolve, reject) => {
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
+    return this.renderDoctorComClinicalPdf({
+      title: "CERTIFICAT MÉDICAL",
+      subtitle: typeLabel,
+      date: cert.date_emission,
+      patient,
+      utilisateur,
+      sections: [
+        {
+          title: "Informations du certificat",
+          rows: [
+            { label: "Type", value: typeLabel },
+            { label: "Statut", value: statutLabel },
+            { label: "Période", value: periode },
+            { label: "Destinataire", value: cert.destinataire },
+          ],
+        },
+        {
+          title: "Certificat",
+          body: certificateBody,
+        },
+      ],
+      closingText:
+        "Ce certificat est établi à la demande de l'intéressé(e) pour servir et valoir ce que de droit.",
     });
   }
 
@@ -559,115 +1256,49 @@ export class ExportService {
     const { lettre } = data;
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
+    const urgenceLabel = this.formatLettreUrgence(lettre.urgence);
 
-    const doc = new PDFDocument();
-    const chunks: Buffer[] = [];
-
-    doc.on("data", (chunk) => chunks.push(chunk));
-
-    const doctorName = `Dr. ${utilisateur.prenom} ${utilisateur.nom}`;
-    let yPos = this.createPDFHeader(
-      doc,
-      doctorName,
-      utilisateur.adresse || "",
-      utilisateur.telephone || "",
-    );
-
-    doc
-      .fontSize(16)
-      .font("Helvetica-Bold")
-      .text("LETTRE D'ORIENTATION", { align: "center" });
-    yPos += 25;
-
-    const urgenceNormalized = lettre.urgence?.toLowerCase() || "";
-    if (urgenceNormalized === "urgente") {
-      doc
-        .fontSize(13)
-        .fillColor("red")
-        .font("Helvetica-Bold")
-        .text("⚠ URGENT", { align: "center" });
-      doc.fillColor("black");
-    } else if (urgenceNormalized === "tres_urgente") {
-      doc
-        .fontSize(13)
-        .fillColor("red")
-        .font("Helvetica-Bold")
-        .text("⚠⚠ TRÈS URGENT", { align: "center" });
-      doc.fillColor("black");
-    }
-    yPos += 20;
-
-    const createDate = new Date(lettre.date_creation);
-    const dateStr = `${createDate.getDate()}/${createDate.getMonth() + 1}/${createDate.getFullYear()}`;
-    doc.fontSize(11).font("Helvetica").text(`Alger, le ${dateStr}`, 50, yPos);
-    yPos += 20;
-
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(`À l'attention de: ${lettre.destinataire || "N/A"}`, 50, yPos);
-    yPos += 20;
-
-    doc.fontSize(10).font("Helvetica-Bold").text("Patient:", 50, yPos);
-    yPos += 12;
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(`${patient.prenom} ${patient.nom}`, 70, yPos);
-    yPos += 12;
-    doc.text(`Date de naissance: ${patient.date_naissance}`, 70, yPos);
-    yPos += 12;
-    doc.text(`Matricule: ${patient.matricule}`, 70, yPos);
-    yPos += 20;
-
-    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
-    yPos += 15;
-
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text(
-        `Je vous adresse mon patient(e) ${patient.prenom} ${patient.nom} pour:`,
-        50,
-        yPos,
-      );
-    yPos += 20;
-
-    if (lettre.type_exploration) {
-      doc
-        .fontSize(10)
-        .text(`Type d'exploration: ${lettre.type_exploration}`, 70, yPos);
-      yPos += 12;
-    }
-
-    if (lettre.examen_demande) {
-      doc.text(`Examen demandé: ${lettre.examen_demande}`, 70, yPos);
-      yPos += 12;
-    }
-
-    if (lettre.raison) {
-      doc.text(`Raison: ${lettre.raison}`, 70, yPos);
-      yPos += 12;
-    }
-
-    if (lettre.contenu_lettre) {
-      yPos += 5;
-      doc.text(lettre.contenu_lettre, 70, yPos);
-      yPos += 20;
-    }
-
-    yPos += 15;
-    doc
-      .fontSize(10)
-      .font("Helvetica")
-      .text("Signature et cachet du médecin", 50, yPos);
-
-    this.createPDFFooter(doc, 1, 1);
-    doc.end();
-
-    return new Promise((resolve, reject) => {
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
+    return this.renderDoctorComClinicalPdf({
+      title: "LETTRE D'ORIENTATION",
+      subtitle:
+        lettre.destinataire || lettre.type_exploration
+          ? this.cleanText(
+              [lettre.destinataire, lettre.type_exploration]
+                .filter(Boolean)
+                .join(" - "),
+              "Courrier médical",
+            )
+          : "Courrier médical",
+      date: lettre.date_creation,
+      patient,
+      utilisateur,
+      sections: [
+        {
+          title: "Destinataire et priorité",
+          tone:
+            lettre.urgence === "urgente" || lettre.urgence === "tres_urgente"
+              ? "attention"
+              : "default",
+          rows: [
+            { label: "Destinataire", value: lettre.destinataire },
+            { label: "Urgence", value: urgenceLabel },
+          ],
+        },
+        {
+          title: "Demande d'orientation",
+          rows: [
+            { label: "Type", value: lettre.type_exploration },
+            { label: "Examen demandé", value: lettre.examen_demande },
+          ],
+          body: lettre.raison,
+        },
+        {
+          title: "Synthèse médicale",
+          body: lettre.contenu_lettre,
+        },
+      ],
+      closingText:
+        "Je vous remercie par avance pour votre avis spécialisé et reste disponible pour tout complément d'information.",
     });
   }
 

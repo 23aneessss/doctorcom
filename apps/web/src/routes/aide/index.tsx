@@ -17,7 +17,6 @@ import patientsStyles from "@/components/patients/patients-page.module.css";
 
 import { Sidebar } from "@/components/sidebar";
 import { requireSession } from "@/lib/require-session";
-import styles from "../parametres.module.css";
 
 function CalendarAgendaIcon() {
   return (
@@ -102,20 +101,17 @@ function RouteComponent() {
   const hasResults = filteredCards.length > 0 || filteredQuestions.length > 0;
 
   return (
-    <div className={styles.pageShell}>
+    <div className={patientsStyles.pageShell}>
       <Sidebar currentUser={sidebarUser} />
 
-      <main className={styles.pageMain}>
-        <div className={styles.pageContent}>
+      <main className={patientsStyles.pageMain}>
+        <div className={patientsStyles.pageContent}>
 
           {/* ── Hero header with search ── */}
           <section
             className={patientsStyles.hero}
             style={{
               "--patients-hero-texture": `url(${headerTexture})`,
-              marginLeft: "clamp(0.9rem, 2vw, 1.8rem)",
-              marginRight: "clamp(0.9rem, 2vw, 1.8rem)",
-              padding: "clamp(1.2rem, 2.5vw, 1.8rem) clamp(1rem, 2vw, 1.5rem)",
             } as any}
             aria-labelledby="aide-page-title"
           >
@@ -124,13 +120,11 @@ function RouteComponent() {
                 <h1
                   className={patientsStyles.heroTitle}
                   id="aide-page-title"
-                  style={{ fontSize: "clamp(1.15rem, 1.9vw, 1.6rem)" }}
                 >
                   Aide &amp; Assistance
                 </h1>
                 <p
                   className={patientsStyles.heroSubtitle}
-                  style={{ marginTop: "0.8rem", fontSize: "clamp(0.8rem, 1.1vw, 1rem)" }}
                 >
                   Guides, FAQ et support technique
                 </p>
@@ -190,7 +184,7 @@ function RouteComponent() {
 
           {/* ── Search results view ── */}
           {isSearching ? (
-            <div style={{ marginInline: "clamp(0.9rem, 2vw, 1.8rem)", display: "flex", flexDirection: "column", gap: "1.4rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.4rem" }}>
 
               {!hasResults ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", padding: "3rem 2rem", borderRadius: "14px", border: "1px solid #d8edf7", background: "#ffffff" }}>
@@ -243,7 +237,7 @@ function RouteComponent() {
               {/* ── 6 section cards ── */}
               <section
                 aria-label="Rubriques d'aide"
-                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "1.1rem", marginInline: "clamp(0.9rem, 2vw, 1.8rem)" }}
+                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "1.1rem" }}
               >
                 {SECTION_CARDS.map((card) => (
                   <SectionCard key={card.id} card={card} />
@@ -252,7 +246,7 @@ function RouteComponent() {
 
               {/* ── FAQ section ── */}
               <section
-                style={{ marginInline: "clamp(0.9rem, 2vw, 1.8rem)", display: "flex", flexDirection: "column", gap: "1rem" }}
+                style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
                 aria-label="Questions fréquentes"
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
@@ -288,7 +282,6 @@ function RouteComponent() {
               {/* ── Support section ── */}
               <section
                 style={{
-                  marginInline: "clamp(0.9rem, 2vw, 1.8rem)",
                   marginBottom: "clamp(1rem, 2vw, 1.5rem)",
                   borderRadius: "14px",
                   border: "1px solid #c8e3f0",

@@ -165,10 +165,10 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex h-svh bg-[#FBFBFC]">
+    <div className="flex h-svh bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="flex-1 overflow-auto bg-[#FBFBFC]">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
         {isDetailView ? (
           <VoirMedicamentDialog
             isDeleting={deleteMutation.isPending && deleteMutation.variables === viewMedicamentId}
@@ -188,16 +188,14 @@ function RouteComponent() {
             open
           />
         ) : (
-          <div className="mx-auto w-[1220px] max-w-[calc(100%-48px)] pb-[61px] pt-[41px]">
-            <div className="ml-[62px] w-[1091px] max-w-full">
-              <TopographicHeader
-                onAdd={() => setIsAddOpen(true)}
-                subtitle={headerSubtitle}
-              />
-            </div>
+          <div className="flex w-full flex-col gap-[clamp(0.75rem,1.5vw,1.125rem)] px-[clamp(0.25rem,0.65vw,0.55rem)] pb-10">
+            <TopographicHeader
+              onAdd={() => setIsAddOpen(true)}
+              subtitle={headerSubtitle}
+            />
 
-            <div className="relative ml-[61px] mt-[37px] flex w-[1091px] max-w-full items-start gap-[53px]">
-              <label className="relative block w-[686px] max-w-full">
+            <div className="relative grid w-full grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+              <label className="relative block w-full">
                 <Search
                   className="pointer-events-none absolute left-[17px] top-1/2 size-[18px] -translate-y-1/2 text-[#173FB8]"
                   strokeWidth={2.15}
@@ -218,12 +216,12 @@ function RouteComponent() {
               />
             </div>
 
-            <div className="ml-[67px] mt-[36px] w-[1091px] max-w-full">
+            <div className="w-full">
               <AlphabetFilter onSelect={setSelectedLetter} selectedLetter={selectedLetter} />
             </div>
 
-            <section className="mt-[33px] w-full">
-              <div className="ml-[67px] mt-[40px] flex items-center gap-[16px]">
+            <section className="mt-2 w-full">
+              <div className="flex items-center gap-[16px]">
                 <div className="flex size-[64px] items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#FFB14A_0%,#FF8A1F_58%,#FF7A00_100%)] shadow-[0px_8px_20px_rgba(255,138,31,0.22)]">
                   <span className="font-['Inter'] text-[36px] font-semibold leading-none text-white">
                     {selectedLetter}
@@ -243,7 +241,7 @@ function RouteComponent() {
               {mobileCatalogQuery.isLoading || advancedSearchQuery.isLoading ? (
                 <MedicationCatalogSkeleton />
               ) : displayedItems.length === 0 ? (
-                <div className="ml-[67px] mt-[30px] flex h-[352px] w-[1091px] max-w-[calc(100%-67px)] flex-col items-center justify-center gap-[13px] rounded-[14px] border-[0.67px] border-[#C2E0EF] bg-white px-6 py-8 shadow-[0px_4px_20px_rgba(194,224,239,0.2)]">
+                <div className="mt-[30px] flex h-[352px] w-full flex-col items-center justify-center gap-[13px] rounded-[14px] border-[0.67px] border-[#C2E0EF] bg-white px-6 py-8 shadow-[0px_4px_20px_rgba(194,224,239,0.2)]">
                   <div className="flex size-[82px] items-center justify-center rounded-full bg-[rgba(194,224,239,0.3)]">
                     <img
                       alt=""
@@ -260,7 +258,7 @@ function RouteComponent() {
                   </p>
                 </div>
               ) : (
-                <div className="ml-[67px] mt-[30px] grid w-[1086px] max-w-[calc(100%-67px)] grid-cols-1 gap-x-[16px] gap-y-[14px] xl:grid-cols-3">
+                <div className="mt-[30px] grid w-full grid-cols-1 gap-x-[16px] gap-y-[14px] xl:grid-cols-3">
                   {displayedItems.map((medication) => (
                     <MedicationCard
                       key={medication.id}
