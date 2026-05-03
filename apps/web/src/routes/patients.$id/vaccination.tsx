@@ -87,16 +87,16 @@ function RouteComponent() {
             vaccinations.map((vaccination) => (
               <article
                 key={vaccination.id}
-                className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#c2e0ef] px-[12.8px] py-[12.8px]"
+                className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#c2e0ef] px-[16.8px] py-[16.8px]"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <h3 className="truncate font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+                    <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[16px] font-medium leading-6 text-[#0f3460]">
                       {vaccination.vaccin}
                     </h3>
                     <div className="mt-1 flex items-center gap-1 text-[rgba(100,116,139,0.9)]">
-                      <CalendarDays className="size-3 shrink-0" />
-                      <span className="font-['Inter'] text-[12px] leading-4">
+                      <CalendarDays className="size-3.5 shrink-0" />
+                      <span className="font-['Inter'] text-[13px] leading-5">
                         {vaccination.date_vaccination}
                       </span>
                     </div>
@@ -146,8 +146,8 @@ function RouteComponent() {
                 </div>
 
                 <div className="mt-3 flex items-start gap-2">
-                  <FileText className="mt-[1px] size-[14px] shrink-0 text-[#64748b]" />
-                  <p className="line-clamp-2 font-['Inter'] text-[14px] leading-5 text-[#64748b]">
+                  <FileText className="mt-[2px] size-[15px] shrink-0 text-[#64748b]" />
+                  <p className="line-clamp-2 font-['Inter'] text-[15px] leading-6 text-[#64748b]">
                     {vaccination.notes?.trim() || "Sans notes"}
                   </p>
                 </div>

@@ -12,6 +12,7 @@ import { documentsRouter } from "../modules/documents/router";
 import { treatmentRouter } from "../modules/treatment/router";
 import { exportRouter } from "../modules/export/router";
 import { aiRouter } from "../modules/ai/router";
+import { dashboardRouter } from "../modules/dashboard/router";
 import { createTRPCRouter } from "./init";
 
 export const appRouter = createTRPCRouter({
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   ai: aiRouter,
   auth: authRouter,
   consultation: consultationRouter,
+  dashboard: dashboardRouter,
   documents: documentsRouter,
   export: exportRouter,
   medicalHistory: medicalHistoryRouter,

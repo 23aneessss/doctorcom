@@ -3,15 +3,16 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
   Briefcase,
   Check,
+  DollarSign,
   GraduationCap,
   Heart,
   Home,
   Leaf,
   PawPrint,
+  Pencil,
   Plus,
   TriangleAlert,
   Users,
-  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -21,9 +22,6 @@ import { toast } from "sonner";
 
 import { queryClient, trpc } from "@/utils/trpc";
 
-const READONLY_EDIT_ICON =
-  "http://localhost:3845/assets/b1749b2443c37b62a3c43bd2a9f40e248b4f7e75.svg";
-
 export const Route = createFileRoute("/patients/$id/info-sociale")({
   component: RouteComponent,
 });
@@ -32,7 +30,7 @@ type EditCardKey =
   | "profession"
   | "situation_familiale"
   | "nb_enfants"
-  | "assure"
+  | "revenu_mensuel"
   | "foyer"
   | "niveau_intellectuel"
   | "habitudes_saines"
@@ -44,7 +42,7 @@ type EditFormState = {
   profession: string;
   situation_familiale: string;
   nb_enfants: string;
-  assure: boolean;
+  revenu_mensuel: string;
   taille_menage: string;
   nb_pieces: string;
   niveau_intellectuel: string;
@@ -58,7 +56,7 @@ const EMPTY_FORM: EditFormState = {
   profession: "",
   situation_familiale: "",
   nb_enfants: "",
-  assure: false,
+  revenu_mensuel: "",
   taille_menage: "",
   nb_pieces: "",
   niveau_intellectuel: "",
@@ -128,12 +126,12 @@ function RouteComponent() {
         value: formatNumberValue(patient.nb_enfants),
       },
       {
-        key: "assure" as const,
-        label: "Assur\u00e9",
-        icon: Wallet,
+        key: "revenu_mensuel" as const,
+        label: "Revenu mensuel",
+        icon: DollarSign,
         tone: "default" as const,
         action: "edit" as const,
-        value: patient.assure ? "Oui" : "Non",
+        value: formatRevenueValue(patient.revenu_mensuel),
       },
       {
         key: "foyer" as const,
@@ -191,7 +189,7 @@ function RouteComponent() {
       profession: patient.profession ?? "",
       situation_familiale: patient.situation_familiale ?? "",
       nb_enfants: toInputValue(patient.nb_enfants),
-      assure: patient.assure ?? false,
+      revenu_mensuel: toInputValue(patient.revenu_mensuel),
       taille_menage: toInputValue(patient.taille_menage),
       nb_pieces: toInputValue(patient.nb_pieces),
       niveau_intellectuel: patient.niveau_intellectuel ?? "",
@@ -229,8 +227,13 @@ function RouteComponent() {
       data.nb_enfants = parsed;
     }
 
-    if (card === "assure") {
-      data.assure = formState.assure;
+    if (card === "revenu_mensuel") {
+      const parsed = normalizeNullableDecimal(formState.revenu_mensuel);
+      if (parsed === INVALID_NUMBER) {
+        toast.error("Veuillez saisir un revenu mensuel valide.");
+        return;
+      }
+      data.revenu_mensuel = parsed;
     }
 
     if (card === "foyer") {
@@ -412,7 +415,7 @@ function renderPrimaryCardBody({
     );
   }
 
-  if (cardKey === "assure") {
+  if (cardKey === "revenu_mensuel") {
     if (!isEditing) {
       return (
         <p className="font-['Poppins'] text-[14px] leading-[20px] text-[#0f3460]">
@@ -422,23 +425,18 @@ function renderPrimaryCardBody({
     }
 
     return (
-      <label className="inline-flex h-10 cursor-pointer items-center gap-3 rounded-full border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.05)]">
-        <input
-          checked={formState.assure}
-          className="peer sr-only"
-          onChange={(event) =>
-            setFormState((current) => ({
-              ...current,
-              assure: event.target.checked,
-            }))
-          }
-          type="checkbox"
-        />
-        <span className="relative h-5 w-9 rounded-full bg-[#dbeaf3] transition peer-checked:bg-[#76bbdd] peer-checked:[&>span]:translate-x-4">
-          <span className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,52,96,0.18)] transition" />
-        </span>
-        <span>{formState.assure ? "Oui" : "Non"}</span>
-      </label>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={formState.revenu_mensuel}
+        onChange={(event) =>
+          setFormState((current) => ({
+            ...current,
+            revenu_mensuel: event.target.value.replace(/[^\d.,]/g, ""),
+          }))
+        }
+        className="h-10 w-full rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
+      />
     );
   }
 
@@ -723,9 +721,9 @@ function ReadOnlyEditButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Modifier"
-      className="inline-flex size-[23px] shrink-0 items-center justify-center transition hover:opacity-80"
+      className="inline-flex size-[23px] shrink-0 items-center justify-center rounded-[7px] text-[#f97316] transition hover:bg-white/60"
     >
-      <img src={READONLY_EDIT_ICON} alt="" className="size-[23px]" />
+      <Pencil className="size-[18px]" strokeWidth={2.1} />
     </button>
   );
 }
@@ -852,13 +850,27 @@ function formatRoomValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
 
-function toInputValue(value: number | null | undefined) {
+function formatRevenueValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "N/A";
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return String(value);
+  return `${numeric.toLocaleString("fr-FR")} DA`;
+}
+
+function toInputValue(value: number | string | null | undefined) {
   return value === null || value === undefined ? "" : String(value);
 }
 
 function normalizeTextInput(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeNullableDecimal(value: string) {
+  const trimmed = value.trim().replace(",", ".");
+  if (trimmed.length === 0) return null;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return INVALID_NUMBER;
+  return trimmed;
 }
 
 function isNoneLikeValue(value: string) {

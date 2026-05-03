@@ -11,6 +11,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
+import { fa } from "zod/v4/locales";
+
+import faviconurl from "@/assets/favicon.ico";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -32,7 +35,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     links: [
       {
         rel: "icon",
-        href: "/favicon.ico",
+        href: faviconurl,
       },
     ],
   }),
