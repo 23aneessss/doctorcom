@@ -392,21 +392,6 @@ function RouteComponent() {
     setSelectedDay((currentDay) => Math.min(currentDay, daysInMonth));
   }, [selectedMonth, selectedYear]);
 
-  useEffect(() => {
-    if (monthSlotsQuery.isLoading) {
-      return;
-    }
-
-    const dayElement = document.getElementById(`agenda-day-${selectedDateIso}`);
-    if (!dayElement) {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      dayElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [monthSlotsQuery.isLoading, selectedDateIso, filteredGroupedEvents]);
-
   const handleCreateRdv = async (values: RdvFormValues) => {
     try {
       let nextValues = values;
