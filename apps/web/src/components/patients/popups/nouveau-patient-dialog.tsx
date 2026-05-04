@@ -558,8 +558,8 @@ export function NouveauPatientDialog({
 
           {currentStep === 2 ? (
             <div className={styles.stepTwoContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
-              {showValidation && !isStepTwoValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires de cette etape avant de continuer.</p> : null}
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations médicales</strong> — Ces informations aideront au suivi médical du patient.</p></div>
+              {showValidation && !isStepTwoValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires de cette étape avant de continuer.</p> : null}
               <div className={`${styles.stepTwoMedicalGrid} ${isFemalePatient ? styles.stepTwoMedicalGridSingle : ""}`}>
                 <Field label="Groupe sanguin"><input className={styles.input} value={groupeSanguin} onChange={(e) => setGroupeSanguin(e.currentTarget.value)} placeholder="Ex: A+, O-, B+..." /></Field>
                 <Field label="Age de circoncision">
@@ -575,7 +575,7 @@ export function NouveauPatientDialog({
               </div>
 
               <section className={styles.sectionBlock}>
-                <h3 className={styles.sectionTitle}>ANTECEDENTS PERSONNELS</h3>
+                <h3 className={styles.sectionTitle}>ANTÉCÉDENTS PERSONNELS</h3>
                 {personalAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <div className={styles.personalTypeRow}>
@@ -595,11 +595,11 @@ export function NouveauPatientDialog({
                     </Field>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setPersonalAntecedents((current) => [...current, initialPersonalAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antecedent</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setPersonalAntecedents((current) => [...current, initialPersonalAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antécédent</button>
               </section>
 
               <section className={styles.sectionBlock}>
-                <h3 className={styles.sectionTitle}>ANTECEDENTS FAMILIAUX</h3>
+                <h3 className={styles.sectionTitle}>ANTÉCÉDENTS FAMILIAUX</h3>
                 {familyAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <Field label="Lien de parente" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined}>
@@ -613,14 +613,14 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setFamilyAntecedents((current) => [...current, initialFamilyAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antecedent</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setFamilyAntecedents((current) => [...current, initialFamilyAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antécédent</button>
               </section>
             </div>
           ) : null}
 
           {currentStep === 3 ? (
             <div className={styles.stepThreeContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Les traitements saisis seront enregistres lors de la creation.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Traitements en cours</strong> — Les médicaments saisis seront enregistrés à la création du dossier.</p></div>
               <section className={styles.treatmentSection}>
                 <h3 className={styles.sectionTitle}>MEDICAMENTS</h3>
                 {treatments.map((treatment) => (
@@ -637,48 +637,48 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setTreatments((current) => [...current, initialTreatment()])}><Plus size={14} aria-hidden="true" />Ajouter un medicament</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setTreatments((current) => [...current, initialTreatment()])}><Plus size={14} aria-hidden="true" />Ajouter un médicament</button>
               </section>
             </div>
           ) : null}
 
           {currentStep === 4 && isFemalePatient ? (
             <div className={styles.stepFourContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Sante feminine</strong> - Informations specifiques a la patiente.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Santé féminine</strong> — Informations spécifiques à la patiente.</p></div>
               <div className={styles.formGrid}>
-                <Field label="Age des premieres regles"><input className={styles.input} type="number" value={menarche} onChange={(e) => setMenarche(e.currentTarget.value)} placeholder="Ex: 12" /></Field>
-                <Field label="Regularite des cycles"><select className={styles.input} value={regulariteCycles} onChange={(e) => setRegulariteCycles(e.currentTarget.value)}><option value="Reguliers">Reguliers</option><option value="Irreguliers">Irreguliers</option><option value="Absents">Absents (Amenorrhee)</option></select></Field>
-                <Field label="Contraception"><input className={styles.input} value={contraception} onChange={(e) => setContraception(e.currentTarget.value)} placeholder="Ex: Pilule, DIU, Aucun..." /></Field>
+                <Field label="Âge des premières règles"><input className={styles.input} type="number" value={menarche} onChange={(e) => setMenarche(e.currentTarget.value)} placeholder="Ex : 12" /></Field>
+                <Field label="Régularité des cycles"><select className={styles.input} value={regulariteCycles} onChange={(e) => setRegulariteCycles(e.currentTarget.value)}><option value="Réguliers">Réguliers</option><option value="Irréguliers">Irréguliers</option><option value="Absents">Absents (Aménorrhée)</option></select></Field>
+                <Field label="Contraception"><input className={styles.input} value={contraception} onChange={(e) => setContraception(e.currentTarget.value)} placeholder="Ex : Pilule, DIU, Aucune…" /></Field>
                 <Field label="Nombre de grossesses"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbGrossesses)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbGrossesses, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbGrossesses, 1)}>+</button></div></div></Field>
-                <Field label="Nombre de cesariennes"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbCesariennes)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, 1)}>+</button></div></div></Field>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}><label className={styles.checkboxPill}><input type="checkbox" checked={menopause} onChange={(e) => setMenopause(e.currentTarget.checked)} /><span>Menopausee</span></label></div>
-                {menopause ? <Field label="Age de la menopause"><input className={styles.input} type="number" value={ageMenopause} onChange={(e) => setAgeMenopause(e.currentTarget.value)} placeholder="Ex: 50" /></Field> : null}
-                <Field label="Symptomes menopause"><textarea className={`${styles.input} ${styles.textareaInput}`} value={symptomesMenopause} onChange={(e) => setSymptomesMenopause(e.currentTarget.value)} placeholder="Ex: Bouffees de chaleur..." /></Field>
+                <Field label="Nombre de césariennes"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbCesariennes)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, 1)}>+</button></div></div></Field>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}><label className={styles.checkboxPill}><input type="checkbox" checked={menopause} onChange={(e) => setMenopause(e.currentTarget.checked)} /><span>Ménopausée</span></label></div>
+                {menopause ? <Field label="Âge de la ménopause"><input className={styles.input} type="number" value={ageMenopause} onChange={(e) => setAgeMenopause(e.currentTarget.value)} placeholder="Ex : 50" /></Field> : null}
+                <Field label="Symptômes ménopause"><textarea className={`${styles.input} ${styles.textareaInput}`} value={symptomesMenopause} onChange={(e) => setSymptomesMenopause(e.currentTarget.value)} placeholder="Ex : Bouffées de chaleur…" /></Field>
               </div>
             </div>
           ) : null}
 
           {(currentStep === 4 && isMalePatient) || (currentStep === 5 && isFemalePatient) ? (
             <div className={styles.stepFourContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> \u2014 Ces informations aideront au suivi m\u00e9dical du patient.</p></div>
               <div className={styles.socialTopGrid}>
-                  <Field label={"Assur\u00e9"}>
+                  <Field label="Assur\u00e9">
                     <label className={styles.checkboxPill}>
                       <input checked={assure} onChange={(event) => setAssure(event.currentTarget.checked)} type="checkbox" />
                       <span>{assure ? "Oui" : "Non"}</span>
                     </label>
                   </Field>
-                <Field label="Taille menages"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille menages">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille menages">+</button></div></div></Field>
-                <Field label="Nombre de pieces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pieces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pieces">+</button></div></div></Field>
+                <Field label="Taille du m\u00e9nage"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille du m\u00e9nage">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille du m\u00e9nage">+</button></div></div></Field>
+                <Field label="Nombre de pi\u00e8ces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pi\u00e8ces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pi\u00e8ces">+</button></div></div></Field>
               </div>
               <div className={styles.socialBottomGrid}>
-                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex: Ingenieur, Etudiant, Retraite..." /></Field>
-                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">Selectionner</option><option value="Celibataire">Celibataire</option><option value="Marie(e)">Marie(e)</option><option value="Divorce(e)">Divorce(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
+                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex : Ing\u00e9nieur, \u00c9tudiant, Retrait\u00e9\u2026" /></Field>
+                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">S\u00e9lectionner</option><option value="C\u00e9libataire">C\u00e9libataire</option><option value="Mari\u00e9(e)">Mari\u00e9(e)</option><option value="Divorc\u00e9(e)">Divorc\u00e9(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
                 <Field label="Nombre d'enfants"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreEnfants)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, -1)} aria-label="Diminuer le nombre d'enfants">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, 1)} aria-label="Augmenter le nombre d'enfants">+</button></div></div></Field>
               </div>
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>MODE DE VIE & HABITUDES</h3>
-                <Field label="Habitudes saines"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesSaines} onChange={(event) => setHabitudesSaines(event.currentTarget.value)} placeholder="Activite physique reguliere, alimentation equilibree" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesSaines("")} aria-label="Effacer habitudes saines"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
+                <Field label="Habitudes saines"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesSaines} onChange={(event) => setHabitudesSaines(event.currentTarget.value)} placeholder="Activité physique régulière, alimentation équilibrée…" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesSaines("")} aria-label="Effacer habitudes saines"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Habitudes toxiques"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesToxiques} onChange={(event) => setHabitudesToxiques(event.currentTarget.value)} placeholder="Ex: tabac, alcool..." /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesToxiques("")} aria-label="Effacer habitudes toxiques"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Environnement animal"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={environnementAnimal} onChange={(event) => setEnvironnementAnimal(event.currentTarget.value)} placeholder="Ex: animaux domestiques..." /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setEnvironnementAnimal("")} aria-label="Effacer environnement animal"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Relations environnementales"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={relationsEnvironnementales} onChange={(event) => setRelationsEnvironnementales(event.currentTarget.value)} placeholder="Ex: environnement social du patient" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setRelationsEnvironnementales("")} aria-label="Effacer relations environnementales"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
@@ -687,10 +687,10 @@ export function NouveauPatientDialog({
           ) : null}
 
           <footer className={styles.footer}>
-            {currentStep === 1 ? <button type="button" className={styles.cancelButton} onClick={onClose}><X size={16} aria-hidden="true" />Annuler</button> : <button type="button" className={styles.cancelButton} onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1) as 1 | 2 | 3 | 4 | 5)}><ChevronLeft size={16} aria-hidden="true" />Precedent</button>}
+            {currentStep === 1 ? <button type="button" className={styles.cancelButton} onClick={onClose}><X size={16} aria-hidden="true" />Annuler</button> : <button type="button" className={styles.cancelButton} onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1) as 1 | 2 | 3 | 4 | 5)}><ChevronLeft size={16} aria-hidden="true" />Précédent</button>}
             <div className={styles.footerActionsRight}>
               <button type="button" className={styles.addNowButton} onClick={handleAddNow} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Ajout en cours..." : "Ajouter maintenant"}</button>
-              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>Continuer</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>{currentStep < maxStep ? "Continuer" : "Terminer"}</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </footer>
         </form>
