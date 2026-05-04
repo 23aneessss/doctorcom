@@ -195,11 +195,16 @@ export function NouveauVoyageDialog({
 
   useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onOpenChange(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, onOpenChange]);
 
   if (!open) return null;
@@ -208,13 +213,40 @@ export function NouveauVoyageDialog({
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,35,65,0.2)] p-4"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onOpenChange(false);
-      }}
-    >
-      <div className="flex max-h-[calc(100svh-32px)] w-full max-w-[672px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
+    <>
+      <style>
+        {`
+          @keyframes patientClinicalOverlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          @keyframes patientClinicalDialogIn {
+            from {
+              opacity: 0;
+              transform: translateY(14px) scale(0.985);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}
+      </style>
+      <div
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target) onOpenChange(false);
+        }}
+        style={{ animation: "patientClinicalOverlayIn 180ms ease-out" }}
+      >
+      <div
+        className="flex max-h-[calc(100dvh-64px)] w-full max-w-[672px] overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]"
+        style={{
+          animation:
+            "patientClinicalDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
         <form
           className="flex min-h-0 w-full flex-col"
           onSubmit={(event) => {
@@ -237,7 +269,7 @@ export function NouveauVoyageDialog({
           {mode === "delete" ? (
             <DeleteContent values={values} />
           ) : (
-            <div className="consultation-modal-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-6 sm:px-6">
+            <div className="consultation-modal-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-5 pt-6 sm:px-6">
               <FieldInput
                 form={form}
                 label="DESTINATION"
@@ -284,7 +316,8 @@ export function NouveauVoyageDialog({
           />
         </form>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -296,10 +329,12 @@ function DialogHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="flex h-[60.8px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
+    <div className="flex h-[72px] shrink-0 items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-6">
       <div className="flex items-center gap-3">
-        <MapPin className="size-5 text-[#0f3460]" />
-        <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-7 text-[#0f3460]">
+        <span className="flex size-10 items-center justify-center rounded-[13px] bg-[#eef8fd] text-[#0f3460]">
+          <MapPin className="size-5" />
+        </span>
+        <h3 className="font-['Plus_Jakarta_Sans'] text-[22px] font-semibold leading-7 text-[#0f3460]">
           {title}
         </h3>
       </div>
@@ -346,7 +381,7 @@ function FieldInput({
             {label} {required ? <span className="text-[#f97316]">*</span> : null}
           </label>
           <input
-            className="h-[37.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
+            className="h-[44px] w-full rounded-[12px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={placeholder}
@@ -382,7 +417,7 @@ function FieldTextarea({
             {label}
           </label>
           <textarea
-            className="h-[96px] w-full resize-none rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
+            className="h-[110px] w-full resize-none rounded-[12px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={placeholder}
