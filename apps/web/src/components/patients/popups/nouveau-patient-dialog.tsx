@@ -238,8 +238,8 @@ export function NouveauPatientDialog({
   }, [values.sexe]);
 
   const stepLabels = isFemalePatient
-    ? (["Informations essentielles", "Antecedents", "Traitements", "Sante feminine", "Informations sociales"] as const)
-    : (["Informations essentielles", "Antecedents", "Traitements", "Informations sociales"] as const);
+    ? (["Informations essentielles", "Antécédents", "Traitements", "Santé féminine", "Informations sociales"] as const)
+    : (["Informations essentielles", "Antécédents", "Traitements", "Informations sociales"] as const);
   const maxStep = isFemalePatient ? 5 : 4;
 
   const isFormValid = useMemo(() => requiredFields.every((field) => (values[field] ?? "").trim().length > 0), [values]);
@@ -660,20 +660,20 @@ export function NouveauPatientDialog({
 
           {(currentStep === 4 && isMalePatient) || (currentStep === 5 && isFemalePatient) ? (
             <div className={styles.stepFourContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> \u2014 Ces informations aideront au suivi m\u00e9dical du patient.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> — Ces informations aideront au suivi médical du patient.</p></div>
               <div className={styles.socialTopGrid}>
-                  <Field label="Assur\u00e9">
+                  <Field label="Assuré">
                     <label className={styles.checkboxPill}>
                       <input checked={assure} onChange={(event) => setAssure(event.currentTarget.checked)} type="checkbox" />
                       <span>{assure ? "Oui" : "Non"}</span>
                     </label>
                   </Field>
-                <Field label="Taille du m\u00e9nage"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille du m\u00e9nage">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille du m\u00e9nage">+</button></div></div></Field>
-                <Field label="Nombre de pi\u00e8ces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pi\u00e8ces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pi\u00e8ces">+</button></div></div></Field>
+                <Field label="Taille du ménage"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille du ménage">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille du ménage">+</button></div></div></Field>
+                <Field label="Nombre de pièces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pièces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pièces">+</button></div></div></Field>
               </div>
               <div className={styles.socialBottomGrid}>
-                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex : Ing\u00e9nieur, \u00c9tudiant, Retrait\u00e9\u2026" /></Field>
-                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">S\u00e9lectionner</option><option value="C\u00e9libataire">C\u00e9libataire</option><option value="Mari\u00e9(e)">Mari\u00e9(e)</option><option value="Divorc\u00e9(e)">Divorc\u00e9(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
+                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex : Ingénieur, Étudiant, Retraité…" /></Field>
+                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">Sélectionner</option><option value="Célibataire">Célibataire</option><option value="Marié(e)">Marié(e)</option><option value="Divorcé(e)">Divorcé(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
                 <Field label="Nombre d'enfants"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreEnfants)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, -1)} aria-label="Diminuer le nombre d'enfants">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, 1)} aria-label="Augmenter le nombre d'enfants">+</button></div></div></Field>
               </div>
               <section className={styles.sectionBlock}>
