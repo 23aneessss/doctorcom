@@ -638,13 +638,6 @@ function UpcomingAppointments({
         )}
       </div>
 
-      <Link
-        className="mt-auto inline-flex items-center justify-center gap-2 pt-4 font-['Plus_Jakarta_Sans'] text-[13px] font-bold text-[#052ca0] transition hover:text-[#0f3460]"
-        to="/agenda"
-      >
-        Voir l'agenda complet
-        <ArrowRight className="size-4" />
-      </Link>
     </div>
   );
 }
