@@ -382,7 +382,7 @@ function RouteComponent() {
             <header className={styles.titleRow}>
               <Question size={18} weight="fill" className={styles.titleMark} aria-hidden="true" />
               <h1 className={styles.title}>
-                {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire Aux Questions"}
+                {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire aux questions"}
               </h1>
             </header>
 
