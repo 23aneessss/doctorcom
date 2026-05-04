@@ -21,7 +21,6 @@ export interface DashboardOverview {
   patientTrend: Array<{
     label: string;
     value: number;
-    ghostValue: number;
   }>;
   topMedications: Array<{
     name: string;
@@ -125,15 +124,13 @@ export class DashboardService {
   ): DashboardOverview["patientTrend"] {
     const days = Array.from({ length: 22 }, (_, index) => this.addDays(new Date(), index - 21));
 
-    return days.map((dateValue, index) => {
+    return days.map((dateValue) => {
       const isoDate = this.formatDate(dateValue);
       const value = patients.filter((patient) => patient.date_admission === isoDate).length;
-      const ghostValue = Math.max(value + 3, (index % 5) + 4);
 
       return {
         label: dateValue.getDate().toString().padStart(2, "0"),
         value,
-        ghostValue,
       };
     });
   }
@@ -179,7 +176,7 @@ export class DashboardService {
     return rdvs
       .filter((rdv) => rdv.date >= today && rdv.statut !== "annule")
       .sort((a, b) => `${a.date} ${a.heure}`.localeCompare(`${b.date} ${b.heure}`))
-      .slice(0, 5)
+      .slice(0, 40)
       .map((rdv) => {
         const patientLabel = rdv.patient_label?.trim() || "Patient";
         return {
@@ -201,7 +198,7 @@ export class DashboardService {
         day: dateValue.getDate().toString(),
         weekday: this.formatWeekday(dateValue),
         isoDate: this.formatDate(dateValue),
-        isActive: index === 1,
+        isActive: index === 0,
       };
     });
   }

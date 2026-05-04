@@ -47,7 +47,7 @@ const ALL_QUESTIONS = [
   { id: "q-conn-1", section: "Paramètres", question: "Je n'arrive pas à me connecter, que faire ?", answer: "Sur la page de connexion, cliquez sur \"Mot de passe oublié ?\", saisissez votre e-mail professionnelle puis suivez le lien de réinitialisation reçu par e-mail." },
   { id: "q-conn-2", section: "Paramètres", question: "Comment modifier mon mot de passe ?", answer: "Allez dans Paramètres > Sécurité, cliquez sur \"Changer le mot de passe\", puis validez votre nouveau mot de passe (minimum 8 caractères)." },
   { id: "q-conn-3", section: "Paramètres", question: "Comment récupérer mon compte ?", answer: "Utilisez l'option \"Mot de passe oublié ?\" sur l'écran de connexion. Si vous n'avez plus accès à votre e-mail, contactez le support pour vérification." },
-  { id: "q-conn-4", section: "Paramètres", question: "doctor.com est-il accessible sur mobile ?", answer: "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement." },
+  { id: "q-conn-4", section: "Paramètres", question: "Y a-t-il une version mobile de Doctor.com ?", answer: "Oui, Doctor.com est disponible en application mobile, ce qui vous permet de consulter vos rendez-vous et d'avoir la liste complète des médicaments sous la main. " },
   { id: "q-pat-1", section: "Patients", question: "Comment créer un nouveau dossier patient ?", answer: "Depuis le tableau de bord, utilisez le widget \"Actions Rapides\" et cliquez sur \"+ Ajouter un patient\". Vous pouvez aussi utiliser le bouton en haut à droite de la section Patients." },
   { id: "q-pat-2", section: "Patients", question: "Puis-je modifier un dossier après sa création ?", answer: "Oui, cliquez sur l'icône Crayon (orange) sur la carte du patient pour modifier n'importe quelle information." },
   { id: "q-pat-3", section: "Patients", question: "Comment supprimer un patient ?", answer: "Cliquez sur le bouton d'options sur la carte du patient, puis sélectionnez \"Supprimer\". Une confirmation sera demandée pour éviter toute suppression accidentelle." },
@@ -237,7 +237,7 @@ function RouteComponent() {
               {/* ── 6 section cards ── */}
               <section
                 aria-label="Rubriques d'aide"
-                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "1.1rem" }}
+                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "0.9rem" }}
               >
                 {SECTION_CARDS.map((card) => (
                   <SectionCard key={card.id} card={card} />
@@ -250,11 +250,11 @@ function RouteComponent() {
                 aria-label="Questions fréquentes"
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.65rem" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "1.9rem", height: "1.9rem", borderRadius: "999px", background: "linear-gradient(135deg,#fff3eb,#fff9f5)", border: "1px solid #fdddc2", color: "#f77a21" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "1.75rem", height: "1.75rem", borderRadius: "8px", background: "#eef4ff", border: "1px solid #c2d4f8", color: "#052CA0" }}>
                       <Question size={13} weight="bold" aria-hidden="true" />
                     </span>
-                    <h2 style={{ margin: 0, color: "#0f3460", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(1rem, 1.7vw, 1.3rem)", fontWeight: 700 }}>
+                    <h2 style={{ margin: 0, color: "#052ca0", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(1rem, 1.5vw, 1.15rem)", fontWeight: 700 }}>
                       Questions fréquentes
                     </h2>
                   </div>
@@ -266,7 +266,7 @@ function RouteComponent() {
                   </Link>
                 </div>
 
-                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {FEATURED_QUESTIONS.map((item) => (
                     <QuestionItem
                       key={item.id}
@@ -284,24 +284,29 @@ function RouteComponent() {
                 style={{
                   marginBottom: "clamp(1rem, 2vw, 1.5rem)",
                   borderRadius: "14px",
-                  border: "1px solid #c8e3f0",
-                  background: "linear-gradient(135deg, #eaf4fb 0%, #f5fafd 100%)",
+                  border: "0.8px solid #c2e0ef",
+                  background: "#ffffff",
                   padding: "clamp(1rem, 1.8vw, 1.4rem) clamp(1.2rem, 2vw, 1.6rem)",
                   display: "flex",
                   flexWrap: "wrap" as const,
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: "1rem",
-                  boxShadow: "0px 2px 10px rgba(118,187,221,0.15)",
+                  boxShadow: "0px 4px_6px_0px rgba(118,187,221,0.2),0px 2px 4px 0px rgba(118,187,221,0.2)",
                 }}
               >
-                <div>
-                  <h3 style={{ margin: 0, color: "#0f3460", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.88rem, 1.25vw, 1rem)", fontWeight: 700, lineHeight: 1.35 }}>
-                    Vous n'avez pas trouvé votre réponse ?
-                  </h3>
-                  <p style={{ margin: "0.25rem 0 0", color: "#6b7e99", fontFamily: "Inter, sans-serif", fontSize: "clamp(0.76rem, 1vw, 0.86rem)", lineHeight: 1.4 }}>
-                    Notre équipe est disponible pour vous aider.
-                  </p>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.85rem" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "2.4rem", height: "2.4rem", flexShrink: 0, borderRadius: "10px", background: "#eef4ff", border: "1px solid #c2d4f8", color: "#052ca0" }}>
+                    <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 style={{ margin: 0, color: "#0f3460", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "clamp(0.88rem, 1.25vw, 1rem)", fontWeight: 700, lineHeight: 1.35 }}>
+                      Vous n'avez pas trouvé votre réponse ?
+                    </h3>
+                    <p style={{ margin: "0.25rem 0 0", color: "#6b7e99", fontFamily: "Inter, sans-serif", fontSize: "clamp(0.76rem, 1vw, 0.86rem)", lineHeight: 1.4 }}>
+                      Notre équipe est disponible du lundi au vendredi pour vous aider.
+                    </p>
+                  </div>
                 </div>
                 <SupportButton />
               </section>
@@ -322,18 +327,20 @@ function SectionCard({ card }: { card: typeof SECTION_CARDS[number] }) {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        borderRadius: "18px",
-        border: hovered ? "1px solid #afd4ea" : "1px solid #cfe6f3",
-        background: "#ffffff",
-        boxShadow: hovered ? "0px 12px 28px -12px rgba(15,52,96,0.2)" : "0px 4px 16px -8px rgba(15,52,96,0.1)",
+        borderRadius: "14px",
+        border: hovered ? "0.8px solid #76bbdd" : "0.8px solid #c2e0ef",
+        background: hovered ? "#f8fafc" : "#ffffff",
+        boxShadow: hovered
+          ? "0px 6px 16px -6px rgba(118,187,221,0.35)"
+          : "0px 4px 6px 0px rgba(118,187,221,0.2),0px 2px 4px 0px rgba(118,187,221,0.2)",
         transform: hovered ? "translateY(-2px)" : "translateY(0)",
-        transition: "transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out",
+        transition: "transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out, background 200ms ease-out",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", padding: "18px 18px 14px" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "38px", height: "38px", flexShrink: 0, borderRadius: "10px", background: "linear-gradient(135deg,#052CA0,#173FB8)", color: "#ffffff", boxShadow: "0px 4px 10px rgba(5,44,160,0.22)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "38px", height: "38px", flexShrink: 0, borderRadius: "10px", background: "#052ca0", color: "#ffffff", boxShadow: "0px 4px 10px rgba(5,44,160,0.22)" }}>
           {card.icon}
         </span>
         <div>
@@ -345,10 +352,10 @@ function SectionCard({ card }: { card: typeof SECTION_CARDS[number] }) {
           </p>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", borderTop: "1px solid #edf5fb", padding: "9px 18px" }}>
+      <div style={{ display: "flex", alignItems: "center", borderTop: "0.8px solid #e8f3fb", padding: "9px 18px" }}>
         <Link
           to={card.href}
-          style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "12px", fontWeight: 700, color: "#f77a21", textDecoration: "none" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "12px", fontWeight: 700, color: "#052ca0", textDecoration: "none" }}
         >
           Explorer <ArrowRight size={12} weight="bold" aria-hidden="true" />
         </Link>
@@ -371,24 +378,23 @@ function QuestionItem({
   return (
     <li
       style={{
-        borderRadius: "11px",
-        border: isOpen ? "1px solid #b5d3ea" : "1px solid #daedf8",
-        borderLeft: isOpen ? "4px solid #052CA0" : "1px solid #daedf8",
-        background: isOpen ? "linear-gradient(to right,#f0f7ff,#ffffff)" : "#ffffff",
+        borderRadius: "10px",
+        border: isOpen ? "0.8px solid #76bbdd" : "0.8px solid #c2e0ef",
+        background: isOpen ? "#f8fafc" : "#ffffff",
         overflow: "hidden",
-        boxShadow: isOpen ? "0px 4px 14px -6px rgba(15,52,96,0.12)" : "none",
-        transition: "border-color 0.18s ease, box-shadow 0.18s ease",
+        boxShadow: isOpen ? "0px 4px 6px 0px rgba(118,187,221,0.2)" : "none",
+        transition: "border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease",
       }}
     >
       <button
         type="button"
-        style={{ width: "100%", border: 0, background: "transparent", color: isOpen ? "#052CA0" : "#0f3460", minHeight: "2.8rem", padding: "0.75rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", textAlign: "left", fontFamily: "Inter, sans-serif", fontSize: "0.865rem", fontWeight: 600, cursor: "pointer" }}
+        style={{ width: "100%", border: 0, background: "transparent", color: isOpen ? "#052ca0" : "#0f3460", minHeight: "2.8rem", padding: "0.75rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", textAlign: "left", fontFamily: "Inter, sans-serif", fontSize: "0.865rem", fontWeight: 600, cursor: "pointer" }}
         onClick={onToggle}
         aria-expanded={isOpen}
       >
         <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
           {showSection && (
-            <span style={{ flexShrink: 0, display: "inline-flex", height: "1.25rem", alignItems: "center", borderRadius: "999px", background: "#eef6fc", border: "1px solid #c6dff0", padding: "0 0.5rem", fontFamily: "Inter, sans-serif", fontSize: "10.5px", fontWeight: 600, color: "#3a6a8f", whiteSpace: "nowrap" }}>
+            <span style={{ flexShrink: 0, display: "inline-flex", height: "1.25rem", alignItems: "center", borderRadius: "6px", background: "#eef4ff", border: "1px solid #c2d4f8", padding: "0 0.5rem", fontFamily: "Inter, sans-serif", fontSize: "10.5px", fontWeight: 600, color: "#052ca0", whiteSpace: "nowrap" }}>
               {item.section}
             </span>
           )}
@@ -398,12 +404,13 @@ function QuestionItem({
           size={15}
           weight="bold"
           aria-hidden="true"
-          style={{ flexShrink: 0, color: "#4a6fa5", transition: "transform 0.24s cubic-bezier(0.22,1,0.36,1)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+          style={{ flexShrink: 0, color: isOpen ? "#052ca0" : "#7aaec8", transition: "transform 0.24s cubic-bezier(0.22,1,0.36,1)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
         />
       </button>
       <div style={{ display: "grid", gridTemplateRows: isOpen ? "1fr" : "0fr", opacity: isOpen ? 1 : 0, transition: "grid-template-rows 0.24s cubic-bezier(0.16,1,0.3,1), opacity 0.2s ease" }}>
         <div style={{ overflow: "hidden", minHeight: 0 }}>
-          <p style={{ margin: 0, padding: "0 1rem 0.85rem", fontFamily: "Inter, sans-serif", fontSize: "0.84rem", lineHeight: 1.65, color: "#3d5a7a" }}>
+          <div style={{ height: "0.8px", background: "#c2e0ef", margin: "0 1rem" }} />
+          <p style={{ margin: 0, padding: "0.7rem 1rem 0.9rem", fontFamily: "Inter, sans-serif", fontSize: "0.84rem", lineHeight: 1.65, color: "#3d5a7a" }}>
             {item.answer}
           </p>
         </div>
@@ -417,7 +424,27 @@ function SupportButton() {
   return (
     <button
       type="button"
-      style={{ minHeight: "2.35rem", border: 0, borderRadius: "10px", background: "linear-gradient(135deg,#052CA0,#173FB8)", color: "#ffffff", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.84rem", fontWeight: 700, padding: "0.5rem 1.3rem", whiteSpace: "nowrap" as const, cursor: "pointer", boxShadow: hovered ? "0px 6px 18px rgba(5,44,160,0.36)" : "0px 4px 14px rgba(5,44,160,0.28)", transform: hovered ? "translateY(-1px)" : "translateY(0)", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+      style={{
+        height: "42px",
+        border: 0,
+        borderRadius: "14px",
+        background: "#052ca0",
+        color: "#ffffff",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        fontSize: "0.84rem",
+        fontWeight: 600,
+        padding: "0 1.4rem",
+        whiteSpace: "nowrap" as const,
+        cursor: "pointer",
+        boxShadow: hovered
+          ? "0px 6px 18px rgba(5,44,160,0.36)"
+          : "0px 4px 14px rgba(5,44,160,0.22)",
+        transform: hovered ? "translateY(-1px)" : "translateY(0)",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.4rem",
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

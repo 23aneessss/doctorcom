@@ -137,8 +137,14 @@ export function VoirRdvDialog({
       </div>
 
       {isConfirmingDelete ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(10,35,65,0.28)] p-4">
-          <section className="w-full max-w-[430px] overflow-hidden rounded-[20px] border border-[#ffd5cd] bg-white shadow-[0_24px_70px_rgba(15,52,96,0.22)]">
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-[rgba(10,35,65,0.3)] p-4 backdrop-blur-[4px]"
+          style={{ animation: "agendaRdvOverlayIn 180ms ease-out" }}
+        >
+          <section
+            className="w-full max-w-[430px] overflow-hidden rounded-[20px] border border-[#ffd5cd] bg-white shadow-[0_24px_70px_rgba(15,52,96,0.22)]"
+            style={{ animation: "agendaRdvDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+          >
             <div className="bg-gradient-to-br from-[#fff5f3] to-white px-5 py-5 text-center">
               <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-[#ffe8e3] text-[#CA3500]">
                 <Trash2 className="size-7" aria-hidden="true" />

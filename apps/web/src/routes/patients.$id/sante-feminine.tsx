@@ -98,42 +98,36 @@ function SanteFeminineView() {
         key: "menarche" as const,
         label: "Âge de la ménarche",
         value: formatWithSuffix(femaleInfo?.menarche, "ans"),
-        tone: "filled" as const,
         action: "edit" as const,
       },
       {
         key: "regularite_cycles" as const,
         label: "Régularité du cycle",
         value: formatTextValue(femaleInfo?.regularite_cycles),
-        tone: "filled" as const,
         action: "edit" as const,
       },
       {
         key: "contraception" as const,
         label: "Contraception",
         value: formatTextValue(femaleInfo?.contraception),
-        tone: "filled" as const,
         action: "edit" as const,
       },
       {
         key: "nb_grossesses" as const,
         label: "Grossesses",
         value: formatNumberValue(femaleInfo?.nb_grossesses),
-        tone: "filledBorder" as const,
         action: "add" as const,
       },
       {
         key: "nb_cesariennes" as const,
         label: "Césariennes",
         value: formatNumberValue(femaleInfo?.nb_cesariennes),
-        tone: "filledBorder" as const,
         action: "add" as const,
       },
       {
         key: "menopause" as const,
         label: "Statut ménopause",
         value: formatMenopauseValue(femaleInfo?.menopause),
-        tone: "default" as const,
         action: "edit" as const,
       },
     ],
@@ -247,22 +241,17 @@ function SanteFeminineView() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-x-4 xl:gap-y-[16px]">
         {cards.map((card) => {
           const isEditing = editingCard === card.key;
-          const isExpanded =
-            (card.key === "menopause" && femaleInfo?.menopause === true) ||
-            (card.key === "contraception" && card.value.length > 30);
 
           return (
             <FemaleInfoCard
               key={card.key}
               label={card.label}
-              tone={card.tone}
+              action={card.action}
               isEditing={isEditing}
               onEdit={() => beginEdit(card.key)}
               onSave={() => saveCard(card.key)}
               onCancel={cancelEdit}
-              action={card.action}
               isSaving={updateMutation.isPending}
-              isCompact={!isExpanded && !isEditing}
             >
               {renderCardBody({
                 cardKey: card.key,
@@ -271,9 +260,6 @@ function SanteFeminineView() {
                 formState,
                 setFormState,
                 isEditing,
-                onEdit: () => beginEdit(card.key),
-                action: card.action,
-                isCompact: !isExpanded && !isEditing,
               })}
             </FemaleInfoCard>
           );
@@ -290,9 +276,6 @@ function renderCardBody({
   formState,
   setFormState,
   isEditing,
-  onEdit,
-  action,
-  isCompact,
 }: {
   cardKey: EditCardKey;
   cardValue: string;
@@ -309,16 +292,12 @@ function renderCardBody({
   formState: EditFormState;
   setFormState: Dispatch<SetStateAction<EditFormState>>;
   isEditing: boolean;
-  onEdit: () => void;
-  action: "edit" | "add";
-  isCompact: boolean;
 }) {
   if (cardKey === "menopause") {
     if (isEditing) {
       const showDetails = formState.menopause === "true";
-
       return (
-        <div className={`flex h-full flex-col ${isCompact ? "gap-1.5" : "gap-3"}`}>
+        <div className="flex flex-col gap-3">
           <select
             value={formState.menopause}
             onChange={(event) =>
@@ -327,18 +306,13 @@ function renderCardBody({
                 menopause: event.target.value as EditFormState["menopause"],
               }))
             }
-            className={`rounded-[8px] border border-[#c2e0ef] bg-white font-['Inter'] text-[#0f3460] outline-none transition focus:border-[#76bbdd] ${
-              isCompact
-                ? "h-7 px-2 text-[12px] leading-4"
-                : "h-10 px-3 text-[14px] leading-5"
-            }`}
+            className="h-10 rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
           >
             <option value="">Non renseigné</option>
             <option value="true">Oui</option>
             <option value="false">Non</option>
           </select>
-
-          {showDetails ? (
+          {showDetails && (
             <>
               <input
                 type="number"
@@ -352,14 +326,10 @@ function renderCardBody({
                     age_menopause: event.target.value,
                   }))
                 }
-                className={`rounded-[8px] border border-[#c2e0ef] bg-white font-['Inter'] text-[#0f3460] outline-none transition focus:border-[#76bbdd] ${
-                  isCompact
-                    ? "h-7 px-2 text-[12px] leading-4"
-                    : "h-10 px-3 text-[14px] leading-5"
-                }`}
+                className="h-10 rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
               />
               <textarea
-                rows={isCompact ? 2 : 3}
+                rows={3}
                 placeholder="Symptômes de ménopause"
                 value={formState.symptomes_menopause}
                 onChange={(event) =>
@@ -368,31 +338,33 @@ function renderCardBody({
                     symptomes_menopause: event.target.value,
                   }))
                 }
-                className={`resize-none rounded-[8px] border border-[#c2e0ef] bg-white font-['Inter'] text-[#0f3460] outline-none transition focus:border-[#76bbdd] ${
-                  isCompact
-                    ? "min-h-0 flex-1 px-2 py-1.5 text-[12px] leading-4"
-                    : "min-h-[84px] px-3 py-2 text-[14px] leading-5"
-                }`}
+                className="min-h-[84px] resize-none rounded-[8px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
               />
             </>
-          ) : null}
+          )}
         </div>
       );
     }
 
     return (
-      <div className="flex h-full flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         <span className={badgeClassName(cardValue)}>{cardValue}</span>
-        {femaleInfo?.menopause === true ? (
-          <div className="space-y-1.5 text-[12px] leading-[16px] text-[#265284]">
+        {femaleInfo?.menopause === true && (
+          <div className="space-y-1 text-[12px] leading-[18px] text-[#5a7a9a]">
             <p className="font-['Inter']">
-              Âge: <span className="font-medium text-[#0f3460]">{formatWithSuffix(femaleInfo.age_menopause, "ans")}</span>
+              Âge :{" "}
+              <span className="font-medium text-[#0f3460]">
+                {formatWithSuffix(femaleInfo.age_menopause, "ans")}
+              </span>
             </p>
-            <p className="line-clamp-2 font-['Inter'] break-words">
-              Symptômes: <span className="text-[#0f3460]">{formatTextValue(femaleInfo.symptomes_menopause)}</span>
+            <p className="font-['Inter'] break-words">
+              Symptômes :{" "}
+              <span className="text-[#0f3460]">
+                {formatTextValue(femaleInfo.symptomes_menopause)}
+              </span>
             </p>
           </div>
-        ) : null}
+        )}
       </div>
     );
   }
@@ -407,7 +379,7 @@ function renderCardBody({
     if (isTextArea) {
       return (
         <textarea
-          rows={isCompact ? 2 : 3}
+          rows={3}
           value={formState[cardKey]}
           onChange={(event) =>
             setFormState((current) => ({
@@ -415,74 +387,54 @@ function renderCardBody({
               [cardKey]: event.target.value,
             }))
           }
-          className={`resize-none rounded-[8px] border border-[#c2e0ef] bg-white font-['Inter'] text-[#0f3460] outline-none transition focus:border-[#76bbdd] ${
-            isCompact
-              ? "min-h-0 h-full px-2 py-1.5 text-[12px] leading-4"
-              : "min-h-[84px] px-3 py-2 text-[14px] leading-5"
-          }`}
+          className="min-h-[84px] w-full resize-none rounded-[8px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
+        />
+      );
+    }
+
+    if (isNumber) {
+      return (
+        <NumberStepperInput
+          value={formState[cardKey]}
+          onChange={(value) =>
+            setFormState((current) => ({ ...current, [cardKey]: value }))
+          }
         />
       );
     }
 
     return (
-      isNumber ? (
-        <NumberStepperInput
-          value={formState[cardKey]}
-          onChange={(value) =>
-            setFormState((current) => ({
-              ...current,
-              [cardKey]: value,
-            }))
-          }
-          isCompact={isCompact}
-        />
-      ) : (
-        <input
-          type="text"
-          value={formState[cardKey]}
-          onChange={(event) =>
-            setFormState((current) => ({
-              ...current,
-              [cardKey]: event.target.value,
-            }))
-          }
-          className={`w-full rounded-[8px] border border-[#c2e0ef] bg-white font-['Inter'] text-[#0f3460] outline-none transition focus:border-[#76bbdd] ${
-            isCompact
-              ? "h-7 px-2 text-[12px] leading-4"
-              : "h-10 px-3 text-[14px] leading-5"
-          }`}
-        />
-      )
+      <input
+        type="text"
+        value={formState[cardKey]}
+        onChange={(event) =>
+          setFormState((current) => ({
+            ...current,
+            [cardKey]: event.target.value,
+          }))
+        }
+        className="h-10 w-full rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
+      />
     );
   }
 
-  const valueClassName =
-    cardKey === "regularite_cycles" || cardKey === "contraception"
-      ? "text-[14px] leading-5"
-      : "text-[18px] leading-7";
-
   return (
-    <div className="flex items-center gap-[10px] pr-[10px]">
-      <p
-        className={`min-w-0 flex-1 font-['Inter'] ${valueClassName} break-words text-[#0f3460] ${
-          cardValue === "-" ? "text-[#64748b]" : ""
-        }`}
-      >
-        {cardValue}
-      </p>
-      <ReadOnlyActionButton action={action} tone="filled" onClick={onEdit} />
-    </div>
+    <p
+      className={`font-['Inter'] text-[14px] leading-5 break-words ${
+        cardValue === "-" ? "text-[#94a3b8]" : "text-[#0f3460]"
+      }`}
+    >
+      {cardValue}
+    </p>
   );
 }
 
 function NumberStepperInput({
   value,
   onChange,
-  isCompact,
 }: {
   value: string;
   onChange: (value: string) => void;
-  isCompact: boolean;
 }) {
   const adjustValue = (delta: number) => {
     const current = value.trim();
@@ -492,23 +444,15 @@ function NumberStepperInput({
   };
 
   return (
-    <div
-      className={`flex w-full overflow-hidden rounded-[8px] border border-[#c2e0ef] bg-white ${
-        isCompact ? "h-7" : "h-10"
-      }`}
-    >
+    <div className="flex h-10 w-full overflow-hidden rounded-[8px] border border-[#c2e0ef] bg-white">
       <input
         type="text"
         inputMode="numeric"
         value={value}
         onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ""))}
-        className={`min-w-0 flex-1 bg-transparent font-['Inter'] text-[#0f3460] outline-none ${
-          isCompact
-            ? "px-2 text-[12px] leading-4"
-            : "px-3 text-[14px] leading-5"
-        }`}
+        className="min-w-0 flex-1 bg-transparent px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none"
       />
-      <div className="flex w-7 flex-col border-l border-[#c2e0ef] bg-[#f8fafc]">
+      <div className="flex w-8 flex-col border-l border-[#c2e0ef] bg-[#f8fafc]">
         <button
           type="button"
           onClick={() => adjustValue(1)}
@@ -532,75 +476,59 @@ function NumberStepperInput({
 
 function ReadOnlyActionButton({
   action,
-  tone,
   onClick,
 }: {
   action: "edit" | "add";
-  tone: "filled" | "default";
   onClick: () => void;
 }) {
+  if (action === "add") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Ajouter"
+        className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border-[0.8px] border-[#c2e0ef] text-[#052ca0] transition hover:border-[#76bbdd] hover:bg-[#eef4ff]"
+      >
+        <Plus className="size-3.5" strokeWidth={2.2} />
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={action === "add" ? "Ajouter" : "Modifier"}
-      className={`flex shrink-0 items-center justify-center transition ${
-        action === "add"
-          ? "size-5 rounded-[8px] border-[0.7px] border-[#0f3460] text-[#0f3460] hover:bg-white/60"
-          : "size-[23px] text-[#0f3460] hover:opacity-80"
-      }`}
+      aria-label="Modifier"
+      className="inline-flex size-[23px] shrink-0 items-center justify-center rounded-[7px] text-[#f97316] transition hover:bg-[#fff7ed]"
     >
-      {action === "add" ? (
-        <Plus className="size-3.5" strokeWidth={2.2} />
-      ) : (
-        <Pencil className="size-[18px] text-[#f97316]" strokeWidth={2.1} />
-      )}
+      <Pencil className="size-[15px]" strokeWidth={2.1} />
     </button>
   );
 }
 
 function FemaleInfoCard({
   label,
-  tone,
   action,
   isEditing,
   onEdit,
   onSave,
   onCancel,
   isSaving,
-  isCompact,
   children,
 }: {
   label: string;
-  tone: "filled" | "filledBorder" | "default";
   action: "edit" | "add";
   isEditing: boolean;
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
   isSaving: boolean;
-  isCompact: boolean;
   children: ReactNode;
 }) {
-  const toneClassName =
-    tone === "default"
-      ? "border-[#c2e0ef] bg-[#f8fafc]"
-      : tone === "filledBorder"
-        ? "border-[rgba(15,52,96,0.2)] bg-[#c9e4f1]"
-        : "border-[#c9e4f1] bg-[#c9e4f1]";
-
   return (
-    <div
-      className={`flex flex-col rounded-[10px] border-[0.8px] px-[16.8px] pt-[16.8px] transition-all ${
-        isEditing
-          ? "min-h-[132px] pb-4"
-          : isCompact
-            ? "h-[89.6px] pb-[16.8px]"
-            : "min-h-[148px] pb-4"
-      } ${toneClassName}`}
-    >
+    <div className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4">
       <div className="mb-2 flex items-start justify-between gap-3">
-        <p className="font-['Plus_Jakarta_Sans'] text-[14px] leading-5 text-[#64748b]">
+        <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold leading-5 text-[#7a93af]">
           {label}
         </p>
         {isEditing ? (
@@ -609,41 +537,24 @@ function FemaleInfoCard({
               type="button"
               onClick={onCancel}
               disabled={isSaving}
-              className={`inline-flex items-center justify-center rounded-[8px] border border-[#f97316] bg-white text-[#f97316] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60 ${
-                isCompact
-                  ? "size-7"
-                  : "h-8 px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-4"
-              }`}
+              className="inline-flex size-[28px] items-center justify-center rounded-[8px] border border-[#fecaca] bg-white text-[#e11d48] transition hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <X className="size-3.5" />
-              {isCompact ? null : <span className="ml-1">Annuler</span>}
             </button>
             <button
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className={`inline-flex items-center justify-center rounded-[8px] bg-[#052ca0] text-white shadow-[0px_2px_4px_0px_rgba(118,187,221,0.28)] transition hover:bg-[#0a36bc] disabled:cursor-not-allowed disabled:opacity-60 ${
-                isCompact
-                  ? "size-7"
-                  : "h-8 px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-4"
-              }`}
+              className="inline-flex size-[28px] items-center justify-center rounded-[8px] bg-[#052ca0] text-white shadow-[0px_2px_4px_0px_rgba(118,187,221,0.28)] transition hover:bg-[#0a36bc] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Check className="size-3.5" />
-              {isCompact ? null : <span className="ml-1">OK</span>}
             </button>
           </div>
-        ) : tone === "default" ? (
-          <ReadOnlyActionButton action={action} tone="default" onClick={onEdit} />
-        ) : null}
+        ) : (
+          <ReadOnlyActionButton action={action} onClick={onEdit} />
+        )}
       </div>
-
-      <div
-        className={`flex min-h-0 flex-1 flex-col justify-start ${
-          isCompact ? "gap-0 overflow-hidden" : "gap-2"
-        }`}
-      >
-        {children}
-      </div>
+      <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
 }

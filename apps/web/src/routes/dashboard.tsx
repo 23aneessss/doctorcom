@@ -1,18 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
+import type { AppRouter } from "@doctor.com/api/routers/index";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { inferRouterOutputs } from "@trpc/server";
 import {
+  Activity,
+  ArrowRight,
   CalendarDays,
   CircleX,
-  Eye,
+  Clock3,
+  FileText,
+  Pill,
   Plus,
+  Sparkles,
+  TrendingUp,
   UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
+import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
+import type { AgendaEvent, AgendaSlotStatus } from "@/components/agenda/types";
 import Sidebar from "@/components/sidebar";
+import patientsStyles from "@/components/patients/patients-page.module.css";
+import { authClient } from "@/lib/auth-client";
 import { requireSession } from "@/lib/require-session";
+import { AjouterRdvDialog } from "./agenda/popups/ajouter-rdv";
+import { ModifierRdvDialog } from "./agenda/popups/modifier-rdv";
+import {
+  getInitialsFromName,
+  type RdvFormValues,
+  type RdvPatientOption,
+} from "./agenda/popups/rdv-dialog-shared";
+import { VoirRdvDialog } from "./agenda/popups/voir-rdv";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type PatientRecord = RouterOutputs["patient"]["searchPatients"][number];
+type MobileAgendaSlot = RouterOutputs["agenda"]["getSlots"][number];
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
@@ -29,7 +54,7 @@ type DashboardOverview = {
     newPatients: number;
     cancelledAppointments: number;
   };
-  patientTrend: Array<{ label: string; value: number; ghostValue: number }>;
+  patientTrend: Array<{ label: string; value: number }>;
   topMedications: Array<{ name: string; count: number }>;
   rdvTypes: Array<{ label: string; value: number }>;
   upcomingAppointments: Array<{
@@ -65,7 +90,8 @@ const EMPTY_OVERVIEW: DashboardOverview = {
 
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
-  const sessionUser = session?.data?.user;
+  const { data: liveSession } = authClient.useSession();
+  const sessionUser = liveSession?.user ?? session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
       ? {
@@ -74,8 +100,7 @@ function RouteComponent() {
           avatarUrl: sessionUser.image ?? undefined,
         }
       : undefined;
-  const displayName = sessionUser?.name?.trim() || "Dr Benali";
-  const firstName = displayName.replace(/^Dr\.?\s*/i, "").trim() || displayName;
+  const displayName = sessionUser?.name?.trim() || "";
 
   const overviewQuery = useQuery(
     trpc.dashboard.getOverview.queryOptions(undefined, {
@@ -83,151 +108,339 @@ function RouteComponent() {
       retry: false,
     }),
   );
+  const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
+  const createSlotMutation = useMutation(trpc.agenda.createSlot.mutationOptions());
+  const updateSlotMutation = useMutation(trpc.agenda.updateSlot.mutationOptions());
+  const deleteSlotMutation = useMutation(trpc.agenda.deleteSlot.mutationOptions());
+  const createPatientMutation = useMutation(trpc.patient.createPatient.mutationOptions());
   const overview = (overviewQuery.data ?? EMPTY_OVERVIEW) as DashboardOverview;
+  const isLoading = overviewQuery.isLoading;
+  const fallbackSelectedDate =
+    overview.calendarDays.find((day) => day.isActive)?.isoDate ??
+    overview.calendarDays[0]?.isoDate ??
+    formatDateForApi(new Date());
+  const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string | null>(null);
+  const [isAddRdvOpen, setIsAddRdvOpen] = useState(false);
+  const [selectedDashboardAppointment, setSelectedDashboardAppointment] =
+    useState<AgendaEvent | null>(null);
+  const [activeRdvDialog, setActiveRdvDialog] = useState<"view" | "edit" | null>(null);
+  const activeAppointmentDate = selectedAppointmentDate ?? fallbackSelectedDate;
+  const filteredAppointments = useMemo(
+    () =>
+      overview.upcomingAppointments
+        .filter((appointment) => appointment.date === activeAppointmentDate)
+        .sort((first, second) => first.time.localeCompare(second.time)),
+    [activeAppointmentDate, overview.upcomingAppointments],
+  );
+  const patientOptions = useMemo(
+    () => (patientsQuery.data ?? []).map((patient) => mapPatientToOption(patient)),
+    [patientsQuery.data],
+  );
+
+  const handleCreateRdv = async (values: RdvFormValues) => {
+    try {
+      let nextValues = values;
+
+      if (!values.patientId) {
+        const patientName = values.patientName.trim();
+        const existingPatient = patientOptions.find(
+          (patient) => patient.label.toLowerCase() === patientName.toLowerCase(),
+        );
+
+        if (existingPatient) {
+          nextValues = {
+            ...values,
+            patientId: existingPatient.id,
+            patientName: existingPatient.label,
+            patientInitials: existingPatient.initials,
+          };
+        } else {
+          const { nom, prenom } = splitPatientName(patientName);
+          const createdPatient = await createPatientMutation.mutateAsync({
+            patient: {
+              nom,
+              prenom,
+              matricule: buildPatientMatricule(patientName, (patientsQuery.data?.length ?? 0) + 1),
+              date_naissance: "1970-01-01",
+            },
+          });
+
+          nextValues = {
+            ...values,
+            patientId: createdPatient.id,
+            patientName: getPatientLabel(createdPatient),
+            patientInitials: getPatientInitials(createdPatient),
+          };
+
+          await patientsQuery.refetch();
+        }
+      }
+
+      await createSlotMutation.mutateAsync(toSlotPayload(nextValues));
+      setSelectedAppointmentDate(nextValues.date);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous ajouté avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible d'ajouter le rendez-vous."));
+      return false;
+    }
+  };
+
+  const handleOpenDashboardAppointment = (
+    appointment: DashboardOverview["upcomingAppointments"][number],
+  ) => {
+    setSelectedDashboardAppointment(mapDashboardAppointmentToAgendaEvent(appointment));
+    setActiveRdvDialog("view");
+  };
+
+  const handleEditDashboardAppointment = (appointment: AgendaEvent) => {
+    setSelectedDashboardAppointment(appointment);
+    setActiveRdvDialog("edit");
+  };
+
+  const handleUpdateDashboardAppointment = async (
+    appointmentId: string,
+    values: RdvFormValues,
+  ) => {
+    try {
+      const updatedSlot = await updateSlotMutation.mutateAsync({
+        id: appointmentId,
+        ...toSlotPayload(values),
+      });
+      const updatedEvent = mapAgendaSlotToEvent(updatedSlot);
+
+      setSelectedDashboardAppointment(updatedEvent);
+      setSelectedAppointmentDate(updatedEvent.date);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous modifié avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de modifier le rendez-vous."));
+      return false;
+    }
+  };
+
+  const handleDeleteDashboardAppointment = async (appointment: AgendaEvent) => {
+    try {
+      await deleteSlotMutation.mutateAsync({ id: appointment.id });
+      setSelectedDashboardAppointment(null);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous supprimé avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer le rendez-vous."));
+      return false;
+    }
+  };
 
   return (
-    <div className="flex min-h-svh bg-[#f8fafc]">
+    <div className={patientsStyles.pageShell}>
       <Sidebar currentUser={sidebarUser} />
-      <main className="min-w-0 flex-1 overflow-auto">
-        <div className="mx-auto flex max-w-[1160px] flex-col gap-[18px] px-6 py-7">
-          <WelcomeBanner displayName={firstName} />
 
-          <section className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
+      <main className={patientsStyles.pageMain}>
+        <div className={patientsStyles.pageContent}>
+          <DashboardHero
+            displayName={displayName}
+            onCreateAppointment={() => setIsAddRdvOpen(true)}
+          />
+
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
               icon={CalendarDays}
-              label="Rendez-vous du jour"
+              label="Rendez-vous aujourd'hui"
+              loading={isLoading}
               value={overview.metrics.todayAppointments}
             />
-            <MetricCard
+            <KpiCard
               icon={Users}
-              label="Total patients"
+              label="Patients suivis"
+              loading={isLoading}
               value={overview.metrics.totalPatients}
             />
-            <MetricCard
+            <KpiCard
               icon={UserPlus}
               label="Nouveaux patients"
+              loading={isLoading}
               value={overview.metrics.newPatients}
             />
-            <MetricCard
+            <KpiCard
               icon={CircleX}
               label="RDV annulés"
+              loading={isLoading}
               value={overview.metrics.cancelledAppointments}
-              padded
             />
           </section>
 
-          <section className="grid gap-[18px] xl:grid-cols-[1fr_184px]">
-            <DashboardCard className="min-h-[193px]">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <h2 className="font-['Plus_Jakarta_Sans'] text-[20px] font-semibold leading-7 text-[#0f3460]">
-                  Nombre de patients
-                </h2>
-                <div className="flex items-center gap-6 font-['Inter'] text-[10px] leading-4 text-[#606060]">
-                  <span>Par an</span>
-                  <span>Par mois</span>
-                  <span className="border-b-2 border-[#052ca0] pb-1 text-[#0f3460]">
-                    Par jour
-                  </span>
-                </div>
-              </div>
-              <PatientTrendChart bars={overview.patientTrend} />
-            </DashboardCard>
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
+            <DashboardPanel className="min-h-[24rem]">
+              <PanelHeader
+                eyebrow="Vue d'ensemble"
+                icon={TrendingUp}
+                title="Évolution des patients"
+              />
+              <PatientTrendChart bars={overview.patientTrend} loading={isLoading} />
+            </DashboardPanel>
 
-            <DashboardCard className="min-h-[193px]">
-              <h2 className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-5 text-[#0f3460]">
-                Médicaments les plus prescrits
-              </h2>
-              <p className="font-['Inter'] text-[10px] leading-4 text-[#606060]">
-                Ce mois
-              </p>
-              <div className="mt-7 flex flex-col gap-2">
-                {overview.topMedications.length > 0 ? (
-                  overview.topMedications.map((medication) => (
-                    <MedicationPill key={medication.name} medication={medication} />
-                  ))
-                ) : (
-                  <EmptyPanel text="Aucune prescription ce mois" />
-                )}
-              </div>
-            </DashboardCard>
+            <DashboardPanel className="min-h-[24rem]">
+              <PanelHeader
+                eyebrow={formatMonthLabel(new Date())}
+                icon={Clock3}
+                title="Rendez-vous à venir"
+              />
+              <UpcomingAppointments
+                appointments={filteredAppointments}
+                calendarDays={overview.calendarDays}
+                selectedDate={activeAppointmentDate}
+                onSelectDate={setSelectedAppointmentDate}
+                onOpenAppointment={handleOpenDashboardAppointment}
+                loading={isLoading}
+              />
+            </DashboardPanel>
           </section>
 
-          <section className="grid gap-[18px] xl:grid-cols-[1fr_380px]">
-            <div className="grid gap-[18px]">
-              <DashboardCard className="min-h-[178px]">
-                <RdvTypeDonut data={overview.rdvTypes} />
-              </DashboardCard>
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+            <DashboardPanel>
+              <PanelHeader
+                eyebrow="Prescription"
+                icon={Pill}
+                title="Médicaments les plus prescrits"
+              />
+              <MedicationRanking
+                loading={isLoading}
+                medications={overview.topMedications}
+              />
+            </DashboardPanel>
 
-              <DashboardCard className="min-h-[130px]">
-                <h2 className="mb-7 text-center font-['Plus_Jakarta_Sans'] text-[20px] font-semibold leading-7 text-[#0f3460]">
-                  Actions Rapides
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <QuickAction to="/agenda/ajouter">
-                    <Plus className="size-[30px]" />
-                    Ajouter un RDV
-                  </QuickAction>
-                  <QuickAction to="/patients">
-                    <Plus className="size-[30px]" />
-                    Ajouter un patient
-                  </QuickAction>
-                </div>
-              </DashboardCard>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <DashboardPanel>
+                <PanelHeader
+                  eyebrow="Consultations"
+                  icon={Activity}
+                  title="Répartition des RDV"
+                />
+                <RdvTypeBreakdown data={overview.rdvTypes} loading={isLoading} />
+              </DashboardPanel>
+
+              <DashboardPanel>
+                <PanelHeader eyebrow="Accès rapide" icon={Sparkles} title="Actions du jour" />
+                <QuickActions onAddAppointment={() => setIsAddRdvOpen(true)} />
+              </DashboardPanel>
             </div>
-
-            <DashboardCard className="min-h-[326px] overflow-hidden p-0">
-              <UpcomingAppointments overview={overview} />
-            </DashboardCard>
           </section>
         </div>
       </main>
+
+      <AjouterRdvDialog
+        open={isAddRdvOpen}
+        onOpenChange={setIsAddRdvOpen}
+        defaultDate={activeAppointmentDate}
+        onCreate={handleCreateRdv}
+        patientOptions={patientOptions}
+        isSubmitting={createSlotMutation.isPending || createPatientMutation.isPending}
+      />
+
+      <VoirRdvDialog
+        open={activeRdvDialog === "view"}
+        onOpenChange={(open) => {
+          setActiveRdvDialog(open ? "view" : null);
+          if (!open) {
+            setSelectedDashboardAppointment(null);
+          }
+        }}
+        appointment={selectedDashboardAppointment}
+        onEdit={handleEditDashboardAppointment}
+        onDelete={handleDeleteDashboardAppointment}
+        isDeleting={deleteSlotMutation.isPending}
+      />
+
+      <ModifierRdvDialog
+        open={activeRdvDialog === "edit"}
+        onOpenChange={(open) => {
+          setActiveRdvDialog(open ? "edit" : null);
+          if (!open) {
+            setSelectedDashboardAppointment(null);
+          }
+        }}
+        appointment={selectedDashboardAppointment}
+        onUpdate={handleUpdateDashboardAppointment}
+        isSubmitting={updateSlotMutation.isPending}
+      />
     </div>
   );
 }
 
-function WelcomeBanner({ displayName }: { displayName: string }) {
+function DashboardHero({
+  displayName,
+  onCreateAppointment,
+}: {
+  displayName: string;
+  onCreateAppointment: () => void;
+}) {
+  const heroStyle = {
+    "--patients-hero-texture": `url(${headerTexture})`,
+  } as React.CSSProperties;
+
   return (
-    <section className="relative overflow-hidden rounded-[15px] border border-[#c2e0ef] bg-[linear-gradient(97deg,rgba(194,224,239,0.87)_0%,#ffffff_100%)] px-8 py-5 shadow-[0px_4px_10px_rgba(118,187,221,0.5)]">
-      <div className="absolute inset-0 opacity-30 [background-image:repeating-radial-gradient(ellipse_at_70%_50%,transparent_0,transparent_8px,rgba(118,187,221,0.35)_9px,transparent_10px)]" />
-      <div className="relative max-w-[780px]">
-        <h1 className="font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-8 text-[#0f3460]">
-          Bienvenue Dr {displayName}
-        </h1>
-        <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[20px] font-semibold leading-7 text-[#052ca0]">
-          Accédez rapidement à vos informations médicales, et organisez vos consultations en toute simplicité avec Doctor.com !
-        </p>
+    <section
+      aria-labelledby="dashboard-page-title"
+      className={patientsStyles.hero}
+      style={heroStyle}
+    >
+      <div className={patientsStyles.heroInner}>
+        <div className={patientsStyles.heroText}>
+          <h1 className={patientsStyles.heroTitle} id="dashboard-page-title">
+            Tableau de bord
+          </h1>
+          <p className={patientsStyles.heroSubtitle}>
+            Bonjour {formatDoctorName(displayName)}, pilotez votre journée clinique en un coup d'oeil
+          </p>
+        </div>
+
+        <button
+          className="inline-flex h-[2.625rem] min-w-[13.5rem] items-center justify-center gap-2 rounded-[0.875rem] bg-[#052ca0] px-6 font-['Plus_Jakarta_Sans'] text-[1rem] font-semibold tracking-[-0.01em] text-white shadow-[0px_4px_12px_rgba(5,44,160,0.38)] transition hover:-translate-y-px hover:bg-[#0a3ac7] hover:shadow-[0px_8px_20px_rgba(5,44,160,0.44)]"
+          onClick={onCreateAppointment}
+          type="button"
+        >
+          <Plus className="size-5" />
+          Nouveau rendez-vous
+        </button>
       </div>
     </section>
   );
 }
 
-function MetricCard({
+function KpiCard({
   icon: Icon,
   label,
-  padded,
+  loading,
   value,
 }: {
   icon: LucideIcon;
   label: string;
-  padded?: boolean;
+  loading: boolean;
   value: number;
 }) {
   return (
-    <article className="flex h-[108px] items-center justify-between rounded-[15px] border-[0.8px] border-[rgba(194,224,239,0.9)] bg-white px-[22px] shadow-[0_2px_8px_rgba(118,187,221,0.16)]">
-      <div className="min-w-0">
-        <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-[#0f3460]">
-          {label}
-        </p>
-        <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[24px] font-bold leading-8 text-[#11142d]">
-          {padded ? value.toString().padStart(2, "0") : value}
-        </p>
+    <article className="group rounded-[18px] border border-[#c2e0ef] bg-white p-4 shadow-[0_10px_28px_-24px_rgba(15,52,96,0.45)] transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:shadow-[0_18px_34px_-24px_rgba(15,52,96,0.5)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#5d7285]">
+            {label}
+          </p>
+          <p className="mt-3 font-['Plus_Jakarta_Sans'] text-[32px] font-bold leading-none text-[#0f3460]">
+            {loading ? "..." : formatNumber(value)}
+          </p>
+        </div>
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[#c2e0ef] bg-[#edf8fd] text-[#0f3460]">
+          <Icon className="size-5" strokeWidth={2} />
+        </span>
       </div>
-      <Icon className="size-[38px] shrink-0 text-[#052ca0]" strokeWidth={1.9} />
     </article>
   );
 }
 
-function DashboardCard({
+function DashboardPanel({
   children,
   className = "",
 }: {
@@ -236,216 +449,548 @@ function DashboardCard({
 }) {
   return (
     <section
-      className={`rounded-[15px] border border-[#c2e0ef] bg-white p-[18px] shadow-[0px_4px_10px_rgba(118,187,221,0.18)] ${className}`}
+      className={`rounded-[18px] border border-[#c2e0ef] bg-white p-5 shadow-[0_10px_30px_-26px_rgba(15,52,96,0.45)] ${className}`}
     >
       {children}
     </section>
   );
 }
 
-function PatientTrendChart({ bars }: { bars: DashboardOverview["patientTrend"] }) {
-  const data = bars.length > 0 ? bars : Array.from({ length: 22 }, (_, index) => ({
-    label: String(index + 6).padStart(2, "0"),
-    value: 0,
-    ghostValue: 6,
-  }));
-  const max = Math.max(1, ...data.map((bar) => Math.max(bar.value, bar.ghostValue)));
+function PanelHeader({
+  eyebrow,
+  icon: Icon,
+  title,
+}: {
+  eyebrow: string;
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div>
+        <p className="font-['Plus_Jakarta_Sans'] text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a93af]">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 font-['Plus_Jakarta_Sans'] text-[20px] font-bold leading-7 text-[#0f3460]">
+          {title}
+        </h2>
+      </div>
+      <span className="flex size-10 items-center justify-center rounded-[13px] bg-[#eef7fc] text-[#265284]">
+        <Icon className="size-5" />
+      </span>
+    </div>
+  );
+}
+
+function PatientTrendChart({
+  bars,
+  loading,
+}: {
+  bars: DashboardOverview["patientTrend"];
+  loading: boolean;
+}) {
+  const data =
+    bars.length > 0
+      ? bars.slice(-18)
+      : Array.from({ length: 18 }, (_, index) => ({
+          label: String(index + 1).padStart(2, "0"),
+          value: 0,
+        }));
+  const max = Math.max(1, ...data.map((bar) => bar.value));
+  const total = data.reduce((sum, bar) => sum + bar.value, 0);
 
   return (
-    <div className="flex h-[118px] items-end gap-[13px] overflow-hidden px-5">
-      {data.map((bar) => {
-        const ghostHeight = Math.max(18, Math.round((bar.ghostValue / max) * 86));
-        const valueHeight = Math.max(bar.value > 0 ? 12 : 4, Math.round((bar.value / max) * 86));
+    <div className="relative min-h-[18rem] overflow-hidden rounded-[16px] border border-[#e3f3fb] bg-[linear-gradient(180deg,#f8fcff_0%,#ffffff_100%)] px-5 pb-5 pt-6">
+      <div className="pointer-events-none absolute inset-x-5 top-8 grid h-[13rem] grid-rows-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <span key={index} className="border-t border-dashed border-[#dbeef7]" />
+        ))}
+      </div>
+      <div className="relative flex h-[13rem] items-end gap-2">
+        {data.map((bar) => {
+          const valueHeight = Math.max(bar.value > 0 ? 14 : 4, Math.round((bar.value / max) * 178));
 
+          return (
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={bar.label}>
+              <div className="relative flex h-[11.25rem] w-full items-end justify-center">
+                <span
+                  className="relative z-10 w-[42%] rounded-t-full bg-[linear-gradient(180deg,#76bbdd_0%,#052ca0_100%)] shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
+                  style={{ height: loading ? 28 : valueHeight }}
+                  title={`${bar.value} patient${bar.value > 1 ? "s" : ""}`}
+                />
+              </div>
+              <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
+                {bar.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-[#edf6fb] pt-4 font-['Inter'] text-[12px] text-[#5d7285]">
+        <LegendDot color="#052ca0" label={`${total} nouveaux patients sur la période`} />
+      </div>
+    </div>
+  );
+}
+
+function MedicationRanking({
+  loading,
+  medications,
+}: {
+  loading: boolean;
+  medications: DashboardOverview["topMedications"];
+}) {
+  if (loading) {
+    return <EmptyPanel text="Chargement des prescriptions..." />;
+  }
+
+  if (medications.length === 0) {
+    return <EmptyPanel text="Aucune prescription récente" />;
+  }
+
+  const max = Math.max(1, ...medications.map((item) => item.count));
+
+  return (
+    <div className="grid gap-3">
+      {medications.slice(0, 5).map((medication, index) => {
+        const width = `${Math.max(12, Math.round((medication.count / max) * 100))}%`;
         return (
-          <div className="flex min-w-[10px] flex-1 flex-col items-center gap-1" key={bar.label}>
-            <div className="relative flex h-[86px] w-[9px] items-end justify-center">
+          <article
+            className="rounded-[15px] border border-[#e1f0f8] bg-[#fbfdff] p-3"
+            key={medication.name}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] font-['Inter'] text-[12px] font-bold text-[#265284]">
+                  {index + 1}
+                </span>
+                <p className="truncate font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#0f3460]">
+                  {medication.name}
+                </p>
+              </div>
+              <span className="font-['Inter'] text-[12px] font-semibold text-[#5d7285]">
+                {medication.count} fois
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#edf6fb]">
               <div
-                className="absolute bottom-0 w-[9px] rounded-full bg-[#e1e7f0]"
-                style={{ height: ghostHeight }}
-              />
-              <div
-                className="relative z-10 w-[9px] rounded-full bg-[#052ca0]"
-                style={{ height: valueHeight }}
+                className="h-full rounded-full bg-[linear-gradient(90deg,#76bbdd_0%,#052ca0_100%)]"
+                style={{ width }}
               />
             </div>
-            <span className="font-['Inter'] text-[10px] leading-4 text-[#606060]">
-              {bar.label}
-            </span>
-          </div>
+          </article>
         );
       })}
     </div>
   );
 }
 
-function MedicationPill({ medication }: { medication: { name: string; count: number } }) {
-  return (
-    <div className="flex h-[29px] items-center justify-between rounded-full bg-[#c2e0ef] px-4 font-['Inter'] text-[12px] leading-4 text-[#0f3460]">
-      <span className="truncate">{medication.name}</span>
-      <span>{medication.count}</span>
-    </div>
-  );
-}
+function RdvTypeBreakdown({
+  data,
+  loading,
+}: {
+  data: DashboardOverview["rdvTypes"];
+  loading: boolean;
+}) {
+  if (loading) {
+    return <EmptyPanel text="Analyse des rendez-vous..." />;
+  }
 
-function RdvTypeDonut({ data }: { data: DashboardOverview["rdvTypes"] }) {
-  const colors = ["#052ca0", "#76bbdd", "#c2e0ef", "#f77a21"];
+  const colors = ["#052ca0", "#265284", "#76bbdd", "#9ed2ea"];
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const displayData =
     total > 0
-      ? data
+      ? data.slice(0, 4)
       : [
-          { label: "Routine", value: 20 },
-          { label: "Consultation", value: 40 },
-          { label: "Suivi", value: 25 },
-          { label: "Contrôle", value: 15 },
+          { label: "Consultation", value: 0 },
+          { label: "Suivi", value: 0 },
+          { label: "Contrôle", value: 0 },
         ];
-  const displayTotal = displayData.reduce((sum, item) => sum + item.value, 0);
-  let cursor = 0;
-  const gradient = displayData
-    .map((item, index) => {
-      const start = cursor;
-      const end = cursor + (item.value / displayTotal) * 100;
-      cursor = end;
-      return `${colors[index] ?? "#052ca0"} ${start}% ${end}%`;
-    })
-    .join(", ");
+  const displayTotal = Math.max(1, total);
 
   return (
-    <div className="grid items-center gap-8 md:grid-cols-[190px_1fr]">
-      <div>
-        <h2 className="mb-5 font-['Plus_Jakarta_Sans'] text-[20px] font-semibold leading-7 text-[#0f3460]">
-          RDV type
-        </h2>
-        <div className="grid gap-3">
-          {displayData.map((item, index) => {
-            const percent = displayTotal > 0 ? Math.round((item.value / displayTotal) * 100) : 0;
-            return (
-              <div className="flex items-center gap-3" key={item.label}>
-                <span
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: colors[index] ?? "#052ca0" }}
-                />
-                <span className="min-w-0 flex-1 font-['Inter'] text-[12px] leading-4 text-[#101828]">
-                  {item.label}
-                </span>
-                <span className="font-['Inter'] text-[12px] leading-4 text-[#606060]">
-                  {percent}%
-                </span>
-              </div>
-            );
-          })}
+    <div className="space-y-4">
+      <div className="rounded-[16px] border border-[#e1f0f8] bg-[#fbfdff] p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="font-['Inter'] text-[11px] font-bold uppercase tracking-[0.14em] text-[#7a93af]">
+              Total analysé
+            </p>
+            <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-none text-[#0f3460]">
+              {total}
+            </p>
+          </div>
+          <Activity className="size-9 text-[#76bbdd]" strokeWidth={1.8} />
+        </div>
+        <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-[#edf6fb]">
+          {total > 0 ? (
+            displayData.map((item, index) => (
+              <span
+                className="h-full"
+                key={item.label}
+                style={{
+                  backgroundColor: colors[index] ?? "#052ca0",
+                  width: `${Math.max(4, (item.value / displayTotal) * 100)}%`,
+                }}
+              />
+            ))
+          ) : (
+            <span className="h-full w-full bg-[#dce9f2]" />
+          )}
         </div>
       </div>
-      <div
-        className="mx-auto size-[118px] rounded-full"
-        style={{ backgroundImage: `conic-gradient(${gradient})` }}
-      >
-        <div className="m-auto flex size-full items-center justify-center rounded-full">
-          <div className="size-[70px] rounded-full bg-white" />
-        </div>
+
+      <div className="grid gap-3">
+        {displayData.map((item, index) => {
+          const percent = total > 0 ? Math.round((item.value / displayTotal) * 100) : 0;
+          return (
+            <div className="grid gap-2" key={item.label}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                  {item.label}
+                </span>
+                <span className="font-['Inter'] text-[12px] font-bold text-[#5d7285]">
+                  {item.value} · {percent}%
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#edf6fb]">
+                <span
+                  className="block h-full rounded-full"
+                  style={{
+                    backgroundColor: colors[index] ?? "#052ca0",
+                    width: `${percent}%`,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function QuickAction({ children, to }: { children: ReactNode; to: string }) {
-  return (
-    <Link
-      className="flex h-[69px] items-center justify-center gap-4 rounded-[15px] bg-[#c2e0ef] px-6 font-['Plus_Jakarta_Sans'] text-[18px] font-bold leading-7 text-[#0f3460] transition hover:bg-[#b6d9eb]"
-      to={to}
-    >
-      {children}
-    </Link>
-  );
-}
+function UpcomingAppointments({
+  appointments,
+  calendarDays,
+  selectedDate,
+  onSelectDate,
+  onOpenAppointment,
+  loading,
+}: {
+  appointments: DashboardOverview["upcomingAppointments"];
+  calendarDays: DashboardOverview["calendarDays"];
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+  onOpenAppointment: (appointment: DashboardOverview["upcomingAppointments"][number]) => void;
+  loading: boolean;
+}) {
+  const days = calendarDays.length > 0 ? calendarDays : fallbackCalendarDays();
 
-function UpcomingAppointments({ overview }: { overview: DashboardOverview }) {
   return (
-    <div className="flex h-full min-h-[326px] flex-col">
-      <div className="px-8 pb-4 pt-6">
-        <h2 className="text-center font-['Plus_Jakarta_Sans'] text-[20px] font-semibold leading-7 text-[#0f3460]">
-          Prochains Rendez-vous
-        </h2>
-        <div className="mt-4 flex items-center justify-between bg-[#d6edf7] px-2 py-1 font-['Inter'] text-[12px] font-medium text-[#101828]">
-          <span>‹</span>
-          <span>{formatMonthLabel(new Date())}</span>
-          <span>›</span>
-        </div>
-        <div className="mt-4 grid grid-cols-7 gap-2">
-          {(overview.calendarDays.length > 0 ? overview.calendarDays : fallbackCalendarDays()).map((day) => (
-            <div
-              className={`flex h-[60px] flex-col items-center justify-center rounded-[14px] border border-[#c2e0ef] font-['Inter'] ${
-                day.isActive ? "bg-[#76bbdd] text-white" : "bg-[#f7f9fc] text-[#0f3460]"
-              }`}
-              key={day.isoDate}
-            >
-              <span className="text-[16px] font-medium leading-6">{day.day}</span>
-              <span className="text-[12px] font-medium leading-4">{day.weekday}</span>
-            </div>
-          ))}
-        </div>
+    <div className="flex h-full min-h-[17rem] flex-col">
+      <div className="grid grid-cols-7 gap-2">
+        {days.map((day) => {
+          const isSelected = day.isoDate === selectedDate;
+
+          return (
+          <button
+            type="button"
+            onClick={() => onSelectDate(day.isoDate)}
+            aria-pressed={isSelected}
+            className={`flex h-14 flex-col items-center justify-center rounded-[14px] border font-['Inter'] transition ${
+              isSelected
+                ? "border-[#76bbdd] bg-[#0f3460] text-white shadow-[0_12px_20px_-18px_rgba(15,52,96,0.8)]"
+                : "border-[#c2e0ef] bg-[#f8fcff] text-[#265284] hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#edf8fd]"
+            }`}
+            key={day.isoDate}
+          >
+            <span className="text-[15px] font-bold leading-5">{day.day}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+              {day.weekday}
+            </span>
+          </button>
+          );
+        })}
       </div>
 
-      <div className="min-h-0 flex-1 border-t border-[#f3f4f6]">
-        {overview.upcomingAppointments.length > 0 ? (
-          overview.upcomingAppointments.map((appointment) => (
-            <AppointmentRow appointment={appointment} key={appointment.id} />
+      <div className="mt-4 grid gap-2">
+        {loading ? (
+          <EmptyPanel text="Chargement de l'agenda..." />
+        ) : appointments.length > 0 ? (
+          appointments.slice(0, 4).map((appointment) => (
+            <AppointmentRow
+              appointment={appointment}
+              key={appointment.id}
+              onOpen={onOpenAppointment}
+            />
           ))
         ) : (
-          <div className="px-8 py-8">
-            <EmptyPanel text="Aucun rendez-vous à venir" />
-          </div>
+          <EmptyPanel text="Aucun rendez-vous pour cette journée" />
         )}
       </div>
 
-      <div className="flex justify-center border-t border-[#f3f4f6] px-8 py-4">
-        <Link
-          className="inline-flex items-center gap-2 rounded-[13px] bg-[#c9e4f1] p-[10px] font-['Plus_Jakarta_Sans'] text-[12px] font-bold text-[#103561]"
-          to="/agenda"
-        >
-          <CalendarDays className="size-[15px]" />
-          Voir l'agenda
-        </Link>
-      </div>
     </div>
   );
 }
 
 function AppointmentRow({
   appointment,
+  onOpen,
 }: {
   appointment: DashboardOverview["upcomingAppointments"][number];
+  onOpen: (appointment: DashboardOverview["upcomingAppointments"][number]) => void;
 }) {
   return (
-    <div className="flex h-[48px] items-center border-b border-[#f3f4f6] px-8">
-      <span className="flex size-[39px] shrink-0 items-center justify-center rounded-full bg-[#0f3460] font-['Inter'] text-[12px] font-bold text-white">
+    <button
+      className="group flex items-center gap-3 rounded-[15px] border border-[#e1f0f8] bg-[#fbfdff] p-3 transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#f8fcff]"
+      onClick={() => onOpen(appointment)}
+      type="button"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] font-['Inter'] text-[12px] font-bold text-[#265284]">
         {appointment.patientInitials}
       </span>
-      <div className="ml-6 min-w-0 flex-1">
-        <p className="truncate font-['Inter'] text-[14px] font-semibold leading-5 text-[#101828]">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-['Plus_Jakarta_Sans'] text-[13px] font-bold text-[#0f3460]">
           {appointment.patientLabel}
         </p>
-        <p className="font-['Inter'] text-[12px] leading-4 text-[#606060]">
-          {appointment.time}
+        <p className="truncate font-['Inter'] text-[12px] font-medium text-[#7a93af]">
+          {appointment.time} · {appointment.type}
         </p>
       </div>
-      <Link
-        className="inline-flex items-center gap-1 font-['Poppins'] text-[14px] font-medium leading-5 text-[#f77a21]"
-        to="/agenda"
-      >
-        <Eye className="size-[18px]" />
-        Voir
-      </Link>
+      <span className="rounded-full border border-[#c2e0ef] bg-white px-2.5 py-1 font-['Inter'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#265284]">
+        {appointment.status}
+      </span>
+      <ArrowRight className="size-4 text-[#76bbdd] transition group-hover:translate-x-0.5 group-hover:text-[#052ca0]" />
+    </button>
+  );
+}
+
+function QuickActions({ onAddAppointment }: { onAddAppointment: () => void }) {
+  return (
+    <div className="grid gap-3">
+      <QuickAction icon={CalendarDays} label="Ajouter un rendez-vous" onClick={onAddAppointment} />
+      <QuickAction icon={Users} label="Consulter les patients" to="/patients" />
+      <QuickAction icon={FileText} label="Créer une ordonnance" to="/ordonnance" />
     </div>
+  );
+}
+
+function QuickAction({
+  icon: Icon,
+  label,
+  onClick,
+  to,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  to?: string;
+}) {
+  const className =
+    "group flex min-h-[3.65rem] w-full items-center justify-between gap-3 rounded-[15px] border border-[#c2e0ef] bg-[#f8fcff] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#edf8fd]";
+  const content = (
+    <>
+      <span className="flex items-center gap-3">
+        <span className="flex size-9 items-center justify-center rounded-[12px] bg-white text-[#265284] shadow-[0_8px_18px_-18px_rgba(15,52,96,0.5)]">
+          <Icon className="size-4" />
+        </span>
+        <span className="font-['Plus_Jakarta_Sans'] text-[13px] font-bold text-[#0f3460]">
+          {label}
+        </span>
+      </span>
+      <ArrowRight className="size-4 text-[#76bbdd] transition group-hover:translate-x-0.5 group-hover:text-[#052ca0]" />
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={className} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link className={className} to={to ?? "/"}>
+      {content}
+    </Link>
   );
 }
 
 function EmptyPanel({ text }: { text: string }) {
   return (
-    <div className="rounded-[12px] border border-dashed border-[#c2e0ef] bg-[#f8fafc] px-4 py-4 text-center font-['Inter'] text-[12px] text-[#64748b]">
+    <div className="rounded-[15px] border border-dashed border-[#c2e0ef] bg-[#f8fcff] px-4 py-5 text-center font-['Inter'] text-[12px] font-medium text-[#7a93af]">
       {text}
     </div>
+  );
+}
+
+function formatDateForApi(dateValue: Date) {
+  const year = dateValue.getFullYear();
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const day = String(dateValue.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeTime(timeValue: string) {
+  return timeValue.slice(0, 5);
+}
+
+function addMinutesToTime(timeValue: string, minutesToAdd: number) {
+  const [hoursText = "0", minutesText = "0"] = normalizeTime(timeValue).split(":");
+  const totalMinutes =
+    (Number(hoursText) || 0) * 60 + (Number(minutesText) || 0) + minutesToAdd;
+  const nextHours = Math.floor(totalMinutes / 60) % 24;
+  const nextMinutes = totalMinutes % 60;
+
+  return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
+}
+
+function getDateParts(dateValue: string) {
+  const [yearText = "2026", monthText = "1", dayText = "1"] = dateValue.split("-");
+  const year = Number(yearText) || 2026;
+  const month = Math.max(0, Math.min(11, (Number(monthText) || 1) - 1));
+  const day = Math.max(1, Number(dayText) || 1);
+
+  return { year, month, day };
+}
+
+function normalizeDashboardStatus(status: string): AgendaSlotStatus {
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized.includes("annul") || normalized === "cancelled") {
+    return "cancelled";
+  }
+
+  if (normalized.includes("termin") || normalized === "completed") {
+    return "completed";
+  }
+
+  if (normalized.includes("plan") || normalized.includes("attente") || normalized === "pending") {
+    return "pending";
+  }
+
+  if (normalized.includes("bloq") || normalized === "blocked") {
+    return "blocked";
+  }
+
+  return "booked";
+}
+
+function mapDashboardAppointmentToAgendaEvent(
+  appointment: DashboardOverview["upcomingAppointments"][number],
+): AgendaEvent {
+  const { year, month, day } = getDateParts(appointment.date);
+  const startTime = normalizeTime(appointment.time);
+
+  return {
+    id: appointment.id,
+    day,
+    startTime,
+    endTime: addMinutesToTime(startTime, 30),
+    patientName: appointment.patientLabel.trim() || "Rendez-vous",
+    patientInitials: appointment.patientInitials.trim() || getInitialsFromName(appointment.patientLabel),
+    type: appointment.type.trim() || "Consultation",
+    status: normalizeDashboardStatus(appointment.status),
+    date: appointment.date,
+    month,
+    year,
+  };
+}
+
+function mapAgendaSlotToEvent(slot: MobileAgendaSlot): AgendaEvent {
+  const { year, month, day } = getDateParts(slot.date);
+  const patientName = slot.patientLabel.trim() || "Rendez-vous";
+
+  return {
+    id: slot.id,
+    day,
+    startTime: normalizeTime(slot.startTime),
+    endTime: normalizeTime(slot.endTime),
+    patientName,
+    patientInitials: slot.patientInitials.trim() || getInitialsFromName(patientName),
+    type: slot.slotType.trim() || "Consultation",
+    status: slot.status,
+    date: slot.date,
+    month,
+    year,
+    notes: slot.notes ?? undefined,
+  };
+}
+
+function toSlotPayload(values: RdvFormValues) {
+  const patientName = values.patientName.trim();
+
+  return {
+    date: values.date,
+    startTime: normalizeTime(values.startTime),
+    endTime: normalizeTime(values.endTime),
+    status: values.status,
+    slotType: values.type.trim(),
+    patientLabel: patientName,
+    patientInitials:
+      values.patientInitials.trim() || getInitialsFromName(patientName),
+    notes: values.notes.trim() || undefined,
+  };
+}
+
+function getPatientInitials(patient: PatientRecord) {
+  return `${patient.nom.trim().slice(0, 1)}${patient.prenom.trim().slice(0, 1)}`.toUpperCase() || "PT";
+}
+
+function getPatientLabel(patient: PatientRecord) {
+  return [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
+}
+
+function mapPatientToOption(patient: PatientRecord): RdvPatientOption {
+  return {
+    id: patient.id,
+    label: getPatientLabel(patient),
+    initials: getPatientInitials(patient),
+    matricule: patient.matricule,
+  };
+}
+
+function splitPatientName(patientName: string) {
+  const parts = patientName.trim().split(/\s+/).filter(Boolean);
+  const [nom = "Patient", ...prenomParts] = parts;
+  const prenom = prenomParts.join(" ") || "Agenda";
+
+  return { nom, prenom };
+}
+
+function buildPatientMatricule(patientName: string, patientNumber: number) {
+  const initials = getInitialsFromName(patientName)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 3)
+    .toUpperCase() || "PT";
+  const sequence = Math.max(1, patientNumber).toString().padStart(4, "0");
+
+  return `${initials}-${new Date().getFullYear()}-${sequence}`;
+}
+
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   );
 }
 
@@ -458,11 +1003,25 @@ function fallbackCalendarDays() {
       day: date.getDate().toString(),
       weekday: labels[date.getDay()] ?? "",
       isoDate: date.toISOString().slice(0, 10),
-      isActive: index === 1,
+      isActive: index === 0,
     };
   });
 }
 
+function formatDoctorName(value: string) {
+  const clean = value.trim();
+  if (/^dr\.?\s/i.test(clean)) return clean;
+  return `Dr ${clean}`;
+}
+
 function formatMonthLabel(value: Date) {
-  return value.toLocaleDateString("fr-FR", { month: "long" });
+  const label = value.toLocaleDateString("fr-FR", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("fr-FR").format(value);
 }

@@ -151,16 +151,38 @@ export function DialogShell({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.22)] p-4"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) {
-          onOpenChange(false);
-        }
-      }}
-    >
+    <>
+      <style>
+        {`
+          @keyframes agendaRdvOverlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          @keyframes agendaRdvDialogIn {
+            from {
+              opacity: 0;
+              transform: translateY(18px) scale(0.985);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}
+      </style>
+      <div
+        className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
+        style={{ animation: "agendaRdvOverlayIn 180ms ease-out" }}
+        onMouseDown={(event) => {
+          if (event.currentTarget === event.target) {
+            onOpenChange(false);
+          }
+        }}
+      >
       <section
-        className={`my-4 flex max-h-[calc(100dvh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.22)]`}
+        className={`flex max-h-[calc(100dvh-4rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_30px_60px_-16px_rgba(15,52,96,0.28)]`}
+        style={{ animation: "agendaRdvDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="agenda-rdv-dialog-title"
@@ -211,7 +233,8 @@ export function DialogShell({
           {footer}
         </footer>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 

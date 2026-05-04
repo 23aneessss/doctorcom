@@ -279,43 +279,49 @@ function RouteComponent() {
   };
 
   return (
-    <div className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-[24.8px] pb-[24px] pt-[24.8px] shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)]">
-      <h2 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-[28px] text-[#052ca0]">
-        Informations sociales et environnementales
-      </h2>
+    <div className="flex flex-col gap-6">
+      <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+        <div className="mb-6 flex items-center gap-[8px]">
+          <Home className="size-5 shrink-0 text-[#052ca0]" />
+          <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
+            Informations sociales
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {topCards.map((card) => (
+            <InfoCard
+              key={card.key}
+              label={card.label}
+              icon={card.icon}
+              tone={card.tone}
+              action={card.action}
+              isEditing={editingCard === card.key}
+              onEdit={() => beginEdit(card.key)}
+              onCancel={cancelEdit}
+              onSave={() => saveCard(card.key)}
+              isSaving={updateMutation.isPending}
+            >
+              {renderPrimaryCardBody({
+                cardKey: card.key,
+                cardValue: card.value,
+                isEditing: editingCard === card.key,
+                patient,
+                formState,
+                setFormState,
+              })}
+            </InfoCard>
+          ))}
+        </div>
+      </section>
 
-      <div className="mt-10 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {topCards.map((card) => (
-          <InfoCard
-            key={card.key}
-            label={card.label}
-            icon={card.icon}
-            tone={card.tone}
-            action={card.action}
-            isEditing={editingCard === card.key}
-            onEdit={() => beginEdit(card.key)}
-            onCancel={cancelEdit}
-            onSave={() => saveCard(card.key)}
-            isSaving={updateMutation.isPending}
-          >
-            {renderPrimaryCardBody({
-              cardKey: card.key,
-              cardValue: card.value,
-              isEditing: editingCard === card.key,
-              patient,
-              formState,
-              setFormState,
-            })}
-          </InfoCard>
-        ))}
-      </div>
-
-      <div className="mt-10 border-t-[0.8px] border-[#c2e0ef] pt-[16.8px]">
-        <h3 className="font-['Plus_Jakarta_Sans'] text-[16px] font-medium leading-[24px] text-[#052ca0]">
-          Mode de vie et habitudes
-        </h3>
-
-        <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+        <div className="mb-6 flex items-center gap-[8px]">
+          <Leaf className="size-5 shrink-0 text-[#052ca0]" />
+          <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
+            Mode de vie et environnement
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {habitCards.map((card) => (
             <HabitCard
               key={card.key}
@@ -337,12 +343,12 @@ function RouteComponent() {
                     [card.key]: event.target.value,
                   }))
                 }
-                className="min-h-[72px] w-full resize-none rounded-[8px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
+                className="min-h-[84px] w-full resize-none rounded-[10px] border border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50"
               />
             </HabitCard>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -501,20 +507,18 @@ function InfoCard({
   if (!isEditing) {
     return (
       <div
-        className={`rounded-[10px] ${
-          tone === "filled"
-            ? "bg-[#c2e0ef] px-[16px] pt-[16px]"
-            : "border-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-[16.8px] pb-[0.8px] pt-[16.8px]"
-        } ${cardKeyClassName(action, tone)}`}
+        className={`rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] px-4 py-4 ${cardKeyClassName(action, tone)}`}
       >
-        <div className="flex h-[20px] items-center gap-[8px]">
-          <Icon className="size-4 shrink-0 text-[#265284]" strokeWidth={1.8} />
-          <p className="font-['Poppins'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
+        <div className="flex h-[24px] items-center gap-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[11px] bg-[#eef8fd] text-[#052ca0]">
+            <Icon className="size-4" strokeWidth={1.8} />
+          </span>
+          <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold leading-[20px] text-[#7a93af]">
             {label}
           </p>
         </div>
 
-        <div className={tone === "filled" ? "mt-2" : "mt-2 min-h-[21px]"}>
+        <div className="mt-2 min-h-[21px]">
           <ReadOnlyPrimaryContent action={action} onEdit={onEdit}>
             {children}
           </ReadOnlyPrimaryContent>
@@ -524,17 +528,13 @@ function InfoCard({
   }
 
   return (
-    <div
-      className={`rounded-[10px] border ${
-        tone === "filled"
-          ? "border-[#c2e0ef] bg-[#c2e0ef]"
-          : "border-[0.8px] border-[#c2e0ef] bg-[#f8fafc]"
-      } px-[16px] pb-[16px] pt-[16px]`}
-    >
+    <div className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] px-4 py-4">
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon className="size-4 text-[#265284]" strokeWidth={1.8} />
-          <p className="font-['Poppins'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[11px] bg-[#eef8fd] text-[#052ca0]">
+            <Icon className="size-4" strokeWidth={1.8} />
+          </span>
+          <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold leading-[20px] text-[#7a93af]">
             {label}
           </p>
         </div>
@@ -580,31 +580,35 @@ function HabitCard({
 
   if (!isEditing) {
     return (
-      <div className="rounded-[10px] border border-[#76bbdd] bg-[#f8fafc] p-[10px]">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Icon className="mt-0.5 size-4 shrink-0 text-[#265284]" strokeWidth={1.8} />
-              <p className="font-['Poppins'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
-                {label}
-              </p>
-            </div>
-            <p className={`mt-1 font-['Inter'] text-[14px] leading-5 ${valueClassName}`}>
-              {value}
+    <div className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#eef8fd] text-[#052ca0]">
+              <Icon className="size-4" strokeWidth={1.8} />
+            </span>
+            <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
+              {label}
             </p>
           </div>
-          <ReadOnlyEditButton onClick={onEdit} />
+          <p className={`mt-1 font-['Inter'] text-[14px] leading-5 ${valueClassName}`}>
+            {value}
+          </p>
         </div>
+        <ReadOnlyEditButton onClick={onEdit} />
       </div>
+    </div>
     );
   }
 
   return (
-    <div className="rounded-[10px] border border-[#76bbdd] bg-[#f8fafc] p-[10px]">
+    <div className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4">
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon className="mt-0.5 size-4 shrink-0 text-[#265284]" strokeWidth={1.8} />
-          <p className="font-['Poppins'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#eef8fd] text-[#052ca0]">
+            <Icon className="size-4" strokeWidth={1.8} />
+          </span>
+          <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
             {label}
           </p>
         </div>

@@ -1,4 +1,4 @@
-import { CaretDown, MagnifyingGlass, Question, ArrowLeft, X } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass, ArrowLeft, X } from "@phosphor-icons/react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useMemo, useState } from "react";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
@@ -71,9 +71,9 @@ function RouteComponent() {
         },
         {
           id: "account-3",
-          question: "doctor.com est-il accessible sur mobile ?",
+          question: "Y a-t-il une version mobile de Doctor.com ?",
           answer:
-            "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement directement depuis votre téléphone ou tablette.",
+            "Oui, Doctor.com est disponible en application mobile, ce qui vous permet de consulter vos rendez-vous et d'avoir la liste complète des médicaments sous la main. ",
         },
         {
           id: "account-4",
@@ -380,9 +380,8 @@ function RouteComponent() {
 
           <section className={styles.faqCard} aria-label="Foire aux questions">
             <header className={styles.titleRow}>
-              <Question size={18} weight="fill" className={styles.titleMark} aria-hidden="true" />
               <h1 className={styles.title}>
-                {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire Aux Questions"}
+                {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire aux questions"}
               </h1>
             </header>
 

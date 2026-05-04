@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
 
@@ -188,10 +188,6 @@ export function NouveauPatientDialog({
   dialogTitle,
   mode = "create",
 }: NouveauPatientDialogProps) {
-  const modalRef = useRef<HTMLElement | null>(null);
-  const progressTrackRef = useRef<HTMLDivElement | null>(null);
-  const stepDotRefs = useRef<Array<HTMLDivElement | null>>([]);
-
   const initialFormFromProps = initialValues ?? undefined;
   const [values, setValues] = useState<NouveauPatientFormValues>(
     normalizeFormValues(initialFormFromProps ?? (mode === "edit" ? SAMPLE_FORM_VALUES : EMPTY_FORM_VALUES)),
@@ -200,7 +196,6 @@ export function NouveauPatientDialog({
   const [touchedFields, setTouchedFields] = useState<Set<keyof NouveauPatientFormValues>>(new Set());
   const [step1Errors, setStep1Errors] = useState<Partial<Record<keyof NouveauPatientFormValues, string>>>({});
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [progressFillPx, setProgressFillPx] = useState(0);
   const [groupeSanguin, setGroupeSanguin] = useState("O+");
   const [ageCirconcision, setAgeCirconcision] = useState("13 ans");
   const [revenuMensuel, setRevenuMensuel] = useState("150000 DA");
@@ -243,8 +238,8 @@ export function NouveauPatientDialog({
   }, [values.sexe]);
 
   const stepLabels = isFemalePatient
-    ? (["Informations essentielles", "Antecedents", "Traitements", "Sante feminine", "Informations sociales"] as const)
-    : (["Informations essentielles", "Antecedents", "Traitements", "Informations sociales"] as const);
+    ? (["Informations essentielles", "Antécédents", "Traitements", "Santé féminine", "Informations sociales"] as const)
+    : (["Informations essentielles", "Antécédents", "Traitements", "Informations sociales"] as const);
   const maxStep = isFemalePatient ? 5 : 4;
 
   const isFormValid = useMemo(() => requiredFields.every((field) => (values[field] ?? "").trim().length > 0), [values]);
@@ -324,20 +319,7 @@ export function NouveauPatientDialog({
     };
   }, [open, mode, initialFormFromProps]);
 
-  useEffect(() => {
-    const updateProgressFill = () => {
-      const progressTrackElement = progressTrackRef.current;
-      const activeStepDot = stepDotRefs.current[currentStep - 1];
-      if (!progressTrackElement || !activeStepDot) return;
-      const progressTrackRect = progressTrackElement.getBoundingClientRect();
-      const activeDotRect = activeStepDot.getBoundingClientRect();
-      setProgressFillPx(Math.max(0, activeDotRect.left + activeDotRect.width / 2 - progressTrackRect.left));
-    };
-
-    updateProgressFill();
-    window.addEventListener("resize", updateProgressFill);
-    return () => window.removeEventListener("resize", updateProgressFill);
-  }, [currentStep, stepLabels.length]);
+  const progressPercent = ((currentStep - 1) / Math.max(1, maxStep - 1)) * 100;
 
   if (!open) {
     return null;
@@ -486,15 +468,15 @@ export function NouveauPatientDialog({
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
+      <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
         <header className={styles.header}>
           <div className={styles.headerIdentity}>
             <span className={styles.headerIcon} aria-hidden="true">
-              <UserPlus size={21} strokeWidth={1.9} />
+              <UserPlus size={20} strokeWidth={2} />
             </span>
             <div className={styles.headerTextBlock}>
               <h2 className={styles.title} id="nouveau-patient-title">{dialogTitle ?? "Nouveau patient"}</h2>
-              <p className={styles.subtitle}>{`Etape ${currentStep} sur ${stepLabels.length}`}</p>
+              <p className={styles.subtitle}>{`Étape ${currentStep} sur ${stepLabels.length} · ${stepLabels[currentStep - 1]}`}</p>
             </div>
           </div>
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
@@ -502,8 +484,8 @@ export function NouveauPatientDialog({
           </button>
         </header>
 
-        <div ref={progressTrackRef} className={styles.progressBarTrack}>
-          <span className={styles.progressBarFill} style={{ width: `${progressFillPx}px` }} />
+        <div className={styles.progressBarTrack}>
+          <span className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
         </div>
 
         <div className={styles.stepRail}>
@@ -513,8 +495,8 @@ export function NouveauPatientDialog({
             return (
               <div className={`${styles.stepItem} ${index === stepLabels.length - 1 ? styles.stepItemLast : ""}`} key={label}>
                 <div className={styles.stepContent}>
-                  <div ref={(element) => { stepDotRefs.current[index] = element; }} className={`${styles.stepDot} ${isDone ? styles.stepDotDone : ""} ${isActive ? styles.stepDotActive : ""}`}>
-                    {isDone ? <Check size={14} aria-hidden="true" /> : index + 1}
+                  <div className={`${styles.stepDot} ${isDone ? styles.stepDotDone : ""} ${isActive ? styles.stepDotActive : ""}`}>
+                    {isDone ? <Check size={13} aria-hidden="true" /> : index + 1}
                   </div>
                   <p className={`${styles.stepLabel} ${isActive ? styles.stepLabelActive : ""}`}>{label}</p>
                 </div>
@@ -525,51 +507,59 @@ export function NouveauPatientDialog({
         </div>
 
         <form className={styles.form} onSubmit={handleContinue}>
-          {submitError ? <p className={styles.submitError} style={{ margin: "0 0 1rem 0", color: "#ef4444", fontWeight: 500, background: "#fef2f2", padding: "0.75rem", borderRadius: "0.5rem" }}>{submitError}</p> : null}
+          {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
 
           {currentStep === 1 ? (
             <>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations essentielles</strong> - Ces champs sont obligatoires pour creer le dossier patient.</p></div>
-              {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires.</p> : null}
+              <div className={styles.noticeBox}><Info size={15} aria-hidden="true" /><p><strong>Informations essentielles</strong> — Ces champs sont obligatoires pour créer le dossier patient.</p></div>
+              {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner tous les champs obligatoires.</p> : null}
               <div className={styles.formGrid}>
                 <Field label="Nom" required error={getError("nom", "Le nom est obligatoire")}>
-                  <input className={styles.input} style={getError("nom", "Le nom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} onBlur={() => markFieldTouched("nom")} />
+                  <input className={styles.input} style={getError("nom", "Le nom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} onBlur={() => markFieldTouched("nom")} placeholder="Nom de famille" />
                 </Field>
-                <Field label="Prenom" required error={getError("prenom", "Le prenom est obligatoire")}>
-                  <input className={styles.input} style={getError("prenom", "Le prenom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.prenom} onChange={(e) => updateField("prenom", e.currentTarget.value)} onBlur={() => markFieldTouched("prenom")} />
+                <Field label="Prénom" required error={getError("prenom", "Le prénom est obligatoire")}>
+                  <input className={styles.input} style={getError("prenom", "Le prénom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.prenom} onChange={(e) => updateField("prenom", e.currentTarget.value)} onBlur={() => markFieldTouched("prenom")} placeholder="Prénom" />
                 </Field>
                 <Field label="Profession" error={step1Errors.profession}>
-                  <input className={styles.input} style={step1Errors.profession ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} />
+                  <input className={styles.input} style={step1Errors.profession ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} placeholder="Ex : Ingénieur, Médecin…" />
                 </Field>
                 <Field label="Sexe" required error={getError("sexe", "Le sexe est obligatoire")}>
                   <select className={styles.input} style={getError("sexe", "Le sexe est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.sexe} onChange={(e) => updateField("sexe", e.currentTarget.value)} onBlur={() => markFieldTouched("sexe")}>
-                    <option value="">Selectionner</option>
+                    <option value="">Sélectionner</option>
                     <option value="Masculin">Masculin</option>
                     <option value="Féminin">Féminin</option>
                   </select>
                 </Field>
                 <Field label="Lieu de naissance" required error={getError("lieuNaissance", "Le lieu de naissance est obligatoire")}>
-                  <input className={styles.input} style={getError("lieuNaissance", "Le lieu de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("lieuNaissance")} />
+                  <input className={styles.input} style={getError("lieuNaissance", "Le lieu de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("lieuNaissance")} placeholder="Ex : Alger, Oran…" />
                 </Field>
                 <Field label="Date de naissance" required error={getError("dateNaissance", "La date de naissance est obligatoire")}>
                   <input className={styles.input} style={getError("dateNaissance", "La date de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.dateNaissance} onChange={(e) => updateField("dateNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("dateNaissance")} placeholder="JJ/MM/AAAA" />
                 </Field>
-                <Field label="NSS" required error={step1Errors.nss}><input className={styles.input} style={step1Errors.nss ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} /></Field>
-                <Field label="Nationalite" error={step1Errors.nationalite}><input className={styles.input} style={step1Errors.nationalite ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} /></Field>
-                <Field label="Telephone" required error={getError("telephone", "Le telephone est obligatoire")}>
-                  <input className={styles.input} style={getError("telephone", "Le telephone est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.telephone} onChange={(e) => updateField("telephone", e.currentTarget.value)} onBlur={() => markFieldTouched("telephone")} />
+                <Field label="NSS" required error={step1Errors.nss}><input className={styles.input} style={step1Errors.nss ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} placeholder="15 chiffres" /></Field>
+                <Field label="Nationalité" error={step1Errors.nationalite}><input className={styles.input} style={step1Errors.nationalite ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} placeholder="Ex : Algérienne" /></Field>
+                <Field label="Téléphone" required error={getError("telephone", "Le téléphone est obligatoire")}>
+                  <input className={styles.input} style={getError("telephone", "Le téléphone est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.telephone} onChange={(e) => updateField("telephone", e.currentTarget.value)} onBlur={() => markFieldTouched("telephone")} placeholder="0X XX XX XX XX" />
                 </Field>
-                <Field label="Email" error={step1Errors.email}><input className={styles.input} style={step1Errors.email ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} /></Field>
-                <Field label="Situation familiale" error={step1Errors.situationFamiliale}><input className={styles.input} style={step1Errors.situationFamiliale ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")} /></Field>
-                <Field label="Adresse complete" error={step1Errors.adresseComplete}><input className={styles.input} style={step1Errors.adresseComplete ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} /></Field>
+                <Field label="Email" error={step1Errors.email}><input className={styles.input} style={step1Errors.email ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} placeholder="exemple@email.com" /></Field>
+                <Field label="Situation familiale" error={step1Errors.situationFamiliale}>
+                  <select className={styles.input} style={step1Errors.situationFamiliale ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")}>
+                    <option value="">Sélectionner</option>
+                    <option value="Célibataire">Célibataire</option>
+                    <option value="Marié(e)">Marié(e)</option>
+                    <option value="Divorcé(e)">Divorcé(e)</option>
+                    <option value="Veuf(ve)">Veuf(ve)</option>
+                  </select>
+                </Field>
+                <Field label="Adresse complète" error={step1Errors.adresseComplete}><input className={styles.input} style={step1Errors.adresseComplete ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} placeholder="Rue, cité, wilaya…" /></Field>
               </div>
             </>
           ) : null}
 
           {currentStep === 2 ? (
             <div className={styles.stepTwoContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
-              {showValidation && !isStepTwoValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires de cette etape avant de continuer.</p> : null}
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations médicales</strong> — Ces informations aideront au suivi médical du patient.</p></div>
+              {showValidation && !isStepTwoValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires de cette étape avant de continuer.</p> : null}
               <div className={`${styles.stepTwoMedicalGrid} ${isFemalePatient ? styles.stepTwoMedicalGridSingle : ""}`}>
                 <Field label="Groupe sanguin"><input className={styles.input} value={groupeSanguin} onChange={(e) => setGroupeSanguin(e.currentTarget.value)} placeholder="Ex: A+, O-, B+..." /></Field>
                 <Field label="Age de circoncision">
@@ -585,7 +575,7 @@ export function NouveauPatientDialog({
               </div>
 
               <section className={styles.sectionBlock}>
-                <h3 className={styles.sectionTitle}>ANTECEDENTS PERSONNELS</h3>
+                <h3 className={styles.sectionTitle}>ANTÉCÉDENTS PERSONNELS</h3>
                 {personalAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <div className={styles.personalTypeRow}>
@@ -605,11 +595,11 @@ export function NouveauPatientDialog({
                     </Field>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setPersonalAntecedents((current) => [...current, initialPersonalAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antecedent</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setPersonalAntecedents((current) => [...current, initialPersonalAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antécédent</button>
               </section>
 
               <section className={styles.sectionBlock}>
-                <h3 className={styles.sectionTitle}>ANTECEDENTS FAMILIAUX</h3>
+                <h3 className={styles.sectionTitle}>ANTÉCÉDENTS FAMILIAUX</h3>
                 {familyAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <Field label="Lien de parente" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined}>
@@ -623,14 +613,14 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setFamilyAntecedents((current) => [...current, initialFamilyAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antecedent</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setFamilyAntecedents((current) => [...current, initialFamilyAntecedent()])}><Plus size={14} aria-hidden="true" />Ajouter un antécédent</button>
               </section>
             </div>
           ) : null}
 
           {currentStep === 3 ? (
             <div className={styles.stepThreeContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Les traitements saisis seront enregistres lors de la creation.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Traitements en cours</strong> — Les médicaments saisis seront enregistrés à la création du dossier.</p></div>
               <section className={styles.treatmentSection}>
                 <h3 className={styles.sectionTitle}>MEDICAMENTS</h3>
                 {treatments.map((treatment) => (
@@ -647,48 +637,48 @@ export function NouveauPatientDialog({
                     </div>
                   </div>
                 ))}
-                <button type="button" className={styles.addAntecedentButton} onClick={() => setTreatments((current) => [...current, initialTreatment()])}><Plus size={14} aria-hidden="true" />Ajouter un medicament</button>
+                <button type="button" className={styles.addAntecedentButton} onClick={() => setTreatments((current) => [...current, initialTreatment()])}><Plus size={14} aria-hidden="true" />Ajouter un médicament</button>
               </section>
             </div>
           ) : null}
 
           {currentStep === 4 && isFemalePatient ? (
             <div className={styles.stepFourContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Sante feminine</strong> - Informations specifiques a la patiente.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Santé féminine</strong> — Informations spécifiques à la patiente.</p></div>
               <div className={styles.formGrid}>
-                <Field label="Age des premieres regles"><input className={styles.input} type="number" value={menarche} onChange={(e) => setMenarche(e.currentTarget.value)} placeholder="Ex: 12" /></Field>
-                <Field label="Regularite des cycles"><select className={styles.input} value={regulariteCycles} onChange={(e) => setRegulariteCycles(e.currentTarget.value)}><option value="Reguliers">Reguliers</option><option value="Irreguliers">Irreguliers</option><option value="Absents">Absents (Amenorrhee)</option></select></Field>
-                <Field label="Contraception"><input className={styles.input} value={contraception} onChange={(e) => setContraception(e.currentTarget.value)} placeholder="Ex: Pilule, DIU, Aucun..." /></Field>
+                <Field label="Âge des premières règles"><input className={styles.input} type="number" value={menarche} onChange={(e) => setMenarche(e.currentTarget.value)} placeholder="Ex : 12" /></Field>
+                <Field label="Régularité des cycles"><select className={styles.input} value={regulariteCycles} onChange={(e) => setRegulariteCycles(e.currentTarget.value)}><option value="Réguliers">Réguliers</option><option value="Irréguliers">Irréguliers</option><option value="Absents">Absents (Aménorrhée)</option></select></Field>
+                <Field label="Contraception"><input className={styles.input} value={contraception} onChange={(e) => setContraception(e.currentTarget.value)} placeholder="Ex : Pilule, DIU, Aucune…" /></Field>
                 <Field label="Nombre de grossesses"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbGrossesses)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbGrossesses, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbGrossesses, 1)}>+</button></div></div></Field>
-                <Field label="Nombre de cesariennes"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbCesariennes)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, 1)}>+</button></div></div></Field>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}><label className={styles.checkboxPill}><input type="checkbox" checked={menopause} onChange={(e) => setMenopause(e.currentTarget.checked)} /><span>Menopausee</span></label></div>
-                {menopause ? <Field label="Age de la menopause"><input className={styles.input} type="number" value={ageMenopause} onChange={(e) => setAgeMenopause(e.currentTarget.value)} placeholder="Ex: 50" /></Field> : null}
-                <Field label="Symptomes menopause"><textarea className={`${styles.input} ${styles.textareaInput}`} value={symptomesMenopause} onChange={(e) => setSymptomesMenopause(e.currentTarget.value)} placeholder="Ex: Bouffees de chaleur..." /></Field>
+                <Field label="Nombre de césariennes"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nbCesariennes)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, -1)}>-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNbCesariennes, 1)}>+</button></div></div></Field>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}><label className={styles.checkboxPill}><input type="checkbox" checked={menopause} onChange={(e) => setMenopause(e.currentTarget.checked)} /><span>Ménopausée</span></label></div>
+                {menopause ? <Field label="Âge de la ménopause"><input className={styles.input} type="number" value={ageMenopause} onChange={(e) => setAgeMenopause(e.currentTarget.value)} placeholder="Ex : 50" /></Field> : null}
+                <Field label="Symptômes ménopause"><textarea className={`${styles.input} ${styles.textareaInput}`} value={symptomesMenopause} onChange={(e) => setSymptomesMenopause(e.currentTarget.value)} placeholder="Ex : Bouffées de chaleur…" /></Field>
               </div>
             </div>
           ) : null}
 
           {(currentStep === 4 && isMalePatient) || (currentStep === 5 && isFemalePatient) ? (
             <div className={styles.stepFourContent}>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
+              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> — Ces informations aideront au suivi médical du patient.</p></div>
               <div className={styles.socialTopGrid}>
-                  <Field label={"Assur\u00e9"}>
+                  <Field label="Assuré">
                     <label className={styles.checkboxPill}>
                       <input checked={assure} onChange={(event) => setAssure(event.currentTarget.checked)} type="checkbox" />
                       <span>{assure ? "Oui" : "Non"}</span>
                     </label>
                   </Field>
-                <Field label="Taille menages"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille menages">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille menages">+</button></div></div></Field>
-                <Field label="Nombre de pieces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pieces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pieces">+</button></div></div></Field>
+                <Field label="Taille du ménage"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, -1)} aria-label="Diminuer la taille du ménage">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setTailleMenages, 1)} aria-label="Augmenter la taille du ménage">+</button></div></div></Field>
+                <Field label="Nombre de pièces"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreDePieces)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, -1)} aria-label="Diminuer le nombre de pièces">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreDePieces, 1)} aria-label="Augmenter le nombre de pièces">+</button></div></div></Field>
               </div>
               <div className={styles.socialBottomGrid}>
-                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex: Ingenieur, Etudiant, Retraite..." /></Field>
-                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">Selectionner</option><option value="Celibataire">Celibataire</option><option value="Marie(e)">Marie(e)</option><option value="Divorce(e)">Divorce(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
+                <Field label="Profession"><input className={styles.input} value={socialProfession} onChange={(event) => setSocialProfession(event.currentTarget.value)} placeholder="Ex : Ingénieur, Étudiant, Retraité…" /></Field>
+                <Field label="Situation familiale"><div className={styles.selectWrap}><select className={styles.input} value={socialSituationFamiliale} onChange={(event) => setSocialSituationFamiliale(event.currentTarget.value)}><option value="">Sélectionner</option><option value="Célibataire">Célibataire</option><option value="Marié(e)">Marié(e)</option><option value="Divorcé(e)">Divorcé(e)</option><option value="Veuf(ve)">Veuf(ve)</option></select><ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" /></div></Field>
                 <Field label="Nombre d'enfants"><div className={styles.counterInputWrap}><input className={`${styles.input} ${styles.counterInputField}`} value={String(nombreEnfants)} readOnly /><div className={styles.counterInputActions}><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, -1)} aria-label="Diminuer le nombre d'enfants">-</button><button type="button" className={styles.counterActionButton} onClick={() => adjustCounter(setNombreEnfants, 1)} aria-label="Augmenter le nombre d'enfants">+</button></div></div></Field>
               </div>
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>MODE DE VIE & HABITUDES</h3>
-                <Field label="Habitudes saines"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesSaines} onChange={(event) => setHabitudesSaines(event.currentTarget.value)} placeholder="Activite physique reguliere, alimentation equilibree" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesSaines("")} aria-label="Effacer habitudes saines"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
+                <Field label="Habitudes saines"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesSaines} onChange={(event) => setHabitudesSaines(event.currentTarget.value)} placeholder="Activité physique régulière, alimentation équilibrée…" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesSaines("")} aria-label="Effacer habitudes saines"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Habitudes toxiques"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={habitudesToxiques} onChange={(event) => setHabitudesToxiques(event.currentTarget.value)} placeholder="Ex: tabac, alcool..." /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setHabitudesToxiques("")} aria-label="Effacer habitudes toxiques"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Environnement animal"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={environnementAnimal} onChange={(event) => setEnvironnementAnimal(event.currentTarget.value)} placeholder="Ex: animaux domestiques..." /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setEnvironnementAnimal("")} aria-label="Effacer environnement animal"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
                 <Field label="Relations environnementales"><div className={styles.inputWithAction}><textarea className={`${styles.input} ${styles.socialTextarea} ${styles.inputWithInlineAction}`} value={relationsEnvironnementales} onChange={(event) => setRelationsEnvironnementales(event.currentTarget.value)} placeholder="Ex: environnement social du patient" /><button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton} ${styles.inlineTextareaRemoveButton}`} onClick={() => setRelationsEnvironnementales("")} aria-label="Effacer relations environnementales"><Trash2 size={16} aria-hidden="true" /></button></div></Field>
@@ -697,10 +687,10 @@ export function NouveauPatientDialog({
           ) : null}
 
           <footer className={styles.footer}>
-            {currentStep === 1 ? <button type="button" className={styles.cancelButton} onClick={onClose}><X size={16} aria-hidden="true" />Annuler</button> : <button type="button" className={styles.cancelButton} onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1) as 1 | 2 | 3 | 4 | 5)}><ChevronLeft size={16} aria-hidden="true" />Precedent</button>}
+            {currentStep === 1 ? <button type="button" className={styles.cancelButton} onClick={onClose}><X size={16} aria-hidden="true" />Annuler</button> : <button type="button" className={styles.cancelButton} onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1) as 1 | 2 | 3 | 4 | 5)}><ChevronLeft size={16} aria-hidden="true" />Précédent</button>}
             <div className={styles.footerActionsRight}>
               <button type="button" className={styles.addNowButton} onClick={handleAddNow} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Ajout en cours..." : "Ajouter maintenant"}</button>
-              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>Continuer</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>{currentStep < maxStep ? "Continuer" : "Terminer"}</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </footer>
         </form>

@@ -209,29 +209,35 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6 pb-4">
+    <div className="flex w-full flex-col gap-6 pb-6">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-[24.8px] pb-[16px] pt-[24.8px] shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)]">
-          <div className="mb-6 flex items-center justify-between pl-[10px]">
-            <div className="flex items-center gap-2">
-              <UserRound className="size-5 text-[#0f3460]" />
-              <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-7 text-[#0f3460]">
-                Antecedents Personnels
-              </h3>
+        {/* Antécédents personnels */}
+        <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-[8px]">
+              <UserRound className="size-5 shrink-0 text-[#052ca0]" />
+              <div className="min-w-0">
+                <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
+                  Antécédents personnels
+                </h2>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
+                  {personnels.length > 0 ? `${personnels.length} entrée${personnels.length > 1 ? "s" : ""}` : "Aucun antécédent personnel enregistré."}
+                </p>
+              </div>
             </div>
             <button
-              className="flex h-[36px] w-[103px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)]"
+              className="flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] md:w-auto"
               onClick={() => openPopup({ type: "antecedent-personnel", mode: "create" })}
               type="button"
             >
-              <Plus className="size-4" />
-              Ajouter
+              <Plus className="size-4 shrink-0" />
+              Ajouter un antécédent
             </button>
           </div>
 
           <div className="flex flex-col gap-3">
             {personnels.length === 0 ? (
-              <EmptyState text="Aucun antécédent personnel" />
+              <EmptyState text="Aucun antécédent personnel enregistré" />
             ) : (
               personnels.map((antecedent) => {
                 const details = personnelsMap.get(antecedent.id);
@@ -239,62 +245,58 @@ function RouteComponent() {
                 return (
                   <article
                     key={antecedent.id}
-                    className="flex items-start justify-between rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f9fafb] px-[12.8px] py-[12.8px]"
+                    className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4"
                   >
-                    <div className="min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
-                        <p className="font-['Inter'] text-[14px] text-[#0f3460]">{antecedent.description}</p>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-[8px] border-[0.8px] px-2 py-[2px] font-['Poppins'] text-[12px] leading-4 ${
-                            isActive
-                              ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
-                              : "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]"
-                          }`}
-                        >
-                          {isActive ? <Check className="size-3" /> : <ShieldAlert className="size-3" />}
-                          {isActive ? "Actif" : "Inactif"}
-                        </span>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-['Inter'] text-[14px] font-medium text-[#0f3460]">
+                            {antecedent.description}
+                          </h3>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-['Inter'] text-[11px] font-semibold ${
+                              isActive
+                                ? "border-[#bbf7d0] bg-[#f0fdf4] text-[#008236]"
+                                : "border-[#fecaca] bg-[#fff1f2] text-[#e11d48]"
+                            }`}
+                          >
+                            {isActive ? <Check className="size-3" /> : <ShieldAlert className="size-3" />}
+                            {isActive ? "Actif" : "Inactif"}
+                          </span>
+                        </div>
+                        <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#64748b]">
+                          {details?.details?.trim() || "Sans détails"}
+                        </p>
                       </div>
-                      <p className="font-['Inter'] text-[14px] text-[#4b6787]">
-                        {details?.details?.trim() || "Sans details"}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <IconActionButton
-                        tone="orange"
-                        disabled={pendingId === antecedent.id}
-                        onClick={() => handleEditPersonnel(antecedent.id, antecedent.description)}
-                      >
-                        <Pencil className="size-4 text-[#f77a21]" />
-                      </IconActionButton>
-                      <IconActionButton
-                        disabled={
-                          inactivateMutation.isPending ||
-                          reactivateMutation.isPending ||
-                          pendingId === antecedent.id
-                        }
-                        onClick={() => {
-                          if (isActive) {
-                            inactivateMutation.mutate(antecedent.id);
-                            return;
-                          }
-                          reactivateMutation.mutate(antecedent.id);
-                        }}
-                      >
-                        {isActive ? (
-                          <ShieldAlert className="size-4 text-[#0f3460]" />
-                        ) : (
-                          <RotateCcw className="size-4 text-[#0f3460]" />
-                        )}
-                      </IconActionButton>
-                      <IconActionButton
-                        tone="orange"
-                        disabled={deleteAntecedentMutation.isPending}
-                        onClick={() => deleteAntecedentMutation.mutate(antecedent.id)}
-                      >
-                        <Trash2 className="size-4 text-[#f77a21]" />
-                      </IconActionButton>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          aria-label="Modifier"
+                          className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={pendingId === antecedent.id}
+                          onClick={() => handleEditPersonnel(antecedent.id, antecedent.description)}
+                          type="button"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                        <button
+                          aria-label={isActive ? "Marquer inactif" : "Réactiver"}
+                          className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={inactivateMutation.isPending || reactivateMutation.isPending || pendingId === antecedent.id}
+                          onClick={() => { if (isActive) { inactivateMutation.mutate(antecedent.id); } else { reactivateMutation.mutate(antecedent.id); } }}
+                          type="button"
+                        >
+                          {isActive ? <ShieldAlert className="size-4" /> : <RotateCcw className="size-4" />}
+                        </button>
+                        <button
+                          aria-label="Supprimer"
+                          className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#fecaca] bg-white text-[#e11d48] transition-colors hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={deleteAntecedentMutation.isPending}
+                          onClick={() => deleteAntecedentMutation.mutate(antecedent.id)}
+                          type="button"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -303,57 +305,70 @@ function RouteComponent() {
           </div>
         </section>
 
-        <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-[24.8px] pb-[16px] pt-[24.8px] shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)]">
-          <div className="mb-6 flex items-center justify-between pl-[10px]">
-            <div className="flex items-center gap-2">
-              <UserRound className="size-5 text-[#0f3460]" />
-              <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-7 text-[#0f3460]">
-                Antecedents Familiaux
-              </h3>
+        {/* Antécédents familiaux */}
+        <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-[8px]">
+              <UserRound className="size-5 shrink-0 text-[#052ca0]" />
+              <div className="min-w-0">
+                <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
+                  Antécédents familiaux
+                </h2>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
+                  {familiaux.length > 0 ? `${familiaux.length} entrée${familiaux.length > 1 ? "s" : ""}` : "Aucun antécédent familial enregistré."}
+                </p>
+              </div>
             </div>
             <button
-              className="flex h-[36px] w-[103px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)]"
+              className="flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] md:w-auto"
               onClick={() => openPopup({ type: "antecedent-familial", mode: "create" })}
               type="button"
             >
-              <Plus className="size-4" />
-              Ajouter
+              <Plus className="size-4 shrink-0" />
+              Ajouter un antécédent
             </button>
           </div>
 
           <div className="flex flex-col gap-3">
             {familiaux.length === 0 ? (
-              <EmptyState text="Aucun antécédent familial" />
+              <EmptyState text="Aucun antécédent familial enregistré" />
             ) : (
               familiaux.map((antecedent) => {
                 const details = familiauxMap.get(antecedent.id);
                 return (
                   <article
                     key={antecedent.id}
-                    className="flex items-start justify-between rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f9fafb] px-[12.8px] py-[12.8px]"
+                    className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4"
                   >
-                    <div className="min-w-0 pr-3">
-                      <p className="font-['Inter'] text-[14px] text-[#0f3460]">
-                        {details?.lien_parente?.trim() || "Lien non defini"}
-                      </p>
-                      <p className="font-['Inter'] text-[14px] text-[#4b6787]">{antecedent.description}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <IconActionButton
-                        tone="orange"
-                        disabled={pendingId === antecedent.id}
-                        onClick={() => handleEditFamilial(antecedent.id, antecedent.description)}
-                      >
-                        <Pencil className="size-4 text-[#f77a21]" />
-                      </IconActionButton>
-                      <IconActionButton
-                        tone="orange"
-                        disabled={deleteAntecedentMutation.isPending}
-                        onClick={() => deleteAntecedentMutation.mutate(antecedent.id)}
-                      >
-                        <Trash2 className="size-4 text-[#f77a21]" />
-                      </IconActionButton>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-['Inter'] text-[14px] font-medium text-[#0f3460]">
+                          {details?.lien_parente?.trim() || "Lien non défini"}
+                        </h3>
+                        <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#64748b]">
+                          {antecedent.description}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          aria-label="Modifier"
+                          className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={pendingId === antecedent.id}
+                          onClick={() => handleEditFamilial(antecedent.id, antecedent.description)}
+                          type="button"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                        <button
+                          aria-label="Supprimer"
+                          className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#fecaca] bg-white text-[#e11d48] transition-colors hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={deleteAntecedentMutation.isPending}
+                          onClick={() => deleteAntecedentMutation.mutate(antecedent.id)}
+                          type="button"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
