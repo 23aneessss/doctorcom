@@ -57,20 +57,15 @@ function RouteComponent() {
 
   return (
     <div className="flex w-full flex-col gap-6 pb-6">
-      <section className="overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_10px_30px_-22px_rgba(15,52,96,0.45)]">
-        <div className="flex flex-col gap-4 border-b border-[#e2f2fa] bg-gradient-to-r from-[#f8fcff] via-white to-[#eef8fd] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-[16px] bg-[#eef8fd] text-[#052ca0] ring-1 ring-[#c2e0ef]">
-              <Syringe className="size-5" />
-            </span>
+      <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-[8px]">
+            <Syringe className="size-5 shrink-0 text-[#052ca0]" />
             <div className="min-w-0">
-              <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold uppercase tracking-[0.18em] text-[#7a93af]">
-                Prévention
-              </p>
-              <h2 className="mt-1 font-['Plus_Jakarta_Sans'] text-[24px] font-semibold leading-8 text-[#0f3460]">
+              <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
                 Historique des vaccinations
               </h2>
-              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
+              <p className="font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
                 {latestVaccination
                   ? `Dernier vaccin : ${latestVaccination.vaccin}`
                   : "Aucune vaccination enregistrée pour ce patient."}
@@ -79,7 +74,7 @@ function RouteComponent() {
           </div>
 
           <button
-            className="flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-[15px] bg-[#052ca0] px-6 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white shadow-[0px_14px_28px_-18px_rgba(5,44,160,0.75)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] sm:w-[300px]"
+            className="flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-[#052ca0] px-5 py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] sm:w-[288px]"
             onClick={() =>
               openPopup({
                 type: "vaccination",
@@ -93,43 +88,38 @@ function RouteComponent() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+        <div className="flex flex-col gap-3">
           {vaccinations.length === 0 ? (
             <EmptyState text="Aucune vaccination enregistrée" />
           ) : (
             vaccinations.map((vaccination) => (
               <article
                 key={vaccination.id}
-                className="group rounded-[16px] border border-[#c2e0ef] bg-white px-4 py-4 shadow-[0px_8px_22px_-20px_rgba(15,52,96,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#76bbdd] hover:shadow-[0px_16px_32px_-24px_rgba(15,52,96,0.45)]"
+                className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4"
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-1 items-start gap-4">
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#e2f4fb] text-[#265284]">
-                      <Syringe className="size-5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-6 text-[#0f3460]">
-                          {vaccination.vaccin}
-                        </h3>
-                        <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#c2e0ef] bg-[#f8fcff] px-3 font-['Inter'] text-[13px] font-semibold text-[#6b819d]">
-                          <CalendarDays className="size-3.5" />
-                          {vaccination.date_vaccination}
-                        </span>
-                      </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+                        {vaccination.vaccin}
+                      </h3>
+                      <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#c2e0ef] bg-white px-2.5 font-['Inter'] text-[12px] font-semibold text-[#6b819d]">
+                        <CalendarDays className="size-3" />
+                        {vaccination.date_vaccination}
+                      </span>
+                    </div>
 
-                      <div className="mt-3 flex items-start gap-2">
-                        <FileText className="mt-[2px] size-[15px] shrink-0 text-[#76bbdd]" />
-                        <p className="line-clamp-2 font-['Inter'] text-[14px] leading-6 text-[#64748b]">
-                          {vaccination.notes?.trim() || "Sans notes"}
-                        </p>
-                      </div>
+                    <div className="mt-2 flex items-start gap-1.5">
+                      <FileText className="mt-[1px] size-[13px] shrink-0 text-[#76bbdd]" />
+                      <p className="line-clamp-2 font-['Inter'] text-[12px] leading-5 text-[#64748b]">
+                        {vaccination.notes?.trim() || "Sans notes"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex shrink-0 items-center justify-end gap-2">
                     <button
-                      className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-[#c2e0ef] bg-white px-4 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold leading-4 text-[#0f3460] transition-colors hover:bg-[#f8fcff]"
+                      className="flex h-[35px] cursor-pointer items-center gap-[3px] rounded-[10px] border border-[#c2e0ef] bg-white px-3 font-['Poppins'] text-[12px] leading-4 text-[#0f3460] transition-colors hover:bg-[#f8fcff]"
                       onClick={() =>
                         openPopup({
                           type: "vaccination",
@@ -144,13 +134,13 @@ function RouteComponent() {
                       }
                       type="button"
                     >
-                      <Pencil className="size-4" />
+                      <Pencil className="size-4 shrink-0" />
                       <span>Modifier</span>
                     </button>
 
                     <button
                       aria-label="Supprimer la vaccination"
-                      className="inline-flex size-10 cursor-pointer items-center justify-center rounded-[12px] border border-[#fecaca] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
+                      className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#fecaca] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
                       onClick={() =>
                         openPopup({
                           type: "vaccination",
@@ -180,15 +170,9 @@ function RouteComponent() {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-[190px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#c2e0ef] bg-[#f8fcff] px-4 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-white text-[#76bbdd] ring-1 ring-[#c2e0ef]">
-        <Syringe className="size-5" />
-      </span>
-      <span className="mt-3 font-['Plus_Jakarta_Sans'] text-[15px] font-semibold leading-5 text-[#0f3460]">
+    <div className="flex h-[154px] items-center justify-center rounded-[10px] border-[0.8px] border-dashed border-[#c2e0ef] bg-[#f9fafb] px-4 text-center">
+      <span className="font-['Inter'] text-[14px] leading-5 text-[#64748b]">
         {text}
-      </span>
-      <span className="mt-1 max-w-[320px] font-['Inter'] text-[13px] leading-5 text-[#7a93af]">
-        Ajoutez une vaccination pour compléter l'historique préventif du patient.
       </span>
     </div>
   );
@@ -197,18 +181,7 @@ function EmptyState({ text }: { text: string }) {
 function VaccinationSkeleton() {
   return (
     <div className="flex w-full flex-col gap-6 pb-4">
-      <section className="overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_10px_30px_-22px_rgba(15,52,96,0.45)]">
-        <div className="flex items-center justify-between gap-4 border-b border-[#e2f2fa] px-6 py-5">
-          <Skeleton className="h-16 w-80 rounded-[16px]" />
-          <Skeleton className="h-[52px] w-[300px] rounded-[15px]" />
-        </div>
-
-        <div className="flex flex-col gap-3 px-6 py-5">
-          <Skeleton className="h-[98px] rounded-[16px]" />
-          <Skeleton className="h-[98px] rounded-[16px]" />
-          <Skeleton className="h-[98px] rounded-[16px]" />
-        </div>
-      </section>
+      <Skeleton className="h-[420px] rounded-[14px]" />
     </div>
   );
 }

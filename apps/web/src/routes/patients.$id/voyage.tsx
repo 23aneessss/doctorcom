@@ -60,20 +60,15 @@ function RouteComponent() {
 
   return (
     <div className="flex w-full flex-col gap-6 pb-6">
-      <section className="overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_10px_30px_-22px_rgba(15,52,96,0.45)]">
-        <div className="flex flex-col gap-4 border-b border-[#e2f2fa] bg-gradient-to-r from-[#f8fcff] via-white to-[#eef8fd] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-[16px] bg-[#eef8fd] text-[#052ca0] ring-1 ring-[#c2e0ef]">
-              <MapPin className="size-5" />
-            </span>
+      <section className="rounded-[14px] border-[0.8px] border-[#c2e0ef] bg-white px-4 py-5 shadow-[0px_4px_6px_0px_rgba(118,187,221,0.2),0px_2px_4px_0px_rgba(118,187,221,0.2)] sm:px-[24.8px] sm:pt-[24.8px]">
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-[8px]">
+            <MapPin className="size-5 shrink-0 text-[#052ca0]" />
             <div className="min-w-0">
-              <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold uppercase tracking-[0.18em] text-[#7a93af]">
-                Expositions
-              </p>
-              <h2 className="mt-1 font-['Plus_Jakarta_Sans'] text-[24px] font-semibold leading-8 text-[#0f3460]">
+              <h2 className="font-['Inter'] text-[20px] font-medium leading-7 text-[#052ca0]">
                 Voyages récents
               </h2>
-              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
+              <p className="font-['Inter'] text-[13px] leading-5 text-[#6b819d]">
                 {latestVoyage
                   ? `Dernier déplacement : ${latestVoyage.destination}`
                   : "Aucun voyage enregistré pour ce patient."}
@@ -82,7 +77,7 @@ function RouteComponent() {
           </div>
 
           <button
-            className="flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-[15px] bg-[#052ca0] px-6 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white shadow-[0px_14px_28px_-18px_rgba(5,44,160,0.75)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] sm:w-[240px]"
+            className="flex h-[42px] w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-[#052ca0] px-5 py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold leading-6 text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#082f9e] sm:w-[288px]"
             onClick={() =>
               openPopup({
                 type: "voyage",
@@ -96,44 +91,39 @@ function RouteComponent() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {voyages.length === 0 ? (
             <EmptyState text="Aucun voyage enregistré" />
           ) : (
             voyages.map((voyage) => (
               <article
                 key={voyage.id}
-                className="group rounded-[16px] border border-[#c2e0ef] bg-white p-4 shadow-[0px_8px_22px_-20px_rgba(15,52,96,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#76bbdd] hover:shadow-[0px_16px_32px_-24px_rgba(15,52,96,0.45)]"
+                className="rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f8fafc] p-4"
               >
-                <div className="flex h-full flex-col gap-4">
+                <div className="flex h-full flex-col gap-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#e2f4fb] text-[#265284]">
-                        <MapPin className="size-5" />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-6 text-[#0f3460]">
-                          {voyage.destination}
-                        </h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#c2e0ef] bg-[#f8fcff] px-3 font-['Inter'] text-[13px] font-semibold text-[#6b819d]">
-                            <CalendarDays className="size-3.5" />
-                            {voyage.date}
-                          </span>
-                          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#c2e0ef] bg-[#f8fcff] px-3 font-['Inter'] text-[13px] font-semibold text-[#6b819d]">
-                            <Clock3 className="size-3.5" />
-                            {typeof voyage.duree_jours === "number"
-                              ? `${voyage.duree_jours} jours`
-                              : "Durée inconnue"}
-                          </span>
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
+                        {voyage.destination}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#c2e0ef] bg-white px-2.5 font-['Inter'] text-[12px] font-semibold text-[#6b819d]">
+                          <CalendarDays className="size-3" />
+                          {voyage.date}
+                        </span>
+                        <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#c2e0ef] bg-white px-2.5 font-['Inter'] text-[12px] font-semibold text-[#6b819d]">
+                          <Clock3 className="size-3" />
+                          {typeof voyage.duree_jours === "number"
+                            ? `${voyage.duree_jours} jours`
+                            : "Durée inconnue"}
+                        </span>
                       </div>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
                       <button
                         aria-label="Modifier le voyage"
-                        className="inline-flex size-10 cursor-pointer items-center justify-center rounded-[12px] border border-[#c2e0ef] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fcff]"
+                        className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#c2e0ef] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fafc]"
                         onClick={() =>
                           openPopup({
                             type: "voyage",
@@ -154,7 +144,7 @@ function RouteComponent() {
 
                       <button
                         aria-label="Supprimer le voyage"
-                        className="inline-flex size-10 cursor-pointer items-center justify-center rounded-[12px] border border-[#fecaca] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
+                        className="flex size-[35.2px] cursor-pointer items-center justify-center rounded-[10px] border-[1.6px] border-[#fecaca] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
                         onClick={() =>
                           openPopup({
                             type: "voyage",
@@ -175,10 +165,10 @@ function RouteComponent() {
                     </div>
                   </div>
 
-                  <div className="mt-auto rounded-[12px] border border-[#ffe0c2] bg-[#fffaf5] px-3 py-3">
+                  <div className="mt-auto rounded-[8px] border-[0.8px] border-[#ffe0c2] bg-[#fffaf5] px-3 py-2">
                     <div className="flex items-start gap-2">
-                      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[#f97316]" />
-                      <p className="font-['Inter'] text-[13px] leading-5 text-[#8a5a32]">
+                      <ShieldAlert className="mt-0.5 size-[13px] shrink-0 text-[#f97316]" />
+                      <p className="font-['Inter'] text-[12px] leading-5 text-[#8a5a32]">
                         <span className="font-semibold text-[#f97316]">
                           Risque local :
                         </span>{" "}
@@ -199,16 +189,9 @@ function RouteComponent() {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="col-span-full flex h-[190px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#c2e0ef] bg-[#f8fcff] px-4 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-white text-[#76bbdd] ring-1 ring-[#c2e0ef]">
-        <MapPin className="size-5" />
-      </span>
-      <span className="mt-3 font-['Plus_Jakarta_Sans'] text-[15px] font-semibold leading-5 text-[#0f3460]">
+    <div className="col-span-full flex h-[154px] items-center justify-center rounded-[10px] border-[0.8px] border-dashed border-[#c2e0ef] bg-[#f9fafb] px-4 text-center">
+      <span className="font-['Inter'] text-[14px] leading-5 text-[#64748b]">
         {text}
-      </span>
-      <span className="mt-1 max-w-[320px] font-['Inter'] text-[13px] leading-5 text-[#7a93af]">
-        Ajoutez les déplacements importants pour contextualiser les risques
-        d'exposition.
       </span>
     </div>
   );
@@ -217,18 +200,7 @@ function EmptyState({ text }: { text: string }) {
 function VoyageSkeleton() {
   return (
     <div className="flex w-full flex-col gap-6 pb-4">
-      <section className="overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white shadow-[0px_10px_30px_-22px_rgba(15,52,96,0.45)]">
-        <div className="flex items-center justify-between gap-4 border-b border-[#e2f2fa] px-6 py-5">
-          <Skeleton className="h-16 w-80 rounded-[16px]" />
-          <Skeleton className="h-[52px] w-[240px] rounded-[15px]" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 px-6 py-5 lg:grid-cols-2">
-          <Skeleton className="h-[150px] rounded-[16px]" />
-          <Skeleton className="h-[150px] rounded-[16px]" />
-          <Skeleton className="h-[150px] rounded-[16px]" />
-        </div>
-      </section>
+      <Skeleton className="h-[420px] rounded-[14px]" />
     </div>
   );
 }
