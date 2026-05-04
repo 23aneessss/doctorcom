@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import type { AppRouter } from "@doctor.com/api/routers/index";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { inferRouterOutputs } from "@trpc/server";
 import {
   Activity,
   ArrowRight,
@@ -15,12 +17,22 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 import { requireSession } from "@/lib/require-session";
+import { AjouterRdvDialog } from "./agenda/popups/ajouter-rdv";
+import {
+  getInitialsFromName,
+  type RdvFormValues,
+  type RdvPatientOption,
+} from "./agenda/popups/rdv-dialog-shared";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type PatientRecord = RouterOutputs["patient"]["searchPatients"][number];
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
@@ -90,8 +102,79 @@ function RouteComponent() {
       retry: false,
     }),
   );
+  const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
+  const createSlotMutation = useMutation(trpc.agenda.createSlot.mutationOptions());
+  const createPatientMutation = useMutation(trpc.patient.createPatient.mutationOptions());
   const overview = (overviewQuery.data ?? EMPTY_OVERVIEW) as DashboardOverview;
   const isLoading = overviewQuery.isLoading;
+  const fallbackSelectedDate =
+    overview.calendarDays.find((day) => day.isActive)?.isoDate ??
+    overview.calendarDays[0]?.isoDate ??
+    formatDateForApi(new Date());
+  const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string | null>(null);
+  const [isAddRdvOpen, setIsAddRdvOpen] = useState(false);
+  const activeAppointmentDate = selectedAppointmentDate ?? fallbackSelectedDate;
+  const filteredAppointments = useMemo(
+    () =>
+      overview.upcomingAppointments
+        .filter((appointment) => appointment.date === activeAppointmentDate)
+        .sort((first, second) => first.time.localeCompare(second.time)),
+    [activeAppointmentDate, overview.upcomingAppointments],
+  );
+  const patientOptions = useMemo(
+    () => (patientsQuery.data ?? []).map((patient) => mapPatientToOption(patient)),
+    [patientsQuery.data],
+  );
+
+  const handleCreateRdv = async (values: RdvFormValues) => {
+    try {
+      let nextValues = values;
+
+      if (!values.patientId) {
+        const patientName = values.patientName.trim();
+        const existingPatient = patientOptions.find(
+          (patient) => patient.label.toLowerCase() === patientName.toLowerCase(),
+        );
+
+        if (existingPatient) {
+          nextValues = {
+            ...values,
+            patientId: existingPatient.id,
+            patientName: existingPatient.label,
+            patientInitials: existingPatient.initials,
+          };
+        } else {
+          const { nom, prenom } = splitPatientName(patientName);
+          const createdPatient = await createPatientMutation.mutateAsync({
+            patient: {
+              nom,
+              prenom,
+              matricule: buildPatientMatricule(patientName, (patientsQuery.data?.length ?? 0) + 1),
+              date_naissance: "1970-01-01",
+            },
+          });
+
+          nextValues = {
+            ...values,
+            patientId: createdPatient.id,
+            patientName: getPatientLabel(createdPatient),
+            patientInitials: getPatientInitials(createdPatient),
+          };
+
+          await patientsQuery.refetch();
+        }
+      }
+
+      await createSlotMutation.mutateAsync(toSlotPayload(nextValues));
+      setSelectedAppointmentDate(nextValues.date);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous ajouté avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible d'ajouter le rendez-vous."));
+      return false;
+    }
+  };
 
   return (
     <div className={patientsStyles.pageShell}>
@@ -99,7 +182,10 @@ function RouteComponent() {
 
       <main className={patientsStyles.pageMain}>
         <div className={patientsStyles.pageContent}>
-          <DashboardHero displayName={displayName} />
+          <DashboardHero
+            displayName={displayName}
+            onCreateAppointment={() => setIsAddRdvOpen(true)}
+          />
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard
@@ -145,8 +231,10 @@ function RouteComponent() {
                 title="Rendez-vous à venir"
               />
               <UpcomingAppointments
-                appointments={overview.upcomingAppointments}
+                appointments={filteredAppointments}
                 calendarDays={overview.calendarDays}
+                selectedDate={activeAppointmentDate}
+                onSelectDate={setSelectedAppointmentDate}
                 loading={isLoading}
               />
             </DashboardPanel>
@@ -177,17 +265,32 @@ function RouteComponent() {
 
               <DashboardPanel>
                 <PanelHeader eyebrow="Accès rapide" icon={Sparkles} title="Actions du jour" />
-                <QuickActions />
+                <QuickActions onAddAppointment={() => setIsAddRdvOpen(true)} />
               </DashboardPanel>
             </div>
           </section>
         </div>
       </main>
+
+      <AjouterRdvDialog
+        open={isAddRdvOpen}
+        onOpenChange={setIsAddRdvOpen}
+        defaultDate={activeAppointmentDate}
+        onCreate={handleCreateRdv}
+        patientOptions={patientOptions}
+        isSubmitting={createSlotMutation.isPending || createPatientMutation.isPending}
+      />
     </div>
   );
 }
 
-function DashboardHero({ displayName }: { displayName: string }) {
+function DashboardHero({
+  displayName,
+  onCreateAppointment,
+}: {
+  displayName: string;
+  onCreateAppointment: () => void;
+}) {
   const heroStyle = {
     "--patients-hero-texture": `url(${headerTexture})`,
   } as React.CSSProperties;
@@ -208,13 +311,14 @@ function DashboardHero({ displayName }: { displayName: string }) {
           </p>
         </div>
 
-        <Link
+        <button
           className="inline-flex h-[2.625rem] min-w-[13.5rem] items-center justify-center gap-2 rounded-[0.875rem] bg-[#052ca0] px-6 font-['Plus_Jakarta_Sans'] text-[1rem] font-semibold tracking-[-0.01em] text-white shadow-[0px_4px_12px_rgba(5,44,160,0.38)] transition hover:-translate-y-px hover:bg-[#0a3ac7] hover:shadow-[0px_8px_20px_rgba(5,44,160,0.44)]"
-          to="/agenda"
+          onClick={onCreateAppointment}
+          type="button"
         >
           <Plus className="size-5" />
           Nouveau rendez-vous
-        </Link>
+        </button>
       </div>
     </section>
   );
@@ -483,10 +587,14 @@ function RdvTypeBreakdown({
 function UpcomingAppointments({
   appointments,
   calendarDays,
+  selectedDate,
+  onSelectDate,
   loading,
 }: {
   appointments: DashboardOverview["upcomingAppointments"];
   calendarDays: DashboardOverview["calendarDays"];
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
   loading: boolean;
 }) {
   const days = calendarDays.length > 0 ? calendarDays : fallbackCalendarDays();
@@ -494,12 +602,18 @@ function UpcomingAppointments({
   return (
     <div className="flex h-full min-h-[17rem] flex-col">
       <div className="grid grid-cols-7 gap-2">
-        {days.map((day) => (
-          <div
+        {days.map((day) => {
+          const isSelected = day.isoDate === selectedDate;
+
+          return (
+          <button
+            type="button"
+            onClick={() => onSelectDate(day.isoDate)}
+            aria-pressed={isSelected}
             className={`flex h-14 flex-col items-center justify-center rounded-[14px] border font-['Inter'] transition ${
-              day.isActive
+              isSelected
                 ? "border-[#76bbdd] bg-[#0f3460] text-white shadow-[0_12px_20px_-18px_rgba(15,52,96,0.8)]"
-                : "border-[#c2e0ef] bg-[#f8fcff] text-[#265284]"
+                : "border-[#c2e0ef] bg-[#f8fcff] text-[#265284] hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#edf8fd]"
             }`}
             key={day.isoDate}
           >
@@ -507,8 +621,9 @@ function UpcomingAppointments({
             <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
               {day.weekday}
             </span>
-          </div>
-        ))}
+          </button>
+          );
+        })}
       </div>
 
       <div className="mt-4 grid gap-2">
@@ -519,7 +634,7 @@ function UpcomingAppointments({
             <AppointmentRow appointment={appointment} key={appointment.id} />
           ))
         ) : (
-          <EmptyPanel text="Aucun rendez-vous à venir" />
+          <EmptyPanel text="Aucun rendez-vous pour cette journée" />
         )}
       </div>
 
@@ -563,10 +678,10 @@ function AppointmentRow({
   );
 }
 
-function QuickActions() {
+function QuickActions({ onAddAppointment }: { onAddAppointment: () => void }) {
   return (
     <div className="grid gap-3">
-      <QuickAction icon={CalendarDays} label="Ajouter un rendez-vous" to="/agenda" />
+      <QuickAction icon={CalendarDays} label="Ajouter un rendez-vous" onClick={onAddAppointment} />
       <QuickAction icon={Users} label="Consulter les patients" to="/patients" />
       <QuickAction icon={FileText} label="Créer une ordonnance" to="/ordonnance" />
     </div>
@@ -576,17 +691,18 @@ function QuickActions() {
 function QuickAction({
   icon: Icon,
   label,
+  onClick,
   to,
 }: {
   icon: LucideIcon;
   label: string;
-  to: string;
+  onClick?: () => void;
+  to?: string;
 }) {
-  return (
-    <Link
-      className="group flex min-h-[3.65rem] items-center justify-between gap-3 rounded-[15px] border border-[#c2e0ef] bg-[#f8fcff] px-4 py-3 transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#edf8fd]"
-      to={to}
-    >
+  const className =
+    "group flex min-h-[3.65rem] w-full items-center justify-between gap-3 rounded-[15px] border border-[#c2e0ef] bg-[#f8fcff] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#edf8fd]";
+  const content = (
+    <>
       <span className="flex items-center gap-3">
         <span className="flex size-9 items-center justify-center rounded-[12px] bg-white text-[#265284] shadow-[0_8px_18px_-18px_rgba(15,52,96,0.5)]">
           <Icon className="size-4" />
@@ -596,6 +712,20 @@ function QuickAction({
         </span>
       </span>
       <ArrowRight className="size-4 text-[#76bbdd] transition group-hover:translate-x-0.5 group-hover:text-[#052ca0]" />
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={className} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link className={className} to={to ?? "/"}>
+      {content}
     </Link>
   );
 }
@@ -606,6 +736,79 @@ function EmptyPanel({ text }: { text: string }) {
       {text}
     </div>
   );
+}
+
+function formatDateForApi(dateValue: Date) {
+  const year = dateValue.getFullYear();
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const day = String(dateValue.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeTime(timeValue: string) {
+  return timeValue.slice(0, 5);
+}
+
+function toSlotPayload(values: RdvFormValues) {
+  const patientName = values.patientName.trim();
+
+  return {
+    date: values.date,
+    startTime: normalizeTime(values.startTime),
+    endTime: normalizeTime(values.endTime),
+    status: values.status,
+    slotType: values.type.trim(),
+    patientLabel: patientName,
+    patientInitials:
+      values.patientInitials.trim() || getInitialsFromName(patientName),
+    notes: values.notes.trim() || undefined,
+  };
+}
+
+function getPatientInitials(patient: PatientRecord) {
+  return `${patient.nom.trim().slice(0, 1)}${patient.prenom.trim().slice(0, 1)}`.toUpperCase() || "PT";
+}
+
+function getPatientLabel(patient: PatientRecord) {
+  return [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
+}
+
+function mapPatientToOption(patient: PatientRecord): RdvPatientOption {
+  return {
+    id: patient.id,
+    label: getPatientLabel(patient),
+    initials: getPatientInitials(patient),
+    matricule: patient.matricule,
+  };
+}
+
+function splitPatientName(patientName: string) {
+  const parts = patientName.trim().split(/\s+/).filter(Boolean);
+  const [nom = "Patient", ...prenomParts] = parts;
+  const prenom = prenomParts.join(" ") || "Agenda";
+
+  return { nom, prenom };
+}
+
+function buildPatientMatricule(patientName: string, patientNumber: number) {
+  const initials = getInitialsFromName(patientName)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 3)
+    .toUpperCase() || "PT";
+  const sequence = Math.max(1, patientNumber).toString().padStart(4, "0");
+
+  return `${initials}-${new Date().getFullYear()}-${sequence}`;
+}
+
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {

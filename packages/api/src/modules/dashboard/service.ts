@@ -176,7 +176,7 @@ export class DashboardService {
     return rdvs
       .filter((rdv) => rdv.date >= today && rdv.statut !== "annule")
       .sort((a, b) => `${a.date} ${a.heure}`.localeCompare(`${b.date} ${b.heure}`))
-      .slice(0, 5)
+      .slice(0, 40)
       .map((rdv) => {
         const patientLabel = rdv.patient_label?.trim() || "Patient";
         return {
