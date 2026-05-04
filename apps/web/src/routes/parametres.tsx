@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import { Sidebar } from "@/components/sidebar";
+import { authClient } from "@/lib/auth-client";
 import { requireSession } from "@/lib/require-session";
 import { ChangerMdpDialog } from "@/routes/parametres/popups/changer-mdp";
 
@@ -182,6 +183,12 @@ function ParametresPage() {
     try {
       await updateProfileMutation.mutateAsync(payload);
       await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+
+      const fullName = [trimmedForm.prenom, trimmedForm.nom].filter(Boolean).join(" ");
+      if (fullName && fullName !== sessionUser?.name?.trim()) {
+        await authClient.updateUser({ name: fullName });
+      }
+
       toast.success("Paramètres enregistrés.");
     } catch (error) {
       toast.error(
