@@ -531,19 +531,27 @@ export function NouveauPatientDialog({
                   </select>
                 </Field>
                 <Field label="Lieu de naissance" required error={getError("lieuNaissance", "Le lieu de naissance est obligatoire")}>
-                  <input className={styles.input} style={getError("lieuNaissance", "Le lieu de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("lieuNaissance")} />
+                  <input className={styles.input} style={getError("lieuNaissance", "Le lieu de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("lieuNaissance")} placeholder="Ex : Alger, Oran…" />
                 </Field>
                 <Field label="Date de naissance" required error={getError("dateNaissance", "La date de naissance est obligatoire")}>
                   <input className={styles.input} style={getError("dateNaissance", "La date de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.dateNaissance} onChange={(e) => updateField("dateNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("dateNaissance")} placeholder="JJ/MM/AAAA" />
                 </Field>
-                <Field label="NSS" required error={step1Errors.nss}><input className={styles.input} style={step1Errors.nss ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} /></Field>
-                <Field label="Nationalite" error={step1Errors.nationalite}><input className={styles.input} style={step1Errors.nationalite ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} /></Field>
-                <Field label="Telephone" required error={getError("telephone", "Le telephone est obligatoire")}>
-                  <input className={styles.input} style={getError("telephone", "Le telephone est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.telephone} onChange={(e) => updateField("telephone", e.currentTarget.value)} onBlur={() => markFieldTouched("telephone")} />
+                <Field label="NSS" required error={step1Errors.nss}><input className={styles.input} style={step1Errors.nss ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} placeholder="15 chiffres" /></Field>
+                <Field label="Nationalité" error={step1Errors.nationalite}><input className={styles.input} style={step1Errors.nationalite ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} placeholder="Ex : Algérienne" /></Field>
+                <Field label="Téléphone" required error={getError("telephone", "Le téléphone est obligatoire")}>
+                  <input className={styles.input} style={getError("telephone", "Le téléphone est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.telephone} onChange={(e) => updateField("telephone", e.currentTarget.value)} onBlur={() => markFieldTouched("telephone")} placeholder="0X XX XX XX XX" />
                 </Field>
-                <Field label="Email" error={step1Errors.email}><input className={styles.input} style={step1Errors.email ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} /></Field>
-                <Field label="Situation familiale" error={step1Errors.situationFamiliale}><input className={styles.input} style={step1Errors.situationFamiliale ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")} /></Field>
-                <Field label="Adresse complete" error={step1Errors.adresseComplete}><input className={styles.input} style={step1Errors.adresseComplete ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} /></Field>
+                <Field label="Email" error={step1Errors.email}><input className={styles.input} style={step1Errors.email ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} placeholder="exemple@email.com" /></Field>
+                <Field label="Situation familiale" error={step1Errors.situationFamiliale}>
+                  <select className={styles.input} style={step1Errors.situationFamiliale ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")}>
+                    <option value="">Sélectionner</option>
+                    <option value="Célibataire">Célibataire</option>
+                    <option value="Marié(e)">Marié(e)</option>
+                    <option value="Divorcé(e)">Divorcé(e)</option>
+                    <option value="Veuf(ve)">Veuf(ve)</option>
+                  </select>
+                </Field>
+                <Field label="Adresse complète" error={step1Errors.adresseComplete}><input className={styles.input} style={step1Errors.adresseComplete ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} placeholder="Rue, cité, wilaya…" /></Field>
               </div>
             </>
           ) : null}
