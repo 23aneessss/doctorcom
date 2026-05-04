@@ -21,18 +21,22 @@ import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
+import type { AgendaEvent, AgendaSlotStatus } from "@/components/agenda/types";
 import Sidebar from "@/components/sidebar";
 import patientsStyles from "@/components/patients/patients-page.module.css";
 import { requireSession } from "@/lib/require-session";
 import { AjouterRdvDialog } from "./agenda/popups/ajouter-rdv";
+import { ModifierRdvDialog } from "./agenda/popups/modifier-rdv";
 import {
   getInitialsFromName,
   type RdvFormValues,
   type RdvPatientOption,
 } from "./agenda/popups/rdv-dialog-shared";
+import { VoirRdvDialog } from "./agenda/popups/voir-rdv";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type PatientRecord = RouterOutputs["patient"]["searchPatients"][number];
+type MobileAgendaSlot = RouterOutputs["agenda"]["getSlots"][number];
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
@@ -104,6 +108,8 @@ function RouteComponent() {
   );
   const patientsQuery = useQuery(trpc.patient.searchPatients.queryOptions({}));
   const createSlotMutation = useMutation(trpc.agenda.createSlot.mutationOptions());
+  const updateSlotMutation = useMutation(trpc.agenda.updateSlot.mutationOptions());
+  const deleteSlotMutation = useMutation(trpc.agenda.deleteSlot.mutationOptions());
   const createPatientMutation = useMutation(trpc.patient.createPatient.mutationOptions());
   const overview = (overviewQuery.data ?? EMPTY_OVERVIEW) as DashboardOverview;
   const isLoading = overviewQuery.isLoading;
@@ -113,6 +119,9 @@ function RouteComponent() {
     formatDateForApi(new Date());
   const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<string | null>(null);
   const [isAddRdvOpen, setIsAddRdvOpen] = useState(false);
+  const [selectedDashboardAppointment, setSelectedDashboardAppointment] =
+    useState<AgendaEvent | null>(null);
+  const [activeRdvDialog, setActiveRdvDialog] = useState<"view" | "edit" | null>(null);
   const activeAppointmentDate = selectedAppointmentDate ?? fallbackSelectedDate;
   const filteredAppointments = useMemo(
     () =>
@@ -176,6 +185,53 @@ function RouteComponent() {
     }
   };
 
+  const handleOpenDashboardAppointment = (
+    appointment: DashboardOverview["upcomingAppointments"][number],
+  ) => {
+    setSelectedDashboardAppointment(mapDashboardAppointmentToAgendaEvent(appointment));
+    setActiveRdvDialog("view");
+  };
+
+  const handleEditDashboardAppointment = (appointment: AgendaEvent) => {
+    setSelectedDashboardAppointment(appointment);
+    setActiveRdvDialog("edit");
+  };
+
+  const handleUpdateDashboardAppointment = async (
+    appointmentId: string,
+    values: RdvFormValues,
+  ) => {
+    try {
+      const updatedSlot = await updateSlotMutation.mutateAsync({
+        id: appointmentId,
+        ...toSlotPayload(values),
+      });
+      const updatedEvent = mapAgendaSlotToEvent(updatedSlot);
+
+      setSelectedDashboardAppointment(updatedEvent);
+      setSelectedAppointmentDate(updatedEvent.date);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous modifié avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de modifier le rendez-vous."));
+      return false;
+    }
+  };
+
+  const handleDeleteDashboardAppointment = async (appointment: AgendaEvent) => {
+    try {
+      await deleteSlotMutation.mutateAsync({ id: appointment.id });
+      setSelectedDashboardAppointment(null);
+      await overviewQuery.refetch();
+      toast.success("Rendez-vous supprimé avec succès.");
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer le rendez-vous."));
+      return false;
+    }
+  };
+
   return (
     <div className={patientsStyles.pageShell}>
       <Sidebar currentUser={sidebarUser} />
@@ -235,6 +291,7 @@ function RouteComponent() {
                 calendarDays={overview.calendarDays}
                 selectedDate={activeAppointmentDate}
                 onSelectDate={setSelectedAppointmentDate}
+                onOpenAppointment={handleOpenDashboardAppointment}
                 loading={isLoading}
               />
             </DashboardPanel>
@@ -279,6 +336,33 @@ function RouteComponent() {
         onCreate={handleCreateRdv}
         patientOptions={patientOptions}
         isSubmitting={createSlotMutation.isPending || createPatientMutation.isPending}
+      />
+
+      <VoirRdvDialog
+        open={activeRdvDialog === "view"}
+        onOpenChange={(open) => {
+          setActiveRdvDialog(open ? "view" : null);
+          if (!open) {
+            setSelectedDashboardAppointment(null);
+          }
+        }}
+        appointment={selectedDashboardAppointment}
+        onEdit={handleEditDashboardAppointment}
+        onDelete={handleDeleteDashboardAppointment}
+        isDeleting={deleteSlotMutation.isPending}
+      />
+
+      <ModifierRdvDialog
+        open={activeRdvDialog === "edit"}
+        onOpenChange={(open) => {
+          setActiveRdvDialog(open ? "edit" : null);
+          if (!open) {
+            setSelectedDashboardAppointment(null);
+          }
+        }}
+        appointment={selectedDashboardAppointment}
+        onUpdate={handleUpdateDashboardAppointment}
+        isSubmitting={updateSlotMutation.isPending}
       />
     </div>
   );
@@ -589,12 +673,14 @@ function UpcomingAppointments({
   calendarDays,
   selectedDate,
   onSelectDate,
+  onOpenAppointment,
   loading,
 }: {
   appointments: DashboardOverview["upcomingAppointments"];
   calendarDays: DashboardOverview["calendarDays"];
   selectedDate: string;
   onSelectDate: (date: string) => void;
+  onOpenAppointment: (appointment: DashboardOverview["upcomingAppointments"][number]) => void;
   loading: boolean;
 }) {
   const days = calendarDays.length > 0 ? calendarDays : fallbackCalendarDays();
@@ -631,7 +717,11 @@ function UpcomingAppointments({
           <EmptyPanel text="Chargement de l'agenda..." />
         ) : appointments.length > 0 ? (
           appointments.slice(0, 4).map((appointment) => (
-            <AppointmentRow appointment={appointment} key={appointment.id} />
+            <AppointmentRow
+              appointment={appointment}
+              key={appointment.id}
+              onOpen={onOpenAppointment}
+            />
           ))
         ) : (
           <EmptyPanel text="Aucun rendez-vous pour cette journée" />
@@ -644,13 +734,16 @@ function UpcomingAppointments({
 
 function AppointmentRow({
   appointment,
+  onOpen,
 }: {
   appointment: DashboardOverview["upcomingAppointments"][number];
+  onOpen: (appointment: DashboardOverview["upcomingAppointments"][number]) => void;
 }) {
   return (
-    <Link
+    <button
       className="group flex items-center gap-3 rounded-[15px] border border-[#e1f0f8] bg-[#fbfdff] p-3 transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#f8fcff]"
-      to="/agenda"
+      onClick={() => onOpen(appointment)}
+      type="button"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] font-['Inter'] text-[12px] font-bold text-[#265284]">
         {appointment.patientInitials}
@@ -667,7 +760,7 @@ function AppointmentRow({
         {appointment.status}
       </span>
       <ArrowRight className="size-4 text-[#76bbdd] transition group-hover:translate-x-0.5 group-hover:text-[#052ca0]" />
-    </Link>
+    </button>
   );
 }
 
@@ -741,6 +834,92 @@ function formatDateForApi(dateValue: Date) {
 
 function normalizeTime(timeValue: string) {
   return timeValue.slice(0, 5);
+}
+
+function addMinutesToTime(timeValue: string, minutesToAdd: number) {
+  const [hoursText = "0", minutesText = "0"] = normalizeTime(timeValue).split(":");
+  const totalMinutes =
+    (Number(hoursText) || 0) * 60 + (Number(minutesText) || 0) + minutesToAdd;
+  const nextHours = Math.floor(totalMinutes / 60) % 24;
+  const nextMinutes = totalMinutes % 60;
+
+  return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
+}
+
+function getDateParts(dateValue: string) {
+  const [yearText = "2026", monthText = "1", dayText = "1"] = dateValue.split("-");
+  const year = Number(yearText) || 2026;
+  const month = Math.max(0, Math.min(11, (Number(monthText) || 1) - 1));
+  const day = Math.max(1, Number(dayText) || 1);
+
+  return { year, month, day };
+}
+
+function normalizeDashboardStatus(status: string): AgendaSlotStatus {
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized.includes("annul") || normalized === "cancelled") {
+    return "cancelled";
+  }
+
+  if (normalized.includes("termin") || normalized === "completed") {
+    return "completed";
+  }
+
+  if (normalized.includes("plan") || normalized.includes("attente") || normalized === "pending") {
+    return "pending";
+  }
+
+  if (normalized.includes("bloq") || normalized === "blocked") {
+    return "blocked";
+  }
+
+  return "booked";
+}
+
+function mapDashboardAppointmentToAgendaEvent(
+  appointment: DashboardOverview["upcomingAppointments"][number],
+): AgendaEvent {
+  const { year, month, day } = getDateParts(appointment.date);
+  const startTime = normalizeTime(appointment.time);
+
+  return {
+    id: appointment.id,
+    day,
+    startTime,
+    endTime: addMinutesToTime(startTime, 30),
+    patientName: appointment.patientLabel.trim() || "Rendez-vous",
+    patientInitials: appointment.patientInitials.trim() || getInitialsFromName(appointment.patientLabel),
+    type: appointment.type.trim() || "Consultation",
+    status: normalizeDashboardStatus(appointment.status),
+    date: appointment.date,
+    month,
+    year,
+  };
+}
+
+function mapAgendaSlotToEvent(slot: MobileAgendaSlot): AgendaEvent {
+  const { year, month, day } = getDateParts(slot.date);
+  const patientName = slot.patientLabel.trim() || "Rendez-vous";
+
+  return {
+    id: slot.id,
+    day,
+    startTime: normalizeTime(slot.startTime),
+    endTime: normalizeTime(slot.endTime),
+    patientName,
+    patientInitials: slot.patientInitials.trim() || getInitialsFromName(patientName),
+    type: slot.slotType.trim() || "Consultation",
+    status: slot.status,
+    date: slot.date,
+    month,
+    year,
+    notes: slot.notes ?? undefined,
+  };
 }
 
 function toSlotPayload(values: RdvFormValues) {
