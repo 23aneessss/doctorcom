@@ -382,7 +382,7 @@ function SidebarUserCard({
     void authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          void navigate({ to: "/auth/login" as never });
+          void navigate({ to: "/login" as never });
         },
       },
     });

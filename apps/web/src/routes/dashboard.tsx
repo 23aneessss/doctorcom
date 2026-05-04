@@ -24,6 +24,7 @@ import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd833
 import type { AgendaEvent, AgendaSlotStatus } from "@/components/agenda/types";
 import Sidebar from "@/components/sidebar";
 import patientsStyles from "@/components/patients/patients-page.module.css";
+import { authClient } from "@/lib/auth-client";
 import { requireSession } from "@/lib/require-session";
 import { AjouterRdvDialog } from "./agenda/popups/ajouter-rdv";
 import { ModifierRdvDialog } from "./agenda/popups/modifier-rdv";
@@ -89,7 +90,8 @@ const EMPTY_OVERVIEW: DashboardOverview = {
 
 function RouteComponent() {
   const { session, trpc } = Route.useRouteContext();
-  const sessionUser = session?.data?.user;
+  const { data: liveSession } = authClient.useSession();
+  const sessionUser = liveSession?.user ?? session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
       ? {
@@ -98,7 +100,7 @@ function RouteComponent() {
           avatarUrl: sessionUser.image ?? undefined,
         }
       : undefined;
-  const displayName = sessionUser?.name?.trim() || "Dr Karim Benali";
+  const displayName = sessionUser?.name?.trim() || "";
 
   const overviewQuery = useQuery(
     trpc.dashboard.getOverview.queryOptions(undefined, {
