@@ -12,6 +12,8 @@ import {
 } from "@phosphor-icons/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
+import { authClient } from "@/lib/auth-client";
+
 import doctorLogo from "@/assets/doctor-logo.svg";
 
 const SIDEBAR_COLORS = {
@@ -358,10 +360,34 @@ function SidebarLogo() {
 }
 
 function SidebarUserCard({
-  currentUser,
+  currentUser: propUser,
 }: {
-  currentUser: NonNullable<SidebarProps["currentUser"]>;
+  currentUser?: NonNullable<SidebarProps["currentUser"]>;
 }) {
+  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+
+  const sessionUser = session?.user;
+  const currentUser: NonNullable<SidebarProps["currentUser"]> = sessionUser
+    ? {
+        name:
+          sessionUser.name?.trim() ||
+          (typeof sessionUser.email === "string" ? sessionUser.email : "Médecin"),
+        email: typeof sessionUser.email === "string" ? sessionUser.email : "",
+        avatarUrl: sessionUser.image ?? undefined,
+      }
+    : (propUser ?? DEFAULT_USER);
+
+  const handleLogout = () => {
+    void authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          void navigate({ to: "/auth/login" as never });
+        },
+      },
+    });
+  };
+
   const avatar = currentUser.avatarUrl ? (
     <img
       style={SIDEBAR_STYLE_MAP.avatar}
@@ -384,20 +410,36 @@ function SidebarUserCard({
           <p style={SIDEBAR_STYLE_MAP.userName}>{currentUser.name}</p>
           <p style={SIDEBAR_STYLE_MAP.userEmail}>{currentUser.email}</p>
         </div>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={SIDEBAR_STYLE_MAP.logoutIcon}
-          aria-hidden="true"
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="Se déconnecter"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
         >
-          <path d="M9 21H6.5A2.5 2.5 0 0 1 4 18.5v-13A2.5 2.5 0 0 1 6.5 3H9" />
-          <path d="M16 17l5-5-5-5" />
-          <path d="M21 12H9" />
-        </svg>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={SIDEBAR_STYLE_MAP.logoutIcon}
+            aria-hidden="true"
+          >
+            <path d="M9 21H6.5A2.5 2.5 0 0 1 4 18.5v-13A2.5 2.5 0 0 1 6.5 3H9" />
+            <path d="M16 17l5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
       </div>
     </div>
   );

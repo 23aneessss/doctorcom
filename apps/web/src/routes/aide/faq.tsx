@@ -1,4 +1,4 @@
-import { CaretDown, MagnifyingGlass, Question, ArrowLeft, X } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass, ArrowLeft, X } from "@phosphor-icons/react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useMemo, useState } from "react";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
@@ -380,7 +380,6 @@ function RouteComponent() {
 
           <section className={styles.faqCard} aria-label="Foire aux questions">
             <header className={styles.titleRow}>
-              <Question size={18} weight="fill" className={styles.titleMark} aria-hidden="true" />
               <h1 className={styles.title}>
                 {isSearching ? `Résultats pour "${deferredSearch}"` : "Foire aux questions"}
               </h1>
