@@ -1,5 +1,8 @@
 import "dotenv/config";
 
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import { auth } from "@doctor.com/auth";
 import { env } from "@doctor.com/env/server";
 import express from "express";
@@ -118,9 +121,24 @@ app.use(
     },
   }),
 );
-app.get("/", (_req, res) => {
+app.get("/healthz", (_req, res) => {
   res.status(200).send("server running");
 });
+
+const webDistDir = process.env.WEB_DIST_DIR;
+const webIndexFile = webDistDir ? path.join(webDistDir, "index.html") : null;
+
+if (webDistDir && webIndexFile && existsSync(webIndexFile)) {
+  app.use(express.static(webDistDir));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/") || req.path.startsWith("/trpc")) {
+      next();
+      return;
+    }
+
+    res.sendFile(webIndexFile);
+  });
+}
 
 async function startServer(): Promise<void> {
   setStorageAvailable(true);

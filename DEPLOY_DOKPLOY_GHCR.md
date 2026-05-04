@@ -1,123 +1,127 @@
 # Deploy Current Branch To Dokploy With GHCR
 
-This guide deploys the current branch, `deploy/vps`, to a VPS that already has Dokploy, two Postgres instances, MinIO, and an app slot where you want to run GHCR images.
+This guide deploys the current branch, `deploy/vps`, as one GHCR image.
 
-The app should be deployed as two Dokploy applications:
+The image contains:
 
-- `doctor-com-server`: Bun API, port `3000`
-- `doctor-com-web`: Vite static frontend, port `80`
+- the Bun API server
+- the built Vite web app
+- Drizzle migrations for both databases
 
-The current branch image tag will be:
-
-```text
-deploy-vps
-```
-
-GitHub/GHCR converts the branch name `deploy/vps` into the Docker-safe tag `deploy-vps`.
-
-## 1. Create A GitHub Repository
-
-In GitHub:
-
-1. Go to `https://github.com/new`.
-2. Create an empty repository.
-3. Do not initialize it with a README, license, or `.gitignore`.
-4. Copy the repository URL.
-
-Example:
+Dokploy only needs one application:
 
 ```text
-https://github.com/YOUR_USERNAME/doctor.com.git
+ghcr.io/projet-pluridisciplinaire-2cp/doctor-com-app:deploy-vps
 ```
 
-## 2. Push This Current Branch
+The container exposes port `3000`.
+
+## 1. Push This Branch To GitHub
 
 From the repo root:
 
 ```bash
 git status
 git add .
-git commit -m "chore: add ghcr dokploy deployment"
-git remote add origin https://github.com/YOUR_USERNAME/doctor.com.git
+git commit -m "chore: deploy app as single ghcr image"
 git push -u origin deploy/vps
 ```
 
-If `origin` already exists, use:
+If `origin` is not configured yet:
 
 ```bash
-git remote set-url origin https://github.com/YOUR_USERNAME/doctor.com.git
+git remote add origin https://github.com/projet-pluridisciplinaire-2CP/YOUR_REPO_NAME.git
 git push -u origin deploy/vps
 ```
 
-## 3. Enable GitHub Actions Package Publishing
+## 2. Create The GHCR Token
 
-The workflow at `.github/workflows/ghcr-publish.yml` publishes images to GHCR.
+Because the repository is inside the `projet-pluridisciplinaire-2CP` organization and `Read and write permissions` is blocked, use a GitHub Personal Access Token.
 
-In GitHub:
-
-1. Open your repository.
-2. Go to `Settings`.
-3. Go to `Actions` -> `General`.
-4. Under `Workflow permissions`, select `Read and write permissions`.
-5. Save.
-
-This lets `GITHUB_TOKEN` push packages to GHCR.
-
-## 4. Run The GHCR Publish Workflow
-
-After pushing `deploy/vps`, open:
+Create the token from your own GitHub account:
 
 ```text
-GitHub repo -> Actions -> Publish GHCR Images
+Your profile -> Settings -> Developer settings -> Personal access tokens -> Tokens (classic)
 ```
 
-The workflow should run automatically after the push.
-
-When it succeeds, GHCR will contain:
+Scopes:
 
 ```text
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-server:deploy-vps
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-web:deploy-vps
+repo
+read:packages
+write:packages
 ```
 
-There will also be commit SHA tags.
+If the organization uses SSO, authorize the token for:
 
-## 5. Make GHCR Images Pullable By Dokploy
+```text
+projet-pluridisciplinaire-2CP
+```
 
-You have two choices.
+## 3. Add The Token To The Org Repo
 
-Public package:
+Open the GitHub repository in the organization:
 
-1. Go to your GitHub profile or organization.
-2. Open `Packages`.
-3. Open `doctor-com-server`.
-4. Go to `Package settings`.
-5. Change visibility to public.
-6. Repeat for `doctor-com-web`.
+```text
+Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
+```
 
-Private package:
+Create:
 
-1. Go to GitHub `Settings` -> `Developer settings`.
-2. Open `Personal access tokens`.
-3. Create a classic token with `read:packages`.
-4. In Dokploy, add a registry:
+```text
+Name: GHCR_TOKEN
+Value: your GitHub token
+```
+
+## 4. Publish The GHCR Image
+
+Open:
+
+```text
+Repository -> Actions -> Publish GHCR Images
+```
+
+Run the workflow on branch:
+
+```text
+deploy/vps
+```
+
+When it succeeds, you should have:
+
+```text
+ghcr.io/projet-pluridisciplinaire-2cp/doctor-com-app:deploy-vps
+```
+
+GitHub lowercases the organization name for GHCR.
+
+## 5. Make The Package Pullable By Dokploy
+
+Public package option:
+
+1. Open the GitHub organization package `doctor-com-app`.
+2. Go to package settings.
+3. Change package visibility to public.
+
+Private package option:
+
+1. Create a GitHub token with `read:packages`.
+2. In Dokploy, add a registry:
 
 ```text
 Registry: ghcr.io
 Username: YOUR_GITHUB_USERNAME
-Password: YOUR_GITHUB_PAT
+Password: YOUR_READ_PACKAGES_TOKEN
 ```
 
-Private is fine. Dokploy just needs a token that can pull GHCR packages.
+## 6. Create One Dokploy App
 
-## 6. Create The API App In Dokploy
-
-In Dokploy, create a new application from Docker image.
+In Dokploy, create an application from Docker image.
 
 Image:
 
 ```text
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-server:deploy-vps
+ghcr.io/projet-pluridisciplinaire-2cp/doctor-com-app:deploy-vps
 ```
 
 Port:
@@ -126,13 +130,21 @@ Port:
 3000
 ```
 
-Suggested domain:
+Domain:
 
 ```text
-https://api.your-domain.com
+https://your-domain.com
 ```
 
-Set these environment variables:
+Health check path:
+
+```text
+/healthz
+```
+
+## 7. Set Environment Variables In Dokploy
+
+Use one public domain for both web and API:
 
 ```env
 NODE_ENV=production
@@ -142,8 +154,8 @@ DATABASE_URL=postgresql://USER:PASSWORD@MAIN_POSTGRES_HOST:5432/doctor_com
 MEDICATIONS_DATABASE_URL=postgresql://USER:PASSWORD@MEDICATIONS_POSTGRES_HOST:5432/doctor_com_medicaments
 
 BETTER_AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters
-BETTER_AUTH_URL=https://api.your-domain.com
-CORS_ORIGIN=https://app.your-domain.com
+BETTER_AUTH_URL=https://your-domain.com
+CORS_ORIGIN=https://your-domain.com
 
 MINIO_ENDPOINT=MINIO_HOST
 MINIO_PORT=9000
@@ -169,86 +181,30 @@ SMTP_FROM=no-reply@your-domain.com
 
 Important:
 
-- `DATABASE_URL` is your main app database.
-- `MEDICATIONS_DATABASE_URL` is your medication catalog database.
-- `MINIO_ENDPOINT` should be the internal Dokploy hostname for MinIO if the services share a network.
-- Do not include `http://` in `MINIO_ENDPOINT`; use only the hostname.
-- The server image runs both Drizzle migrations before starting.
-
-## 7. Create The Web App In Dokploy
-
-Create a second Dokploy application from Docker image.
-
-Image:
-
-```text
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-web:deploy-vps
-```
-
-Port:
-
-```text
-80
-```
-
-Suggested domain:
-
-```text
-https://app.your-domain.com
-```
-
-Set this environment variable:
-
-```env
-APP_SERVER_URL=https://api.your-domain.com
-```
-
-The web image reads `APP_SERVER_URL` when the container starts, so the same GHCR image can be reused across domains.
+- `DATABASE_URL` points to your main Postgres instance.
+- `MEDICATIONS_DATABASE_URL` points to your medications Postgres instance.
+- `MINIO_ENDPOINT` should be only a hostname, without `http://`.
+- `BETTER_AUTH_URL` and `CORS_ORIGIN` should both be the same single Dokploy app domain.
+- You do not need `APP_SERVER_URL` for this single-image setup. The web app falls back to the same origin.
 
 ## 8. Deploy Order
 
 Deploy in this order:
 
-1. Main Postgres instance is running.
-2. Medications Postgres instance is running.
+1. Main Postgres is running.
+2. Medications Postgres is running.
 3. MinIO is running.
-4. Deploy `doctor-com-server`.
-5. Check `https://api.your-domain.com/` returns:
+4. Dokploy app `doctor-com-app` is deployed.
+5. Open `https://your-domain.com/healthz`.
+6. Open `https://your-domain.com`.
+
+Expected health response:
 
 ```text
 server running
 ```
 
-6. Deploy `doctor-com-web`.
-7. Open `https://app.your-domain.com`.
-
-## 9. Common First Deploy Problems
-
-API container exits immediately:
-
-- Check `BETTER_AUTH_SECRET` is at least 32 characters.
-- Check all SMTP variables are present.
-- Check both Postgres URLs are reachable from the API container.
-- Check the target databases already exist.
-
-Frontend loads but API calls fail:
-
-- Check `APP_SERVER_URL` on the web app.
-- Check `CORS_ORIGIN` on the API app exactly matches the web domain.
-- Check `BETTER_AUTH_URL` exactly matches the API domain.
-
-Uploads fail:
-
-- Check `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ROOT_USER`, and `MINIO_ROOT_PASSWORD`.
-- Check the API app can reach MinIO over the Dokploy network.
-- Check the MinIO user can create or access `MINIO_BUCKET`.
-
-GHCR pull fails in Dokploy:
-
-- Make both packages public, or add a Dokploy registry login for `ghcr.io`.
-- If using private packages, the GitHub token needs `read:packages`.
-
-## 10. Updating The VPS Later
+## 9. Updating Later
 
 After code changes:
 
@@ -258,9 +214,8 @@ git commit -m "your change"
 git push origin deploy/vps
 ```
 
-Wait for `Publish GHCR Images` to finish, then redeploy both Dokploy apps using:
+Wait for the GitHub Action to finish, then redeploy this image in Dokploy:
 
 ```text
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-server:deploy-vps
-ghcr.io/YOUR_GITHUB_OWNER/doctor-com-web:deploy-vps
+ghcr.io/projet-pluridisciplinaire-2cp/doctor-com-app:deploy-vps
 ```
