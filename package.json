@@ -31,6 +31,8 @@
     "dev": "turbo dev",
     "dev:core": "turbo dev --filter=server --filter=web",
     "build": "turbo build",
+    "start:server": "bun apps/server/src/index.ts",
+    "start:server:with-migrations": "bun run db:migrate && bun run medications-db:migrate && bun apps/server/src/index.ts",
     "minio:up": "docker compose up -d minio",
     "check-types": "turbo run check-types",
     "check-types:backend": "turbo check-types --filter=server --filter=@doctor.com/api --filter=@doctor.com/db --filter=@doctor.com/medications-db --filter=@doctor.com/auth --filter=@doctor.com/shared",

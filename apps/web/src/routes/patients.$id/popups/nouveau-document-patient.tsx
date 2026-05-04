@@ -1,4 +1,3 @@
-import { env } from "@doctor.com/env/web";
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -17,6 +16,7 @@ import type { ChangeEvent, DragEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { getServerBaseUrl } from "@/lib/server-url";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -986,7 +986,7 @@ async function uploadDocument(patientId: string, draft: FileDraft) {
     }),
   );
 
-  const response = await fetch(`${env.VITE_SERVER_URL}/api/upload/document`, {
+  const response = await fetch(`${getServerBaseUrl()}/api/upload/document`, {
     method: "POST",
     body: formData,
     credentials: "include",

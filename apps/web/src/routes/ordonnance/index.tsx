@@ -1,5 +1,4 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
-import { env } from "@doctor.com/env/web";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -39,6 +38,7 @@ import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
+import { getServerBaseUrl } from "@/lib/server-url";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { ModifierOrdonnanceDialog } from "@/routes/ordonnance/popups/modifier-ordonnance";
@@ -646,7 +646,7 @@ function RouteComponent() {
     setIsUploadingPdfTemplate(true);
     try {
       const response = await fetch(
-        `${env.VITE_SERVER_URL}/api/upload/ordonnance-template`,
+        `${getServerBaseUrl()}/api/upload/ordonnance-template`,
         {
           method: "POST",
           body: formData,
@@ -3727,7 +3727,7 @@ function EmptySectionState(props: { text: string }) {
 }
 
 function getPdfTemplateFileUrl(templateId: string) {
-  return `${env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/file`;
+  return `${getServerBaseUrl()}/api/upload/ordonnance-template/${templateId}/file`;
 }
 
 async function hasPdfSignature(file: Blob): Promise<boolean> {
