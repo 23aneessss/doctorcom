@@ -3,15 +3,16 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
   Briefcase,
   Check,
+  DollarSign,
   GraduationCap,
   Heart,
   Home,
   Leaf,
   PawPrint,
+  Pencil,
   Plus,
   TriangleAlert,
   Users,
-  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -20,9 +21,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { queryClient, trpc } from "@/utils/trpc";
-
-const READONLY_EDIT_ICON =
-  "http://localhost:3845/assets/b1749b2443c37b62a3c43bd2a9f40e248b4f7e75.svg";
 
 export const Route = createFileRoute("/patients/$id/info-sociale")({
   component: RouteComponent,
@@ -130,7 +128,7 @@ function RouteComponent() {
       {
         key: "revenu_mensuel" as const,
         label: "Revenu mensuel",
-        icon: Wallet,
+        icon: DollarSign,
         tone: "default" as const,
         action: "edit" as const,
         value: formatRevenueValue(patient.revenu_mensuel),
@@ -191,7 +189,7 @@ function RouteComponent() {
       profession: patient.profession ?? "",
       situation_familiale: patient.situation_familiale ?? "",
       nb_enfants: toInputValue(patient.nb_enfants),
-      revenu_mensuel: toDecimalInputValue(patient.revenu_mensuel),
+      revenu_mensuel: toInputValue(patient.revenu_mensuel),
       taille_menage: toInputValue(patient.taille_menage),
       nb_pieces: toInputValue(patient.nb_pieces),
       niveau_intellectuel: patient.niveau_intellectuel ?? "",
@@ -208,7 +206,7 @@ function RouteComponent() {
   };
 
   const saveCard = (card: EditCardKey) => {
-    const data: Record<string, number | string | null> = {};
+    const data: Record<string, number | string | boolean | null> = {};
 
     if (card === "profession") {
       data.profession = normalizeTextInput(formState.profession);
@@ -230,7 +228,7 @@ function RouteComponent() {
     }
 
     if (card === "revenu_mensuel") {
-      const parsed = parseNullableDecimal(formState.revenu_mensuel);
+      const parsed = normalizeNullableDecimal(formState.revenu_mensuel);
       if (parsed === INVALID_NUMBER) {
         toast.error("Veuillez saisir un revenu mensuel valide.");
         return;
@@ -434,10 +432,9 @@ function renderPrimaryCardBody({
         onChange={(event) =>
           setFormState((current) => ({
             ...current,
-            revenu_mensuel: event.target.value.replace(/,/g, "."),
+            revenu_mensuel: event.target.value.replace(/[^\d.,]/g, ""),
           }))
         }
-        placeholder="Ex: 45000"
         className="h-10 w-full rounded-[8px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition focus:border-[#76bbdd]"
       />
     );
@@ -724,9 +721,9 @@ function ReadOnlyEditButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Modifier"
-      className="inline-flex size-[23px] shrink-0 items-center justify-center transition hover:opacity-80"
+      className="inline-flex size-[23px] shrink-0 items-center justify-center rounded-[7px] text-[#f97316] transition hover:bg-white/60"
     >
-      <img src={READONLY_EDIT_ICON} alt="" className="size-[23px]" />
+      <Pencil className="size-[18px]" strokeWidth={2.1} />
     </button>
   );
 }
@@ -845,14 +842,6 @@ function formatNumberValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
 
-function formatRevenueValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return "N/A";
-  }
-
-  return `${stripTrailingZeros(String(value))} DZD`;
-}
-
 function formatHouseholdValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
@@ -861,13 +850,15 @@ function formatRoomValue(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : String(value);
 }
 
-function toInputValue(value: number | null | undefined) {
-  return value === null || value === undefined ? "" : String(value);
+function formatRevenueValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "N/A";
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return String(value);
+  return `${numeric.toLocaleString("fr-FR")} DA`;
 }
 
-function toDecimalInputValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return "";
-  return stripTrailingZeros(String(value));
+function toInputValue(value: number | string | null | undefined) {
+  return value === null || value === undefined ? "" : String(value);
 }
 
 function normalizeTextInput(value: string) {
@@ -875,8 +866,11 @@ function normalizeTextInput(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function stripTrailingZeros(value: string) {
-  return value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+function normalizeNullableDecimal(value: string) {
+  const trimmed = value.trim().replace(",", ".");
+  if (trimmed.length === 0) return null;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return INVALID_NUMBER;
+  return trimmed;
 }
 
 function isNoneLikeValue(value: string) {
@@ -890,11 +884,4 @@ function parseNullableInteger(value: string) {
   if (trimmed.length === 0) return null;
   if (!/^\d+$/.test(trimmed)) return INVALID_NUMBER;
   return Number.parseInt(trimmed, 10);
-}
-
-function parseNullableDecimal(value: string) {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return INVALID_NUMBER;
-  return trimmed;
 }

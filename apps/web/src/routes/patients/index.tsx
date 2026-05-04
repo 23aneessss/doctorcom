@@ -132,6 +132,7 @@ function PatientsPage() {
       groupeSanguin: patient.groupe_sanguin ?? "",
       ageCirconcision: patient.age_circoncision?.toString() ?? "",
       revenuMensuel: patient.revenu_mensuel?.toString() ?? "",
+      assure: patient.assure ?? false,
       tailleMenages: patient.taille_menage ?? 0,
       nombreDePieces: patient.nb_pieces ?? 0,
       socialProfession: patient.profession ?? "",
@@ -321,7 +322,7 @@ function PatientsPage() {
               ? toOptionalInteger(values.ageCirconcision)
               : undefined,
             environnement_animal: toOptionalText(values.environnementAnimal),
-            revenu_mensuel: toOptionalText(values.revenuMensuel),
+            assure: values.assure,
             taille_menage: values.tailleMenages,
             nb_pieces: values.nombreDePieces,
             relations_environnement: toOptionalText(
@@ -372,7 +373,7 @@ function PatientsPage() {
               ? toOptionalInteger(values.ageCirconcision)
               : undefined,
             environnement_animal: toOptionalText(values.environnementAnimal),
-            revenu_mensuel: toOptionalText(values.revenuMensuel),
+            assure: values.assure,
             taille_menage: values.tailleMenages,
             nb_pieces: values.nombreDePieces,
             relations_environnement: toOptionalText(

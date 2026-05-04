@@ -20,7 +20,7 @@ import { toast } from "sonner";
 
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { MedicamentSugAiDialog } from "@/routes/patients.$id/popups/medicament-sug-ai";
-import { trpc, trpcClient } from "@/utils/trpc";
+import { trpc, trpcClient, trpcUnbatchedClient } from "@/utils/trpc";
 
 type OrdonnanceMode = "manuel" | "pre-remplie";
 
@@ -588,7 +588,7 @@ export function NouvelleOrdonnanceDialog({
         duree_traitement?: string;
       }>;
     }) => {
-      return (await trpcClient.ai.anomalyFlag.checkPrescription.mutate(
+      return (await trpcUnbatchedClient.ai.anomalyFlag.checkPrescription.mutate(
         payload,
       )) as PrescriptionCheckResult;
     },
@@ -972,19 +972,21 @@ export function NouvelleOrdonnanceDialog({
           }
 
           const result =
-            await trpcClient.ordonnance.creerOrdonnanceDepuisPreRempli.mutate({
-              preRempliId: selectedPreRempliId,
-              patientId,
-              rendezVousId: selectedRendezVousId,
-              modifications:
-                modifications.length > 0 ? modifications : undefined,
-            });
+            await trpcUnbatchedClient.ordonnance.creerOrdonnanceDepuisPreRempli.mutate(
+              {
+                preRempliId: selectedPreRempliId,
+                patientId,
+                rendezVousId: selectedRendezVousId,
+                modifications:
+                  modifications.length > 0 ? modifications : undefined,
+              },
+            );
 
           return result.id;
         }
       }
 
-      const result = await trpcClient.ordonnance.creerOrdonnance.mutate({
+      const result = await trpcUnbatchedClient.ordonnance.creerOrdonnance.mutate({
         patient_id: patientId,
         rendez_vous_id: selectedRendezVousId,
         date_prescription: today,
@@ -1181,7 +1183,7 @@ export function NouvelleOrdonnanceDialog({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.2)] p-4"
         onMouseDown={(event) => {
           if (event.currentTarget === event.target) {
             onOpenChange(false);
@@ -1189,7 +1191,7 @@ export function NouvelleOrdonnanceDialog({
         }}
       >
         <div
-          className={`my-4 flex w-full flex-col items-stretch gap-3 transition-[max-width] duration-300 ease-out ${
+          className={`flex max-h-[calc(100dvh-2rem)] w-full flex-col items-stretch gap-3 overflow-hidden transition-[max-width] duration-300 ease-out ${
             hasRightPanel
               ? "max-w-[1215px] lg:flex-row lg:items-stretch"
               : "max-w-[600px] items-center"

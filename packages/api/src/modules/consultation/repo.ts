@@ -16,6 +16,7 @@ export interface CreateSuiviInput {
   utilisateur_id: string;
   hypothese_diagnostic?: string | null;
   motif: string;
+  symptoms?: string[];
   historique?: string | null;
   date_ouverture: string;
   est_actif?: boolean;
@@ -24,6 +25,7 @@ export interface CreateSuiviInput {
 export interface UpdateSuiviInput {
   hypothese_diagnostic?: string | null;
   motif?: string;
+  symptoms?: string[];
   historique?: string | null;
   date_ouverture?: string;
   date_fermeture?: string | null;
@@ -107,6 +109,7 @@ export class ConsultationRepository {
       utilisateur_id: input.utilisateur_id,
       hypothese_diagnostic: input.hypothese_diagnostic ?? null,
       motif: input.motif,
+      symptoms: input.symptoms ?? [input.motif],
       historique: input.historique ?? null,
       date_ouverture: input.date_ouverture,
       est_actif: input.est_actif ?? true,
@@ -132,6 +135,9 @@ export class ConsultationRepository {
     }
     if (input.motif !== undefined) {
       updateData.motif = input.motif;
+    }
+    if (input.symptoms !== undefined) {
+      updateData.symptoms = input.symptoms;
     }
     if (input.historique !== undefined) {
       updateData.historique = input.historique;

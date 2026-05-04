@@ -84,16 +84,18 @@ function RouteComponent() {
                 key={voyage.id}
                 className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f9fafb] px-[16.8px] py-[16.8px]"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
-                  <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-col gap-4">
+                  <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <MapPin className="mt-0.5 size-4 shrink-0 text-[#0f3460]" />
-                        <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-[#0f3460]">
-                          {voyage.destination}
-                        </h3>
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <MapPin className="size-4 shrink-0 text-[#f97316]" />
+                          <h3 className="truncate font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-[#0f3460]">
+                            {voyage.destination}
+                          </h3>
+                        </div>
 
-                        <div className="flex shrink-0 items-center gap-1 text-[rgba(100,116,139,0.9)]">
+                        <div className="flex items-center gap-1 text-[rgba(100,116,139,0.9)]">
                           <CalendarDays className="size-3.5 shrink-0" />
                           <span className="font-['Poppins'] text-[14px] leading-5">
                             {voyage.date}
@@ -118,9 +120,10 @@ function RouteComponent() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-col gap-2 self-start sm:self-stretch sm:justify-between">
+                  <div className="flex shrink-0 items-center justify-end gap-2">
                     <button
-                      className="inline-flex h-7 w-full cursor-pointer items-center justify-center gap-1 rounded-[8px] border border-[#0f3460] bg-white px-2.5 font-['Plus_Jakarta_Sans'] text-[11px] leading-4 text-[#0f3460] transition-colors hover:bg-[#f8fafc]"
+                      aria-label="Modifier le voyage"
+                      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-[8px] border border-[#0f3460] bg-white text-[#0f3460] transition-colors hover:bg-[#f8fafc]"
                       onClick={() =>
                         openPopup({
                           type: "voyage",
@@ -137,12 +140,11 @@ function RouteComponent() {
                       type="button"
                     >
                       <Pencil className="size-3.5" />
-                      <span>Modifier</span>
                     </button>
 
                     <button
                       aria-label="Supprimer le voyage"
-                      className="inline-flex h-7 w-full cursor-pointer items-center justify-center rounded-[8px] border border-[#e7000b] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
+                      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-[8px] border border-[#e7000b] bg-white text-[#e7000b] transition-colors hover:bg-[#fef2f2]"
                       onClick={() =>
                         openPopup({
                           type: "voyage",

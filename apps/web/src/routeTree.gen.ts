@@ -35,6 +35,7 @@ import { Route as PatientsIdVaccinationRouteImport } from './routes/patients.$id
 import { Route as PatientsIdTraitementRouteImport } from './routes/patients.$id/traitement'
 import { Route as PatientsIdSuiviRouteImport } from './routes/patients.$id/suivi'
 import { Route as PatientsIdSanteFeminineRouteImport } from './routes/patients.$id/sante-feminine'
+import { Route as PatientsIdRdvRouteImport } from './routes/patients.$id/rdv'
 import { Route as PatientsIdInfoSocialeRouteImport } from './routes/patients.$id/info-sociale'
 import { Route as PatientsIdGeneralRouteImport } from './routes/patients.$id/general'
 import { Route as PatientsIdDocumentRouteImport } from './routes/patients.$id/document'
@@ -170,6 +171,11 @@ const PatientsIdSanteFeminineRoute = PatientsIdSanteFeminineRouteImport.update({
   path: '/sante-feminine',
   getParentRoute: () => PatientsIdRoute,
 } as any)
+const PatientsIdRdvRoute = PatientsIdRdvRouteImport.update({
+  id: '/rdv',
+  path: '/rdv',
+  getParentRoute: () => PatientsIdRoute,
+} as any)
 const PatientsIdInfoSocialeRoute = PatientsIdInfoSocialeRouteImport.update({
   id: '/info-sociale',
   path: '/info-sociale',
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/patients/$id/document': typeof PatientsIdDocumentRoute
   '/patients/$id/general': typeof PatientsIdGeneralRoute
   '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/rdv': typeof PatientsIdRdvRoute
   '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
   '/patients/$id/suivi': typeof PatientsIdSuiviRoute
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByTo {
   '/patients/$id/document': typeof PatientsIdDocumentRoute
   '/patients/$id/general': typeof PatientsIdGeneralRoute
   '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/rdv': typeof PatientsIdRdvRoute
   '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
   '/patients/$id/suivi': typeof PatientsIdSuiviRoute
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/patients/$id/document': typeof PatientsIdDocumentRoute
   '/patients/$id/general': typeof PatientsIdGeneralRoute
   '/patients/$id/info-sociale': typeof PatientsIdInfoSocialeRoute
+  '/patients/$id/rdv': typeof PatientsIdRdvRoute
   '/patients/$id/sante-feminine': typeof PatientsIdSanteFeminineRoute
   '/patients/$id/suivi': typeof PatientsIdSuiviRoute
   '/patients/$id/traitement': typeof PatientsIdTraitementRoute
@@ -314,6 +323,7 @@ export interface FileRouteTypes {
     | '/patients/$id/document'
     | '/patients/$id/general'
     | '/patients/$id/info-sociale'
+    | '/patients/$id/rdv'
     | '/patients/$id/sante-feminine'
     | '/patients/$id/suivi'
     | '/patients/$id/traitement'
@@ -345,6 +355,7 @@ export interface FileRouteTypes {
     | '/patients/$id/document'
     | '/patients/$id/general'
     | '/patients/$id/info-sociale'
+    | '/patients/$id/rdv'
     | '/patients/$id/sante-feminine'
     | '/patients/$id/suivi'
     | '/patients/$id/traitement'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/patients/$id/document'
     | '/patients/$id/general'
     | '/patients/$id/info-sociale'
+    | '/patients/$id/rdv'
     | '/patients/$id/sante-feminine'
     | '/patients/$id/suivi'
     | '/patients/$id/traitement'
@@ -592,6 +604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientsIdSanteFeminineRouteImport
       parentRoute: typeof PatientsIdRoute
     }
+    '/patients/$id/rdv': {
+      id: '/patients/$id/rdv'
+      path: '/rdv'
+      fullPath: '/patients/$id/rdv'
+      preLoaderRoute: typeof PatientsIdRdvRouteImport
+      parentRoute: typeof PatientsIdRoute
+    }
     '/patients/$id/info-sociale': {
       id: '/patients/$id/info-sociale'
       path: '/info-sociale'
@@ -628,6 +647,7 @@ interface PatientsIdRouteChildren {
   PatientsIdDocumentRoute: typeof PatientsIdDocumentRoute
   PatientsIdGeneralRoute: typeof PatientsIdGeneralRoute
   PatientsIdInfoSocialeRoute: typeof PatientsIdInfoSocialeRoute
+  PatientsIdRdvRoute: typeof PatientsIdRdvRoute
   PatientsIdSanteFeminineRoute: typeof PatientsIdSanteFeminineRoute
   PatientsIdSuiviRoute: typeof PatientsIdSuiviRoute
   PatientsIdTraitementRoute: typeof PatientsIdTraitementRoute
@@ -641,6 +661,7 @@ const PatientsIdRouteChildren: PatientsIdRouteChildren = {
   PatientsIdDocumentRoute: PatientsIdDocumentRoute,
   PatientsIdGeneralRoute: PatientsIdGeneralRoute,
   PatientsIdInfoSocialeRoute: PatientsIdInfoSocialeRoute,
+  PatientsIdRdvRoute: PatientsIdRdvRoute,
   PatientsIdSanteFeminineRoute: PatientsIdSanteFeminineRoute,
   PatientsIdSuiviRoute: PatientsIdSuiviRoute,
   PatientsIdTraitementRoute: PatientsIdTraitementRoute,

@@ -42,6 +42,7 @@ export const patients = pgTable(
     date_admission: date("date_admission"),
     environnement_animal: text("environnement_animal"),
     revenu_mensuel: numeric("revenu_mensuel"),
+    assure: boolean("assure").notNull().default(false),
     taille_menage: integer("taille_menage"),
     nb_pieces: integer("nb_pieces"),
     niveau_intellectuel: varchar("niveau_intellectuel", { length: 128 }),

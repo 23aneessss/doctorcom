@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 
 import type { SessionUtilisateur } from "../../../trpc/context";
-import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
+import { generateGeminiText, resolveTextProvider } from "../shared/provider";
 import { aiRepository, type FullPatientData } from "./repo";
 import { utilisateurs } from "@doctor.com/db/schema";
 import { eq } from "drizzle-orm";
@@ -33,7 +33,7 @@ export class AiService {
     // Build the structured patient context
     const patientContext = this.buildPatientPrompt(patientData);
 
-    const provider = resolveGeminiProvider();
+  const provider = resolveTextProvider();
     const result = await generateGeminiText({
       provider,
       system:
@@ -144,7 +144,9 @@ ${data.question}`,
     if (data.suivis.length > 0) {
       const lines = data.suivis.map((s) => {
         const status = s.est_actif ? "Actif" : `Cloture le ${s.date_fermeture ?? "N/A"}`;
-        let line = `- Motif: ${s.motif} (${status}, ouvert le ${s.date_ouverture})`;
+        const symptoms =
+          s.symptoms.length > 0 ? s.symptoms.join(", ") : s.motif;
+        let line = `- Symptoms: ${symptoms} (${status}, ouvert le ${s.date_ouverture})`;
         if (s.hypothese_diagnostic) line += `\n  Hypothese: ${s.hypothese_diagnostic}`;
         if (s.historique) line += `\n  Historique: ${s.historique}`;
         return line;
@@ -184,7 +186,7 @@ ${data.question}`,
         if (e.examen_ganglionnaire) lines.push(`Examen ganglionnaire: ${e.examen_ganglionnaire}`);
         if (e.examen_endocrinien) lines.push(`Examen endocrinien: ${e.examen_endocrinien}`);
         if (e.traitement_prescrit) lines.push(`Traitement prescrit: ${e.traitement_prescrit}`);
-        if (e.conclusion) lines.push(`Conclusion: ${e.conclusion}`);
+        if (e.conclusion) lines.push(`Diagnostique: ${e.conclusion}`);
       }
       sections.push(`## Consultations\n${lines.join("\n")}`);
     }

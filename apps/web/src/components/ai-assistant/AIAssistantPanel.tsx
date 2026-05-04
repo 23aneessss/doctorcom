@@ -20,7 +20,12 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
-import { queryClient, trpc, trpcClient } from "@/utils/trpc";
+import {
+  queryClient,
+  trpc,
+  trpcClient,
+  trpcUnbatchedClient,
+} from "@/utils/trpc";
 
 type MessageStatus = "thinking" | "done";
 
@@ -469,7 +474,7 @@ export function AIAssistantPanel() {
         );
       }
 
-      return trpcClient.ordonnance.creerOrdonnance.mutate({
+      return trpcUnbatchedClient.ordonnance.creerOrdonnance.mutate({
         patient_id: payload.patientId,
         rendez_vous_id: payload.rendezVousId,
         date_prescription: new Date().toISOString().slice(0, 10),

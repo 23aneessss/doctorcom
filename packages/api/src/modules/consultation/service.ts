@@ -19,7 +19,8 @@ type ConsultationSession = Exclude<SessionUtilisateur, null>;
 export interface CreateSuiviServiceInput {
   patient_id: string;
   hypothese_diagnostic?: string | null;
-  motif: string;
+  motif?: string;
+  symptoms?: string[];
   historique?: string | null;
   date_ouverture: string;
 }
@@ -27,6 +28,7 @@ export interface CreateSuiviServiceInput {
 export interface UpdateSuiviServiceInput {
   hypothese_diagnostic?: string | null;
   motif?: string;
+  symptoms?: string[];
   historique?: string | null;
   date_ouverture?: string;
   date_fermeture?: string | null;
@@ -100,7 +102,8 @@ export class ConsultationService {
       patient_id: input.patient_id,
       utilisateur_id: utilisateur.id,
       hypothese_diagnostic: input.hypothese_diagnostic ?? null,
-      motif: input.motif,
+      motif: input.motif ?? input.symptoms?.join(", ") ?? "Symptoms",
+      symptoms: input.symptoms,
       historique: input.historique ?? null,
       date_ouverture: input.date_ouverture,
       est_actif: true,
@@ -358,11 +361,12 @@ export class ConsultationService {
   }
 
   private normalizeCreateSuiviInput(input: CreateSuiviServiceInput): CreateSuiviServiceInput {
-    const motif = input.motif.trim();
-    if (!motif) {
+    const symptoms = this.normalizeSymptoms(input.symptoms ?? (input.motif ? [input.motif] : []));
+    const motif = symptoms.join(", ");
+    if (symptoms.length === 0) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Le motif du suivi est obligatoire.",
+        message: "Au moins un symptome est obligatoire.",
       });
     }
 
@@ -370,6 +374,7 @@ export class ConsultationService {
       patient_id: input.patient_id,
       hypothese_diagnostic: this.normalizeOptionalText(input.hypothese_diagnostic),
       motif,
+      symptoms,
       historique: this.normalizeOptionalText(input.historique),
       date_ouverture: input.date_ouverture,
     };
@@ -382,14 +387,26 @@ export class ConsultationService {
       normalized.hypothese_diagnostic = this.normalizeOptionalText(input.hypothese_diagnostic);
     }
     if (input.motif !== undefined) {
-      const motif = input.motif.trim();
-      if (!motif) {
+      const symptoms = this.normalizeSymptoms([input.motif]);
+      if (symptoms.length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Le motif du suivi ne peut pas etre vide.",
+          message: "Les symptomes du suivi ne peuvent pas etre vides.",
         });
       }
-      normalized.motif = motif;
+      normalized.motif = symptoms.join(", ");
+      normalized.symptoms = symptoms;
+    }
+    if (input.symptoms !== undefined) {
+      const symptoms = this.normalizeSymptoms(input.symptoms);
+      if (symptoms.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Les symptomes du suivi ne peuvent pas etre vides.",
+        });
+      }
+      normalized.motif = symptoms.join(", ");
+      normalized.symptoms = symptoms;
     }
     if (input.historique !== undefined) {
       normalized.historique = this.normalizeOptionalText(input.historique);
@@ -546,6 +563,17 @@ export class ConsultationService {
 
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
+  }
+
+  private normalizeSymptoms(values: string[]): string[] {
+    return Array.from(
+      new Set(
+        values
+          .flatMap((value) => value.split(","))
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0),
+      ),
+    );
   }
 
   private normalizeOptionalNumeric(value: string | null | undefined): string | null | undefined {

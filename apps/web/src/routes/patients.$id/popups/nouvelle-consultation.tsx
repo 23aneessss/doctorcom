@@ -282,14 +282,14 @@ export function NouvelleConsultationDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.2)] p-4"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) {
           onOpenChange(false);
         }
       }}
     >
-      <div className="my-4 flex w-full max-w-[672px] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[672px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
         <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 pt-[2px]">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -610,12 +610,12 @@ export function NouvelleConsultationDialog({
 
               <form.Field name="conclusion">
                 {(field) => (
-                  <FieldContainer label="Conclusion">
+                  <FieldContainer label="Diagnostique">
                     <textarea
                       className="h-[77.6px] w-full resize-none rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] font-normal leading-[20px] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(10,10,10,0.5)] hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20"
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="Conclusion de la consultation..."
+                      placeholder="Diagnostique de la consultation..."
                       value={field.state.value}
                     />
                     {field.state.meta.errors[0]?.message ? (

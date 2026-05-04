@@ -61,6 +61,13 @@
     {
       "idx": 8,
       "version": "7",
+      "when": 1777496801013,
+      "tag": "0008_light_ma_gnuci",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
       "when": 1777507200000,
       "tag": "0008_ordonnance_pdf_templates",
       "breakpoints": true

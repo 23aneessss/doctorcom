@@ -1,17 +1,12 @@
 import { redirect } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronUp, Plus, User, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Pencil, Plus, User, X } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { queryClient, trpc } from "@/utils/trpc";
-
-const FILLED_TILE_EDIT_ICON =
-  "http://localhost:3845/assets/b1749b2443c37b62a3c43bd2a9f40e248b4f7e75.svg";
-const MENOPAUSE_TILE_EDIT_ICON =
-  "http://localhost:3845/assets/ff1ec55d5ad8c2fe1427b73e6010fbaffac2370b.svg";
 
 export const Route = createFileRoute("/patients/$id/sante-feminine")({
   beforeLoad: async ({ context, params }) => {
@@ -267,7 +262,7 @@ function SanteFeminineView() {
               onCancel={cancelEdit}
               action={card.action}
               isSaving={updateMutation.isPending}
-              isCompact={!isExpanded}
+              isCompact={!isExpanded && !isEditing}
             >
               {renderCardBody({
                 cardKey: card.key,
@@ -278,7 +273,7 @@ function SanteFeminineView() {
                 isEditing,
                 onEdit: () => beginEdit(card.key),
                 action: card.action,
-                isCompact: !isExpanded,
+                isCompact: !isExpanded && !isEditing,
               })}
             </FemaleInfoCard>
           );
@@ -558,11 +553,7 @@ function ReadOnlyActionButton({
       {action === "add" ? (
         <Plus className="size-3.5" strokeWidth={2.2} />
       ) : (
-        <img
-          src={tone === "default" ? MENOPAUSE_TILE_EDIT_ICON : FILLED_TILE_EDIT_ICON}
-          alt=""
-          className="size-[18px]"
-        />
+        <Pencil className="size-[18px] text-[#f97316]" strokeWidth={2.1} />
       )}
     </button>
   );
@@ -600,8 +591,12 @@ function FemaleInfoCard({
 
   return (
     <div
-      className={`flex flex-col rounded-[10px] border-[0.8px] px-[16.8px] pt-[16.8px] ${
-        isCompact ? "h-[89.6px] pb-[16.8px]" : "min-h-[148px] pb-4"
+      className={`flex flex-col rounded-[10px] border-[0.8px] px-[16.8px] pt-[16.8px] transition-all ${
+        isEditing
+          ? "min-h-[132px] pb-4"
+          : isCompact
+            ? "h-[89.6px] pb-[16.8px]"
+            : "min-h-[148px] pb-4"
       } ${toneClassName}`}
     >
       <div className="mb-2 flex items-start justify-between gap-3">
@@ -616,7 +611,7 @@ function FemaleInfoCard({
               disabled={isSaving}
               className={`inline-flex items-center justify-center rounded-[8px] border border-[#f97316] bg-white text-[#f97316] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60 ${
                 isCompact
-                  ? "size-6"
+                  ? "size-7"
                   : "h-8 px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-4"
               }`}
             >
@@ -629,7 +624,7 @@ function FemaleInfoCard({
               disabled={isSaving}
               className={`inline-flex items-center justify-center rounded-[8px] bg-[#052ca0] text-white shadow-[0px_2px_4px_0px_rgba(118,187,221,0.28)] transition hover:bg-[#0a36bc] disabled:cursor-not-allowed disabled:opacity-60 ${
                 isCompact
-                  ? "size-6"
+                  ? "size-7"
                   : "h-8 px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-4"
               }`}
             >

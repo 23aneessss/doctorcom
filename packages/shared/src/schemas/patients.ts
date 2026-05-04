@@ -33,6 +33,7 @@ const patientMutationShape = {
   date_admission: isoDateSchema.optional(),
   environnement_animal: optionalTrimmedStringSchema,
   revenu_mensuel: numericSchema.optional(),
+  assure: z.boolean().optional(),
   taille_menage: nonNegativeIntegerSchema.optional(),
   nb_pieces: nonNegativeIntegerSchema.optional(),
   niveau_intellectuel: optionalTrimmedStringSchema,

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import type { db as databaseClient } from "@doctor.com/db";
 
 import { parseModelJson as parseSharedModelJson } from "../shared/json";
-import { generateGeminiText, resolveGeminiProvider } from "../shared/provider";
+import { generateGeminiText, resolveTextProvider } from "../shared/provider";
 import type { SessionUtilisateur } from "../../../trpc/context";
 import {
   aiResponseSchema,
@@ -25,12 +25,12 @@ import {
 
 type DatabaseClient = typeof databaseClient;
 type HypotheseDiagnosticSession = Exclude<SessionUtilisateur, null>;
-type AIProviderName = "google-ai-studio";
+type AIProviderName = "google-ai-studio" | "ollama";
 
 interface AIProviderConfig {
   name: AIProviderName;
   model: string;
-  apiKey: string;
+  apiKey?: string;
 }
 
 interface GenerateHypothesesInput {
@@ -223,7 +223,7 @@ export class HypotheseDiagnosticService {
   }
 
   private resolveAiProvider(): AIProviderConfig {
-    return resolveGeminiProvider();
+    return resolveTextProvider();
   }
 
   private async resolveUtilisateur(

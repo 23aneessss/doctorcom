@@ -56,6 +56,7 @@ export interface ModifierPatientSubmissionValues extends ModifierPatientFormValu
   groupeSanguin: string;
   ageCirconcision: string;
   revenuMensuel: string;
+  assure: boolean;
   tailleMenages: number;
   nombreDePieces: number;
   socialProfession: string;
@@ -168,6 +169,7 @@ export function ModifierPatientDialog({
   const [groupeSanguin, setGroupeSanguin] = useState(initialData?.groupeSanguin ?? "O+");
   const [ageCirconcision, setAgeCirconcision] = useState(initialData?.ageCirconcision ?? "13 ans");
   const [revenuMensuel, setRevenuMensuel] = useState(initialData?.revenuMensuel ?? "");
+  const [assure, setAssure] = useState(initialData?.assure ?? false);
   const [tailleMenages, setTailleMenages] = useState(initialData?.tailleMenages ?? 0);
   const [nombreDePieces, setNombreDePieces] = useState(initialData?.nombreDePieces ?? 0);
   const [socialProfession, setSocialProfession] = useState(initialData?.socialProfession ?? "");
@@ -216,6 +218,7 @@ export function ModifierPatientDialog({
       setGroupeSanguin(initialData.groupeSanguin ?? "O+");
       setAgeCirconcision(initialData.ageCirconcision ?? "13 ans");
       setRevenuMensuel(initialData.revenuMensuel ?? "");
+      setAssure(initialData.assure ?? false);
       setTailleMenages(initialData.tailleMenages ?? 0);
       setNombreDePieces(initialData.nombreDePieces ?? 0);
       setSocialProfession(initialData.socialProfession ?? "");
@@ -315,6 +318,7 @@ export function ModifierPatientDialog({
     groupeSanguin,
     ageCirconcision,
     revenuMensuel,
+    assure,
     tailleMenages,
     nombreDePieces,
     socialProfession,
@@ -721,7 +725,12 @@ export function ModifierPatientDialog({
             <div className={styles.stepFourContent}>
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations sociales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
               <div className={styles.socialTopGrid}>
-                <Field label="Revenu mensuel"><input className={styles.input} value={revenuMensuel} onChange={(event) => setRevenuMensuel(event.currentTarget.value)} placeholder="Ex: 2000 DA BOURSE" /></Field>
+                  <Field label={"Assur\u00e9"}>
+                    <label className={styles.checkboxPill}>
+                      <input checked={assure} onChange={(event) => setAssure(event.currentTarget.checked)} type="checkbox" />
+                      <span>{assure ? "Oui" : "Non"}</span>
+                    </label>
+                  </Field>
                 <Field label="Taille menages">
                   <div className={styles.counterInputWrap}>
                     <input className={`${styles.input} ${styles.counterInputField}`} value={String(tailleMenages)} readOnly />

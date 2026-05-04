@@ -20,9 +20,10 @@ type PatientSession = Exclude<SessionUtilisateur, null>;
 
 type CreatePatientData = Omit<
   CreatePatientInput,
-  "cree_par_utilisateur" | "revenu_mensuel"
+  "cree_par_utilisateur" | "revenu_mensuel" | "assure"
 > & {
   revenu_mensuel?: string | number | null;
+  assure?: boolean | null;
 };
 
 export interface FemalePatientInfoInput {
@@ -78,6 +79,7 @@ export class PatientService {
       revenu_mensuel: this.normalizeNumericValue(
         data.input.patient.revenu_mensuel,
       ),
+      assure: Boolean(data.input.patient.assure),
       cree_par_utilisateur: utilisateur.id,
     };
 
@@ -780,6 +782,9 @@ export class PatientService {
     }
     if (data.revenu_mensuel !== undefined) {
       payload.revenu_mensuel = this.normalizeNumericValue(data.revenu_mensuel);
+    }
+    if (data.assure !== undefined) {
+      payload.assure = Boolean(data.assure);
     }
     if (data.taille_menage !== undefined) {
       payload.taille_menage = data.taille_menage;

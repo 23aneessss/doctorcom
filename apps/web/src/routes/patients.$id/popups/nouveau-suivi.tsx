@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { X, CircleHelp, ClipboardList } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { X, CircleHelp, ClipboardList, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ import { trpcClient } from "@/utils/trpc";
 
 type SuiviDialogValues = {
   motif?: string;
+  symptoms?: string[];
   date_ouverture?: string;
   hypothese_diagnostic?: string;
   historique?: string;
@@ -32,16 +33,18 @@ export function NouveauSuiviDialog({
   suiviId?: string;
   values?: SuiviDialogValues;
 }) {
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [symptomDraft, setSymptomDraft] = useState("");
+
   const createSuiviMutation = useMutation({
     mutationFn: async (value: {
-      motif: string;
       date_ouverture: string;
       hypothese_diagnostic?: string;
       historique?: string;
     }) => {
       return trpcClient.consultation.createSuivi.mutate({
         patient_id: patientId,
-        motif: value.motif,
+        symptoms,
         date_ouverture: value.date_ouverture,
         hypothese_diagnostic: value.hypothese_diagnostic?.trim() || null,
         historique: value.historique?.trim() || null,
@@ -62,6 +65,7 @@ export function NouveauSuiviDialog({
       suiviId: string;
       changes: {
         motif?: string;
+        symptoms?: string[];
         date_ouverture?: string;
         hypothese_diagnostic?: string | null;
         historique?: string | null;
@@ -84,7 +88,7 @@ export function NouveauSuiviDialog({
 
   const initialValues = useMemo(
     () => ({
-      motif: values?.motif ?? "",
+      motif: values?.symptoms?.join(", ") ?? values?.motif ?? "",
       date_ouverture:
         values?.date_ouverture ?? new Date().toISOString().split("T")[0] ?? "",
       hypothese_diagnostic: values?.hypothese_diagnostic ?? "",
@@ -97,7 +101,7 @@ export function NouveauSuiviDialog({
     defaultValues: initialValues,
     validators: {
       onSubmit: z.object({
-        motif: z.string().trim().min(1, "Le motif est requis"),
+        motif: z.string(),
         date_ouverture: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/, "Format de date invalide"),
@@ -106,6 +110,12 @@ export function NouveauSuiviDialog({
       }),
     },
     onSubmit: async ({ value }) => {
+      const nextSymptoms = normalizeSymptoms(symptoms);
+      if (nextSymptoms.length === 0) {
+        toast.error("Au moins un symptome est requis");
+        return;
+      }
+
       if (mode === "edit") {
         if (!suiviId) {
           toast.error("Suivi introuvable pour modification");
@@ -114,13 +124,14 @@ export function NouveauSuiviDialog({
 
         const changes: {
           motif?: string;
+          symptoms?: string[];
           date_ouverture?: string;
           hypothese_diagnostic?: string | null;
           historique?: string | null;
         } = {};
 
-        if (value.motif.trim() !== initialValues.motif.trim()) {
-          changes.motif = value.motif.trim();
+        if (nextSymptoms.join("\n") !== splitSymptoms(initialValues.motif).join("\n")) {
+          changes.symptoms = nextSymptoms;
         }
         if (value.date_ouverture !== initialValues.date_ouverture) {
           changes.date_ouverture = value.date_ouverture;
@@ -152,6 +163,8 @@ export function NouveauSuiviDialog({
 
   useEffect(() => {
     form.reset(initialValues);
+    setSymptoms(splitSymptoms(initialValues.motif));
+    setSymptomDraft("");
   }, [form, initialValues, mode, open]);
 
   useEffect(() => {
@@ -168,6 +181,13 @@ export function NouveauSuiviDialog({
   if (!open) return null;
 
   const isPending = createSuiviMutation.isPending || updateSuiviMutation.isPending;
+
+  const addSymptom = () => {
+    const nextValue = symptomDraft.trim();
+    if (!nextValue) return;
+    setSymptoms((current) => normalizeSymptoms([...current, nextValue]));
+    setSymptomDraft("");
+  };
 
   return (
     <div
@@ -214,25 +234,61 @@ export function NouveauSuiviDialog({
           }}
         >
           <div className="flex flex-col gap-4 px-5 pt-5">
-            <form.Field name="motif">
-              {(field) => (
-                <div className="flex h-[74px] flex-col gap-1">
-                  <label className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold uppercase tracking-[0.3px] text-[#0f3460]">
-                    Motif <span className="text-[#f97316]">*</span>
-                  </label>
-                  <input
-                    className="h-[40.67px] rounded-[12px] border-[0.8px] border-[#c2e0ef] px-3 py-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] outline-none placeholder:text-[rgba(10,10,10,0.5)]"
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="Ex : Cephalees, Douleur lombaire, Suivi diabete..."
-                    value={field.state.value}
-                  />
-                  {field.state.meta.errors[0]?.message && (
-                    <p className="text-xs text-red-600">{field.state.meta.errors[0].message}</p>
-                  )}
+            <div className="flex min-h-[104px] flex-col gap-1">
+              <label className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold uppercase tracking-[0.3px] text-[#0f3460]">
+                Symptoms <span className="text-[#f97316]">*</span>
+              </label>
+              <div className="rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2">
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {symptoms.map((symptom) => (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full border border-[#c2e0ef] bg-[#f8fbff] px-3 py-1 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#0f3460]"
+                      key={symptom}
+                    >
+                      {symptom}
+                      <button
+                        aria-label={`Retirer ${symptom}`}
+                        className="text-[#64748b] hover:text-[#f97316]"
+                        onClick={() =>
+                          setSymptoms((current) =>
+                            current.filter((item) => item !== symptom),
+                          )
+                        }
+                        type="button"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
                 </div>
-              )}
-            </form.Field>
+                <div className="flex gap-2">
+                  <input
+                    className="h-[34px] min-w-0 flex-1 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] outline-none placeholder:text-[rgba(10,10,10,0.5)]"
+                    onChange={(event) => setSymptomDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addSymptom();
+                      }
+                    }}
+                    placeholder="Ajouter un symptome puis Entrer"
+                    value={symptomDraft}
+                  />
+                  <button
+                    className="inline-flex h-[34px] items-center gap-1 rounded-[10px] bg-[#eaf3fb] px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-[#0f3460] disabled:opacity-50"
+                    disabled={!symptomDraft.trim()}
+                    onClick={addSymptom}
+                    type="button"
+                  >
+                    <Plus className="size-3" />
+                    Ajouter
+                  </button>
+                </div>
+              </div>
+              {symptoms.length === 0 ? (
+                <p className="text-xs text-red-600">Au moins un symptome est requis</p>
+              ) : null}
+            </div>
 
             <form.Field name="hypothese_diagnostic">
               {(field) => (
@@ -320,4 +376,28 @@ export function NouveauSuiviDialog({
       </div>
     </div>
   );
+}
+
+function splitSymptoms(value: string): string[] {
+  return normalizeSymptoms(
+    value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+}
+
+function normalizeSymptoms(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(trimmed);
+  }
+
+  return normalized;
 }
