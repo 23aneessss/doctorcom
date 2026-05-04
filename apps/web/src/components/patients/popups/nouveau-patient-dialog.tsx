@@ -468,15 +468,15 @@ export function NouveauPatientDialog({
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
+      <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="nouveau-patient-title">
         <header className={styles.header}>
           <div className={styles.headerIdentity}>
             <span className={styles.headerIcon} aria-hidden="true">
-              <UserPlus size={21} strokeWidth={1.9} />
+              <UserPlus size={20} strokeWidth={2} />
             </span>
             <div className={styles.headerTextBlock}>
               <h2 className={styles.title} id="nouveau-patient-title">{dialogTitle ?? "Nouveau patient"}</h2>
-              <p className={styles.subtitle}>{`Etape ${currentStep} sur ${stepLabels.length}`}</p>
+              <p className={styles.subtitle}>{`Étape ${currentStep} sur ${stepLabels.length} · ${stepLabels[currentStep - 1]}`}</p>
             </div>
           </div>
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
@@ -484,8 +484,8 @@ export function NouveauPatientDialog({
           </button>
         </header>
 
-        <div ref={progressTrackRef} className={styles.progressBarTrack}>
-          <span className={styles.progressBarFill} style={{ width: `${progressFillPx}px` }} />
+        <div className={styles.progressBarTrack}>
+          <span className={styles.progressBarFill} style={{ width: `${progressPercent}%` }} />
         </div>
 
         <div className={styles.stepRail}>
@@ -495,8 +495,8 @@ export function NouveauPatientDialog({
             return (
               <div className={`${styles.stepItem} ${index === stepLabels.length - 1 ? styles.stepItemLast : ""}`} key={label}>
                 <div className={styles.stepContent}>
-                  <div ref={(element) => { stepDotRefs.current[index] = element; }} className={`${styles.stepDot} ${isDone ? styles.stepDotDone : ""} ${isActive ? styles.stepDotActive : ""}`}>
-                    {isDone ? <Check size={14} aria-hidden="true" /> : index + 1}
+                  <div className={`${styles.stepDot} ${isDone ? styles.stepDotDone : ""} ${isActive ? styles.stepDotActive : ""}`}>
+                    {isDone ? <Check size={13} aria-hidden="true" /> : index + 1}
                   </div>
                   <p className={`${styles.stepLabel} ${isActive ? styles.stepLabelActive : ""}`}>{label}</p>
                 </div>
@@ -507,25 +507,25 @@ export function NouveauPatientDialog({
         </div>
 
         <form className={styles.form} onSubmit={handleContinue}>
-          {submitError ? <p className={styles.submitError} style={{ margin: "0 0 1rem 0", color: "#ef4444", fontWeight: 500, background: "#fef2f2", padding: "0.75rem", borderRadius: "0.5rem" }}>{submitError}</p> : null}
+          {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
 
           {currentStep === 1 ? (
             <>
-              <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations essentielles</strong> - Ces champs sont obligatoires pour creer le dossier patient.</p></div>
-              {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires.</p> : null}
+              <div className={styles.noticeBox}><Info size={15} aria-hidden="true" /><p><strong>Informations essentielles</strong> — Ces champs sont obligatoires pour créer le dossier patient.</p></div>
+              {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner tous les champs obligatoires.</p> : null}
               <div className={styles.formGrid}>
                 <Field label="Nom" required error={getError("nom", "Le nom est obligatoire")}>
-                  <input className={styles.input} style={getError("nom", "Le nom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} onBlur={() => markFieldTouched("nom")} />
+                  <input className={styles.input} style={getError("nom", "Le nom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} onBlur={() => markFieldTouched("nom")} placeholder="Nom de famille" />
                 </Field>
-                <Field label="Prenom" required error={getError("prenom", "Le prenom est obligatoire")}>
-                  <input className={styles.input} style={getError("prenom", "Le prenom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.prenom} onChange={(e) => updateField("prenom", e.currentTarget.value)} onBlur={() => markFieldTouched("prenom")} />
+                <Field label="Prénom" required error={getError("prenom", "Le prénom est obligatoire")}>
+                  <input className={styles.input} style={getError("prenom", "Le prénom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.prenom} onChange={(e) => updateField("prenom", e.currentTarget.value)} onBlur={() => markFieldTouched("prenom")} placeholder="Prénom" />
                 </Field>
                 <Field label="Profession" error={step1Errors.profession}>
-                  <input className={styles.input} style={step1Errors.profession ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} />
+                  <input className={styles.input} style={step1Errors.profession ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} placeholder="Ex : Ingénieur, Médecin…" />
                 </Field>
                 <Field label="Sexe" required error={getError("sexe", "Le sexe est obligatoire")}>
                   <select className={styles.input} style={getError("sexe", "Le sexe est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.sexe} onChange={(e) => updateField("sexe", e.currentTarget.value)} onBlur={() => markFieldTouched("sexe")}>
-                    <option value="">Selectionner</option>
+                    <option value="">Sélectionner</option>
                     <option value="Masculin">Masculin</option>
                     <option value="Féminin">Féminin</option>
                   </select>
