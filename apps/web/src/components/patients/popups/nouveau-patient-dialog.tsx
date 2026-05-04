@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
 
@@ -188,10 +188,6 @@ export function NouveauPatientDialog({
   dialogTitle,
   mode = "create",
 }: NouveauPatientDialogProps) {
-  const modalRef = useRef<HTMLElement | null>(null);
-  const progressTrackRef = useRef<HTMLDivElement | null>(null);
-  const stepDotRefs = useRef<Array<HTMLDivElement | null>>([]);
-
   const initialFormFromProps = initialValues ?? undefined;
   const [values, setValues] = useState<NouveauPatientFormValues>(
     normalizeFormValues(initialFormFromProps ?? (mode === "edit" ? SAMPLE_FORM_VALUES : EMPTY_FORM_VALUES)),
@@ -200,7 +196,6 @@ export function NouveauPatientDialog({
   const [touchedFields, setTouchedFields] = useState<Set<keyof NouveauPatientFormValues>>(new Set());
   const [step1Errors, setStep1Errors] = useState<Partial<Record<keyof NouveauPatientFormValues, string>>>({});
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [progressFillPx, setProgressFillPx] = useState(0);
   const [groupeSanguin, setGroupeSanguin] = useState("O+");
   const [ageCirconcision, setAgeCirconcision] = useState("13 ans");
   const [revenuMensuel, setRevenuMensuel] = useState("150000 DA");
@@ -324,20 +319,7 @@ export function NouveauPatientDialog({
     };
   }, [open, mode, initialFormFromProps]);
 
-  useEffect(() => {
-    const updateProgressFill = () => {
-      const progressTrackElement = progressTrackRef.current;
-      const activeStepDot = stepDotRefs.current[currentStep - 1];
-      if (!progressTrackElement || !activeStepDot) return;
-      const progressTrackRect = progressTrackElement.getBoundingClientRect();
-      const activeDotRect = activeStepDot.getBoundingClientRect();
-      setProgressFillPx(Math.max(0, activeDotRect.left + activeDotRect.width / 2 - progressTrackRect.left));
-    };
-
-    updateProgressFill();
-    window.addEventListener("resize", updateProgressFill);
-    return () => window.removeEventListener("resize", updateProgressFill);
-  }, [currentStep, stepLabels.length]);
+  const progressPercent = ((currentStep - 1) / Math.max(1, maxStep - 1)) * 100;
 
   if (!open) {
     return null;
