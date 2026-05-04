@@ -71,9 +71,9 @@ function RouteComponent() {
         },
         {
           id: "account-3",
-          question: "doctor.com est-il accessible sur mobile ?",
+          question: "Y a-t-il une version mobile de Doctor.com ?",
           answer:
-            "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement directement depuis votre téléphone ou tablette.",
+            "Oui, Doctor.com est disponible en application mobile, ce qui vous permet de consulter vos rendez-vous et d'avoir la liste complète des médicaments sous la main. ",
         },
         {
           id: "account-4",

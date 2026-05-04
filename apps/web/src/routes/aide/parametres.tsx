@@ -119,13 +119,13 @@ function RouteComponent() {
   };
 
   const relatedQuestions = [
-    "doctor.com est-il accessible sur mobile ?",
+    "Y a-t-il une version mobile de Doctor.com?",
     "Puis-je rester connecté sur plusieurs appareils ?",
     "Je n'ai plus accès à mon adresse e-mail de récupération, que faire ?",
   ] as const;
 
   const faqAnswersByQuestion: Record<(typeof relatedQuestions)[number], string> = {
-    "doctor.com est-il accessible sur mobile ?":
+    "Y a-t-il une version mobile de Doctor.com?":
       "Oui. Doctor.com s'adapte parfaitement aux écrans de smartphones et de tablettes. Vous pouvez consulter vos rendez-vous ou le dossier d'un patient en déplacement directement depuis votre téléphone ou tablette.",
     "Puis-je rester connecté sur plusieurs appareils ?":
       "Oui, mais avec vigilance. Vous pouvez être connecté sur votre ordinateur de bureau et votre tablette simultanément. Cependant, pour des raisons de sécurité et de confidentialité des données de santé, nous vous conseillons de fermer votre session sur les appareils que vous n'utilisez plus activement.",
