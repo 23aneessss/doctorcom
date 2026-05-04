@@ -30,7 +30,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         {
           onSuccess: () => {
             navigate({
-              to: "/patients",
+              to: "/dashboard",
             });
             toast.success("Connexion réussie");
           },
