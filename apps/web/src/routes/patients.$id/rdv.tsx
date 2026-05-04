@@ -1,3 +1,4 @@
+import { env } from "@doctor.com/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -17,10 +18,12 @@ import {
   Plus,
   Stethoscope,
   Trash2,
+  UploadCloud,
   UserRound,
   X,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -72,6 +75,36 @@ type RdvFormState = {
   important: boolean;
 };
 
+type ConsultationFields = {
+  date: string;
+  description_consultation: string;
+  conclusion: string;
+  taille: string;
+  poids: string;
+  spo2: string;
+  tension_arterielle: string;
+  frequence_cardiaque: string;
+  temperature: string;
+  aspect_general: string;
+  examen_respiratoire: string;
+  examen_cardiovasculaire: string;
+  examen_cutane_muqueux: string;
+  examen_ganglionnaire: string;
+  examen_endocrinien: string;
+  examen_genital: string;
+  examen_urinaire: string;
+  examen_orl: string;
+  examen_digestif: string;
+};
+
+type DocFile = {
+  id: string;
+  file: File;
+  nom: string;
+  status: "ready" | "uploading" | "done" | "error";
+  error?: string;
+};
+
 const STATUS_OPTIONS: Array<{ value: RendezVousStatut; label: string }> = [
   { value: "planifie", label: "Planifié" },
   { value: "confirme", label: "Confirmé" },
@@ -107,6 +140,30 @@ function createDefaultForm(): RdvFormState {
   };
 }
 
+function createDefaultConsultation(date?: string): ConsultationFields {
+  return {
+    date: date ?? new Date().toISOString().slice(0, 10),
+    description_consultation: "",
+    conclusion: "",
+    taille: "",
+    poids: "",
+    spo2: "",
+    tension_arterielle: "",
+    frequence_cardiaque: "",
+    temperature: "",
+    aspect_general: "",
+    examen_respiratoire: "",
+    examen_cardiovasculaire: "",
+    examen_cutane_muqueux: "",
+    examen_ganglionnaire: "",
+    examen_endocrinien: "",
+    examen_genital: "",
+    examen_urinaire: "",
+    examen_orl: "",
+    examen_digestif: "",
+  };
+}
+
 function PatientRdvPage() {
   const { id } = Route.useParams();
 
@@ -121,6 +178,9 @@ function PatientRdvPage() {
   const [selectedSuiviId, setSelectedSuiviId] = useState("");
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [symptomDraft, setSymptomDraft] = useState("");
+
+  const [consultationFields, setConsultationFields] = useState<ConsultationFields>(createDefaultConsultation);
+  const [docFiles, setDocFiles] = useState<DocFile[]>([]);
 
   const rdvQuery = useQuery(trpc.agenda.getRDVParPatient.queryOptions({ patient_id: id }));
   const suivisQuery = useQuery(trpc.consultation.getActiveSuivis.queryOptions({ patient_id: id }));
@@ -242,6 +302,35 @@ function PatientRdvPage() {
     onError: (error) => toast.error(error.message),
   });
 
+  const createExamenMutation = useMutation({
+    mutationFn: (fields: ConsultationFields) =>
+      trpcClient.consultation.createExamen.mutate({
+        suivi_id: selectedSuiviId,
+        rendez_vous_id: selectedRdvId,
+        date: fields.date,
+        description_consultation: fields.description_consultation.trim() || null,
+        conclusion: fields.conclusion.trim() || null,
+        taille: fields.taille.trim() || null,
+        poids: fields.poids.trim() || null,
+        spo2: fields.spo2.trim() ? Number(fields.spo2) : null,
+        tension_arterielle: fields.tension_arterielle.trim() || null,
+        frequence_cardiaque: fields.frequence_cardiaque.trim() ? Number(fields.frequence_cardiaque) : null,
+        temperature: fields.temperature.trim() ? Number(fields.temperature) : null,
+        aspect_general: fields.aspect_general.trim() || null,
+        examen_respiratoire: fields.examen_respiratoire.trim() || null,
+        examen_cardiovasculaire: fields.examen_cardiovasculaire.trim() || null,
+        examen_cutane_muqueux: fields.examen_cutane_muqueux.trim() || null,
+        examen_ganglionnaire: fields.examen_ganglionnaire.trim() || null,
+        examen_endocrinien: fields.examen_endocrinien.trim() || null,
+        examen_genital: fields.examen_genital.trim() || null,
+        examen_urinaire: fields.examen_urinaire.trim() || null,
+        examen_orl: fields.examen_orl.trim() || null,
+        examen_digestif: fields.examen_digestif.trim() || null,
+      }),
+    onSuccess: () => toast.success("Consultation enregistrée"),
+    onError: (error) => toast.error(error.message),
+  });
+
   const openCreate = () => {
     setRdvForm(createDefaultForm());
     setIsCreateOpen(true);
@@ -287,15 +376,18 @@ function PatientRdvPage() {
       setWizardSkipsRdv(true);
       setSelectedRdvId(rdv.id);
       setSelectedSuiviId(rdv.suivi_id ?? activeSuivis[0]?.id ?? "");
+      setConsultationFields(createDefaultConsultation(rdv.date));
     } else {
       setWizardSkipsRdv(false);
       const firstActive = rdvs.find((r) => r.statut !== "termine" && r.statut !== "annule");
       setSelectedRdvId(firstActive?.id ?? "");
       setSelectedSuiviId(firstActive?.suivi_id ?? activeSuivis[0]?.id ?? "");
+      setConsultationFields(createDefaultConsultation(firstActive?.date));
     }
     setCurrentStep(1);
     setSymptoms([]);
     setSymptomDraft("");
+    setDocFiles([]);
     setIsWizardOpen(true);
   };
 
@@ -306,6 +398,8 @@ function PatientRdvPage() {
     setSelectedSuiviId("");
     setSymptoms([]);
     setSymptomDraft("");
+    setConsultationFields(createDefaultConsultation());
+    setDocFiles([]);
   };
 
   const goNext = async () => {
@@ -328,39 +422,51 @@ function PatientRdvPage() {
       });
     }
 
+    if (backendStep === 3) {
+      if (!selectedSuiviId || !selectedRdvId) {
+        toast.error("Suivi ou rendez-vous manquant.");
+        return;
+      }
+      await createExamenMutation.mutateAsync(consultationFields);
+    }
+
+    if (backendStep === 4) {
+      const ready = docFiles.filter((f) => f.status === "ready");
+      if (ready.length > 0) {
+        for (const df of ready) {
+          setDocFiles((cur) => cur.map((f) => f.id === df.id ? { ...f, status: "uploading" } : f));
+          try {
+            const formData = new FormData();
+            formData.append("file", df.file);
+            formData.append("json", JSON.stringify({
+              patient_id: id,
+              nom_document: df.nom.trim() || df.file.name,
+              type_document: "autre",
+              description: null,
+            }));
+            const res = await fetch(`${env.VITE_SERVER_URL}/api/upload/document`, {
+              method: "POST",
+              body: formData,
+              credentials: "include",
+            });
+            if (!res.ok) throw new Error("Échec de l'import");
+            setDocFiles((cur) => cur.map((f) => f.id === df.id ? { ...f, status: "done" } : f));
+          } catch {
+            setDocFiles((cur) => cur.map((f) => f.id === df.id ? { ...f, status: "error", error: "Échec" } : f));
+          }
+        }
+        await queryClient.invalidateQueries(
+          trpc.patient.getPatientFullRecord.queryFilter({ id }),
+        );
+      }
+    }
+
     const maxStep = wizardSkipsRdv ? 4 : 5;
     setCurrentStep((s) => Math.min(maxStep, s + 1) as WizardStep);
   };
 
   const goPrev = () => {
     setCurrentStep((s) => Math.max(1, s - 1) as WizardStep);
-  };
-
-  const openConsultation = () => {
-    if (!selectedRdv || !selectedSuiviId) {
-      toast.error("Sélectionnez un rendez-vous et un suivi.");
-      return;
-    }
-    window.dispatchEvent(
-      new CustomEvent("patient-popup-open", {
-        detail: {
-          type: "consultation",
-          mode: "create",
-          suiviId: selectedSuiviId,
-          initialValues: {
-            suivi_id: selectedSuiviId,
-            rendez_vous_id: selectedRdv.id,
-            date: selectedRdv.date,
-          },
-        },
-      }),
-    );
-  };
-
-  const openDocuments = () => {
-    window.dispatchEvent(
-      new CustomEvent("patient-popup-open", { detail: { type: "document" } }),
-    );
   };
 
   const finishRdv = async () => {
@@ -374,7 +480,18 @@ function PatientRdvPage() {
     closeWizard();
   };
 
+  const addDocFile = (file: File) => {
+    setDocFiles((cur) => [
+      ...cur,
+      { id: `${Date.now()}-${Math.random()}`, file, nom: file.name.replace(/\.[^.]+$/, ""), status: "ready" },
+    ]);
+  };
+
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isWizardUpdating =
+    workflowUpdateMutation.isPending ||
+    createSuiviMutation.isPending ||
+    createExamenMutation.isPending;
   const wizardSteps = wizardSkipsRdv ? STEPS_SHORT : STEPS_FULL;
   const maxStep = wizardSkipsRdv ? 4 : 5;
 
@@ -516,14 +633,14 @@ function PatientRdvPage() {
       {isWizardOpen ? (
         <WorkflowDialog
           activeSuivis={activeSuivis}
+          consultationFields={consultationFields}
           currentStep={currentStep}
+          docFiles={docFiles}
           finishRdv={finishRdv}
           goNext={goNext}
           goPrev={goPrev}
-          isUpdating={workflowUpdateMutation.isPending || createSuiviMutation.isPending}
+          isUpdating={isWizardUpdating}
           maxStep={maxStep}
-          openConsultation={openConsultation}
-          openDocuments={openDocuments}
           rdvs={rdvs}
           selectedRdvId={selectedRdvId}
           selectedSuiviId={selectedSuiviId}
@@ -531,6 +648,7 @@ function PatientRdvPage() {
           steps={wizardSteps}
           symptomDraft={symptomDraft}
           symptoms={symptoms}
+          onAddDocFile={addDocFile}
           onAddSymptom={() => {
             const v = symptomDraft.trim();
             if (!v) return;
@@ -538,15 +656,21 @@ function PatientRdvPage() {
             setSymptomDraft("");
           }}
           onClose={closeWizard}
+          onConsultationChange={(patch) => setConsultationFields((c) => ({ ...c, ...patch }))}
           onCreateSuivi={() => createSuiviMutation.mutate()}
+          onRemoveDocFile={(fileId) => setDocFiles((cur) => cur.filter((f) => f.id !== fileId))}
           onRemoveSymptom={(sym) => setSymptoms((cur) => cur.filter((s) => s !== sym))}
           onSelectRdv={(rdvId) => {
             setSelectedRdvId(rdvId);
             const rdv = rdvs.find((r) => r.id === rdvId);
             if (rdv?.suivi_id) setSelectedSuiviId(rdv.suivi_id);
+            if (rdv?.date) setConsultationFields((c) => ({ ...c, date: rdv.date }));
           }}
           onSelectSuivi={setSelectedSuiviId}
           onSetSymptomDraft={setSymptomDraft}
+          onUpdateDocName={(fileId, nom) =>
+            setDocFiles((cur) => cur.map((f) => f.id === fileId ? { ...f, nom } : f))
+          }
         />
       ) : null}
     </div>
@@ -618,7 +742,6 @@ function NouveauRdvDialog({
       }}
     >
       <form className="space-y-5" id="patient-rdv-form" onSubmit={onSubmit}>
-        {/* Patient preview card */}
         <div className="rounded-[18px] border border-[#c2e0ef] bg-gradient-to-br from-[rgba(194,224,239,0.42)] to-white p-4 shadow-[0_10px_30px_rgba(15,52,96,0.08)]">
           <div className="flex items-center gap-3">
             <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-[#052ca0] bg-white font-['Inter'] text-[14px] font-bold text-[#052ca0]">
@@ -751,14 +874,14 @@ function NouveauRdvDialog({
 
 function WorkflowDialog({
   activeSuivis,
+  consultationFields,
   currentStep,
+  docFiles,
   finishRdv,
   goNext,
   goPrev,
   isUpdating,
   maxStep,
-  openConsultation,
-  openDocuments,
   rdvs,
   selectedRdvId,
   selectedSuiviId,
@@ -766,23 +889,27 @@ function WorkflowDialog({
   steps,
   symptomDraft,
   symptoms,
+  onAddDocFile,
   onAddSymptom,
   onClose,
+  onConsultationChange,
   onCreateSuivi,
+  onRemoveDocFile,
   onRemoveSymptom,
   onSelectRdv,
   onSelectSuivi,
   onSetSymptomDraft,
+  onUpdateDocName,
 }: {
   activeSuivis: Array<{ id: string; motif?: string | null; symptoms?: string[] | null }>;
+  consultationFields: ConsultationFields;
   currentStep: WizardStep;
+  docFiles: DocFile[];
   finishRdv: () => Promise<void>;
   goNext: () => Promise<void>;
   goPrev: () => void;
   isUpdating: boolean;
   maxStep: number;
-  openConsultation: () => void;
-  openDocuments: () => void;
   rdvs: PatientRdv[];
   selectedRdvId: string;
   selectedSuiviId: string;
@@ -790,16 +917,21 @@ function WorkflowDialog({
   steps: readonly string[];
   symptomDraft: string;
   symptoms: string[];
+  onAddDocFile: (file: File) => void;
   onAddSymptom: () => void;
   onClose: () => void;
+  onConsultationChange: (patch: Partial<ConsultationFields>) => void;
   onCreateSuivi: () => void;
+  onRemoveDocFile: (id: string) => void;
   onRemoveSymptom: (sym: string) => void;
   onSelectRdv: (id: string) => void;
   onSelectSuivi: (id: string) => void;
   onSetSymptomDraft: (v: string) => void;
+  onUpdateDocName: (id: string, nom: string) => void;
 }) {
   const backendStep = skipsRdv ? currentStep + 1 : currentStep;
   const selectedRdv = rdvs.find((r) => r.id === selectedRdvId) ?? null;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <DialogShell
@@ -822,10 +954,8 @@ function WorkflowDialog({
               onClick={() => void goNext()}
               type="button"
             >
-              {isUpdating ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
-              Continuer
+              {isUpdating ? <Loader2 className="size-4 animate-spin" /> : null}
+              {backendStep === 3 ? "Enregistrer & continuer" : backendStep === 4 ? (docFiles.some((f) => f.status === "ready") ? "Importer & continuer" : "Passer cette étape") : "Continuer"}
               <ChevronRight className="size-4" />
             </button>
           ) : (
@@ -846,7 +976,7 @@ function WorkflowDialog({
         </div>
       }
       icon={<CalendarClock className="size-5" />}
-      maxWidth="max-w-[580px]"
+      maxWidth={backendStep === 3 ? "max-w-[720px]" : "max-w-[600px]"}
       open
       subtitle={`Étape ${currentStep} sur ${maxStep}`}
       title="Session de consultation"
@@ -855,13 +985,12 @@ function WorkflowDialog({
       }}
     >
       {/* Step indicator */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="mb-3 flex items-center justify-between gap-1">
           {steps.map((label, index) => {
             const step = (index + 1) as WizardStep;
             const isActive = step === currentStep;
             const isDone = step < currentStep;
-
             return (
               <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5" key={label}>
                 <span
@@ -897,8 +1026,12 @@ function WorkflowDialog({
       </div>
 
       {/* Step content */}
-      <div className="min-h-[220px]">
-        {/* Step 1 (full flow): select RDV */}
+      <div className={cn(
+        "overflow-y-auto",
+        backendStep === 3 ? "max-h-[52vh]" : "min-h-[200px]",
+      )}>
+
+        {/* Step 1: select RDV */}
         {backendStep === 1 ? (
           <div className="space-y-3">
             <p className="font-['Inter'] text-[13px] text-[#64748b]">
@@ -947,7 +1080,7 @@ function WorkflowDialog({
           </div>
         ) : null}
 
-        {/* Step 2 (backend): link suivi */}
+        {/* Step 2: link suivi */}
         {backendStep === 2 ? (
           <div className="space-y-4">
             {selectedRdv ? (
@@ -1045,28 +1178,210 @@ function WorkflowDialog({
           </div>
         ) : null}
 
-        {/* Step 3 (backend): create consultation */}
+        {/* Step 3: inline consultation form */}
         {backendStep === 3 ? (
-          <WorkflowStepAction
-            description="Ouvrez le formulaire de consultation lié à ce rendez-vous et ce suivi. Le formulaire s'ouvre en superposition."
-            icon={Stethoscope}
-            label="Créer la consultation"
-            onClick={openConsultation}
-          />
+          <div className="space-y-4 pr-1">
+            <div className="flex items-center gap-2 rounded-[10px] border-[0.8px] border-[#76bbdd] bg-[#f0f6ff] px-4 py-3">
+              <Stethoscope className="size-4 shrink-0 text-[#052ca0]" />
+              <p className="font-['Inter'] text-[13px] text-[#0f3460]">
+                <span className="font-semibold text-[#052ca0]">Consultation</span>
+                {selectedRdv ? ` · ${formatDate(selectedRdv.date)} à ${selectedRdv.heure.slice(0, 5)}` : ""}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <InlineField label="Date" required>
+                <input
+                  className={fieldControlClassName}
+                  onChange={(e) => onConsultationChange({ date: e.target.value })}
+                  type="date"
+                  value={consultationFields.date}
+                />
+              </InlineField>
+            </div>
+
+            <InlineField label="Description de la consultation">
+              <textarea
+                className={cn(fieldControlClassName, "min-h-[72px] resize-none py-2")}
+                onChange={(e) => onConsultationChange({ description_consultation: e.target.value })}
+                placeholder="Motif, plaintes principales, contexte de la consultation…"
+                value={consultationFields.description_consultation}
+              />
+            </InlineField>
+
+            <div className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc]">
+              <div className="border-b border-[#c2e0ef] px-4 py-2">
+                <p className="font-['Plus_Jakarta_Sans'] text-[11px] font-bold uppercase tracking-wide text-[#0f3460]">
+                  Constantes vitales
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3 p-4">
+                {(
+                  [
+                    ["taille", "Taille (cm)"],
+                    ["poids", "Poids (kg)"],
+                    ["spo2", "SpO2 (%)"],
+                    ["tension_arterielle", "Tension art."],
+                    ["frequence_cardiaque", "FC (bpm)"],
+                    ["temperature", "Temp. (°C)"],
+                  ] as [keyof ConsultationFields, string][]
+                ).map(([key, label]) => (
+                  <div className="space-y-1" key={key}>
+                    <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-wide text-[#052ca0]">
+                      {label}
+                    </p>
+                    <input
+                      className="h-[36px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none transition hover:border-[#9ecae0] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                      onChange={(e) => onConsultationChange({ [key]: e.target.value })}
+                      placeholder="—"
+                      value={consultationFields[key] as string}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc]">
+              <div className="border-b border-[#c2e0ef] px-4 py-2">
+                <p className="font-['Plus_Jakarta_Sans'] text-[11px] font-bold uppercase tracking-wide text-[#0f3460]">
+                  Examen clinique
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 p-4">
+                {(
+                  [
+                    ["aspect_general", "Aspect général"],
+                    ["examen_respiratoire", "Respiratoire"],
+                    ["examen_cardiovasculaire", "Cardiovasculaire"],
+                    ["examen_cutane_muqueux", "Cutané / muqueux"],
+                    ["examen_ganglionnaire", "Ganglionnaire"],
+                    ["examen_endocrinien", "Endocrinien"],
+                    ["examen_genital", "Génital"],
+                    ["examen_urinaire", "Urinaire"],
+                    ["examen_orl", "ORL"],
+                    ["examen_digestif", "Digestif"],
+                  ] as [keyof ConsultationFields, string][]
+                ).map(([key, label]) => (
+                  <div className="space-y-1" key={key}>
+                    <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-wide text-[#052ca0]">
+                      {label}
+                    </p>
+                    <input
+                      className="h-[36px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none transition hover:border-[#9ecae0] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                      onChange={(e) => onConsultationChange({ [key]: e.target.value })}
+                      placeholder="—"
+                      value={consultationFields[key] as string}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <InlineField label="Diagnostic / Conclusion">
+              <textarea
+                className={cn(fieldControlClassName, "min-h-[72px] resize-none py-2")}
+                onChange={(e) => onConsultationChange({ conclusion: e.target.value })}
+                placeholder="Diagnostic retenu, plan de traitement, observations…"
+                value={consultationFields.conclusion}
+              />
+            </InlineField>
+          </div>
         ) : null}
 
-        {/* Step 4 (backend): import documents */}
+        {/* Step 4: inline document upload */}
         {backendStep === 4 ? (
-          <WorkflowStepAction
-            description="Importez les documents reçus pendant la visite si nécessaire. Cette étape est optionnelle."
-            icon={FileUp}
-            label="Importer des documents"
-            onClick={openDocuments}
-            optional
-          />
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-[#f0f6ff] px-4 py-3">
+              <FileUp className="mt-0.5 size-4 shrink-0 text-[#052ca0]" />
+              <p className="font-['Inter'] text-[13px] text-[#0f3460]">
+                <span className="font-semibold text-[#052ca0]">Documents</span>
+                {" — "}
+                <span className="text-[#64748b]">Étape optionnelle. Importez les documents reçus lors de la visite.</span>
+              </p>
+            </div>
+
+            <input
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                for (const file of Array.from(e.target.files ?? [])) {
+                  onAddDocFile(file);
+                }
+                e.target.value = "";
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
+
+            {docFiles.length === 0 ? (
+              <button
+                className="flex h-[110px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-[10px] border-[1.4px] border-dashed border-[#c2e0ef] bg-[#f9fafb] transition-colors hover:border-[#76bbdd] hover:bg-[#f0f6ff]"
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <UploadCloud className="size-6 text-[#76bbdd]" />
+                <span className="font-['Inter'] text-[13px] text-[#64748b]">
+                  Cliquez pour sélectionner des fichiers
+                </span>
+                <span className="font-['Inter'] text-[11px] text-[#94a3b8]">PDF, PNG, JPG, WEBP · max 10 Mo</span>
+              </button>
+            ) : (
+              <div className="space-y-2">
+                {docFiles.map((df) => (
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-[10px] border-[0.8px] bg-white p-3",
+                      df.status === "done"
+                        ? "border-[#bbf7d0] bg-[#f0fdf4]"
+                        : df.status === "error"
+                          ? "border-[#fecaca] bg-[#fff1f2]"
+                          : "border-[#c2e0ef]",
+                    )}
+                    key={df.id}
+                  >
+                    <FileText className={cn(
+                      "size-4 shrink-0",
+                      df.status === "done" ? "text-[#008236]" : df.status === "error" ? "text-[#e11d48]" : "text-[#76bbdd]",
+                    )} />
+                    <input
+                      className="min-w-0 flex-1 bg-transparent font-['Inter'] text-[13px] text-[#0f3460] outline-none placeholder:text-[#94a3b8]"
+                      disabled={df.status !== "ready"}
+                      onChange={(e) => onUpdateDocName(df.id, e.target.value)}
+                      placeholder="Nom du document"
+                      value={df.nom}
+                    />
+                    {df.status === "uploading" ? (
+                      <Loader2 className="size-4 shrink-0 animate-spin text-[#76bbdd]" />
+                    ) : df.status === "done" ? (
+                      <Check className="size-4 shrink-0 text-[#008236]" />
+                    ) : df.status === "error" ? (
+                      <span className="font-['Inter'] text-[11px] text-[#e11d48]">Échec</span>
+                    ) : (
+                      <button
+                        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[#fecaca] bg-white text-[#e11d48] hover:bg-[#fff1f2]"
+                        onClick={() => onRemoveDocFile(df.id)}
+                        type="button"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border-[1.4px] border-dashed border-[#c2e0ef] font-['Inter'] text-[13px] text-[#64748b] transition-colors hover:border-[#76bbdd] hover:bg-[#f0f6ff] hover:text-[#052ca0]"
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  <Plus className="size-4" />
+                  Ajouter un autre fichier
+                </button>
+              </div>
+            )}
+          </div>
         ) : null}
 
-        {/* Step 5 (backend): finish */}
+        {/* Step 5: finish */}
         {backendStep === 5 ? (
           <div className="rounded-[10px] border-[0.8px] border-[#bbf7d0] bg-[#f0fdf4] p-5">
             <div className="flex items-start gap-3">
@@ -1089,49 +1404,24 @@ function WorkflowDialog({
   );
 }
 
-function WorkflowStepAction({
-  description,
-  icon: Icon,
+// ─── Inline field wrapper ─────────────────────────────────────────────────────
+
+function InlineField({
   label,
-  onClick,
-  optional = false,
+  required,
+  children,
 }: {
-  description: string;
-  icon: React.FC<{ className?: string }>;
   label: string;
-  onClick: () => void;
-  optional?: boolean;
+  required?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#eaf3fb] text-[#052ca0]">
-          <Icon className="size-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-['Inter'] text-[15px] font-semibold text-[#0f3460]">
-              {label}
-            </p>
-            {optional ? (
-              <span className="rounded-full bg-[#f1f5f9] px-2 py-0.5 font-['Inter'] text-[11px] text-[#64748b]">
-                Optionnel
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#64748b]">
-            {description}
-          </p>
-          <button
-            className="mt-4 flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#052ca0] px-4 font-['Inter'] text-[13px] font-semibold text-white shadow-[0px_3px_8px_rgba(5,44,160,0.3)] transition-colors hover:bg-[#082f9e]"
-            onClick={onClick}
-            type="button"
-          >
-            <Icon className="size-4" />
-            {label}
-          </button>
-        </div>
-      </div>
+    <div className="space-y-1.5">
+      <p className="font-['Plus_Jakarta_Sans'] text-[11px] font-bold uppercase tracking-wide text-[#0f3460]">
+        {label}
+        {required ? <span className="ml-0.5 text-[#f97316]">*</span> : null}
+      </p>
+      {children}
     </div>
   );
 }
