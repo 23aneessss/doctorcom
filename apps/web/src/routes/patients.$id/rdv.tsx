@@ -717,8 +717,8 @@ function NouveauRdvDialog({
                   onChange={(e) => set("important", e.target.checked)}
                   type="checkbox"
                 />
-                <span className="relative h-5 w-9 rounded-full bg-[#dbeaf3] transition peer-checked:bg-[#052ca0]">
-                  <span className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,52,96,0.18)] transition peer-checked:translate-x-4 [.peer:checked~&]:translate-x-4" />
+                <span className="relative h-5 w-9 rounded-full bg-[#dbeaf3] transition peer-checked:bg-[#052ca0] peer-checked:[&>span]:translate-x-4">
+                  <span className="absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,52,96,0.18)] transition" />
                 </span>
                 <span className="font-['Inter'] text-[13px] text-[#0f3460]">
                   {form.important ? "Marquer comme important" : "Normal"}
