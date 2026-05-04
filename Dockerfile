@@ -3,7 +3,7 @@ FROM oven/bun:1.2.20-alpine AS web-builder
 WORKDIR /app
 
 COPY package.json bun.lock turbo.json tsconfig.json ./
-COPY apps/web ./apps/web
+COPY apps ./apps
 COPY packages ./packages
 
 RUN bun install --frozen-lockfile
@@ -14,7 +14,7 @@ FROM oven/bun:1.2.20-alpine
 WORKDIR /app
 
 COPY package.json bun.lock turbo.json tsconfig.json ./
-COPY apps/server ./apps/server
+COPY apps ./apps
 COPY packages ./packages
 COPY seed*.ts ./
 COPY reset.ts ./
