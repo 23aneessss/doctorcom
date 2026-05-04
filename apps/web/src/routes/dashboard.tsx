@@ -37,7 +37,7 @@ type DashboardOverview = {
     newPatients: number;
     cancelledAppointments: number;
   };
-  patientTrend: Array<{ label: string; value: number; ghostValue: number }>;
+  patientTrend: Array<{ label: string; value: number }>;
   topMedications: Array<{ name: string; count: number }>;
   rdvTypes: Array<{ label: string; value: number }>;
   upcomingAppointments: Array<{
@@ -103,35 +103,27 @@ function RouteComponent() {
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard
-              accent="blue"
               icon={CalendarDays}
               label="Rendez-vous aujourd'hui"
               loading={isLoading}
-              sublabel="Agenda clinique"
               value={overview.metrics.todayAppointments}
             />
             <KpiCard
-              accent="sky"
               icon={Users}
               label="Patients suivis"
               loading={isLoading}
-              sublabel="Dossiers actifs"
               value={overview.metrics.totalPatients}
             />
             <KpiCard
-              accent="green"
               icon={UserPlus}
               label="Nouveaux patients"
               loading={isLoading}
-              sublabel="Créés récemment"
               value={overview.metrics.newPatients}
             />
             <KpiCard
-              accent="orange"
               icon={CircleX}
               label="RDV annulés"
               loading={isLoading}
-              sublabel="À surveiller"
               value={overview.metrics.cancelledAppointments}
             />
           </section>
@@ -175,8 +167,12 @@ function RouteComponent() {
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
               <DashboardPanel>
-                <PanelHeader eyebrow="Consultations" icon={Activity} title="Types de RDV" />
-                <RdvTypeDonut data={overview.rdvTypes} loading={isLoading} />
+                <PanelHeader
+                  eyebrow="Consultations"
+                  icon={Activity}
+                  title="Répartition des RDV"
+                />
+                <RdvTypeBreakdown data={overview.rdvTypes} loading={isLoading} />
               </DashboardPanel>
 
               <DashboardPanel>
@@ -214,7 +210,7 @@ function DashboardHero({ displayName }: { displayName: string }) {
 
         <Link
           className="inline-flex h-[2.625rem] min-w-[13.5rem] items-center justify-center gap-2 rounded-[0.875rem] bg-[#052ca0] px-6 font-['Plus_Jakarta_Sans'] text-[1rem] font-semibold tracking-[-0.01em] text-white shadow-[0px_4px_12px_rgba(5,44,160,0.38)] transition hover:-translate-y-px hover:bg-[#0a3ac7] hover:shadow-[0px_8px_20px_rgba(5,44,160,0.44)]"
-          to="/agenda/ajouter"
+          to="/agenda"
         >
           <Plus className="size-5" />
           Nouveau rendez-vous
@@ -225,62 +221,29 @@ function DashboardHero({ displayName }: { displayName: string }) {
 }
 
 function KpiCard({
-  accent,
   icon: Icon,
   label,
   loading,
-  sublabel,
   value,
 }: {
-  accent: "blue" | "green" | "orange" | "sky";
   icon: LucideIcon;
   label: string;
   loading: boolean;
-  sublabel: string;
   value: number;
 }) {
-  const accentMap = {
-    blue: {
-      bg: "bg-[#eef6ff]",
-      icon: "text-[#052ca0]",
-      ring: "border-[#bfdcf5]",
-    },
-    green: {
-      bg: "bg-[#ecfdf3]",
-      icon: "text-[#16a34a]",
-      ring: "border-[#bbf7d0]",
-    },
-    orange: {
-      bg: "bg-[#fff7ed]",
-      icon: "text-[#f97316]",
-      ring: "border-[#fed7aa]",
-    },
-    sky: {
-      bg: "bg-[#edf8fd]",
-      icon: "text-[#2f7fa8]",
-      ring: "border-[#c2e0ef]",
-    },
-  }[accent];
-
   return (
-    <article className="group relative overflow-hidden rounded-[18px] border border-[#c2e0ef] bg-white p-4 shadow-[0_10px_28px_-24px_rgba(15,52,96,0.45)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-24px_rgba(15,52,96,0.5)]">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#76bbdd] via-[#052ca0] to-[#f77a21] opacity-60" />
+    <article className="group rounded-[18px] border border-[#c2e0ef] bg-white p-4 shadow-[0_10px_28px_-24px_rgba(15,52,96,0.45)] transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:shadow-[0_18px_34px_-24px_rgba(15,52,96,0.5)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#5d7285]">
             {label}
           </p>
-          <p className="mt-2 font-['Plus_Jakarta_Sans'] text-[30px] font-bold leading-none text-[#0f3460]">
+          <p className="mt-3 font-['Plus_Jakarta_Sans'] text-[32px] font-bold leading-none text-[#0f3460]">
             {loading ? "..." : formatNumber(value)}
           </p>
-          <p className="mt-2 font-['Inter'] text-[12px] font-medium text-[#7a93af]">
-            {sublabel}
-          </p>
         </div>
-        <span
-          className={`flex size-11 shrink-0 items-center justify-center rounded-[14px] border ${accentMap.ring} ${accentMap.bg}`}
-        >
-          <Icon className={`size-5 ${accentMap.icon}`} strokeWidth={2} />
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[#c2e0ef] bg-[#edf8fd] text-[#0f3460]">
+          <Icon className="size-5" strokeWidth={2} />
         </span>
       </div>
     </article>
@@ -342,12 +305,9 @@ function PatientTrendChart({
       : Array.from({ length: 18 }, (_, index) => ({
           label: String(index + 1).padStart(2, "0"),
           value: 0,
-          ghostValue: 0,
         }));
-  const max = Math.max(
-    1,
-    ...data.map((bar) => Math.max(bar.value, bar.ghostValue)),
-  );
+  const max = Math.max(1, ...data.map((bar) => bar.value));
+  const total = data.reduce((sum, bar) => sum + bar.value, 0);
 
   return (
     <div className="relative min-h-[18rem] overflow-hidden rounded-[16px] border border-[#e3f3fb] bg-[linear-gradient(180deg,#f8fcff_0%,#ffffff_100%)] px-5 pb-5 pt-6">
@@ -358,19 +318,15 @@ function PatientTrendChart({
       </div>
       <div className="relative flex h-[13rem] items-end gap-2">
         {data.map((bar) => {
-          const ghostHeight = Math.max(10, Math.round((bar.ghostValue / max) * 178));
           const valueHeight = Math.max(bar.value > 0 ? 14 : 4, Math.round((bar.value / max) * 178));
 
           return (
             <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={bar.label}>
               <div className="relative flex h-[11.25rem] w-full items-end justify-center">
                 <span
-                  className="absolute bottom-0 w-[42%] rounded-t-full bg-[#dce9f2]"
-                  style={{ height: ghostHeight }}
-                />
-                <span
                   className="relative z-10 w-[42%] rounded-t-full bg-[linear-gradient(180deg,#76bbdd_0%,#052ca0_100%)] shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
                   style={{ height: loading ? 28 : valueHeight }}
+                  title={`${bar.value} patient${bar.value > 1 ? "s" : ""}`}
                 />
               </div>
               <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
@@ -381,8 +337,7 @@ function PatientTrendChart({
         })}
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-[#edf6fb] pt-4 font-['Inter'] text-[12px] text-[#5d7285]">
-        <LegendDot color="#052ca0" label="Patients enregistrés" />
-        <LegendDot color="#dce9f2" label="Projection / historique" />
+        <LegendDot color="#052ca0" label={`${total} nouveaux patients sur la période`} />
       </div>
     </div>
   );
@@ -440,7 +395,7 @@ function MedicationRanking({
   );
 }
 
-function RdvTypeDonut({
+function RdvTypeBreakdown({
   data,
   loading,
 }: {
@@ -451,7 +406,7 @@ function RdvTypeDonut({
     return <EmptyPanel text="Analyse des rendez-vous..." />;
   }
 
-  const colors = ["#052ca0", "#76bbdd", "#f77a21", "#16a34a"];
+  const colors = ["#052ca0", "#265284", "#76bbdd", "#9ed2ea"];
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const displayData =
     total > 0
@@ -461,53 +416,62 @@ function RdvTypeDonut({
           { label: "Suivi", value: 0 },
           { label: "Contrôle", value: 0 },
         ];
-  const displayTotal = Math.max(
-    1,
-    displayData.reduce((sum, item) => sum + item.value, 0),
-  );
-  let cursor = 0;
-  const gradient =
-    total > 0
-      ? displayData
-          .map((item, index) => {
-            const start = cursor;
-            const end = cursor + (item.value / displayTotal) * 100;
-            cursor = end;
-            return `${colors[index] ?? "#052ca0"} ${start}% ${end}%`;
-          })
-          .join(", ")
-      : "#e8f3fb 0% 100%";
+  const displayTotal = Math.max(1, total);
 
   return (
-    <div className="grid items-center gap-4 sm:grid-cols-[9rem_1fr]">
-      <div
-        className="relative mx-auto flex size-32 items-center justify-center rounded-full"
-        style={{ backgroundImage: `conic-gradient(${gradient})` }}
-      >
-        <div className="flex size-20 flex-col items-center justify-center rounded-full bg-white shadow-inner">
-          <span className="font-['Plus_Jakarta_Sans'] text-[22px] font-bold text-[#0f3460]">
-            {total}
-          </span>
-          <span className="font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a93af]">
-            total
-          </span>
+    <div className="space-y-4">
+      <div className="rounded-[16px] border border-[#e1f0f8] bg-[#fbfdff] p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="font-['Inter'] text-[11px] font-bold uppercase tracking-[0.14em] text-[#7a93af]">
+              Total analysé
+            </p>
+            <p className="mt-1 font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-none text-[#0f3460]">
+              {total}
+            </p>
+          </div>
+          <Activity className="size-9 text-[#76bbdd]" strokeWidth={1.8} />
+        </div>
+        <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-[#edf6fb]">
+          {total > 0 ? (
+            displayData.map((item, index) => (
+              <span
+                className="h-full"
+                key={item.label}
+                style={{
+                  backgroundColor: colors[index] ?? "#052ca0",
+                  width: `${Math.max(4, (item.value / displayTotal) * 100)}%`,
+                }}
+              />
+            ))
+          ) : (
+            <span className="h-full w-full bg-[#dce9f2]" />
+          )}
         </div>
       </div>
-      <div className="grid gap-2">
+
+      <div className="grid gap-3">
         {displayData.map((item, index) => {
           const percent = total > 0 ? Math.round((item.value / displayTotal) * 100) : 0;
           return (
-            <div className="flex items-center gap-3" key={item.label}>
-              <span
-                className="size-2.5 rounded-full"
-                style={{ backgroundColor: colors[index] ?? "#052ca0" }}
-              />
-              <span className="min-w-0 flex-1 truncate font-['Inter'] text-[12px] font-medium text-[#0f3460]">
-                {item.label}
-              </span>
-              <span className="font-['Inter'] text-[12px] font-semibold text-[#7a93af]">
-                {percent}%
-              </span>
+            <div className="grid gap-2" key={item.label}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                  {item.label}
+                </span>
+                <span className="font-['Inter'] text-[12px] font-bold text-[#5d7285]">
+                  {item.value} · {percent}%
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#edf6fb]">
+                <span
+                  className="block h-full rounded-full"
+                  style={{
+                    backgroundColor: colors[index] ?? "#052ca0",
+                    width: `${percent}%`,
+                  }}
+                />
+              </div>
             </div>
           );
         })}
@@ -576,7 +540,10 @@ function AppointmentRow({
   appointment: DashboardOverview["upcomingAppointments"][number];
 }) {
   return (
-    <article className="flex items-center gap-3 rounded-[15px] border border-[#e1f0f8] bg-[#fbfdff] p-3">
+    <Link
+      className="group flex items-center gap-3 rounded-[15px] border border-[#e1f0f8] bg-[#fbfdff] p-3 transition hover:-translate-y-0.5 hover:border-[#76bbdd] hover:bg-[#f8fcff]"
+      to="/agenda"
+    >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e3f3fb] font-['Inter'] text-[12px] font-bold text-[#265284]">
         {appointment.patientInitials}
       </span>
@@ -591,14 +558,15 @@ function AppointmentRow({
       <span className="rounded-full border border-[#c2e0ef] bg-white px-2.5 py-1 font-['Inter'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#265284]">
         {appointment.status}
       </span>
-    </article>
+      <ArrowRight className="size-4 text-[#76bbdd] transition group-hover:translate-x-0.5 group-hover:text-[#052ca0]" />
+    </Link>
   );
 }
 
 function QuickActions() {
   return (
     <div className="grid gap-3">
-      <QuickAction icon={CalendarDays} label="Ajouter un rendez-vous" to="/agenda/ajouter" />
+      <QuickAction icon={CalendarDays} label="Ajouter un rendez-vous" to="/agenda" />
       <QuickAction icon={Users} label="Consulter les patients" to="/patients" />
       <QuickAction icon={FileText} label="Créer une ordonnance" to="/ordonnance" />
     </div>
