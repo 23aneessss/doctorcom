@@ -54,7 +54,7 @@ type DashboardOverview = {
     newPatients: number;
     cancelledAppointments: number;
   };
-  patientTrend: Array<{ label: string; value: number }>;
+  patientTrend: Array<{ label: string; value: number; isoDate?: string }>;
   topMedications: Array<{ name: string; count: number }>;
   rdvTypes: Array<{ label: string; value: number }>;
   upcomingAppointments: Array<{
@@ -482,6 +482,8 @@ function PanelHeader({
   );
 }
 
+const MONTH_LABELS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+
 function PatientTrendChart({
   bars,
   loading,
@@ -495,28 +497,76 @@ function PatientTrendChart({
       : Array.from({ length: 18 }, (_, index) => ({
           label: String(index + 1).padStart(2, "0"),
           value: 0,
+          isoDate: undefined as string | undefined,
         }));
   const max = Math.max(1, ...data.map((bar) => bar.value));
   const total = data.reduce((sum, bar) => sum + bar.value, 0);
+  const allZero = !loading && total === 0;
+
+  const rangeLabel = (() => {
+    const first = data[0]?.isoDate;
+    const last = data[data.length - 1]?.isoDate;
+    if (!first || !last) return null;
+    const fmt = (iso: string) => {
+      const d = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${MONTH_LABELS_FR[d.getMonth()] ?? ""}`;
+    };
+    return `${fmt(first)} – ${fmt(last)}`;
+  })();
 
   return (
     <div className="relative min-h-[18rem] overflow-hidden rounded-[16px] border border-[#e3f3fb] bg-[linear-gradient(180deg,#f8fcff_0%,#ffffff_100%)] px-5 pb-5 pt-6">
+      {/* Y-axis gridlines */}
       <div className="pointer-events-none absolute inset-x-5 top-8 grid h-[13rem] grid-rows-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <span key={index} className="border-t border-dashed border-[#dbeef7]" />
         ))}
       </div>
+
+      {/* Empty state overlay */}
+      {allZero && (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 pb-8">
+          <span className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#7a93af]">
+            Aucune nouvelle admission
+          </span>
+          <span className="font-['Inter'] text-[11px] text-[#a8bfce]">sur les 18 derniers jours</span>
+        </div>
+      )}
+
+      {/* Bars */}
       <div className="relative flex h-[13rem] items-end gap-2">
-        {data.map((bar) => {
-          const valueHeight = Math.max(bar.value > 0 ? 14 : 4, Math.round((bar.value / max) * 178));
+        {data.map((bar, index) => {
+          const valueHeight = loading
+            ? 28
+            : Math.max(bar.value > 0 ? 14 : 3, Math.round((bar.value / max) * 178));
+
+          const prevIso = index > 0 ? data[index - 1]?.isoDate : undefined;
+          const currIso = bar.isoDate;
+          const isMonthStart =
+            currIso && prevIso
+              ? new Date(currIso + "T00:00:00").getMonth() !== new Date(prevIso + "T00:00:00").getMonth()
+              : false;
+          const monthName = isMonthStart && currIso
+            ? MONTH_LABELS_FR[new Date(currIso + "T00:00:00").getMonth()]
+            : null;
 
           return (
-            <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={bar.label}>
-              <div className="relative flex h-[11.25rem] w-full items-end justify-center">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${bar.label}-${index}`}>
+              <div className="relative flex h-[11.25rem] w-full flex-col items-center justify-end">
+                {monthName && (
+                  <span className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 font-['Inter'] text-[8px] font-bold uppercase tracking-wide text-[#052ca0] opacity-60">
+                    {monthName}
+                  </span>
+                )}
                 <span
-                  className="relative z-10 w-[42%] rounded-t-full bg-[linear-gradient(180deg,#76bbdd_0%,#052ca0_100%)] shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
-                  style={{ height: loading ? 28 : valueHeight }}
-                  title={`${bar.value} patient${bar.value > 1 ? "s" : ""}`}
+                  className="relative z-10 w-[42%] rounded-t-full shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
+                  style={{
+                    height: valueHeight,
+                    background: bar.value > 0
+                      ? "linear-gradient(180deg,#76bbdd 0%,#052ca0 100%)"
+                      : "#e3f3fb",
+                  }}
+                  title={bar.isoDate ? `${bar.isoDate}: ${bar.value} patient${bar.value > 1 ? "s" : ""}` : `${bar.value}`}
                 />
               </div>
               <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
@@ -526,8 +576,13 @@ function PatientTrendChart({
           );
         })}
       </div>
-      <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-[#edf6fb] pt-4 font-['Inter'] text-[12px] text-[#5d7285]">
-        <LegendDot color="#052ca0" label={`${total} nouveaux patients sur la période`} />
+
+      {/* Legend */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#edf6fb] pt-4 font-['Inter'] text-[12px] text-[#5d7285]">
+        <LegendDot color="#052ca0" label={`${total} nouveau${total > 1 ? "x" : ""} patient${total > 1 ? "s" : ""}`} />
+        {rangeLabel && (
+          <span className="text-[11px] text-[#a8bfce]">{rangeLabel}</span>
+        )}
       </div>
     </div>
   );
