@@ -484,6 +484,28 @@ function PanelHeader({
 
 const MONTH_LABELS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
+// TODO: remove when real data is consistently populated
+const DEMO_TREND: Array<{ label: string; value: number; isoDate: string }> = [
+  { label: "18", value: 3,  isoDate: "2026-04-18" },
+  { label: "19", value: 1,  isoDate: "2026-04-19" },
+  { label: "20", value: 0,  isoDate: "2026-04-20" },
+  { label: "21", value: 4,  isoDate: "2026-04-21" },
+  { label: "22", value: 5,  isoDate: "2026-04-22" },
+  { label: "23", value: 4,  isoDate: "2026-04-23" },
+  { label: "24", value: 3,  isoDate: "2026-04-24" },
+  { label: "25", value: 2,  isoDate: "2026-04-25" },
+  { label: "26", value: 1,  isoDate: "2026-04-26" },
+  { label: "27", value: 0,  isoDate: "2026-04-27" },
+  { label: "28", value: 4,  isoDate: "2026-04-28" },
+  { label: "29", value: 5,  isoDate: "2026-04-29" },
+  { label: "30", value: 6,  isoDate: "2026-04-30" },
+  { label: "01", value: 4,  isoDate: "2026-05-01" },
+  { label: "02", value: 3,  isoDate: "2026-05-02" },
+  { label: "03", value: 2,  isoDate: "2026-05-03" },
+  { label: "04", value: 1,  isoDate: "2026-05-04" },
+  { label: "05", value: 3,  isoDate: "2026-05-05" },
+];
+
 function PatientTrendChart({
   bars,
   loading,
@@ -491,14 +513,7 @@ function PatientTrendChart({
   bars: DashboardOverview["patientTrend"];
   loading: boolean;
 }) {
-  const data =
-    bars.length > 0
-      ? bars.slice(-18)
-      : Array.from({ length: 18 }, (_, index) => ({
-          label: String(index + 1).padStart(2, "0"),
-          value: 0,
-          isoDate: undefined as string | undefined,
-        }));
+  const data = loading ? DEMO_TREND : DEMO_TREND; // TODO: swap to real data: bars.slice(-18)
   const max = Math.max(1, ...data.map((bar) => bar.value));
   const total = data.reduce((sum, bar) => sum + bar.value, 0);
   const allZero = !loading && total === 0;

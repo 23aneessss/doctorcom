@@ -632,14 +632,12 @@ export function AIAssistantPanel() {
     result: HypothesisGenerationResult,
   ): AssistantResponsePayload => {
     const primaryHypothesis = result.analysis.hypotheses[0];
-    const confidenceLabel = `${Math.round((primaryHypothesis?.confidence ?? 0) * 100)}%`;
-
     return {
       done: "Hypothese diagnostique generee a partir des donnees du dossier patient en cours.",
       card: {
         title: "Hypothese diagnostique",
         description: primaryHypothesis
-          ? `${primaryHypothesis.label} · confiance ${confidenceLabel}`
+          ? primaryHypothesis.label
           : result.analysis.chief_problem,
         buttonLabel: "Voir l'hypothese",
         icon: Stethoscope,
@@ -2729,17 +2727,6 @@ function HypothesisResultView({ payload }: { payload: HypothesisViewPayload }) {
                   {hypothesis.label}
                 </p>
               </div>
-              <span
-                className="rounded-full px-3 py-1.5"
-                style={{
-                  background: "rgba(118,187,221,0.14)",
-                  color: cDiscussionText,
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                Confiance {Math.round(hypothesis.confidence * 100)}%
-              </span>
             </div>
 
             <div
