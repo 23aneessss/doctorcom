@@ -13,6 +13,7 @@ export interface RdvFormValues {
   endTime: string;
   status: AgendaSlotStatus;
   notes: string;
+  important: boolean;
 }
 
 export const RDV_STATUS_OPTIONS: Array<{ value: AgendaSlotStatus; label: string }> = [

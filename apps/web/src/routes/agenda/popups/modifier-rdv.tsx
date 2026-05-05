@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ChevronDown, Clock, FileText, UserRound } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, ChevronDown, Clock, FileText, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { AgendaEvent, AgendaSlotStatus } from "@/components/agenda/types";
@@ -40,6 +40,7 @@ export function ModifierRdvDialog({
       endTime: appointment?.endTime ?? "09:30",
       status: appointment?.status ?? "booked",
       notes: appointment?.notes ?? "",
+      important: appointment?.important ?? false,
     }),
     [appointment],
   );
@@ -244,6 +245,28 @@ export function ModifierRdvDialog({
             />
           </div>
         </Field>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-[14px] border border-[#c2e0ef] bg-white px-4 py-3 transition-colors hover:bg-[#f0f8fd]">
+          <div
+            className={`flex size-5 shrink-0 items-center justify-center rounded-[6px] border-2 transition-colors ${
+              values.important
+                ? "border-[#f97316] bg-[#f97316]"
+                : "border-[#c2e0ef] bg-white"
+            }`}
+          >
+            {values.important && <Check size={11} className="text-white" />}
+          </div>
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={values.important}
+            onChange={(e) => updateValue("important", e.currentTarget.checked)}
+          />
+          <AlertCircle size={15} className={values.important ? "text-[#f97316]" : "text-[#94a3b8]"} />
+          <span className="font-['Inter'] text-[13px] font-medium text-[#0f3460]">
+            Marquer comme important
+          </span>
+        </label>
       </form>
     </DialogShell>
   );

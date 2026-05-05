@@ -813,7 +813,9 @@ export class OrdonnanceRecommendationService {
     );
 
     const activeTreatmentIds = new Set(
-      clinicalContext.treatments.active_records.map((record) => record.medicament_externe_id),
+      clinicalContext.treatments.active_records
+        .map((record) => record.medicament_externe_id)
+        .filter((id): id is string => Boolean(id)),
     );
     const activeTreatmentNames = new Set(
       clinicalContext.treatments.active_records
@@ -963,9 +965,9 @@ export class OrdonnanceRecommendationService {
       foundIds.slice(0, 6),
     );
     const activeTreatmentIds = new Set(
-      clinicalContext.treatments.active_records.map(
-        (record) => record.medicament_externe_id,
-      ),
+      clinicalContext.treatments.active_records
+        .map((record) => record.medicament_externe_id)
+        .filter((id): id is string => Boolean(id)),
     );
     const activeTreatmentNames = new Set(
       clinicalContext.treatments.active_records

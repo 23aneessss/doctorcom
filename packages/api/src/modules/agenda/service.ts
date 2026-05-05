@@ -35,6 +35,7 @@ export interface MobileAgendaSlot {
   patientLabel: string;
   notes: string | null;
   color: string | null;
+  important: boolean;
 }
 
 export class AgendaService {
@@ -477,6 +478,7 @@ export class AgendaService {
       patientLabel?: string;
       notes?: string;
       color?: string | null;
+      important?: boolean;
     };
   }): Promise<MobileAgendaSlot> {
     this.validateSlotTimeWindow(data.input.startTime, data.input.endTime);
@@ -500,7 +502,7 @@ export class AgendaService {
       patient_initials: data.input.patientInitials?.trim() || null,
       couleur: data.input.color ?? null,
       notes: data.input.notes?.trim() || null,
-      important: false,
+      important: data.input.important ?? false,
     });
 
     const slot = await agendaRepository.getMobileSlotByIdForUtilisateur(
@@ -703,6 +705,7 @@ export class AgendaService {
       patientLabel,
       notes: slot.notes,
       color: slot.couleur,
+      important: slot.important,
     };
   }
 

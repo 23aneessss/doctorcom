@@ -624,7 +624,8 @@ export function NouvelleOrdonnanceDialog({
       const dosage = row.dosage.trim();
       const duree_traitement = row.duree_traitement.trim();
 
-      if (!medicament_externe_id || !posologie) {
+      const nom_medicament_trim = row.nom_medicament.trim();
+      if ((!medicament_externe_id && !nom_medicament_trim) || !posologie) {
         return items;
       }
 
@@ -660,12 +661,15 @@ export function NouvelleOrdonnanceDialog({
   }, [normalizedRows, rows]);
 
   const anomalyPayloadMedicaments = useMemo(() => {
-    return confirmedRows.slice(0, MAX_ANALYZED_MEDICATIONS).map((row) => ({
-      medicament_externe_id: row.medicament_externe_id,
-      posologie: row.posologie,
-      dosage: row.dosage,
-      duree_traitement: row.duree_traitement,
-    }));
+    return confirmedRows
+      .filter((row) => row.medicament_externe_id)
+      .slice(0, MAX_ANALYZED_MEDICATIONS)
+      .map((row) => ({
+        medicament_externe_id: row.medicament_externe_id,
+        posologie: row.posologie,
+        dosage: row.dosage,
+        duree_traitement: row.duree_traitement,
+      }));
   }, [confirmedRows]);
 
   const anomalyPayloadKey = useMemo(() => {
@@ -887,14 +891,19 @@ export function NouvelleOrdonnanceDialog({
       }
 
       const medicaments = rows
-        .map((row) => ({
-          medicament_externe_id: row.medicament_externe_id.trim(),
-          dosage: row.dosage.trim() || null,
-          posologie: row.posologie.trim(),
-          duree_traitement: row.duree_traitement.trim() || null,
-          instructions: row.instructions.trim() || null,
-        }))
-        .filter((row) => row.medicament_externe_id && row.posologie);
+        .map((row) => {
+          const extId = row.medicament_externe_id.trim();
+          const nomLibre = row.nom_medicament.trim();
+          return {
+            medicament_externe_id: extId || undefined,
+            nom_medicament_libre: extId ? undefined : nomLibre || undefined,
+            dosage: row.dosage.trim() || null,
+            posologie: row.posologie.trim(),
+            duree_traitement: row.duree_traitement.trim() || null,
+            instructions: row.instructions.trim() || null,
+          };
+        })
+        .filter((row) => (row.medicament_externe_id || row.nom_medicament_libre) && row.posologie);
 
       if (medicaments.length === 0) {
         throw new Error("Ajoutez au moins un médicament valide.");
@@ -1444,6 +1453,11 @@ export function NouvelleOrdonnanceDialog({
                           <span className={`rounded-full px-2 py-0.5 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px] ${getRowStatusClasses(row.confirmation_state)}`}>
                             {getRowStatusLabel(row.confirmation_state)}
                           </span>
+                          {row.nom_medicament && !row.medicament_externe_id ? (
+                            <span className="rounded-full bg-[#fff7ed] px-2 py-0.5 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px] text-[#f97316]">
+                              Libre
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -1625,9 +1639,33 @@ export function NouvelleOrdonnanceDialog({
                             !searchQuery.isError &&
                             debouncedSearchTerm.length >= 2 &&
                             sortedSearchResults.length === 0 ? (
-                              <p className="px-2 py-1.5 font-['Inter'] text-[12px] text-[#64748b]">
-                                Aucun médicament trouvé.
-                              </p>
+                              <button
+                                className="w-full cursor-pointer rounded-[6px] px-2 py-2 text-left hover:bg-[#fff7ed]"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  const name = debouncedSearchTerm.trim();
+                                  updateRow(row.id, (current) => ({
+                                    ...current,
+                                    medicament_externe_id: "",
+                                    nom_medicament: name,
+                                    confirmation_state:
+                                      current.confirmation_state === "confirmed"
+                                        ? "stale"
+                                        : current.confirmation_state,
+                                  }));
+                                  setActiveSearchRowId(null);
+                                  setSearchTerm(name);
+                                  setIsRowsDirty(true);
+                                }}
+                                type="button"
+                              >
+                                <p className="font-['Inter'] text-[12px] text-[#64748b]">
+                                  Aucun résultat dans la base.
+                                </p>
+                                <p className="font-['Inter'] text-[13px] font-semibold text-[#f97316]">
+                                  + Utiliser «{debouncedSearchTerm}» comme médicament libre
+                                </p>
+                              </button>
                             ) : null}
 
                             {!searchQuery.isPending &&

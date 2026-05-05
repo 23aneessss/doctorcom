@@ -2146,9 +2146,9 @@ function normalizeAssistantStructuredSource(text: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\*\*\s*/g, "**")
-    .replace(/:\s+[-•]\s+/g, ":\n- ")
-    .replace(/([.;])\s+[-•]\s+/g, "$1\n- ")
-    .replace(/\s+\*\s+(?=[A-ZÀ-ÖØ-Ý(])/g, "\n")
+    .replace(/:\s+[-•*]\s+/g, ":\n- ")
+    .replace(/([.;])\s+[-•*]\s+/g, "$1\n- ")
+    .replace(/\s+\*\s+(?=[A-ZÀ-ÖØ-Ý(])/g, "\n- ")
     .replace(/\s+\*\s*$/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

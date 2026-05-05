@@ -165,6 +165,7 @@ function getTreatmentMedicationDetails(
   treatment: ActiveTreatment,
   medicationMap: Map<string, MedicationWithDetails>,
 ): MedicationWithDetails | undefined {
+  if (!treatment.medicament_externe_id) return undefined;
   return medicationMap.get(getMedicationLookupKey(treatment.medicament_externe_id));
 }
 
@@ -1091,7 +1092,7 @@ export class AnomalyFlagService {
     });
 
     const activeTreatmentMedicamentIds = activeTreatments
-      .map((treatment) => parseInt(treatment.medicament_externe_id, 10))
+      .map((treatment) => parseInt(treatment.medicament_externe_id ?? "", 10))
       .filter((id) => !Number.isNaN(id));
     const activeTreatmentIdsToFetch = activeTreatmentMedicamentIds.filter(
       (id) => !medicationMap.has(String(id)),
@@ -1667,7 +1668,7 @@ export class AnomalyFlagService {
       for (const treatment of activeTreatments) {
         // Skip if the existing treatment is the same medication
         if (
-          getMedicationLookupKey(treatment.medicament_externe_id) ===
+          getMedicationLookupKey(treatment.medicament_externe_id ?? "") ===
           getMedicationLookupKey(prescribed.medicament_externe_id)
         ) {
           continue;
