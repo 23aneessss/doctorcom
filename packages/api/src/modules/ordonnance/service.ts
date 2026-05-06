@@ -53,7 +53,8 @@ export interface CreateOrdonnanceServiceInput {
   remarques?: string | null;
   pre_rempli_origine_id?: string | null;
   medicaments: Array<{
-    medicament_externe_id: string;
+    medicament_externe_id?: string;
+    nom_medicament_libre?: string;
     dosage?: string | null;
     posologie: string;
     duree_traitement?: string | null;
@@ -80,7 +81,8 @@ export interface UpdateOrdonnanceServiceInput {
 }
 
 export interface AddOrdonnanceMedicamentServiceInput {
-  medicament_externe_id: string;
+  medicament_externe_id?: string;
+  nom_medicament_libre?: string;
   dosage?: string | null;
   posologie: string;
   duree_traitement?: string | null;
@@ -1266,7 +1268,6 @@ export class OrdonnanceService {
   private async buildOrdonnanceMedicamentPayload(
     input: AddOrdonnanceMedicamentServiceInput,
   ): Promise<Omit<AddOrdonnanceMedicamentInput, "ordonnance_id">> {
-    const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
     const posologie = input.posologie.trim();
 
     if (!posologie) {
@@ -1276,10 +1277,31 @@ export class OrdonnanceService {
       });
     }
 
+    if (input.medicament_externe_id) {
+      const snapshot = await this.resolveMedicamentSnapshot(input.medicament_externe_id);
+      return {
+        medicament_externe_id: snapshot.medicament_externe_id,
+        nom_medicament: snapshot.nom_medicament,
+        dci: snapshot.dci,
+        dosage: input.dosage?.trim() || null,
+        posologie,
+        duree_traitement: input.duree_traitement?.trim() || null,
+        instructions: input.instructions?.trim() || null,
+      };
+    }
+
+    const nomLibre = input.nom_medicament_libre?.trim();
+    if (!nomLibre) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Le nom du médicament est obligatoire.",
+      });
+    }
+
     return {
-      medicament_externe_id: snapshot.medicament_externe_id,
-      nom_medicament: snapshot.nom_medicament,
-      dci: snapshot.dci,
+      medicament_externe_id: null,
+      nom_medicament: nomLibre,
+      dci: null,
       dosage: input.dosage?.trim() || null,
       posologie,
       duree_traitement: input.duree_traitement?.trim() || null,
@@ -1339,11 +1361,13 @@ export class OrdonnanceService {
       ordonnance_medicament: OrdonnanceMedicamentRecord;
     },
   ): Promise<void> {
-    await treatmentRepository.deactivateActiveDerivedTreatmentsForPatientMedication(database, {
-      patient_id: params.patient_id,
-      medicament_externe_id: params.ordonnance_medicament.medicament_externe_id,
-      exclude_ordonnance_medicament_id: params.ordonnance_medicament.id,
-    });
+    if (params.ordonnance_medicament.medicament_externe_id) {
+      await treatmentRepository.deactivateActiveDerivedTreatmentsForPatientMedication(database, {
+        patient_id: params.patient_id,
+        medicament_externe_id: params.ordonnance_medicament.medicament_externe_id,
+        exclude_ordonnance_medicament_id: params.ordonnance_medicament.id,
+      });
+    }
 
     const existingTreatment = await treatmentRepository.getTreatmentByOrdonnanceMedicamentId(
       database,

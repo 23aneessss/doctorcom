@@ -21,6 +21,7 @@ export interface DashboardOverview {
   patientTrend: Array<{
     label: string;
     value: number;
+    isoDate: string;
   }>;
   topMedications: Array<{
     name: string;
@@ -131,6 +132,7 @@ export class DashboardService {
       return {
         label: dateValue.getDate().toString().padStart(2, "0"),
         value,
+        isoDate,
       };
     });
   }

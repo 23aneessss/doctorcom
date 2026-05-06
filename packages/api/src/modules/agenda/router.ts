@@ -56,6 +56,7 @@ const mobileSlotInputSchema = z.object({
   patientLabel: z.string().trim().min(1).max(255).optional(),
   notes: z.string().trim().min(1).max(5000).optional(),
   color: z.string().trim().min(1).max(32).optional().nullable(),
+  important: z.boolean().optional(),
 });
 
 const mobileSlotUpdateSchema = mobileSlotInputSchema.partial();

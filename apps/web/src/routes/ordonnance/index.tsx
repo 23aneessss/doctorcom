@@ -116,7 +116,7 @@ type SearchMedicamentOption = {
 type EditableOrdonnanceMedicamentRow = {
   localId: string;
   ordonnanceMedicamentId?: string;
-  medicament_externe_id: string;
+  medicament_externe_id: string | null;
   nom_medicament: string;
   dosage: string;
   posologie: string;
@@ -2394,7 +2394,7 @@ function UtiliserPreRempliDialog({
 
     const medicaments = rows
       .map((row) => ({
-        medicament_externe_id: row.medicament_externe_id.trim(),
+        medicament_externe_id: (row.medicament_externe_id ?? "").trim(),
         dosage: row.dosage.trim() || null,
         posologie: row.posologie.trim(),
         duree_traitement: row.duree_traitement.trim() || null,
@@ -3174,7 +3174,7 @@ function OrdonnanceEditDialog({
     const touchedRows = rows.filter(
       (row) =>
         row.nom_medicament.trim() ||
-        row.medicament_externe_id.trim() ||
+        (row.medicament_externe_id ?? "").trim() ||
         row.posologie.trim() ||
         row.dosage.trim() ||
         row.duree_traitement.trim() ||
@@ -3182,7 +3182,7 @@ function OrdonnanceEditDialog({
     );
 
     const invalidMedicament = touchedRows.find(
-      (row) => !row.medicament_externe_id.trim() || !row.posologie.trim(),
+      (row) => !(row.medicament_externe_id ?? "").trim() || !row.posologie.trim(),
     );
 
     if (invalidMedicament) {
@@ -3222,7 +3222,7 @@ function OrdonnanceEditDialog({
             ? trpcClient.ordonnance.modifierMedicament.mutate({
                 ordonnanceMedicamentId: row.ordonnanceMedicamentId,
                 data: {
-                  medicament_externe_id: row.medicament_externe_id.trim(),
+                  medicament_externe_id: (row.medicament_externe_id ?? "").trim(),
                   dosage: row.dosage.trim() || null,
                   posologie: row.posologie.trim(),
                   duree_traitement: row.duree_traitement.trim() || null,
@@ -3232,7 +3232,7 @@ function OrdonnanceEditDialog({
             : trpcClient.ordonnance.ajouterMedicament.mutate({
                 ordonnanceId: ordonnance.id,
                 data: {
-                  medicament_externe_id: row.medicament_externe_id.trim(),
+                  medicament_externe_id: (row.medicament_externe_id ?? "").trim(),
                   dosage: row.dosage.trim() || null,
                   posologie: row.posologie.trim(),
                   duree_traitement: row.duree_traitement.trim() || null,

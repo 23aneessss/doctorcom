@@ -181,7 +181,7 @@ export class OrdonnanceRecommendationService {
     session: OrdonnanceRecommendationSession;
     input: GenerateOrdonnanceRecommendationInput;
   }): Promise<OrdonnanceRecommendationResult> {
-    const provider = this.resolveAiProvider();
+    const provider = this.resolveProviderMetadata();
     const responseMode = data.input.response_mode ?? "ordonnance";
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const currentSuivi = await ordonnanceRecommendationRepository.getSuiviById(
@@ -231,7 +231,7 @@ export class OrdonnanceRecommendationService {
     });
 
     const globalWarnings = [...clinicalContext.deterministic_red_flags];
-    const candidates = await this.retrieveMedicationCandidatesViaVector(
+    const candidates = await this.retrieveMedicationCandidates(
       clinicalProblemBasis,
       clinicalContext,
       globalWarnings,
@@ -559,6 +559,18 @@ export class OrdonnanceRecommendationService {
     return resolveTextProvider();
   }
 
+  private resolveProviderMetadata(): AIProviderConfig {
+    try {
+      return this.resolveAiProvider();
+    } catch (error) {
+      logAiError("ordonnance-recommendation.provider-metadata", error);
+      return {
+        name: "google-ai-studio",
+        model: "local-medication-fallback",
+      };
+    }
+  }
+
   private async resolveUtilisateur(
     db: DatabaseClient,
     session: OrdonnanceRecommendationSession,
@@ -801,7 +813,9 @@ export class OrdonnanceRecommendationService {
     );
 
     const activeTreatmentIds = new Set(
-      clinicalContext.treatments.active_records.map((record) => record.medicament_externe_id),
+      clinicalContext.treatments.active_records
+        .map((record) => record.medicament_externe_id)
+        .filter((id): id is string => Boolean(id)),
     );
     const activeTreatmentNames = new Set(
       clinicalContext.treatments.active_records
@@ -834,6 +848,301 @@ export class OrdonnanceRecommendationService {
     }
 
     return candidates;
+  }
+
+  private async retrieveMedicationCandidates(
+    clinicalProblemBasis: ClinicalProblemBasis,
+    clinicalContext: ClinicalContext,
+    warnings: string[],
+  ): Promise<CandidateMedication[]> {
+    try {
+      const candidates = await this.retrieveMedicationCandidatesViaVector(
+        clinicalProblemBasis,
+        clinicalContext,
+        warnings,
+      );
+
+      if (candidates.length > 0) {
+        return candidates;
+      }
+
+      warnings.push(
+        "Aucun medicament pertinent n'a ete retrouve via la recherche vectorielle. Une recherche locale de secours a ete utilisee.",
+      );
+    } catch (error) {
+      logAiError("ordonnance-recommendation.vector-search", error);
+      warnings.push(
+        "La recherche IA des medicaments est indisponible. Une recherche locale de secours a ete utilisee.",
+      );
+    }
+
+    return this.retrieveMedicationCandidatesViaLocalFallback(
+      clinicalProblemBasis,
+      clinicalContext,
+      warnings,
+    );
+  }
+
+  private async retrieveMedicationCandidatesViaLocalFallback(
+    clinicalProblemBasis: ClinicalProblemBasis,
+    clinicalContext: ClinicalContext,
+    warnings: string[],
+  ): Promise<CandidateMedication[]> {
+    const contextTokens = this.extractClinicalSearchTokens(
+      clinicalProblemBasis,
+      clinicalContext,
+    );
+    const queries = this.buildFallbackMedicationQueries(contextTokens);
+    const foundIds: number[] = [];
+
+    for (const query of queries) {
+      const results = await medicamentsService.rechercherMedicaments({
+        query,
+        page: 1,
+        page_size: 4,
+      });
+
+      for (const item of results.items) {
+        if (!foundIds.includes(item.id)) {
+          foundIds.push(item.id);
+        }
+      }
+    }
+
+    if (foundIds.length === 0) {
+      const catalogFallback = await medicamentsService.listAllMedicaments();
+      const rankedIds = this.rankCatalogMedicamentsByContext(
+        catalogFallback,
+        contextTokens,
+      );
+
+      for (const item of rankedIds.slice(0, 6)) {
+        foundIds.push(item);
+      }
+
+      if (foundIds.length === 0) {
+        warnings.push(
+          "La recherche locale n'a pas trouve de correspondance clinique precise; les premiers medicaments du catalogue ont ete proposes comme base de brouillon a verifier.",
+        );
+      }
+
+      for (const item of catalogFallback.slice(0, 6)) {
+        if (foundIds.length >= 6) {
+          break;
+        }
+        if (!foundIds.includes(item.id)) {
+          foundIds.push(item.id);
+        }
+      }
+    }
+
+    for (const activeRecord of clinicalContext.treatments.active_records) {
+      const activeId = Number(activeRecord.medicament_externe_id);
+      if (
+        Number.isInteger(activeId) &&
+        activeId > 0 &&
+        !foundIds.includes(activeId)
+      ) {
+        foundIds.push(activeId);
+      }
+    }
+
+    if (foundIds.length === 0) {
+      const allMedicaments = await medicamentsService.listAllMedicaments();
+      for (const item of allMedicaments.slice(0, 6)) {
+        foundIds.push(item.id);
+      }
+    }
+
+    if (foundIds.length === 0) {
+      warnings.push(
+        "La recherche locale de secours n'a retourne aucun medicament exploitable.",
+      );
+      return [];
+    }
+
+    const aggregates = await medicamentsService.getMedicamentsAggregatesByIds(
+      foundIds.slice(0, 6),
+    );
+    const activeTreatmentIds = new Set(
+      clinicalContext.treatments.active_records
+        .map((record) => record.medicament_externe_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const activeTreatmentNames = new Set(
+      clinicalContext.treatments.active_records
+        .map((record) => this.nullableText(record.nom_medicament)?.toLowerCase())
+        .filter((value): value is string => Boolean(value)),
+    );
+
+    return aggregates.map((aggregate, index) => ({
+      aggregate,
+      similarity: 0.7 - index * 0.05,
+      is_active_treatment: this.isActiveTreatmentMedication(
+        aggregate,
+        activeTreatmentIds,
+        activeTreatmentNames,
+      ),
+    }));
+  }
+
+  private extractClinicalSearchTokens(
+    clinicalProblemBasis: ClinicalProblemBasis,
+    clinicalContext: ClinicalContext,
+  ): string[] {
+    const corpus = [
+      clinicalProblemBasis.chief_problem,
+      ...clinicalProblemBasis.hypotheses,
+      clinicalContext.current_consultation.motif,
+      clinicalContext.current_consultation.historique,
+      clinicalContext.current_consultation.examen?.description_consultation,
+      clinicalContext.current_consultation.examen?.conclusion,
+      clinicalContext.current_consultation.examen?.traitement_prescrit,
+      ...clinicalContext.historical_consultations.flatMap((item) => [
+        item.motif,
+        item.hypothese_diagnostic,
+        item.examen_conclusion,
+        item.examen_description,
+        item.traitement_prescrit,
+      ]),
+      ...clinicalContext.antecedents.allergy_signals,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(" ");
+
+    return this.tokenizeSearchText(corpus).slice(0, 24);
+  }
+
+  private buildFallbackMedicationQueries(contextTokens: string[]): string[] {
+    const queries = new Set<string>();
+
+    for (const token of contextTokens) {
+      queries.add(token);
+    }
+
+    for (let index = 0; index < contextTokens.length - 1; index += 1) {
+      queries.add(`${contextTokens[index]} ${contextTokens[index + 1]}`);
+    }
+
+    return [...queries].slice(0, 14);
+  }
+
+  private rankCatalogMedicamentsByContext(
+    medicaments: Array<{
+      id: number;
+      nom_medicament: string;
+      nom_generique: string | null;
+      classe_therapeutique: string | null;
+      famille_pharmacologique: string | null;
+      posologie_adulte: string | null;
+      posologie_enfant: string | null;
+      dose_maximale: string | null;
+      frequence_administration: string | null;
+      grossesse: string | null;
+      allaitement: string | null;
+    }>,
+    contextTokens: string[],
+  ): number[] {
+    const contextTokenSet = new Set(contextTokens);
+
+    return medicaments
+      .map((medicament, index) => {
+        const haystackTokens = this.tokenizeSearchText(
+          [
+            medicament.nom_medicament,
+            medicament.nom_generique,
+            medicament.classe_therapeutique,
+            medicament.famille_pharmacologique,
+            medicament.posologie_adulte,
+            medicament.posologie_enfant,
+            medicament.dose_maximale,
+            medicament.frequence_administration,
+            medicament.grossesse,
+            medicament.allaitement,
+          ]
+            .filter((value): value is string => Boolean(value))
+            .join(" "),
+        );
+
+        const exactScore = haystackTokens.reduce(
+          (score, token) => score + (contextTokenSet.has(token) ? 3 : 0),
+          0,
+        );
+        const partialScore = contextTokens.reduce((score, contextToken) => {
+          if (
+            haystackTokens.some(
+              (token) =>
+                token.length >= 4 &&
+                (token.includes(contextToken) || contextToken.includes(token)),
+            )
+          ) {
+            return score + 1;
+          }
+
+          return score;
+        }, 0);
+
+        return {
+          id: medicament.id,
+          index,
+          score: exactScore + partialScore,
+        };
+      })
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map((item) => item.id);
+  }
+
+  private tokenizeSearchText(value: string | null | undefined): string[] {
+    if (!value) {
+      return [];
+    }
+
+    const stopWords = new Set([
+      "avec",
+      "chez",
+      "dans",
+      "debut",
+      "depuis",
+      "des",
+      "deux",
+      "elle",
+      "est",
+      "leur",
+      "leurs",
+      "mais",
+      "non",
+      "pas",
+      "patient",
+      "patiente",
+      "pour",
+      "sans",
+      "son",
+      "sont",
+      "sur",
+      "une",
+      "vers",
+      "voir",
+    ]);
+
+    return this.normalizeSearchText(value)
+      .split(" ")
+      .filter(
+        (token, index, allTokens) =>
+          token.length >= 4 &&
+          !stopWords.has(token) &&
+          !/^\d+$/.test(token) &&
+          allTokens.indexOf(token) === index,
+      );
+  }
+
+  private normalizeSearchText(value: string): string {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   }
 
   private buildEmbeddingQueryText(

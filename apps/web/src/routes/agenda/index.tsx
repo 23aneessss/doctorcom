@@ -144,6 +144,7 @@ function mapSlotToEvent(slot: MobileAgendaSlot): AgendaEvent {
     month,
     year,
     notes: slot.notes ?? undefined,
+    important: slot.important ?? false,
   };
 }
 
@@ -203,6 +204,7 @@ function toSlotPayload(values: RdvFormValues) {
     patientInitials:
       values.patientInitials.trim() || getInitialsFromName(patientName),
     notes: values.notes.trim() || undefined,
+    important: values.important,
   };
 }
 

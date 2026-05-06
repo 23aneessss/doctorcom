@@ -146,13 +146,8 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         </form.Subscribe>
       </form>
 
-      <div className="mt-7 w-full max-w-[352px] rounded-[14px] border border-[#c2e0ef] bg-white/60 px-4 py-3 text-center font-['Inter'] text-[12px] leading-5 text-[#365a78]">
-        Compte démo: <span className="font-semibold text-[#0f3460]">tbib@doctorcom.com</span>
-        <br />
-        Mot de passe: <span className="font-semibold text-[#0f3460]">doctor123!</span>
-      </div>
 
-      <div className="mt-5 text-center text-sm text-[#0f3460]">
+<div className="mt-5 text-center text-sm text-[#0f3460]">
         Vous n'avez pas de compte ?{" "}
         <Button
           variant="link"

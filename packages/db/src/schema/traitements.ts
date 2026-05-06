@@ -42,7 +42,7 @@ export const ordonnance_medicaments = pgTable(
     ordonnance_id: uuid("ordonnance_id")
       .notNull()
       .references(() => ordonnance.id),
-    medicament_externe_id: varchar("medicament_externe_id", { length: 64 }).notNull(),
+    medicament_externe_id: varchar("medicament_externe_id", { length: 64 }),
     nom_medicament: varchar("nom_medicament", { length: 255 }).notNull(),
     dci: varchar("dci", { length: 255 }),
     dosage: varchar("dosage", { length: 128 }),
@@ -65,7 +65,7 @@ export const historique_traitements = pgTable(
     patient_id: uuid("patient_id")
       .notNull()
       .references(() => patients.id),
-    medicament_externe_id: varchar("medicament_externe_id", { length: 64 }).notNull(),
+    medicament_externe_id: varchar("medicament_externe_id", { length: 64 }),
     nom_medicament: varchar("nom_medicament", { length: 255 }).notNull(),
     dosage: varchar("dosage", { length: 128 }),
     posologie: text("posologie").notNull(),

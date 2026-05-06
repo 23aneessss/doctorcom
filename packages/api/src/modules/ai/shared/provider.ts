@@ -178,18 +178,23 @@ export async function generateGeminiEmbedding(
   }
 
   const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
-  const result = await embed({
-    model: google.textEmbedding(GEMINI_EMBEDDING_MODEL),
-    value,
-    maxRetries: 0,
-  });
-
-  if (result.embedding.length !== GEMINI_EMBEDDING_DIMENSIONS) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Dimension d'embedding inattendue pour Gemini.",
+  try {
+    const result = await embed({
+      model: google.textEmbedding(GEMINI_EMBEDDING_MODEL),
+      value,
+      maxRetries: 0,
     });
-  }
 
-  return result.embedding;
+    if (result.embedding.length !== GEMINI_EMBEDDING_DIMENSIONS) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Dimension d'embedding inattendue pour Gemini.",
+      });
+    }
+
+    return result.embedding;
+  } catch (error) {
+    if (error instanceof TRPCError) throw error;
+    throw mapGeminiProviderError(error);
+  }
 }

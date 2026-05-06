@@ -1,5 +1,5 @@
 import { hashPassword } from "better-auth/crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@doctor.com/db";
 import { account, user } from "@doctor.com/db/schema/auth";
@@ -117,6 +117,12 @@ const patientRows = [
   },
 ] as const;
 
+type DashboardPatient = Omit<(typeof patientRows)[number], "id" | "matricule" | "date_naissance"> & {
+  id: string;
+  matricule: string;
+  date_naissance: string;
+};
+
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -216,16 +222,44 @@ async function seedDashboard() {
   console.log("Seeding dashboard demo data...");
 
   const utilisateurId = await ensureUser();
+  const resolvedPatientRows: DashboardPatient[] = [];
 
   for (const patient of patientRows) {
+    const [existingPatient] = await db
+      .select({
+        id: patients.id,
+        matricule: patients.matricule,
+        date_naissance: patients.date_naissance,
+      })
+      .from(patients)
+      .where(
+        and(
+          eq(patients.nom, patient.nom),
+          eq(patients.prenom, patient.prenom),
+        ),
+      )
+      .limit(1);
+
+    const patientId = existingPatient?.id ?? patient.id;
+    const matricule = existingPatient?.matricule ?? patient.matricule;
+    const dateNaissance =
+      existingPatient?.date_naissance ?? patient.date_naissance;
+
+    resolvedPatientRows.push({
+      ...patient,
+      id: patientId,
+      matricule,
+      date_naissance: dateNaissance,
+    });
+
     await db
       .insert(patients)
       .values({
-        id: patient.id,
+        id: patientId,
         nom: patient.nom,
         prenom: patient.prenom,
-        matricule: patient.matricule,
-        date_naissance: patient.date_naissance,
+        matricule,
+        date_naissance: dateNaissance,
         sexe: patient.sexe,
         telephone: patient.telephone,
         email: patient.email,
@@ -241,7 +275,7 @@ async function seedDashboard() {
         set: {
           nom: patient.nom,
           prenom: patient.prenom,
-          matricule: patient.matricule,
+          matricule,
           telephone: patient.telephone,
           email: patient.email,
           date_admission: addDays(patient.dateOffset),
@@ -250,7 +284,7 @@ async function seedDashboard() {
       });
   }
 
-  const suiviRows = patientRows.map((patient, index) => ({
+  const suiviRows = resolvedPatientRows.map((patient, index) => ({
     id: `22222222-2222-4222-8222-22222222210${index + 1}`,
     patient_id: patient.id,
     motif:
@@ -304,7 +338,7 @@ async function seedDashboard() {
   ] as const;
 
   for (const [index, appointment] of appointmentRows.entries()) {
-    const patient = patientRows[index % patientRows.length]!;
+    const patient = resolvedPatientRows[index % resolvedPatientRows.length]!;
     const currentSuivi = suiviRows[index % suiviRows.length]!;
     const [dateOffset, heure, statut, typeCreneau, important] = appointment;
 
@@ -347,7 +381,7 @@ async function seedDashboard() {
     {
       id: "44444444-4444-4444-8444-444444444101",
       rdvId: "33333333-3333-4333-8333-333333333101",
-      patient: patientRows[0]!,
+      patient: resolvedPatientRows[0]!,
       date: addDays(0),
       meds: [
         ["1", "Paracetamol", "1 g", "1 comprimé toutes les 6 heures", "5 jours"],
@@ -357,7 +391,7 @@ async function seedDashboard() {
     {
       id: "44444444-4444-4444-8444-444444444102",
       rdvId: "33333333-3333-4333-8333-333333333102",
-      patient: patientRows[1]!,
+      patient: resolvedPatientRows[1]!,
       date: addDays(0),
       meds: [
         ["3", "Ibuprofene", "400 mg", "1 comprimé matin et soir", "3 jours"],
@@ -367,7 +401,7 @@ async function seedDashboard() {
     {
       id: "44444444-4444-4444-8444-444444444103",
       rdvId: "33333333-3333-4333-8333-333333333108",
-      patient: patientRows[2]!,
+      patient: resolvedPatientRows[2]!,
       date: addDays(-3),
       meds: [
         ["5", "Amlodipine", "5 mg", "1 comprimé le matin", "30 jours"],

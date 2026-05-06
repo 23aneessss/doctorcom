@@ -16,6 +16,7 @@ export interface AgendaEvent {
   month: number;
   year: number;
   notes?: string;
+  important?: boolean;
 }
 
 export interface UpcomingItem {

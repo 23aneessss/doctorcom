@@ -138,7 +138,7 @@ const step1Fields = [
   "adresseComplete",
 ] as const;
 
-const nameRegex = /^[a-zA-ZÀ-ÿ\s\-]+$/;
+const nameRegex = /^[a-zA-ZÀ-ÿĀ-ɏ\s'\-]+$/;
 const phoneRegex = /^\d{10}$/;
 const nssRegex = /^\d{15}$/;
 const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -197,29 +197,29 @@ export function NouveauPatientDialog({
   const [step1Errors, setStep1Errors] = useState<Partial<Record<keyof NouveauPatientFormValues, string>>>({});
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [groupeSanguin, setGroupeSanguin] = useState("O+");
-  const [ageCirconcision, setAgeCirconcision] = useState("13 ans");
+  const [ageCirconcision, setAgeCirconcision] = useState("1 an");
   const [revenuMensuel, setRevenuMensuel] = useState("150000 DA");
   const [assure, setAssure] = useState(true);
   const [tailleMenages, setTailleMenages] = useState(4);
   const [nombreDePieces, setNombreDePieces] = useState(4);
-  const [socialProfession, setSocialProfession] = useState("Ingenieur en Informatique");
-  const [socialSituationFamiliale, setSocialSituationFamiliale] = useState("Marie(e)");
+  const [socialProfession, setSocialProfession] = useState("Ingénieur en Informatique");
+  const [socialSituationFamiliale, setSocialSituationFamiliale] = useState("Marié(e)");
   const [nombreEnfants, setNombreEnfants] = useState(2);
-  const [habitudesSaines, setHabitudesSaines] = useState("Course a pied 3x/semaine, alimentation equilibree");
-  const [habitudesToxiques, setHabitudesToxiques] = useState("Cafe (3 tasses/jour)");
+  const [habitudesSaines, setHabitudesSaines] = useState("Course à pied 3x/semaine, alimentation équilibrée");
+  const [habitudesToxiques, setHabitudesToxiques] = useState("Café (3 tasses/jour)");
   const [environnementAnimal, setEnvironnementAnimal] = useState("Un chat domestique");
-  const [relationsEnvironnementales, setRelationsEnvironnementales] = useState("Relations stables, bon support familial");
+  const [relationsEnvironnementales, setRelationsEnvironnementales] = useState("Relations stables, bon soutien familial");
   const [personalAntecedents, setPersonalAntecedents] = useState<PersonalAntecedentValues[]>([
-    { id: createId(), type: "Diabete de Type 2", details: "Diagnostique en 2020, sous controle", maladieActive: true },
+    { id: createId(), type: "Diabète de Type 2", details: "Diagnostiqué en 2020, sous contrôle", maladieActive: true },
   ]);
   const [familyAntecedents, setFamilyAntecedents] = useState<FamilyAntecedentValues[]>([
-    { id: createId(), lienParente: "Pere", pathologie: "Hypertension Arterielle" },
+    { id: createId(), lienParente: "Père", pathologie: "Hypertension Artérielle" },
   ]);
   const [treatments, setTreatments] = useState<TreatmentValues[]>([
-    { id: createId(), medicament: "Glucophage 500mg", dosage: "500mg", indication: "Diabete", posologie: "1 comprime au diner", maladieActive: true },
+    { id: createId(), medicament: "Glucophage 500 mg", dosage: "500 mg", indication: "Diabète", posologie: "1 comprimé au dîner", maladieActive: true },
   ]);
   const [menarche, setMenarche] = useState<string>("12");
-  const [regulariteCycles, setRegulariteCycles] = useState("Reguliers");
+  const [regulariteCycles, setRegulariteCycles] = useState("Réguliers");
   const [contraception, setContraception] = useState("Aucune");
   const [nbGrossesses, setNbGrossesses] = useState(0);
   const [nbCesariennes, setNbCesariennes] = useState(0);
@@ -565,9 +565,13 @@ export function NouveauPatientDialog({
                 <Field label="Age de circoncision">
                   <div className={styles.selectWrap}>
                     <select className={styles.input} value={ageCirconcision} onChange={(e) => setAgeCirconcision(e.currentTarget.value)}>
-                      <option value="13 ans">13 ans</option>
-                      <option value="14 ans">14 ans</option>
-                      <option value="15 ans">15 ans</option>
+                      <option value="1 an">1 an</option>
+                      <option value="2 ans">2 ans</option>
+                      <option value="3 ans">3 ans</option>
+                      <option value="4 ans">4 ans</option>
+                      <option value="5 ans">5 ans</option>
+                      <option value="6 ans">6 ans</option>
+                      <option value="7 ans">7 ans</option>
                     </select>
                     <ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" />
                   </div>
@@ -581,8 +585,8 @@ export function NouveauPatientDialog({
                     <div className={styles.personalTypeRow}>
                       <Field label="Type" required error={showValidation && !antecedent.type.trim() ? "Le type est obligatoire" : undefined}>
                         <div className={styles.inputWithAction}>
-                          <input className={`${styles.input} ${styles.inputWithInlineAction}`} style={showValidation && !antecedent.type.trim() ? { borderColor: "#ef4444" } : {}} type="text" value={antecedent.type} onChange={(event) => updatePersonalAntecedent(antecedent.id, { type: event.currentTarget.value })} placeholder="Ex: Diabete type 2, Hypertension..." />
-                          <button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton}`} onClick={() => removePersonalAntecedent(antecedent.id)} aria-label="Supprimer l'antecedent personnel"><Trash2 size={16} aria-hidden="true" /></button>
+                          <input className={`${styles.input} ${styles.inputWithInlineAction}`} style={showValidation && !antecedent.type.trim() ? { borderColor: "#ef4444" } : {}} type="text" value={antecedent.type} onChange={(event) => updatePersonalAntecedent(antecedent.id, { type: event.currentTarget.value })} placeholder="Ex: Diabète type 2, Hypertension..." />
+                          <button type="button" className={`${styles.removeIconButton} ${styles.inlineRemoveIconButton}`} onClick={() => removePersonalAntecedent(antecedent.id)} aria-label="Supprimer l'antécédent personnel"><Trash2 size={16} aria-hidden="true" /></button>
                         </div>
                       </Field>
                       <label className={styles.checkboxPill}>
@@ -590,8 +594,8 @@ export function NouveauPatientDialog({
                         <span>maladie active</span>
                       </label>
                     </div>
-                    <Field label="Details" required error={showValidation && !antecedent.details.trim() ? "Les details sont obligatoires" : undefined}>
-                      <textarea className={`${styles.input} ${styles.textareaInput}`} style={showValidation && !antecedent.details.trim() ? { borderColor: "#ef4444" } : {}} value={antecedent.details} onChange={(event) => updatePersonalAntecedent(antecedent.id, { details: event.currentTarget.value })} placeholder="Ex: Diagnostique en 2020, sous traitement..." />
+                    <Field label="Détails" required error={showValidation && !antecedent.details.trim() ? "Les détails sont obligatoires" : undefined}>
+                      <textarea className={`${styles.input} ${styles.textareaInput}`} style={showValidation && !antecedent.details.trim() ? { borderColor: "#ef4444" } : {}} value={antecedent.details} onChange={(event) => updatePersonalAntecedent(antecedent.id, { details: event.currentTarget.value })} placeholder="Ex: Diagnostiqué en 2020, sous traitement..." />
                     </Field>
                   </div>
                 ))}
@@ -602,14 +606,14 @@ export function NouveauPatientDialog({
                 <h3 className={styles.sectionTitle}>ANTÉCÉDENTS FAMILIAUX</h3>
                 {familyAntecedents.map((antecedent) => (
                   <div className={styles.antecedentCard} key={antecedent.id}>
-                    <Field label="Lien de parente" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined}>
-                      <input className={styles.input} style={showValidation && !antecedent.lienParente.trim() ? { borderColor: "#ef4444" } : {}} type="text" value={antecedent.lienParente} onChange={(event) => updateFamilyAntecedent(antecedent.id, { lienParente: event.currentTarget.value })} placeholder="Ex: Pere, Mere, Grand-pere..." />
+                    <Field label="Lien de parenté" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parenté est obligatoire" : undefined}>
+                      <input className={styles.input} style={showValidation && !antecedent.lienParente.trim() ? { borderColor: "#ef4444" } : {}} type="text" value={antecedent.lienParente} onChange={(event) => updateFamilyAntecedent(antecedent.id, { lienParente: event.currentTarget.value })} placeholder="Ex: Père, Mère, Grand-père..." />
                     </Field>
                     <div className={styles.familyPathologieRow}>
                       <Field label="Pathologie" required error={showValidation && !antecedent.pathologie.trim() ? "La pathologie est obligatoire" : undefined}>
                         <input className={styles.input} style={showValidation && !antecedent.pathologie.trim() ? { borderColor: "#ef4444" } : {}} type="text" value={antecedent.pathologie} onChange={(event) => updateFamilyAntecedent(antecedent.id, { pathologie: event.currentTarget.value })} placeholder="Ex: Cardiopathie, Cancer du sein..." />
                       </Field>
-                      <button type="button" className={styles.removeIconButton} onClick={() => removeFamilyAntecedent(antecedent.id)} aria-label="Supprimer l'antecedent familial"><Trash2 size={16} aria-hidden="true" /></button>
+                      <button type="button" className={styles.removeIconButton} onClick={() => removeFamilyAntecedent(antecedent.id)} aria-label="Supprimer l'antécédent familial"><Trash2 size={16} aria-hidden="true" /></button>
                     </div>
                   </div>
                 ))}
@@ -622,11 +626,11 @@ export function NouveauPatientDialog({
             <div className={styles.stepThreeContent}>
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Traitements en cours</strong> — Les médicaments saisis seront enregistrés à la création du dossier.</p></div>
               <section className={styles.treatmentSection}>
-                <h3 className={styles.sectionTitle}>MEDICAMENTS</h3>
+                <h3 className={styles.sectionTitle}>MÉDICAMENTS</h3>
                 {treatments.map((treatment) => (
                   <div className={styles.treatmentCard} key={treatment.id}>
                     <div className={styles.medicationTopRow}>
-                      <input className={styles.input} value={treatment.medicament} onChange={(event) => updateTreatment(treatment.id, { medicament: event.currentTarget.value })} placeholder="Ex: Paracetamol 500mg" />
+                      <input className={styles.input} value={treatment.medicament} onChange={(event) => updateTreatment(treatment.id, { medicament: event.currentTarget.value })} placeholder="Ex: Paracétamol 500 mg" />
                       <button type="button" className={styles.removeIconButton} onClick={() => removeTreatment(treatment.id)}><Trash2 size={16} aria-hidden="true" /></button>
                       <label className={styles.checkboxPill}><input type="checkbox" checked={treatment.maladieActive} onChange={(event) => updateTreatment(treatment.id, { maladieActive: event.currentTarget.checked })} /><span>Maladie active</span></label>
                     </div>

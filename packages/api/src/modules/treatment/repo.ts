@@ -13,7 +13,7 @@ export type TreatmentSourceType = TreatmentRecord["source_type"];
 
 export interface CreateTreatmentInput {
   patient_id: string;
-  medicament_externe_id: string;
+  medicament_externe_id: string | null;
   nom_medicament: string;
   dosage?: string | null;
   posologie: string;
@@ -26,7 +26,7 @@ export interface CreateTreatmentInput {
 }
 
 export interface UpdateTreatmentInput {
-  medicament_externe_id?: string;
+  medicament_externe_id?: string | null;
   nom_medicament?: string;
   dosage?: string | null;
   posologie?: string;

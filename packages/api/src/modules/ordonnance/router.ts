@@ -9,13 +9,19 @@ const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide. Format attendu: YYYY-MM-DD.");
 
-const ordonnanceMedicamentInputSchema = z.object({
-  medicament_externe_id: externalMedicationIdSchema,
-  dosage: z.string().trim().min(1).optional().nullable(),
-  posologie: z.string().trim().min(1),
-  duree_traitement: z.string().trim().min(1).optional().nullable(),
-  instructions: z.string().trim().optional().nullable(),
-});
+const ordonnanceMedicamentInputSchema = z
+  .object({
+    medicament_externe_id: externalMedicationIdSchema.optional(),
+    nom_medicament_libre: z.string().trim().min(1).max(255).optional(),
+    dosage: z.string().trim().min(1).optional().nullable(),
+    posologie: z.string().trim().min(1),
+    duree_traitement: z.string().trim().min(1).optional().nullable(),
+    instructions: z.string().trim().optional().nullable(),
+  })
+  .refine(
+    (value) => value.medicament_externe_id || value.nom_medicament_libre,
+    { message: "Fournissez un médicament de la base ou un nom libre." },
+  );
 
 const updateOrdonnanceMedicamentInputSchema = z
   .object({

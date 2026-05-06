@@ -39,7 +39,7 @@ export interface MedicationWithDetails {
 
 export interface ActiveTreatment {
   id: string;
-  medicament_externe_id: string;
+  medicament_externe_id: string | null;
   nom_medicament: string;
   dosage: string | null;
   posologie: string;
