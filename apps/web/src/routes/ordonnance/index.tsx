@@ -16,6 +16,7 @@ import {
   FileStack,
   FileText,
   Files,
+  ImageIcon,
   Loader2,
   Move,
   Pencil,
@@ -159,6 +160,8 @@ type PdfTemplateDragState = {
   startClientY: number;
   startField: PdfTemplateFieldLayout;
 };
+
+type TemplateAssetSlot = "logo";
 
 const RECENT_ORDONNANCES_PAGE_SIZE = 3;
 const ALL_CATEGORIES_VALUE = "__all_categories__";
@@ -1291,6 +1294,9 @@ function PdfTemplateManager({
               </p>
               <p className="font-['Inter'] text-[10px] text-[#6d879d]">
                 {formatFileSize(template.taille_fichier)}
+                {getTemplateAssetCount(template) > 0
+                  ? " · logo"
+                  : ""}
               </p>
             </div>
             {template.is_default_for_user ? (
@@ -1480,6 +1486,15 @@ function PdfTemplateConfigDialog({
   );
   const [previewPdfError, setPreviewPdfError] = useState<string | null>(null);
   const [isPreviewPdfLoading, setIsPreviewPdfLoading] = useState(false);
+  const [assetUploadSlot, setAssetUploadSlot] =
+    useState<TemplateAssetSlot | null>(null);
+  const [assetRemoveSlot, setAssetRemoveSlot] =
+    useState<TemplateAssetSlot | null>(null);
+  const [assetUploadTarget, setAssetUploadTarget] =
+    useState<TemplateAssetSlot | null>(null);
+  const [assetUploadError, setAssetUploadError] = useState<string | null>(null);
+  const [assetPreviewVersion, setAssetPreviewVersion] = useState(0);
+  const assetInputRef = useRef<HTMLInputElement | null>(null);
   const [renderedPreviewSize, setRenderedPreviewSize] = useState({
     width: 0,
     height: 0,
@@ -1513,6 +1528,8 @@ function PdfTemplateConfigDialog({
     setSelectedFieldKey("patient");
     setDragState(null);
     setIsSaving(false);
+    setAssetUploadError(null);
+    setAssetPreviewVersion(Date.now());
   }, [open, template]);
 
   useEffect(() => {
@@ -1552,7 +1569,7 @@ function PdfTemplateConfigDialog({
           const payload = await response.json().catch(() => null);
           throw new Error(
             payload?.error ??
-              "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+              "Le template Ordonnance n'a pas pu être chargé pour l'aperçu.",
           );
         }
 
@@ -1574,7 +1591,7 @@ function PdfTemplateConfigDialog({
         setPreviewPdfError(
           error instanceof Error
             ? error.message
-            : "Le template PDF n'a pas pu être chargé pour l'aperçu.",
+            : "Le template Ordonnance n'a pas pu être chargé pour l'aperçu.",
         );
       } finally {
         if (!isCancelled) {
@@ -1725,7 +1742,7 @@ function PdfTemplateConfigDialog({
         },
       });
       onSaved();
-      toast.success("Configuration du template PDF enregistrée.");
+      toast.success("Configuration du template Ordonnance enregistrée.");
       onClose();
     } catch (error) {
       toast.error(
@@ -1735,6 +1752,134 @@ function PdfTemplateConfigDialog({
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+  const isConfigSaveBlocked = !draftName.trim();
+  const assetSlots = template
+    ? buildTemplateAssetSlots(template)
+    : [];
+  const getAssetPreviewUrl = (slot: TemplateAssetSlot) => {
+    const asset = assetSlots.find((item) => item.slot === slot);
+    return templateId && asset?.fileUrl
+      ? `${getServerBaseUrl()}/api/upload/ordonnance-template/${templateId}/logo?v=${assetPreviewVersion}`
+      : null;
+  };
+  const getAssetPreviewUrlForField = (fieldKey: PdfTemplateFieldKey) => {
+    const slot = getTemplateAssetSlotForField(fieldKey);
+    return slot ? getAssetPreviewUrl(slot) : null;
+  };
+
+  const handleAssetUpload = async (
+    slot: TemplateAssetSlot | null,
+    file: File | null | undefined,
+  ) => {
+    if (!slot) {
+      return;
+    }
+
+    if (!file || !templateId) {
+      return;
+    }
+
+    const isSupportedImage =
+      file.type === "image/png" ||
+      file.type === "image/jpeg" ||
+      file.type === "image/webp" ||
+      /\.(png|jpe?g|webp)$/i.test(file.name);
+
+    if (!isSupportedImage) {
+      setAssetUploadError("Choisissez un asset PNG, JPG ou WebP.");
+      return;
+    }
+
+    const formData = new FormData();
+
+    setAssetUploadSlot(slot);
+    setAssetUploadError(null);
+    try {
+      const uploadableFile = await prepareTemplateAssetForUpload(file);
+      formData.append("file", uploadableFile);
+
+      const response = await fetch(
+        `${getServerBaseUrl()}/api/upload/ordonnance-template/${templateId}/logo`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Impossible d'importer cet asset.");
+      }
+
+      setLayout((current) => ({
+        ...current,
+        fields: {
+          ...current.fields,
+          [getTemplateAssetFieldKey(slot)]: {
+            ...current.fields[getTemplateAssetFieldKey(slot)],
+            enabled: true,
+          },
+        },
+      }));
+      setSelectedFieldKey(getTemplateAssetFieldKey(slot));
+      setAssetPreviewVersion(Date.now());
+      await templateQuery.refetch();
+      toast.success("Asset importé.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Impossible d'importer cet asset.";
+      setAssetUploadError(message);
+      toast.error(message);
+    } finally {
+      setAssetUploadSlot(null);
+      setAssetUploadTarget(null);
+    }
+  };
+
+  const handleAssetRemove = async (slot: TemplateAssetSlot) => {
+    if (!templateId) {
+      return;
+    }
+
+    setAssetRemoveSlot(slot);
+    setAssetUploadError(null);
+    try {
+      const response = await fetch(
+        `${getServerBaseUrl()}/api/upload/ordonnance-template/${templateId}/logo`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Impossible de supprimer cet asset.");
+      }
+
+      setLayout((current) => ({
+        ...current,
+        fields: {
+          ...current.fields,
+          [getTemplateAssetFieldKey(slot)]: {
+            ...current.fields[getTemplateAssetFieldKey(slot)],
+            enabled: false,
+          },
+        },
+      }));
+      setAssetPreviewVersion(Date.now());
+      await templateQuery.refetch();
+      toast.success("Asset supprimé.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Impossible de supprimer cet asset.";
+      setAssetUploadError(message);
+      toast.error(message);
+    } finally {
+      setAssetRemoveSlot(null);
     }
   };
 
@@ -1760,7 +1905,7 @@ function PdfTemplateConfigDialog({
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e2f0f8] px-6 py-5">
             <div>
               <p className="font-['Plus_Jakarta_Sans'] text-[21px] font-semibold leading-[27px] text-[#0f3460]">
-                Configurer le template PDF
+                Configurer le template Ordonnance
               </p>
               <p className="mt-1 font-['Inter'] text-[12px] text-[#6d879d]">
                 Placez les zones d’écriture sur la première page du PDF.
@@ -1862,6 +2007,13 @@ function PdfTemplateConfigDialog({
                             height: field.height * previewScale,
                           }}
                         >
+                          {getAssetPreviewUrlForField(fieldMeta.key) ? (
+                            <img
+                              alt=""
+                              className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain opacity-80"
+                              src={getAssetPreviewUrlForField(fieldMeta.key) ?? undefined}
+                            />
+                          ) : null}
                           <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-['Inter'] text-[10px] font-semibold text-[#0f3460] shadow-sm">
                             <Move className="size-3" />
                             {fieldMeta.label}
@@ -1920,6 +2072,89 @@ function PdfTemplateConfigDialog({
                         value={draftDescription}
                       />
                     </label>
+                  </div>
+
+                  <div className="rounded-[16px] border border-[#d9edf7] bg-[#f8fbff] p-3">
+                    <input
+                      accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        void handleAssetUpload(
+                          assetUploadTarget,
+                          event.target.files?.[0],
+                        );
+                        event.currentTarget.value = "";
+                      }}
+                      ref={assetInputRef}
+                      type="file"
+                    />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-[#c2e0ef] bg-white">
+                          {getAssetPreviewUrl("logo") ? (
+                            <img
+                              alt=""
+                              className="h-full w-full object-contain"
+                              src={getAssetPreviewUrl("logo") ?? undefined}
+                            />
+                          ) : (
+                            <ImageIcon className="size-5 text-[#76a5bd]" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-['Inter'] text-[12px] font-semibold text-[#0f3460]">
+                            Logo médecin
+                          </p>
+                          <p className="mt-0.5 font-['Inter'] text-[10px] leading-4 text-[#6d879d]">
+                            PNG, JPG ou WebP. Le logo remplace les initiales dans la
+                            zone Logo médecin.
+                          </p>
+                          {template?.logo_taille_fichier ? (
+                            <p className="mt-1 font-['Inter'] text-[10px] font-medium text-[#265284]">
+                              {formatFileSize(template.logo_taille_fichier)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          className="inline-flex h-[32px] items-center gap-1.5 rounded-[10px] border border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[11px] font-semibold text-[#265284] transition-colors hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={Boolean(assetUploadSlot || assetRemoveSlot)}
+                          onClick={() => {
+                            setAssetUploadTarget("logo");
+                            assetInputRef.current?.click();
+                          }}
+                          type="button"
+                        >
+                          {assetUploadSlot === "logo" ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <UploadCloud className="size-3.5" />
+                          )}
+                          {getAssetPreviewUrl("logo") ? "Remplacer" : "Importer"}
+                        </button>
+                        {getAssetPreviewUrl("logo") ? (
+                          <button
+                            className="inline-flex h-[32px] items-center gap-1.5 rounded-[10px] border border-[#fecaca] bg-white px-3 font-['Inter'] text-[11px] font-semibold text-[#dc2626] transition-colors hover:bg-[#fef2f2] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={Boolean(assetUploadSlot || assetRemoveSlot)}
+                            onClick={() => void handleAssetRemove("logo")}
+                            type="button"
+                          >
+                            {assetRemoveSlot === "logo" ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-3.5" />
+                            )}
+                            Retirer
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    {assetUploadError ? (
+                      <p className="mt-2 rounded-[10px] border border-[#fed7aa] bg-[#fff7ed] px-3 py-2 font-['Inter'] text-[11px] text-[#b45309]">
+                        {assetUploadError}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="rounded-[16px] border border-[#d9edf7] bg-[#f8fbff] p-3">
@@ -2017,9 +2252,11 @@ function PdfTemplateConfigDialog({
                     <div className="space-y-4">
                       <PdfRangeControl
                         label={
-                          selectedFieldKey === "logo_medecin"
-                            ? "Taille des initiales"
-                            : "Taille de police"
+                          getAssetPreviewUrlForField(selectedFieldKey)
+                            ? "Taille de l'asset"
+                            : selectedFieldKey === "logo_medecin"
+                              ? "Taille des initiales"
+                              : "Taille de police"
                         }
                         max={48}
                         min={6}
@@ -2112,8 +2349,8 @@ function PdfTemplateConfigDialog({
                 Annuler
               </button>
               <button
-                className="inline-flex h-[38px] min-w-[170px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={isSaving || templateQuery.isLoading}
+                className="inline-flex h-[38px] min-w-[170px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-4 font-['Inter'] text-[13px] font-semibold text-white transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d]"
+                disabled={isSaving || templateQuery.isLoading || isConfigSaveBlocked}
                 onClick={() => void handleSave()}
                 type="button"
               >
@@ -2448,6 +2685,24 @@ function UtiliserPreRempliDialog({
   const selectedPatient = patients.find(
     (patient) => patient.id === selectedPatientId,
   );
+  const touchedRows = rows.filter(
+    (row) =>
+      (row.medicament_externe_id ?? "").trim() ||
+      row.nom_medicament.trim() ||
+      row.posologie.trim() ||
+      row.dosage.trim() ||
+      row.duree_traitement.trim() ||
+      row.instructions.trim(),
+  );
+  const hasInvalidMedicationRows = touchedRows.some(
+    (row) => !(row.medicament_externe_id ?? "").trim() || !row.posologie.trim(),
+  );
+  const isUseTemplateSaveBlocked =
+    !selectedPatientId ||
+    !selectedSuiviId ||
+    !selectedRendezVousId ||
+    touchedRows.length === 0 ||
+    hasInvalidMedicationRows;
 
   return (
     <>
@@ -2776,8 +3031,12 @@ function UtiliserPreRempliDialog({
                     Annuler
                   </button>
                   <button
-                    className="h-[37.6px] min-w-[150px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:opacity-70"
-                    disabled={isSaving}
+                    className="h-[37.6px] min-w-[150px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d]"
+                    disabled={
+                      isSaving ||
+                      isLoadingInitialData ||
+                      isUseTemplateSaveBlocked
+                    }
                     onClick={() => void handleSave()}
                     type="button"
                   >
@@ -3255,6 +3514,23 @@ function OrdonnanceEditDialog({
       setIsSaving(false);
     }
   };
+  const touchedRows = rows.filter(
+    (row) =>
+      row.nom_medicament.trim() ||
+      (row.medicament_externe_id ?? "").trim() ||
+      row.posologie.trim() ||
+      row.dosage.trim() ||
+      row.duree_traitement.trim() ||
+      row.instructions.trim(),
+  );
+  const hasInvalidMedicationRows = touchedRows.some(
+    (row) => !(row.medicament_externe_id ?? "").trim() || !row.posologie.trim(),
+  );
+  const isEditSaveBlocked =
+    !selectedSuiviId ||
+    !selectedRendezVousId ||
+    touchedRows.length === 0 ||
+    hasInvalidMedicationRows;
 
   return (
     <>
@@ -3532,8 +3808,8 @@ function OrdonnanceEditDialog({
                   Annuler
                 </button>
                 <button
-                  className="h-[37.6px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:opacity-70"
-                  disabled={isSaving}
+                  className="h-[37.6px] cursor-pointer rounded-[10px] bg-[#76bbdd] px-4 font-['Poppins'] text-[14px] text-white transition-colors hover:bg-[#63b0d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d]"
+                  disabled={isSaving || isEditSaveBlocked}
                   onClick={() => void handleSave()}
                   type="button"
                 >
@@ -3728,6 +4004,71 @@ function EmptySectionState(props: { text: string }) {
 
 function getPdfTemplateFileUrl(templateId: string) {
   return `${getServerBaseUrl()}/api/upload/ordonnance-template/${templateId}/file`;
+}
+
+function getTemplateAssetFieldKey(
+  _slot: TemplateAssetSlot,
+): PdfTemplateFieldKey {
+  return "logo_medecin";
+}
+
+function getTemplateAssetSlotForField(
+  fieldKey: PdfTemplateFieldKey,
+): TemplateAssetSlot | null {
+  if (fieldKey === "logo_medecin") return "logo";
+  return null;
+}
+
+function buildTemplateAssetSlots(template: OrdonnancePdfTemplateDetail) {
+  return [
+    {
+      slot: "logo" as const,
+      label: "Logo médecin",
+      description: "Image affichée dans la zone Logo médecin.",
+      fileUrl: template.logo_chemin_fichier,
+      size: template.logo_taille_fichier,
+    },
+  ];
+}
+
+function getTemplateAssetCount(
+  template: OrdonnancePdfTemplateRow | OrdonnancePdfTemplateDetail,
+) {
+  return Number(Boolean(template.logo_chemin_fichier));
+}
+
+async function prepareTemplateAssetForUpload(file: File): Promise<File> {
+  const isWebp =
+    file.type === "image/webp" || file.name.toLowerCase().endsWith(".webp");
+
+  if (!isWebp) {
+    return file;
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("Impossible de préparer cet asset WebP.");
+  }
+
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/png"),
+  );
+
+  if (!blob) {
+    throw new Error("Impossible de convertir cet asset WebP.");
+  }
+
+  const baseName = file.name.replace(/\.webp$/i, "").trim() || "asset";
+  return new File([blob], `${baseName}.png`, { type: "image/png" });
 }
 
 async function hasPdfSignature(file: Blob): Promise<boolean> {

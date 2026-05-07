@@ -302,18 +302,23 @@ export function NouveauVoyageDialog({
             </div>
           )}
 
-          <DialogFooter
-            mode={mode}
-            isPending={isPending}
-            onCancel={() => onOpenChange(false)}
-            onDelete={async () => {
-              if (!voyageId) {
-                toast.error("Voyage introuvable");
-                return;
-              }
-              await deleteMutation.mutateAsync(voyageId);
-            }}
-          />
+          <form.Subscribe selector={(state) => state.values}>
+            {(currentValues) => (
+              <DialogFooter
+                mode={mode}
+                isPending={isPending}
+                isSubmitBlocked={mode !== "delete" && isVoyageSubmitBlocked(currentValues)}
+                onCancel={() => onOpenChange(false)}
+                onDelete={async () => {
+                  if (!voyageId) {
+                    toast.error("Voyage introuvable");
+                    return;
+                  }
+                  await deleteMutation.mutateAsync(voyageId);
+                }}
+              />
+            )}
+          </form.Subscribe>
         </form>
       </div>
       </div>
@@ -467,11 +472,13 @@ function DeleteContent({ values }: { values?: VoyageDialogValues }) {
 function DialogFooter({
   mode,
   isPending,
+  isSubmitBlocked,
   onCancel,
   onDelete,
 }: {
   mode: "create" | "edit" | "delete";
   isPending: boolean;
+  isSubmitBlocked: boolean;
   onCancel: () => void;
   onDelete: () => Promise<void>;
 }) {
@@ -498,8 +505,8 @@ function DialogFooter({
         </button>
       ) : (
         <button
-          className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isPending}
+          className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+          disabled={isPending || isSubmitBlocked}
           type="submit"
         >
           {isPending
@@ -512,6 +519,18 @@ function DialogFooter({
         </button>
       )}
     </div>
+  );
+}
+
+function isVoyageSubmitBlocked(values: {
+  destination: string;
+  date: string;
+  duree_jours: string;
+}) {
+  return (
+    !values.destination.trim() ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(values.date.trim()) ||
+    normalizeOptionalDuration(values.duree_jours) === "invalid"
   );
 }
 

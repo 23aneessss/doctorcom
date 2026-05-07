@@ -96,6 +96,7 @@ export function ChangerMdpDialog({
   const toggleVisible = (field: keyof PasswordFormValues) => {
     setVisibleFields((current) => ({ ...current, [field]: !current[field] }));
   };
+  const canSubmit = passwordSchema.safeParse(values).success;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -226,7 +227,7 @@ export function ChangerMdpDialog({
             </button>
             <button
               className={styles.submitButton}
-              disabled={changePasswordMutation.isPending}
+              disabled={changePasswordMutation.isPending || !canSubmit}
               type="submit"
             >
               {changePasswordMutation.isPending ? (

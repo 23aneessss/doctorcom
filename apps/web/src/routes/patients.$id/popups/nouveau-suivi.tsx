@@ -360,17 +360,27 @@ export function NouveauSuiviDialog({
               Annuler
             </button>
 
-            <button
-              className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isPending}
-              type="submit"
-            >
-              {isPending
-                ? "Enregistrement..."
-                : mode === "edit"
-                  ? "Enregistrer"
-                  : "Creer le suivi"}
-            </button>
+            <form.Subscribe selector={(state) => state.values}>
+              {(currentValues) => {
+                const canSubmit =
+                  symptoms.length > 0 &&
+                  /^\d{4}-\d{2}-\d{2}$/.test(currentValues.date_ouverture ?? "");
+
+                return (
+                  <button
+                    className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                    disabled={isPending || !canSubmit}
+                    type="submit"
+                  >
+                    {isPending
+                      ? "Enregistrement..."
+                      : mode === "edit"
+                        ? "Enregistrer"
+                        : "Creer le suivi"}
+                  </button>
+                );
+              }}
+            </form.Subscribe>
           </div>
         </form>
       </div>

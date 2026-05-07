@@ -766,8 +766,8 @@ function NouveauRdvDialog({
             Annuler
           </button>
           <button
-            className="inline-flex h-[38px] cursor-pointer items-center justify-center gap-2 rounded-[12px] bg-[#052ca0] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#082f9e] disabled:opacity-60"
-            disabled={isSaving}
+            className="inline-flex h-[38px] cursor-pointer items-center justify-center gap-2 rounded-[12px] bg-[#052ca0] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#082f9e] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+            disabled={isSaving || !form.date || !form.heure || Boolean(form.heureFin && form.heureFin <= form.heure)}
             form="patient-rdv-form"
             type="submit"
           >

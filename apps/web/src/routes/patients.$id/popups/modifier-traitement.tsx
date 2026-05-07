@@ -59,7 +59,7 @@ export function ModifierTraitementDialog({
           .regex(/^[1-9]\d*$/, "Veuillez sélectionner un médicament valide"),
         nom_medicament: z.string().trim().min(1, "Le médicament est requis"),
         indication: z.string().trim().min(1, "L'indication est requise"),
-        dosage: z.string(),
+        dosage: z.string().trim().min(1, "Le dosage est requis"),
         posologie: z.string().trim().min(1, "La posologie est requise"),
         contre_indications: z.string(),
         effets_indesirables: z.string(),
@@ -282,11 +282,16 @@ export function ModifierTraitementDialog({
             <StatusCheckbox form={form} />
           </div>
 
-          <DialogFooter
-            isPending={updateMutation.isPending}
-            onCancel={() => onOpenChange(false)}
-            submitLabel="Modifier"
-          />
+          <form.Subscribe selector={(state) => state.values}>
+            {(currentValues) => (
+              <DialogFooter
+                isPending={updateMutation.isPending}
+                isSubmitBlocked={isTreatmentSubmitBlocked(currentValues)}
+                onCancel={() => onOpenChange(false)}
+                submitLabel="Modifier"
+              />
+            )}
+          </form.Subscribe>
         </form>
       </div>
     </div>
@@ -462,10 +467,12 @@ function StatusCheckbox({ form }: { form: any }) {
 
 function DialogFooter({
   isPending,
+  isSubmitBlocked,
   onCancel,
   submitLabel,
 }: {
   isPending: boolean;
+  isSubmitBlocked: boolean;
   onCancel: () => void;
   submitLabel: string;
 }) {
@@ -479,12 +486,30 @@ function DialogFooter({
         Annuler
       </button>
       <button
-        className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isPending}
+        className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+        disabled={isPending || isSubmitBlocked}
         type="submit"
       >
         {isPending ? "Enregistrement..." : submitLabel}
       </button>
     </div>
+  );
+}
+
+function isTreatmentSubmitBlocked(values: {
+  medicament_externe_id: string;
+  nom_medicament: string;
+  indication: string;
+  dosage: string;
+  posologie: string;
+  date_prescription: string;
+}) {
+  return (
+    !/^[1-9]\d*$/.test(values.medicament_externe_id) ||
+    !values.nom_medicament.trim() ||
+    !values.indication.trim() ||
+    !values.dosage.trim() ||
+    !values.posologie.trim() ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(values.date_prescription)
   );
 }

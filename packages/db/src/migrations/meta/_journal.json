@@ -71,6 +71,13 @@
       "when": 1777507200000,
       "tag": "0008_ordonnance_pdf_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778165078080,
+      "tag": "0010_fat_lady_bullseye",
+      "breakpoints": true
     }
   ]
 }

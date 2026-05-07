@@ -389,6 +389,18 @@ export function ModeleOrdonnanceDialog({
 
   const isLoadingInitialData =
     categoriesQuery.isLoading || (mode === "edit" && templateDetailQuery.isLoading);
+  const normalizedRows = rows.map((row) => ({
+    nom_medicament: row.nom_medicament.trim(),
+    medicament_externe_id: row.medicament_externe_id.trim(),
+    posologie_defaut: row.posologie_defaut.trim(),
+    duree_defaut: row.duree_defaut.trim(),
+    instructions_defaut: row.instructions_defaut.trim(),
+    dosage: row.dosage.trim(),
+  }));
+  const isSaveBlocked =
+    !nom.trim() ||
+    !categorieId ||
+    normalizedRows.some((row) => row.nom_medicament && !row.medicament_externe_id);
 
   return (
     <>
@@ -653,8 +665,8 @@ export function ModeleOrdonnanceDialog({
               Annuler
             </button>
             <button
-              className="inline-flex h-[37.6px] min-w-[140px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={saveMutation.isPending || isLoadingInitialData}
+              className="inline-flex h-[37.6px] min-w-[140px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+              disabled={saveMutation.isPending || isLoadingInitialData || isSaveBlocked}
               onClick={() => saveMutation.mutate()}
               type="button"
             >

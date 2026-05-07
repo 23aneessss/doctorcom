@@ -167,11 +167,13 @@ export function MedicationDialogFooter({
   submitLabel,
   pendingLabel,
   isPending,
+  isSubmitBlocked = false,
 }: {
   onCancel: () => void;
   submitLabel: string;
   pendingLabel: string;
   isPending: boolean;
+  isSubmitBlocked?: boolean;
 }) {
   return (
     <div className="flex items-center justify-end gap-3 border-t-[0.67px] border-[rgba(194,224,239,0.4)] px-5 py-[8px]">
@@ -183,8 +185,8 @@ export function MedicationDialogFooter({
         Annuler
       </button>
       <button
-        className="h-[37.6px] rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={isPending}
+        className="h-[37.6px] rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+        disabled={isPending || isSubmitBlocked}
         type="submit"
       >
         {isPending ? pendingLabel : submitLabel}

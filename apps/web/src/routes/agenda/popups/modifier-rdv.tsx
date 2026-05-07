@@ -114,10 +114,10 @@ export function ModifierRdvDialog({
             Annuler
           </button>
           <button
-            className="inline-flex h-[38px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_rgba(118,187,221,0.45)] transition-colors hover:bg-[#63afd4]"
+            className="inline-flex h-[38px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_rgba(118,187,221,0.45)] transition-colors hover:bg-[#63afd4] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
             type="submit"
             form="agenda-modifier-rdv-form"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isValid}
           >
             <Check className="size-4" aria-hidden="true" />
             {isSubmitting ? "Enregistrement..." : "Enregistrer"}

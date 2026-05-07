@@ -588,20 +588,31 @@ export function NouvelleConsultationDialog({
                                 placeholder="Notes"
                                 value={rdvDraft.notes}
                               />
-                              <button
-                                className="inline-flex h-[34px] min-w-[118px] items-center justify-center gap-2 rounded-[10px] bg-[#76bbdd] px-3 font-['Inter'] text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(118,187,221,0.35)] disabled:cursor-not-allowed disabled:opacity-70"
-                                disabled={isCreatingRendezVous}
-                                onClick={() => {
-                                  setRdvValidationError(null);
-                                  createRendezVousMutation.mutate();
-                                }}
-                                type="button"
-                              >
-                                {isCreatingRendezVous ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : null}
-                                Enregistrer
-                              </button>
+                              <form.Subscribe selector={(state) => state.values.suivi_id}>
+                                {(suiviId) => (
+                                  <button
+                                    className="inline-flex h-[34px] min-w-[118px] items-center justify-center gap-2 rounded-[10px] bg-[#76bbdd] px-3 font-['Inter'] text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(118,187,221,0.35)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                                    disabled={
+                                      isCreatingRendezVous ||
+                                      !suiviId ||
+                                      !rdvDraft.date ||
+                                      !rdvDraft.heure ||
+                                      !rdvDraft.heure_fin ||
+                                      rdvDraft.heure_fin <= rdvDraft.heure
+                                    }
+                                    onClick={() => {
+                                      setRdvValidationError(null);
+                                      createRendezVousMutation.mutate();
+                                    }}
+                                    type="button"
+                                  >
+                                    {isCreatingRendezVous ? (
+                                      <Loader2 className="size-3.5 animate-spin" />
+                                    ) : null}
+                                    Enregistrer
+                                  </button>
+                                )}
+                              </form.Subscribe>
                             </div>
                             {rdvValidationError ? (
                               <p className="font-['Inter'] text-[12px] text-[#dc2626]">
@@ -838,21 +849,26 @@ export function NouvelleConsultationDialog({
             >
               Annuler
             </button>
-            <button
-              className="h-[38px] w-[226px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-normal leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={
-                isPending ||
-                isCreatingRendezVous ||
-                (mode === "create" && activeSuivis.length === 0)
-              }
-              type="submit"
-            >
-              {isPending
-                ? "Enregistrement..."
-                : mode === "edit"
-                  ? "Enregistrer"
-                  : "Creer la consultation"}
-            </button>
+            <form.Subscribe selector={(state) => state.values}>
+              {(currentValues) => (
+                <button
+                  className="h-[38px] w-[226px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-normal leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                  disabled={
+                    isPending ||
+                    isCreatingRendezVous ||
+                    (mode === "create" && activeSuivis.length === 0) ||
+                    isConsultationSubmitBlocked(currentValues)
+                  }
+                  type="submit"
+                >
+                  {isPending
+                    ? "Enregistrement..."
+                    : mode === "edit"
+                      ? "Enregistrer"
+                      : "Creer la consultation"}
+                </button>
+              )}
+            </form.Subscribe>
           </div>
 
           {mode === "create" && activeSuivis.length === 0 && (
@@ -864,6 +880,19 @@ export function NouvelleConsultationDialog({
       </div>
     </div>
   );
+}
+
+function isConsultationSubmitBlocked(values: ConsultationDialogValues) {
+  const hasRequiredLinks =
+    Boolean(values.suivi_id?.trim()) && Boolean(values.rendez_vous_id?.trim());
+  const hasValidDate = /^\d{4}-\d{2}-\d{2}$/.test(values.date ?? "");
+  const hasValidSpo2 = !values.spo2 || /^\d+(\.\d+)?$/.test(values.spo2);
+  const hasValidHeartRate =
+    !values.frequence_cardiaque || /^\d+$/.test(values.frequence_cardiaque);
+  const hasValidTemperature =
+    !values.temperature || /^\d+(\.\d+)?$/.test(values.temperature);
+
+  return !hasRequiredLinks || !hasValidDate || !hasValidSpo2 || !hasValidHeartRate || !hasValidTemperature;
 }
 
 function FieldContainer({
