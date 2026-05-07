@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Calendar, ChevronDown, Stethoscope, X, CircleHelp } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { Calendar, ChevronDown, CircleHelp, Loader2, Plus, Stethoscope, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -33,6 +33,46 @@ type ConsultationDialogValues = {
   examen_digestif?: string;
 };
 
+type PatientIdentity = {
+  nom?: string | null;
+  prenom?: string | null;
+};
+
+type RendezVousDraft = {
+  date: string;
+  heure: string;
+  heure_fin: string;
+  type_creneau: string;
+  notes: string;
+};
+
+const defaultRendezVousDraft = (): RendezVousDraft => ({
+  date: new Date().toISOString().slice(0, 10),
+  heure: "09:00",
+  heure_fin: "09:30",
+  type_creneau: "Consultation",
+  notes: "",
+});
+
+function buildPatientLabel(patient?: PatientIdentity | null) {
+  const label = [patient?.prenom, patient?.nom].filter(Boolean).join(" ").trim();
+  return label || null;
+}
+
+function buildPatientInitials(patient?: PatientIdentity | null) {
+  const initials = [patient?.prenom, patient?.nom]
+    .map((part) => part?.trim()?.[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase();
+
+  return initials || null;
+}
+
+function normalizeTime(value: string) {
+  return value.length === 5 ? `${value}:00` : value;
+}
+
 export function NouvelleConsultationDialog({
   open,
   onOpenChange,
@@ -55,10 +95,22 @@ export function NouvelleConsultationDialog({
     enabled: open,
   });
 
-  const { data: fullRecord, isLoading: isLoadingRecord } = useQuery({
+  const {
+    data: fullRecord,
+    isLoading: isLoadingRecord,
+    refetch: refetchFullRecord,
+  } = useQuery({
     ...trpc.patient.getPatientFullRecord.queryOptions({ id: patientId }),
     enabled: open,
   });
+
+  const [isCreateRdvOpen, setIsCreateRdvOpen] = useState(false);
+  const [rdvDraft, setRdvDraft] = useState<RendezVousDraft>(() =>
+    defaultRendezVousDraft()
+  );
+  const [rdvValidationError, setRdvValidationError] = useState<string | null>(
+    null
+  );
 
   const rendezVous = (fullRecord?.rendez_vous ?? []).filter(
     (rdv) =>
@@ -257,8 +309,61 @@ export function NouvelleConsultationDialog({
     },
   });
 
+  const createRendezVousMutation = useMutation({
+    mutationFn: async () => {
+      const suiviId = form.state.values.suivi_id;
+      if (!suiviId) {
+        throw new Error("Selectionnez un suivi avant de creer le rendez-vous.");
+      }
+      if (!rdvDraft.date || !rdvDraft.heure || !rdvDraft.heure_fin) {
+        throw new Error("Completez la date et les horaires du rendez-vous.");
+      }
+      if (rdvDraft.heure_fin <= rdvDraft.heure) {
+        throw new Error("L'heure de fin doit etre apres l'heure de debut.");
+      }
+
+      const patient = fullRecord?.patient as PatientIdentity | undefined;
+      return trpcClient.agenda.planifierRDV.mutate({
+        patient_id: patientId,
+        suivi_id: suiviId,
+        date: rdvDraft.date,
+        heure: normalizeTime(rdvDraft.heure),
+        heure_fin: normalizeTime(rdvDraft.heure_fin),
+        statut: "planifie",
+        type_creneau: rdvDraft.type_creneau.trim() || "Consultation",
+        patient_label: buildPatientLabel(patient),
+        patient_initials: buildPatientInitials(patient),
+        couleur: null,
+        notes: rdvDraft.notes.trim() || null,
+        important: false,
+        frequence_rappel: null,
+        periode_rappel: null,
+      });
+    },
+    onSuccess: async (createdRdv) => {
+      await refetchFullRecord();
+      form.setFieldValue("rendez_vous_id", createdRdv.id);
+      form.setFieldValue("date", createdRdv.date);
+      setRdvDraft((current) => ({ ...current, date: createdRdv.date }));
+      setRdvValidationError(null);
+      setIsCreateRdvOpen(false);
+      toast.success("Rendez-vous cree avec succes");
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Le rendez-vous n'a pas pu etre cree.";
+      setRdvValidationError(message);
+      toast.error(message);
+    },
+  });
+
   useEffect(() => {
     form.reset(initialValues);
+    setIsCreateRdvOpen(false);
+    setRdvDraft(defaultRendezVousDraft());
+    setRdvValidationError(null);
   }, [form, initialValues, mode, open]);
 
   useEffect(() => {
@@ -274,7 +379,9 @@ export function NouvelleConsultationDialog({
 
   if (!open) return null;
 
-  const isPending = createExamenMutation.isPending || updateExamenMutation.isPending;
+  const isPending =
+    createExamenMutation.isPending || updateExamenMutation.isPending;
+  const isCreatingRendezVous = createRendezVousMutation.isPending;
   const selectedSuiviLabel =
     allSuivis.find((s) => s.id === form.state.values.suivi_id)?.motif ||
     activeSuivis.find((s) => s.id === form.state.values.suivi_id)?.motif ||
@@ -408,6 +515,102 @@ export function NouvelleConsultationDialog({
                     </div>
                     {field.state.meta.errors[0]?.message ? (
                       <p className="text-xs text-red-600">{field.state.meta.errors[0].message}</p>
+                    ) : null}
+                    {mode === "create" ? (
+                      <div className="mt-2 rounded-[12px] border border-[#c2e0ef] bg-[#f8fafc] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-['Inter'] text-[12px] font-medium text-[#0f3460]">
+                            Rendez-vous de consultation
+                          </p>
+                          <button
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-[#76bbdd] bg-white px-3 font-['Inter'] text-[12px] font-semibold text-[#0f3460] transition-colors hover:bg-[#eef8fd]"
+                            onClick={() => {
+                              setIsCreateRdvOpen((value) => !value);
+                              setRdvValidationError(null);
+                              setRdvDraft((current) => ({
+                                ...current,
+                                date: form.state.values.date || current.date,
+                              }));
+                            }}
+                            type="button"
+                          >
+                            <Plus className="size-3.5" />
+                            Creer un RDV
+                          </button>
+                        </div>
+
+                        {isCreateRdvOpen ? (
+                          <div className="mt-3 grid gap-3">
+                            <div className="grid grid-cols-3 gap-2">
+                              <input
+                                className="h-[34px] rounded-[10px] border border-[#c2e0ef] bg-white px-2 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                                onChange={(event) =>
+                                  setRdvDraft((current) => ({
+                                    ...current,
+                                    date: event.target.value,
+                                  }))
+                                }
+                                type="date"
+                                value={rdvDraft.date}
+                              />
+                              <input
+                                className="h-[34px] rounded-[10px] border border-[#c2e0ef] bg-white px-2 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                                onChange={(event) =>
+                                  setRdvDraft((current) => ({
+                                    ...current,
+                                    heure: event.target.value,
+                                  }))
+                                }
+                                type="time"
+                                value={rdvDraft.heure}
+                              />
+                              <input
+                                className="h-[34px] rounded-[10px] border border-[#c2e0ef] bg-white px-2 font-['Inter'] text-[13px] text-[#0f3460] outline-none focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                                onChange={(event) =>
+                                  setRdvDraft((current) => ({
+                                    ...current,
+                                    heure_fin: event.target.value,
+                                  }))
+                                }
+                                type="time"
+                                value={rdvDraft.heure_fin}
+                              />
+                            </div>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                              <input
+                                className="h-[34px] rounded-[10px] border border-[#c2e0ef] bg-white px-2 font-['Inter'] text-[13px] text-[#0f3460] outline-none placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
+                                onChange={(event) =>
+                                  setRdvDraft((current) => ({
+                                    ...current,
+                                    notes: event.target.value,
+                                  }))
+                                }
+                                placeholder="Notes"
+                                value={rdvDraft.notes}
+                              />
+                              <button
+                                className="inline-flex h-[34px] min-w-[118px] items-center justify-center gap-2 rounded-[10px] bg-[#76bbdd] px-3 font-['Inter'] text-[12px] font-semibold text-white shadow-[0_3px_8px_rgba(118,187,221,0.35)] disabled:cursor-not-allowed disabled:opacity-70"
+                                disabled={isCreatingRendezVous}
+                                onClick={() => {
+                                  setRdvValidationError(null);
+                                  createRendezVousMutation.mutate();
+                                }}
+                                type="button"
+                              >
+                                {isCreatingRendezVous ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : null}
+                                Enregistrer
+                              </button>
+                            </div>
+                            {rdvValidationError ? (
+                              <p className="font-['Inter'] text-[12px] text-[#dc2626]">
+                                {rdvValidationError}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </FieldContainer>
                 )}
@@ -639,8 +842,8 @@ export function NouvelleConsultationDialog({
               className="h-[38px] w-[226px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-normal leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
               disabled={
                 isPending ||
-                (mode === "create" &&
-                  (activeSuivis.length === 0 || rendezVous.length === 0))
+                isCreatingRendezVous ||
+                (mode === "create" && activeSuivis.length === 0)
               }
               type="submit"
             >
@@ -652,11 +855,9 @@ export function NouvelleConsultationDialog({
             </button>
           </div>
 
-          {mode === "create" && (activeSuivis.length === 0 || rendezVous.length === 0) && (
+          {mode === "create" && activeSuivis.length === 0 && (
             <p className="px-5 pb-2 font-['Inter'] text-[12px] text-[#dc2626]">
-              {activeSuivis.length === 0
-                ? "Aucun suivi actif disponible. Creez d'abord un suivi."
-                : "Aucun rendez-vous disponible pour creer une consultation."}
+              Aucun suivi actif disponible. Creez d'abord un suivi.
             </p>
           )}
         </form>

@@ -174,6 +174,8 @@ function PatientRdvPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardSkipsRdv, setWizardSkipsRdv] = useState(false);
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
+  const [wizardRdvForm, setWizardRdvForm] = useState<RdvFormState>(createDefaultForm);
+  const [isWizardRdvCreateOpen, setIsWizardRdvCreateOpen] = useState(false);
   const [selectedRdvId, setSelectedRdvId] = useState("");
   const [selectedSuiviId, setSelectedSuiviId] = useState("");
   const [symptoms, setSymptoms] = useState<string[]>([]);
@@ -234,6 +236,32 @@ function PatientRdvPage() {
       toast.success("Rendez-vous créé");
       setIsCreateOpen(false);
       setRdvForm(createDefaultForm());
+      await invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const createWorkflowRdvMutation = useMutation({
+    mutationFn: (form: RdvFormState) =>
+      trpcClient.agenda.planifierRDV.mutate({
+        patient_id: id,
+        date: form.date,
+        heure: form.heure,
+        heure_fin: form.heureFin || null,
+        statut: form.statut,
+        type_creneau: form.typeCreneau.trim() || null,
+        patient_label: patientLabel,
+        patient_initials: patientInitials,
+        notes: form.notes.trim() || null,
+        important: form.important,
+        frequence_rappel: null,
+        periode_rappel: null,
+      }),
+    onSuccess: async (rdv) => {
+      toast.success("Rendez-vous créé");
+      setSelectedRdvId(rdv.id);
+      setConsultationFields((current) => ({ ...current, date: rdv.date }));
+      setWizardRdvForm(createDefaultForm());
       await invalidate();
     },
     onError: (error) => toast.error(error.message),
@@ -384,6 +412,8 @@ function PatientRdvPage() {
       setSelectedSuiviId(firstActive?.suivi_id ?? activeSuivis[0]?.id ?? "");
       setConsultationFields(createDefaultConsultation(firstActive?.date));
     }
+    setWizardRdvForm(createDefaultForm());
+    setIsWizardRdvCreateOpen(false);
     setCurrentStep(1);
     setSymptoms([]);
     setSymptomDraft("");
@@ -394,6 +424,8 @@ function PatientRdvPage() {
   const closeWizard = () => {
     setIsWizardOpen(false);
     setCurrentStep(1);
+    setWizardRdvForm(createDefaultForm());
+    setIsWizardRdvCreateOpen(false);
     setSelectedRdvId("");
     setSelectedSuiviId("");
     setSymptoms([]);
@@ -491,7 +523,8 @@ function PatientRdvPage() {
   const isWizardUpdating =
     workflowUpdateMutation.isPending ||
     createSuiviMutation.isPending ||
-    createExamenMutation.isPending;
+    createExamenMutation.isPending ||
+    createWorkflowRdvMutation.isPending;
   const wizardSteps = wizardSkipsRdv ? STEPS_SHORT : STEPS_FULL;
   const maxStep = wizardSkipsRdv ? 4 : 5;
 
@@ -640,8 +673,10 @@ function PatientRdvPage() {
           goNext={goNext}
           goPrev={goPrev}
           isUpdating={isWizardUpdating}
+          isRdvCreateOpen={isWizardRdvCreateOpen}
           maxStep={maxStep}
           rdvs={rdvs}
+          rdvForm={wizardRdvForm}
           selectedRdvId={selectedRdvId}
           selectedSuiviId={selectedSuiviId}
           skipsRdv={wizardSkipsRdv}
@@ -657,6 +692,17 @@ function PatientRdvPage() {
           }}
           onClose={closeWizard}
           onConsultationChange={(patch) => setConsultationFields((c) => ({ ...c, ...patch }))}
+          onCreateRdv={async () => {
+            if (!wizardRdvForm.date || !wizardRdvForm.heure) {
+              toast.error("La date et l'heure de début sont obligatoires.");
+              return;
+            }
+            if (wizardRdvForm.heureFin && wizardRdvForm.heureFin <= wizardRdvForm.heure) {
+              toast.error("L'heure de fin doit être après l'heure de début.");
+              return;
+            }
+            await createWorkflowRdvMutation.mutateAsync(wizardRdvForm);
+          }}
           onCreateSuivi={() => createSuiviMutation.mutate()}
           onRemoveDocFile={(fileId) => setDocFiles((cur) => cur.filter((f) => f.id !== fileId))}
           onRemoveSymptom={(sym) => setSymptoms((cur) => cur.filter((s) => s !== sym))}
@@ -667,6 +713,8 @@ function PatientRdvPage() {
             if (rdv?.date) setConsultationFields((c) => ({ ...c, date: rdv.date }));
           }}
           onSelectSuivi={setSelectedSuiviId}
+          onRdvFormChange={setWizardRdvForm}
+          onToggleRdvCreate={() => setIsWizardRdvCreateOpen((open) => !open)}
           onSetSymptomDraft={setSymptomDraft}
           onUpdateDocName={(fileId, nom) =>
             setDocFiles((cur) => cur.map((f) => f.id === fileId ? { ...f, nom } : f))
@@ -881,8 +929,10 @@ function WorkflowDialog({
   goNext,
   goPrev,
   isUpdating,
+  isRdvCreateOpen,
   maxStep,
   rdvs,
+  rdvForm,
   selectedRdvId,
   selectedSuiviId,
   skipsRdv,
@@ -893,12 +943,15 @@ function WorkflowDialog({
   onAddSymptom,
   onClose,
   onConsultationChange,
+  onCreateRdv,
   onCreateSuivi,
   onRemoveDocFile,
   onRemoveSymptom,
   onSelectRdv,
   onSelectSuivi,
+  onRdvFormChange,
   onSetSymptomDraft,
+  onToggleRdvCreate,
   onUpdateDocName,
 }: {
   activeSuivis: Array<{ id: string; motif?: string | null; symptoms?: string[] | null }>;
@@ -909,8 +962,10 @@ function WorkflowDialog({
   goNext: () => Promise<void>;
   goPrev: () => void;
   isUpdating: boolean;
+  isRdvCreateOpen: boolean;
   maxStep: number;
   rdvs: PatientRdv[];
+  rdvForm: RdvFormState;
   selectedRdvId: string;
   selectedSuiviId: string;
   skipsRdv: boolean;
@@ -921,22 +976,48 @@ function WorkflowDialog({
   onAddSymptom: () => void;
   onClose: () => void;
   onConsultationChange: (patch: Partial<ConsultationFields>) => void;
+  onCreateRdv: () => Promise<void>;
   onCreateSuivi: () => void;
   onRemoveDocFile: (id: string) => void;
   onRemoveSymptom: (sym: string) => void;
   onSelectRdv: (id: string) => void;
   onSelectSuivi: (id: string) => void;
+  onRdvFormChange: (v: RdvFormState | ((c: RdvFormState) => RdvFormState)) => void;
   onSetSymptomDraft: (v: string) => void;
+  onToggleRdvCreate: () => void;
   onUpdateDocName: (id: string, nom: string) => void;
 }) {
   const backendStep = skipsRdv ? currentStep + 1 : currentStep;
   const selectedRdv = rdvs.find((r) => r.id === selectedRdvId) ?? null;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const setRdvFormValue = <K extends keyof RdvFormState>(
+    key: K,
+    value: RdvFormState[K],
+  ) => onRdvFormChange((current) => ({ ...current, [key]: value }));
+  const canCreateRdv =
+    rdvForm.date.trim().length > 0 &&
+    rdvForm.heure.trim().length > 0 &&
+    (!rdvForm.heureFin || rdvForm.heureFin > rdvForm.heure);
+  const stepBlockReason =
+    backendStep === 1 && !selectedRdv
+      ? "Sélectionnez ou créez un rendez-vous pour continuer."
+      : backendStep === 2 && !selectedSuiviId
+        ? "Sélectionnez ou créez un suivi pour continuer."
+        : backendStep === 3 && !consultationFields.date
+          ? "Renseignez la date de consultation pour continuer."
+          : "";
+  const canContinue = !stepBlockReason;
 
   return (
     <DialogShell
       footer={
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full flex-col gap-2">
+          {stepBlockReason ? (
+            <p className="m-0 text-right font-['Inter'] text-[12px] font-medium text-[#f97316]">
+              {stepBlockReason}
+            </p>
+          ) : null}
+          <div className="flex w-full items-center justify-between">
           <button
             className="flex h-[38px] cursor-pointer items-center gap-1.5 rounded-[12px] border border-[#c2e0ef] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#0f3460] transition-colors hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={currentStep === 1 || isUpdating}
@@ -949,8 +1030,8 @@ function WorkflowDialog({
 
           {currentStep < maxStep ? (
             <button
-              className="flex h-[38px] cursor-pointer items-center gap-1.5 rounded-[12px] bg-[#052ca0] px-5 font-['Inter'] text-[13px] font-semibold text-white shadow-[0px_4px_12px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#082f9e] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isUpdating}
+              className="flex h-[38px] cursor-pointer items-center gap-1.5 rounded-[12px] bg-[#052ca0] px-5 font-['Inter'] text-[13px] font-semibold text-white shadow-[0px_4px_12px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#082f9e] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+              disabled={isUpdating || !canContinue}
               onClick={() => void goNext()}
               type="button"
             >
@@ -960,8 +1041,8 @@ function WorkflowDialog({
             </button>
           ) : (
             <button
-              className="flex h-[38px] cursor-pointer items-center gap-2 rounded-[12px] bg-[#008236] px-5 font-['Inter'] text-[13px] font-semibold text-white shadow-[0px_4px_12px_rgba(0,130,54,0.35)] transition-colors hover:bg-[#006b2d] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isUpdating}
+              className="flex h-[38px] cursor-pointer items-center gap-2 rounded-[12px] bg-[#008236] px-5 font-['Inter'] text-[13px] font-semibold text-white shadow-[0px_4px_12px_rgba(0,130,54,0.35)] transition-colors hover:bg-[#006b2d] disabled:cursor-not-allowed disabled:bg-[#d0f1e7] disabled:text-[#4b7a55] disabled:shadow-none"
+              disabled={isUpdating || !selectedRdv}
               onClick={() => void finishRdv()}
               type="button"
             >
@@ -973,6 +1054,7 @@ function WorkflowDialog({
               Terminer la consultation
             </button>
           )}
+          </div>
         </div>
       }
       icon={<CalendarClock className="size-5" />}
@@ -1033,9 +1115,104 @@ function WorkflowDialog({
 
         {/* Step 1: select RDV */}
         {backendStep === 1 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-[#f8fafc]">
+              <button
+                aria-expanded={isRdvCreateOpen}
+                className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left"
+                onClick={onToggleRdvCreate}
+                type="button"
+              >
+                <div>
+                  <p className="font-['Inter'] text-[13px] font-semibold text-[#0f3460]">
+                    Créer un rendez-vous pour cette session
+                  </p>
+                  <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#64748b]">
+                    Le rendez-vous créé sera sélectionné automatiquement.
+                  </p>
+                </div>
+                <span className="flex items-center gap-2 text-[#76bbdd]">
+                  <CalendarPlus className="size-5 shrink-0" />
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 transition-transform",
+                      isRdvCreateOpen ? "rotate-180" : "",
+                    )}
+                  />
+                </span>
+              </button>
+              {isRdvCreateOpen ? (
+                <div className="border-t border-[#c2e0ef] px-4 pb-4 pt-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <InlineField label="Type" required>
+                      <div className="relative">
+                        <select
+                          className={cn(fieldControlClassName, "appearance-none pr-9")}
+                          onChange={(event) => setRdvFormValue("typeCreneau", event.target.value)}
+                          value={rdvForm.typeCreneau}
+                        >
+                          {TYPE_OPTIONS.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8]" />
+                      </div>
+                    </InlineField>
+                    <InlineField label="Date" required>
+                      <input
+                        className={fieldControlClassName}
+                        onChange={(event) => setRdvFormValue("date", event.target.value)}
+                        type="date"
+                        value={rdvForm.date}
+                      />
+                    </InlineField>
+                    <InlineField label="Début" required>
+                      <TimeField
+                        ariaLabel="Heure de début du nouveau rendez-vous"
+                        value={rdvForm.heure}
+                        onChange={(value) => setRdvFormValue("heure", value)}
+                      />
+                    </InlineField>
+                    <InlineField label="Fin">
+                      <TimeField
+                        ariaLabel="Heure de fin du nouveau rendez-vous"
+                        value={rdvForm.heureFin}
+                        onChange={(value) => setRdvFormValue("heureFin", value)}
+                      />
+                    </InlineField>
+                    <div className="sm:col-span-2">
+                      <InlineField label="Notes">
+                        <textarea
+                          className={cn(fieldControlClassName, "min-h-[70px] resize-none py-2")}
+                          onChange={(event) => setRdvFormValue("notes", event.target.value)}
+                          placeholder="Notes internes, préparation, documents à demander..."
+                          value={rdvForm.notes}
+                        />
+                      </InlineField>
+                    </div>
+                  </div>
+                  {!canCreateRdv ? (
+                    <p className="mb-0 mt-2 font-['Inter'] text-[12px] font-medium text-[#f97316]">
+                      Date et heure de début obligatoires. L'heure de fin doit rester après le début.
+                    </p>
+                  ) : null}
+                  <button
+                    className="mt-3 inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#052ca0] px-4 font-['Inter'] text-[12px] font-semibold text-white shadow-[0px_4px_12px_rgba(5,44,160,0.28)] transition-colors hover:bg-[#082f9e] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                    disabled={isUpdating || !canCreateRdv}
+                    onClick={() => void onCreateRdv()}
+                    type="button"
+                  >
+                    {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    Créer et sélectionner
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             <p className="font-['Inter'] text-[13px] text-[#64748b]">
-              Sélectionnez le rendez-vous à démarrer.
+              Ou sélectionnez un rendez-vous existant.
             </p>
             {rdvs.filter((r) => r.statut !== "termine" && r.statut !== "annule").length === 0 ? (
               <div className="flex h-[120px] items-center justify-center rounded-[10px] border-[0.8px] border-dashed border-[#c2e0ef] bg-[#f9fafb]">

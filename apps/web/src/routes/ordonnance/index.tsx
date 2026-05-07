@@ -1208,7 +1208,7 @@ function PdfTemplateManager({
           <div className="flex items-center gap-2">
             <FileStack className="size-4 text-[#265284]" />
             <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#0f3460]">
-              Templates PDF personnels
+              Templates Ordonnance personnels
             </p>
           </div>
           <p className="mt-0.5 font-['Inter'] text-[11px] leading-4 text-[#6d879d]">

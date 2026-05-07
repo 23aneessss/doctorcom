@@ -162,7 +162,7 @@ function mapEventToUpcomingItem(event: AgendaEvent): UpcomingItem {
   };
 }
 
-function groupAgendaEvents(events: AgendaEvent[]): GroupedEvent[] {
+function buildMonthAgendaGroups(year: number, month: number, events: AgendaEvent[]): GroupedEvent[] {
   const sortedEvents = [...events].sort((firstEvent, secondEvent) => {
     const dateCompare = firstEvent.date.localeCompare(secondEvent.date);
     if (dateCompare !== 0) {
@@ -172,23 +172,28 @@ function groupAgendaEvents(events: AgendaEvent[]): GroupedEvent[] {
     return firstEvent.startTime.localeCompare(secondEvent.startTime);
   });
 
-  const groups = new Map<string, GroupedEvent>();
+  const eventsByDate = new Map<string, AgendaEvent[]>();
 
   for (const event of sortedEvents) {
-    const existingGroup = groups.get(event.date);
-    if (existingGroup) {
-      existingGroup.events.push(event);
-      continue;
-    }
+    const existingEvents = eventsByDate.get(event.date) ?? [];
+    existingEvents.push(event);
+    eventsByDate.set(event.date, existingEvents);
+  }
 
-    groups.set(event.date, {
-      day: event.day,
-      weekday: getWeekdayLabel(event.date),
-      events: [event],
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const groups: GroupedEvent[] = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = formatDateFromSelection(year, month, day);
+    groups.push({
+      date,
+      day,
+      weekday: getWeekdayLabel(date),
+      events: eventsByDate.get(date) ?? [],
     });
   }
 
-  return Array.from(groups.values());
+  return groups;
 }
 
 function toSlotPayload(values: RdvFormValues) {
@@ -318,11 +323,6 @@ function RouteComponent() {
     [monthSlotsQuery.data],
   );
 
-  const groupedEvents = useMemo(
-    () => groupAgendaEvents(allAgendaEvents),
-    [allAgendaEvents],
-  );
-
   const typeFilterOptions = useMemo(
     () => ["all", ...Array.from(new Set([...RDV_TYPE_OPTIONS, ...allAgendaEvents.map((event) => event.type)]))],
     [allAgendaEvents],
@@ -370,12 +370,11 @@ function RouteComponent() {
 
   const selectedDateIso = formatDateFromSelection(selectedYear, selectedMonth, selectedDay);
 
-  const filteredGroupedEvents = groupedEvents
-    .map((group: GroupedEvent) => ({
-      ...group,
-      events: group.events.filter(matchesFilters),
-    }))
-    .filter((group: GroupedEvent) => group.events.length > 0);
+  const filteredGroupedEvents = buildMonthAgendaGroups(
+    selectedYear,
+    selectedMonth,
+    allAgendaEvents.filter(matchesFilters),
+  );
 
   const filteredUpcomingItems = upcomingItems.filter(matchesFilters);
 

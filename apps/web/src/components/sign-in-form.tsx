@@ -10,7 +10,7 @@ import { AuthFormSkeleton } from "./page-skeletons";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
-export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export default function SignInForm() {
   const navigate = useNavigate({
     from: "/login",
   });
@@ -125,12 +125,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
               </div>
             )}
           </form.Field>
-
-          <div className="text-right mt-1.5">
-            <Button variant="link" className="px-0 py-0 h-auto text-[12px] text-[#052ca0] hover:text-[#0f3460] font-semibold" type="button">
-              Mot de passe oublié ?
-            </Button>
-          </div>
         </div>
 
         <form.Subscribe>
@@ -146,17 +140,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         </form.Subscribe>
       </form>
 
-
-<div className="mt-5 text-center text-sm text-[#0f3460]">
-        Vous n'avez pas de compte ?{" "}
-        <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="p-0 h-auto font-semibold text-[#052ca0] hover:text-[#76BBDD]"
-        >
-          Inscrivez-vous
-        </Button>
-      </div>
     </div>
   );
 }

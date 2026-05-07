@@ -30,6 +30,7 @@ export interface UpcomingItem {
 }
 
 export interface GroupedEvent {
+  date: string;
   day: number;
   weekday: string;
   events: AgendaEvent[];

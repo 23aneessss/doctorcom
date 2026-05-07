@@ -1,4 +1,4 @@
-import { Eye, FlaskConical, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 
 type MedicationCardProps = {
   id: number;
@@ -36,10 +36,6 @@ export function MedicationCard({
               {scientificName}
             </p>
           </div>
-
-          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-[#d6edf8] bg-[#eef7fc]">
-            <FlaskConical className="size-[14px] text-[#4a7a9b]" strokeWidth={1.8} />
-          </span>
         </div>
 
         <div className="flex flex-col gap-[5px]">

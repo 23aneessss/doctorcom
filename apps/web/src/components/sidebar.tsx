@@ -152,7 +152,14 @@ const SIDEBAR_STYLE_MAP = {
     width: 203,
     marginTop: 34,
   } satisfies CSSProperties,
-  navList: { margin: 0, padding: 0, listStyle: "none" } satisfies CSSProperties,
+  navList: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  } satisfies CSSProperties,
   navButton: {
     display: "flex",
     alignItems: "center",
@@ -184,6 +191,9 @@ const SIDEBAR_STYLE_MAP = {
   } satisfies CSSProperties,
   navLabel: {
     margin: 0,
+    color: SIDEBAR_COLORS.textDefault,
+    fontSize: 16,
+    fontWeight: 600,
     lineHeight: "22px",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
@@ -213,15 +223,6 @@ const SIDEBAR_STYLE_MAP = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-  } satisfies CSSProperties,
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 9999,
-    objectFit: "cover",
-    display: "block",
-    flexShrink: 0,
-    background: "#d9d9d9",
   } satisfies CSSProperties,
   userText: { minWidth: 0, flex: 1 } satisfies CSSProperties,
   userName: {
@@ -300,7 +301,7 @@ function SidebarNavItem({
     SIDEBAR_STYLE_MAP.navButton,
     visualState === "active"
       ? {
-          gap: 12,
+          gap: 18,
           background: SIDEBAR_COLORS.activeItemBg,
           boxShadow: "0px 10px 3.9px -4px rgba(0, 0, 0, 0.15)",
         }
@@ -317,10 +318,10 @@ function SidebarNavItem({
   const labelStyle = mergeStyles(
     SIDEBAR_STYLE_MAP.navLabel,
     visualState === "active"
-      ? { color: SIDEBAR_COLORS.textActive, fontSize: 14, fontWeight: 500 }
+      ? { color: SIDEBAR_COLORS.textActive }
       : visualState === "hover"
-        ? { color: SIDEBAR_COLORS.textActive, fontSize: 16, fontWeight: 600 }
-        : { color: SIDEBAR_COLORS.textDefault, fontSize: 16, fontWeight: 600 },
+        ? { color: SIDEBAR_COLORS.textActive }
+        : undefined,
   );
 
   const iconOpacity = visualState === "default" ? 0.88 : 1;
@@ -388,16 +389,6 @@ function SidebarUserCard({
     });
   };
 
-  const avatar = currentUser.avatarUrl ? (
-    <img
-      style={SIDEBAR_STYLE_MAP.avatar}
-      src={currentUser.avatarUrl}
-      alt={currentUser.name}
-    />
-  ) : (
-    <span style={SIDEBAR_STYLE_MAP.avatar} aria-hidden="true" />
-  );
-
   return (
     <div
       style={SIDEBAR_STYLE_MAP.userCard}
@@ -405,7 +396,6 @@ function SidebarUserCard({
       data-node-id="1:1050"
     >
       <div style={SIDEBAR_STYLE_MAP.userRow}>
-        {avatar}
         <div style={SIDEBAR_STYLE_MAP.userText}>
           <p style={SIDEBAR_STYLE_MAP.userName}>{currentUser.name}</p>
           <p style={SIDEBAR_STYLE_MAP.userEmail}>{currentUser.email}</p>
