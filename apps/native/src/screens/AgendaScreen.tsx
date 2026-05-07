@@ -14,14 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { AppointmentCard, LoadingSpinner, EmptyState } from '../components/ui';
 import { statusConfig, slotTypeConfig, colors } from '../utils/colors';
-import { 
-  getDateString, 
-  getDayName, 
-  getDayNumber, 
-  addDays,
+import {
+  getDateString,
   isToday,
   isSameDay,
-  formatTime,
 } from '../utils/dates';
 import { trpc } from '../api/trpc';
 import { useAuthStore } from '../stores/authStore';
@@ -34,11 +30,9 @@ export default function AgendaScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState<'all' | keyof typeof statusConfig>('all');
 
-  // Generate a sliding window of 14 days around the selected date
   const dateTabs = useMemo(() => {
     const dates: Date[] = [];
     const base = new Date(selectedDate);
-    // Start 3 days before selected
     base.setDate(base.getDate() - 3);
     for (let i = 0; i < 14; i++) {
       dates.push(new Date(base));
@@ -47,8 +41,6 @@ export default function AgendaScreen() {
     return dates;
   }, [selectedDate]);
 
-  // Fetch slots
-  // We fetch a bit wider range
   const queryStart = new Date(selectedDate);
   queryStart.setDate(queryStart.getDate() - 7);
   const queryEnd = new Date(selectedDate);
@@ -65,23 +57,20 @@ export default function AgendaScreen() {
   }, [slots, selectedDate]);
 
   const filteredSlots = useMemo(() => {
-    if (statusFilter === 'all') {
-      return selectedDateSlots;
-    }
-
+    if (statusFilter === 'all') return selectedDateSlots;
     return selectedDateSlots.filter((slot) => slot.status === statusFilter);
   }, [selectedDateSlots, statusFilter]);
 
   const openFilterPicker = () => {
     Alert.alert(
       'Filtrer les rendez-vous',
-      'Choisissez un statut a afficher',
+      'Choisissez un statut à afficher',
       [
         { text: 'Tous', onPress: () => setStatusFilter('all') },
-        { text: 'Confirmes', onPress: () => setStatusFilter('booked') },
+        { text: 'Confirmés', onPress: () => setStatusFilter('booked') },
         { text: 'En attente', onPress: () => setStatusFilter('pending') },
-        { text: 'Termines', onPress: () => setStatusFilter('completed') },
-        { text: 'Annules', onPress: () => setStatusFilter('cancelled') },
+        { text: 'Terminés', onPress: () => setStatusFilter('completed') },
+        { text: 'Annulés', onPress: () => setStatusFilter('cancelled') },
         { text: 'Annuler', style: 'cancel' },
       ]
     );
@@ -97,6 +86,7 @@ export default function AgendaScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <LinearGradient
           colors={['#0F3460', '#123865', '#285487']}
           locations={[0.3, 0.65, 1]}
@@ -108,17 +98,27 @@ export default function AgendaScreen() {
             <View>
               <Text style={styles.headerTitle}>Agenda</Text>
               <Text style={styles.headerSubtitle}>
-                {selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {selectedDate.toLocaleDateString('fr-FR', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                })}
               </Text>
             </View>
             <TouchableOpacity
               style={styles.addButton}
-              onPress={() => router.push({ pathname: '/appointments/new', params: { date: getDateString(selectedDate) } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/appointments/new',
+                  params: { date: getDateString(selectedDate) },
+                })
+              }
             >
               <Ionicons name="add" size={24} color="#0F3460" />
             </TouchableOpacity>
           </View>
 
+          {/* Date strip */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -138,35 +138,54 @@ export default function AgendaScreen() {
                     isTodayDate && !selected && styles.dateTabToday,
                   ]}
                 >
-                  <Text style={[
-                    styles.dateTabDayName,
-                    selected && styles.dateTabDayNameActive,
-                    isTodayDate && !selected && { color: 'rgba(255,255,255,0.9)' }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.dateTabDayName,
+                      selected && styles.dateTabDayNameActive,
+                      isTodayDate && !selected && { color: 'rgba(255,255,255,0.9)' },
+                    ]}
+                  >
                     {DAYS[date.getDay()]}
                   </Text>
-                  <Text style={[
-                    styles.dateTabNumber,
-                    selected && styles.dateTabNumberActive,
-                    isTodayDate && !selected && { color: '#FFFFFF' }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.dateTabNumber,
+                      selected && styles.dateTabNumberActive,
+                      isTodayDate && !selected && { color: '#FFFFFF' },
+                    ]}
+                  >
                     {date.getDate()}
                   </Text>
-                  {isTodayDate && <View style={[styles.todayIndicator, selected && { backgroundColor: '#0F3460' }]} />}
+                  {isTodayDate && (
+                    <View
+                      style={[
+                        styles.todayIndicator,
+                        selected && { backgroundColor: '#0F3460' },
+                      ]}
+                    />
+                  )}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
-          <LinearGradient colors={['transparent', 'rgba(255, 255, 255, 0.05)']} style={styles.bottomFade} />
+          <LinearGradient
+            colors={['transparent', 'rgba(255, 255, 255, 0.05)']}
+            style={styles.bottomFade}
+          />
         </LinearGradient>
 
+        {/* Content */}
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {filteredSlots.length} Rendez-vous
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionCount}>{filteredSlots.length}</Text>
+              <Text style={styles.sectionTitle}>
+                {filteredSlots.length === 1 ? 'Rendez-vous' : 'Rendez-vous'}
+              </Text>
+            </View>
             <TouchableOpacity style={styles.filterButton} onPress={openFilterPicker}>
-              <Ionicons name="options-outline" size={20} color="#4B5563" />
+              <Ionicons name="options-outline" size={18} color="#4B5563" />
+              {statusFilter !== 'all' && <View style={styles.filterDot} />}
             </TouchableOpacity>
           </View>
 
@@ -176,37 +195,34 @@ export default function AgendaScreen() {
             <EmptyState
               icon="calendar-outline"
               title="Journée libre"
-              description={statusFilter === 'all' ? "Aucun rendez-vous n'est planifié pour cette date." : 'Aucun rendez-vous ne correspond a ce filtre pour cette date.'}
+              description={
+                statusFilter === 'all'
+                  ? "Aucun rendez-vous n'est planifié pour cette date."
+                  : 'Aucun rendez-vous ne correspond à ce filtre.'
+              }
               actionLabel="Planifier un rendez-vous"
-              onAction={() => router.push({ pathname: '/appointments/new', params: { date: getDateString(selectedDate) } })}
+              onAction={() =>
+                router.push({
+                  pathname: '/appointments/new',
+                  params: { date: getDateString(selectedDate) },
+                })
+              }
             />
           ) : (
-            <View style={styles.timelineContainer}>
-              {filteredSlots.map((slot, index) => (
-                <View key={slot.id} style={styles.timelineItem}>
-                  <View style={styles.timeColumn}>
-                    <Text style={styles.timeText}>{formatTime(slot.startTime)}</Text>
-                    <Text style={styles.timeTextEnd}>{formatTime(slot.endTime)}</Text>
-                  </View>
-
-                  <View style={styles.timelineDivider}>
-                    <View style={styles.timelineDot} />
-                    {index !== filteredSlots.length - 1 && <View style={styles.timelineLine} />}
-                  </View>
-
-                  <View style={styles.cardColumn}>
-                    <AppointmentCard
-                      id={slot.id}
-                      startTime={slot.startTime}
-                      endTime={slot.endTime}
-                      status={slot.status as keyof typeof statusConfig}
-                      slotType={slot.slotType as keyof typeof slotTypeConfig}
-                      patientInitials={slot.patientInitials}
-                      patientLabel={slot.patientLabel}
-                      onPress={() => router.push(`/appointments/${slot.id}`)}
-                    />
-                  </View>
-                </View>
+            <View>
+              {filteredSlots.map((slot) => (
+                <AppointmentCard
+                  key={slot.id}
+                  id={slot.id}
+                  startTime={slot.startTime}
+                  endTime={slot.endTime}
+                  status={slot.status as keyof typeof statusConfig}
+                  slotType={slot.slotType as keyof typeof slotTypeConfig}
+                  patientInitials={slot.patientInitials}
+                  patientLabel={slot.patientLabel}
+                  important={(slot as any).important ?? false}
+                  onPress={() => router.push(`/appointments/${slot.id}`)}
+                />
               ))}
             </View>
           )}
@@ -228,10 +244,9 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
-    backgroundColor: '#0F3460',
     paddingHorizontal: 24,
     paddingBottom: 20,
-    borderBottomLeftRadius: 36, // Rounded a bit more
+    borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
     shadowColor: '#0F3460',
     shadowOffset: { width: 0, height: 10 },
@@ -245,15 +260,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  bottomFade: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 40,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
   },
   headerTitle: {
     fontSize: 32,
@@ -280,6 +286,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+  },
+  bottomFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -335,7 +350,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   content: {
-    padding: 24,
+    padding: 20,
     paddingTop: 24,
   },
   sectionHeader: {
@@ -344,64 +359,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  sectionCount: {
+    fontSize: 28,
+    fontWeight: '800',
     color: '#111827',
+    letterSpacing: -0.5,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timelineContainer: {
-    flex: 1,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  timeColumn: {
-    width: 50,
-    alignItems: 'flex-end',
-    paddingTop: 16, // Align with card title
-  },
-  timeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  timeTextEnd: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  timelineDivider: {
-    width: 24,
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E2E8F0',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    marginTop: 18,
-    zIndex: 1,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    marginTop: -4,
-    marginBottom: -24, // Stretch to next item
-  },
-  cardColumn: {
-    flex: 1,
+  filterDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F97316',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
   },
 });
