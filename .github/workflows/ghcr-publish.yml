@@ -54,3 +54,8 @@ jobs:
           provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      
+      - name: Deploy to dokploy 
+        run: |
+          curl --fail --silent --show-error \
+            "${{ secrets.DOKPLOY_WEBHOOK }}"
