@@ -80,6 +80,8 @@ const mobileCatalogSearchSchema = z.object({
   starts_with: z.string().trim().length(1).optional().nullable(),
   category: optionalTrimmedStringSchema,
   limit: z.coerce.number().int().positive().max(200).default(80),
+  page: z.coerce.number().int().positive().default(1),
+  page_size: z.coerce.number().int().positive().max(60).default(24),
 });
 
 export const medicamentsRouter = createTRPCRouter({
@@ -144,7 +146,8 @@ export const medicamentsRouter = createTRPCRouter({
         query: input.query ?? undefined,
         startsWith: input.starts_with ?? undefined,
         category: input.category ?? undefined,
-        limit: input.limit,
+        page: input.page,
+        pageSize: input.page_size,
       });
     }),
 

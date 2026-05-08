@@ -23,6 +23,10 @@ export function getServerBaseUrl() {
     }
   }
 
+  if (import.meta.env.PROD && typeof window !== "undefined" && window.location?.origin) {
+    return normalizeBaseUrl(window.location.origin);
+  }
+
   const envUrl = import.meta.env.VITE_SERVER_URL;
 
   if (typeof envUrl === "string" && envUrl.trim().length > 0) {
