@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.anonymous.doctorcom"
     },
     "android": {
+      "package": "com.anonymous.doctorcom",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
