@@ -64,6 +64,8 @@
     "drizzle-orm": "catalog:",
     "opencode-ai": "^1.14.25",
     "pg": "catalog:",
+    "react-native-worklets": "0.7.4",
+    "uniwind": "1.6.4",
     "zod": "catalog:"
   },
   "devDependencies": {

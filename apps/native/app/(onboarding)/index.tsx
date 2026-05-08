@@ -13,9 +13,9 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DoctorcomLogo } from '@/src/components/branding/DoctorcomLogo';
+import { ONBOARDING_COMPLETE_KEY } from '@/src/constants/storage';
 
 const { width } = Dimensions.get('window');
-export const ONBOARDING_COMPLETE_KEY = '@onboarding_complete';
 
 const slides = [
   {

@@ -4,6 +4,7 @@ import {
   StandardFonts,
   rgb,
   type PDFFont,
+  type PDFImage,
   type PDFPage,
 } from "pdf-lib";
 import { TRPCError } from "@trpc/server";
@@ -268,6 +269,25 @@ export class ExportService {
       font,
       color: rgb(1, 1, 1),
     });
+  }
+
+  private async embedLogoImage(
+    pdfDoc: PdfLibDocument,
+    logoUrl: string,
+  ): Promise<PDFImage | null> {
+    try {
+      const buffer = await this.readStoredPdfBuffer(logoUrl);
+      const lower = logoUrl.toLowerCase();
+      if (lower.includes(".png")) {
+        return await pdfDoc.embedPng(buffer);
+      }
+      if (lower.includes(".svg")) {
+        return null;
+      }
+      return await pdfDoc.embedJpg(buffer);
+    } catch {
+      return null;
+    }
   }
 
   private renderDoctorComClinicalPdf({
@@ -687,13 +707,22 @@ export class ExportService {
             .join("\n\n")
         : "Aucun médicament renseigné.";
 
-    this.drawMappedLogoBlock(
-      page,
-      doctorInitials || "Dr",
-      layout.fields.logo_medecin,
-      pageHeight,
-      font,
-    );
+    if (template.logo_url && layout.fields.logo_medecin.enabled !== false) {
+      const logoImage = await this.embedLogoImage(pdfDoc, template.logo_url);
+      if (logoImage) {
+        const f = layout.fields.logo_medecin;
+        page.drawImage(logoImage, {
+          x: f.x,
+          y: pageHeight - f.y - f.height,
+          width: f.width,
+          height: f.height,
+        });
+      } else {
+        this.drawMappedLogoBlock(page, doctorInitials || "Dr", layout.fields.logo_medecin, pageHeight, font);
+      }
+    } else {
+      this.drawMappedLogoBlock(page, doctorInitials || "Dr", layout.fields.logo_medecin, pageHeight, font);
+    }
     this.drawMappedTextBlock(
       page,
       medecinText,

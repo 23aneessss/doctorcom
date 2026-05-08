@@ -4,7 +4,7 @@ import { Redirect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../src/stores/authStore';
 import { colors } from '../src/utils/colors';
-import { ONBOARDING_COMPLETE_KEY } from './(onboarding)/index';
+import { ONBOARDING_COMPLETE_KEY } from '../src/constants/storage';
 
 type BootState = 'loading' | 'onboarding' | 'auth' | 'home';
 

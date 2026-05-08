@@ -92,6 +92,7 @@ export const ordonnance_pdf_templates = pgTable(
     page_width: integer("page_width").notNull(),
     page_height: integer("page_height").notNull(),
     layout_config: jsonb("layout_config").notNull(),
+    logo_url: text("logo_url"),
     est_actif: boolean("est_actif").notNull().default(true),
     is_default_for_user: boolean("is_default_for_user").notNull().default(false),
     created_at: timestamp("created_at", {

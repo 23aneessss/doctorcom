@@ -1,12 +1,13 @@
 import express, { Router } from "express";
 import { auth } from "@doctor.com/auth";
 import { db } from "@doctor.com/db";
-import { patients, utilisateurs } from "@doctor.com/db/schema";
+import { ordonnance_pdf_templates, patients, utilisateurs } from "@doctor.com/db/schema";
 import { documentsService } from "@doctor.com/api/modules/documents/service";
 import { ordonnanceService } from "@doctor.com/api/modules/ordonnance/service";
 import {
   buildPatientDocumentObjectName,
   buildPatientStorageSlug,
+  deleteFile,
   getObjectNameFromUrl,
   isStorageUnavailableError,
   minioClient,
@@ -219,6 +220,191 @@ router.get("/ordonnance-template/:id/file", async (req, res) => {
               code: "INTERNAL_SERVER_ERROR",
               message: err?.message,
             }),
+    });
+  }
+});
+
+const LOGO_ACCEPTED_MIMETYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
+
+async function requireOwnedTemplate(
+  templateId: string,
+  utilisateurId: string,
+  res: express.Response,
+) {
+  const [template] = await db
+    .select()
+    .from(ordonnance_pdf_templates)
+    .where(eq(ordonnance_pdf_templates.id, templateId))
+    .limit(1);
+
+  if (!template || !template.est_actif) {
+    res.status(404).json({ error: "Template introuvable." });
+    return null;
+  }
+
+  if (template.utilisateur_id !== utilisateurId) {
+    res.status(403).json({ error: "Acces refuse." });
+    return null;
+  }
+
+  return template;
+}
+
+router.post("/ordonnance-template/:id/logo", upload.single("file"), async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    const templateId = req.params["id"] as string;
+    const template = await requireOwnedTemplate(templateId, utilisateurId, res);
+    if (!template) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: "Aucun fichier fourni." });
+      return;
+    }
+
+    if (!LOGO_ACCEPTED_MIMETYPES.has(req.file.mimetype.toLowerCase())) {
+      res.status(400).json({
+        error: "Format non supporte. Utilisez PNG, JPG, WebP ou SVG.",
+      });
+      return;
+    }
+
+    if (template.logo_url) {
+      try {
+        await deleteFile(getObjectNameFromUrl(template.logo_url));
+      } catch {
+        // old file missing is acceptable
+      }
+    }
+
+    const uploaded = await uploadFile({
+      file: req.file,
+      folder: "ordonnance-logos",
+    });
+
+    await db
+      .update(ordonnance_pdf_templates)
+      .set({ logo_url: uploaded.url, updated_at: new Date().toISOString() })
+      .where(eq(ordonnance_pdf_templates.id, template.id));
+
+    res.status(200).json({ logo_url: uploaded.url });
+  } catch (err: any) {
+    console.error("Upload template logo error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
+router.get("/ordonnance-template/:id/logo", async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    const templateId = req.params["id"] as string;
+    const template = await requireOwnedTemplate(templateId, utilisateurId, res);
+    if (!template) return;
+
+    if (!template.logo_url) {
+      res.status(404).json({ error: "Aucun logo pour ce template." });
+      return;
+    }
+
+    const objectName = getObjectNameFromUrl(template.logo_url);
+    const ext = objectName.split(".").pop()?.toLowerCase() ?? "";
+    const CONTENT_TYPES: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+    };
+    const contentType = CONTENT_TYPES[ext] ?? "image/png";
+
+    const stream = await minioClient.getObject(storageConfig.bucket, objectName);
+
+    stream.on("error", (error) => {
+      console.error("Template logo stream error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Le logo n'a pas pu etre lu." });
+      } else {
+        res.destroy(error);
+      }
+    });
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    stream.pipe(res);
+  } catch (err: any) {
+    if (err?.code === "NoSuchKey") {
+      res.status(404).json({ error: "Logo introuvable dans le stockage." });
+      return;
+    }
+    console.error("Get template logo error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
+router.delete("/ordonnance-template/:id/logo", async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    const templateId = req.params["id"] as string;
+    const template = await requireOwnedTemplate(templateId, utilisateurId, res);
+    if (!template) return;
+
+    if (template.logo_url) {
+      try {
+        await deleteFile(getObjectNameFromUrl(template.logo_url));
+      } catch {
+        // file missing is acceptable
+      }
+    }
+
+    await db
+      .update(ordonnance_pdf_templates)
+      .set({ logo_url: null, updated_at: new Date().toISOString() })
+      .where(eq(ordonnance_pdf_templates.id, template.id));
+
+    res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error("Delete template logo error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
     });
   }
 });

@@ -1474,6 +1474,11 @@ function PdfTemplateConfigDialog({
   const [draftDescription, setDraftDescription] = useState("");
   const [dragState, setDragState] = useState<PdfTemplateDragState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
+  const [logoPreviewSrc, setLogoPreviewSrc] = useState<string | null>(null);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const [isLogoRemoving, setIsLogoRemoving] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [previewPdfBytes, setPreviewPdfBytes] = useState<ArrayBuffer | null>(
     null,
@@ -1513,6 +1518,7 @@ function PdfTemplateConfigDialog({
     setSelectedFieldKey("patient");
     setDragState(null);
     setIsSaving(false);
+    setCurrentLogoUrl(template.logo_url ?? null);
   }, [open, template]);
 
   useEffect(() => {
@@ -1523,6 +1529,34 @@ function PdfTemplateConfigDialog({
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
   }, [isSaving, onClose, open]);
+
+  useEffect(() => {
+    if (!currentLogoUrl || !open || !templateId) {
+      setLogoPreviewSrc(null);
+      return;
+    }
+
+    let active = true;
+    let blobUrl: string | null = null;
+
+    fetch(`${import.meta.env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/logo`, {
+      credentials: "include",
+    })
+      .then((r) => (r.ok && active ? r.blob() : null))
+      .then((blob) => {
+        if (!blob || !active) return;
+        blobUrl = URL.createObjectURL(blob);
+        setLogoPreviewSrc(blobUrl);
+      })
+      .catch(() => {
+        if (active) setLogoPreviewSrc(null);
+      });
+
+    return () => {
+      active = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [templateId, currentLogoUrl, open]);
 
   useEffect(() => {
     if (!open || !templateId) {
@@ -1663,6 +1697,65 @@ function PdfTemplateConfigDialog({
   if (!templateId) {
     return null;
   }
+
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+
+    const VALID_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+    if (!VALID_TYPES.includes(file.type)) {
+      toast.error("Format non supporté. Utilisez PNG, JPG, WebP ou SVG.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Le logo ne doit pas dépasser 2 Mo.");
+      return;
+    }
+
+    setIsLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/logo`,
+        { method: "POST", body: formData, credentials: "include" },
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Erreur lors de l'import du logo.");
+      }
+      const data = await response.json();
+      setCurrentLogoUrl(data.logo_url as string);
+      updateField("logo_medecin", { enabled: true });
+      toast.success("Logo importé avec succès.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'import du logo.");
+    } finally {
+      setIsLogoUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    setIsLogoRemoving(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/api/upload/ordonnance-template/${templateId}/logo`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Erreur lors de la suppression du logo.");
+      }
+      setCurrentLogoUrl(null);
+      updateField("logo_medecin", { enabled: false });
+      toast.success("Logo supprimé.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression.");
+    } finally {
+      setIsLogoRemoving(false);
+    }
+  };
 
   const updateField = (
     fieldKey: PdfTemplateFieldKey,
@@ -1821,6 +1914,21 @@ function PdfTemplateConfigDialog({
                     ) : null}
                     {previewPdfBytes && !previewPdfError ? (
                       <div className="absolute inset-0 bg-white/5" />
+                    ) : null}
+                    {logoPreviewSrc &&
+                    layout.fields.logo_medecin.enabled !== false &&
+                    renderedPreviewSize.width > 0 ? (
+                      <img
+                        alt="Logo du cabinet"
+                        className="pointer-events-none absolute object-contain"
+                        src={logoPreviewSrc}
+                        style={{
+                          left: layout.fields.logo_medecin.x * previewScale,
+                          top: layout.fields.logo_medecin.y * previewScale,
+                          width: layout.fields.logo_medecin.width * previewScale,
+                          height: layout.fields.logo_medecin.height * previewScale,
+                        }}
+                      />
                     ) : null}
                     {previewPdfBytes &&
                     !previewPdfError &&
@@ -1985,6 +2093,87 @@ function PdfTemplateConfigDialog({
                         );
                       })}
                     </div>
+                  </div>
+
+                  <div className="rounded-[16px] border border-[#d9edf7] bg-[#f8fbff] p-3">
+                    <div className="mb-2.5 flex items-center justify-between gap-3">
+                      <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6d879d]">
+                        Logo du cabinet
+                      </p>
+                      {currentLogoUrl && (
+                        <button
+                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#e04c3a] transition-colors hover:bg-[#fff0ee] disabled:opacity-50"
+                          disabled={isLogoRemoving || isLogoUploading}
+                          onClick={() => void handleRemoveLogo()}
+                          type="button"
+                        >
+                          {isLogoRemoving ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3" />
+                          )}
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+
+                    {currentLogoUrl ? (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-center rounded-[12px] border border-[#d9edf7] bg-white p-3">
+                          {logoPreviewSrc ? (
+                            <img
+                              alt="Logo du cabinet"
+                              className="max-h-[80px] max-w-full object-contain"
+                              src={logoPreviewSrc}
+                            />
+                          ) : (
+                            <div className="flex h-[60px] items-center justify-center">
+                              <Loader2 className="size-5 animate-spin text-[#76bbdd]" />
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[#c2e0ef] bg-white py-2 font-['Inter'] text-[12px] font-medium text-[#365a78] transition-colors hover:bg-[#f0f7fc] disabled:opacity-50"
+                          disabled={isLogoUploading || isLogoRemoving}
+                          onClick={() => logoInputRef.current?.click()}
+                          type="button"
+                        >
+                          {isLogoUploading ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <UploadCloud className="size-3.5" />
+                          )}
+                          Changer le logo
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="flex w-full flex-col items-center gap-2 rounded-[12px] border border-dashed border-[#c2e0ef] bg-white px-4 py-5 transition-colors hover:border-[#76bbdd] hover:bg-[#f0f7fc] disabled:opacity-50"
+                        disabled={isLogoUploading}
+                        onClick={() => logoInputRef.current?.click()}
+                        type="button"
+                      >
+                        {isLogoUploading ? (
+                          <Loader2 className="size-6 animate-spin text-[#76bbdd]" />
+                        ) : (
+                          <UploadCloud className="size-6 text-[#76bbdd]" />
+                        )}
+                        <span className="font-['Inter'] text-[12px] font-semibold text-[#365a78]">
+                          {isLogoUploading ? "Import en cours…" : "Importer un logo"}
+                        </span>
+                        <span className="font-['Inter'] text-[10px] text-[#8aa0b3]">
+                          PNG, JPG, SVG, WebP · Max 2 Mo
+                        </span>
+                      </button>
+                    )}
+
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={(e) => void handleLogoFileChange(e)}
+                      ref={logoInputRef}
+                      type="file"
+                    />
                   </div>
 
                   <div className="rounded-[16px] border border-[#d9edf7] bg-white p-4">

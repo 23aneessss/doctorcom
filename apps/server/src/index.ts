@@ -91,7 +91,7 @@ const upload = multer({
 app.use(
   cors({
     origin: corsOrigin,
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
