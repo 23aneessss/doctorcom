@@ -4,9 +4,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { auth } from "@doctor.com/auth";
+import { db } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
 import express from "express";
 import { createContext } from "@doctor.com/api/context";
+import { aiSettingsService } from "@doctor.com/api/modules/ai/settings/service";
 import { appRouter } from "@doctor.com/api/routers/index";
 import { ensureBucketExists, isStorageUnavailableError } from "@doctor.com/api/infrastructure/storage";
 import { startScheduler } from "@doctor.com/api/infrastructure/scheduler";
@@ -141,6 +143,15 @@ if (webDistDir && webIndexFile && existsSync(webIndexFile)) {
 }
 
 async function startServer(): Promise<void> {
+  try {
+    await aiSettingsService.initializeRuntimeSettings(db);
+  } catch (error) {
+    console.warn(
+      "AI settings could not be initialized. Falling back to environment configuration.",
+      error,
+    );
+  }
+
   setStorageAvailable(true);
   const storageReady = await ensureStorageWithRetry();
   if (!storageReady) {

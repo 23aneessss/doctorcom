@@ -1,8 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BrainCircuit,
   CheckCircle2,
   ChevronDown,
+  Cloud,
+  Cpu,
+  Download,
   Globe2,
   KeyRound,
   Mail,
@@ -10,6 +14,7 @@ import {
   Phone,
   Save,
   Shield,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -47,6 +52,8 @@ type ProfileUpdatePayload = Partial<ProfileFormValues> & {
   langue_interface?: InterfaceLanguage;
 };
 
+type AIProviderPreference = "gemini" | "ollama";
+
 const EMPTY_PROFILE_FORM: ProfileFormValues = {
   nom: "",
   prenom: "",
@@ -67,6 +74,8 @@ function ParametresPage() {
     EMPTY_PROFILE_FORM,
   );
   const [language, setLanguage] = useState<InterfaceLanguage>(activeLanguage);
+  const [aiProvider, setAiProvider] = useState<AIProviderPreference>("gemini");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [successDialog, setSuccessDialog] = useState<null | "password">(null);
 
@@ -77,8 +86,22 @@ function ParametresPage() {
   const updateProfileMutation = useMutation(
     trpc.auth.updateMyProfile.mutationOptions(),
   );
+  const aiSettingsQuery = useQuery({
+    ...trpc.ai.settings.get.queryOptions(),
+    throwOnError: false,
+  });
+  const updateAiSettingsMutation = useMutation(
+    trpc.ai.settings.update.mutationOptions(),
+  );
+  const downloadLocalModelMutation = useMutation(
+    trpc.ai.settings.downloadLocalModel.mutationOptions(),
+  );
+  const deleteLocalModelMutation = useMutation(
+    trpc.ai.settings.deleteLocalModel.mutationOptions(),
+  );
 
   const profile = profileQuery.data?.profile;
+  const aiSettings = aiSettingsQuery.data;
   const email = profile?.email ?? sessionUser?.email ?? "";
   const displayedName = buildFullName(profile?.prenom, profile?.nom)
     || sessionUser?.name?.trim()
@@ -112,6 +135,15 @@ function ParametresPage() {
     setLanguage(preferredLanguage);
     setActiveLanguage(preferredLanguage);
   }, [activeLanguage, hasStoredLanguagePreference, profile, setActiveLanguage]);
+
+  useEffect(() => {
+    if (!aiSettings) {
+      return;
+    }
+
+    setAiProvider(aiSettings.preferred_provider);
+    setGeminiApiKey("");
+  }, [aiSettings]);
 
   const hasProfileChanges = useMemo(() => {
     if (!profile) {
@@ -154,6 +186,69 @@ function ParametresPage() {
         },
       },
     );
+  };
+
+  const refreshAISettings = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: trpc.ai.settings.get.queryKey(),
+    });
+  };
+
+  const handleSaveAISettings = async () => {
+    const trimmedApiKey = geminiApiKey.trim();
+
+    try {
+      await updateAiSettingsMutation.mutateAsync({
+        preferred_provider: aiProvider,
+        ...(trimmedApiKey ? { gemini_api_key: trimmedApiKey } : {}),
+      });
+      setGeminiApiKey("");
+      await refreshAISettings();
+      toast.success(t.settings.aiSettingsSaved);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.settings.saveError,
+      );
+    }
+  };
+
+  const handleClearGeminiApiKey = async () => {
+    try {
+      await updateAiSettingsMutation.mutateAsync({
+        clear_gemini_api_key: true,
+      });
+      setGeminiApiKey("");
+      await refreshAISettings();
+      toast.success(t.settings.aiSettingsSaved);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.settings.saveError,
+      );
+    }
+  };
+
+  const handleDownloadLocalModel = async () => {
+    try {
+      await downloadLocalModelMutation.mutateAsync();
+      await refreshAISettings();
+      toast.success(t.settings.localModelDownloaded);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.settings.localModelError,
+      );
+    }
+  };
+
+  const handleDeleteLocalModel = async () => {
+    try {
+      await deleteLocalModelMutation.mutateAsync();
+      await refreshAISettings();
+      toast.success(t.settings.localModelDeleted);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.settings.localModelError,
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -365,6 +460,163 @@ function ParametresPage() {
             </SettingsSection>
           </div>
 
+          <SettingsSection icon={<BrainCircuit size={20} />} title={t.settings.aiAssistant}>
+            <div className={styles.aiSettingsGrid}>
+              <div className={styles.aiProviderPanel}>
+                <div className={styles.aiProviderHeader}>
+                  <span className={styles.aiProviderIcon}>
+                    {aiProvider === "gemini" ? (
+                      <Cloud size={18} aria-hidden="true" />
+                    ) : (
+                      <Cpu size={18} aria-hidden="true" />
+                    )}
+                  </span>
+                  <div>
+                    <p>{t.settings.aiProvider}</p>
+                    <span>
+                      {aiSettings?.active_provider === "gemini"
+                        ? t.settings.cloudGeminiActive
+                        : t.settings.localGemmaActive}
+                    </span>
+                  </div>
+                </div>
+
+                <SettingsField label={t.settings.aiProvider} icon={<BrainCircuit size={16} />}>
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.select}
+                      onChange={(event) =>
+                        setAiProvider(event.currentTarget.value as AIProviderPreference)
+                      }
+                      value={aiProvider}
+                    >
+                      <option value="gemini">{t.settings.cloudGemini}</option>
+                      <option value="ollama">{t.settings.localGemma}</option>
+                    </select>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </div>
+                </SettingsField>
+
+                <p className={styles.aiHint}>{t.settings.aiFallbackHint}</p>
+              </div>
+
+              <div className={styles.aiProviderPanel}>
+                <SettingsField label={t.settings.geminiApiKey} icon={<KeyRound size={16} />}>
+                  <input
+                    className={styles.input}
+                    onChange={(event) => setGeminiApiKey(event.currentTarget.value)}
+                    placeholder={
+                      aiSettings?.gemini_api_key_configured
+                        ? t.settings.apiKeyConfigured
+                        : t.settings.apiKeyPlaceholder
+                    }
+                    type="password"
+                    value={geminiApiKey}
+                  />
+                </SettingsField>
+
+                <div className={styles.aiStatusRow}>
+                  <span
+                    className={[
+                      styles.aiStatusDot,
+                      aiSettings?.gemini_api_key_configured ? styles.aiStatusOk : "",
+                    ].filter(Boolean).join(" ")}
+                  />
+                  <span>
+                    {aiSettings?.gemini_api_key_configured
+                      ? t.settings.apiKeyConfigured
+                      : t.settings.apiKeyMissing}
+                  </span>
+                </div>
+
+                <div className={styles.aiActions}>
+                  <button
+                    className={styles.saveButtonSmall}
+                    disabled={updateAiSettingsMutation.isPending}
+                    onClick={handleSaveAISettings}
+                    type="button"
+                  >
+                    <Save size={15} aria-hidden="true" />
+                    {updateAiSettingsMutation.isPending
+                      ? t.settings.saving
+                      : t.settings.saveAISettings}
+                  </button>
+                  <button
+                    className={styles.secondaryActionButton}
+                    disabled={
+                      updateAiSettingsMutation.isPending ||
+                      !aiSettings?.gemini_api_key_configured
+                    }
+                    onClick={handleClearGeminiApiKey}
+                    type="button"
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                    {t.settings.clearApiKey}
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.aiProviderPanel}>
+                <div className={styles.aiProviderHeader}>
+                  <span className={styles.aiProviderIcon}>
+                    <Cpu size={18} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p>{aiSettings?.ollama.model ?? "gemma4:e2b"}</p>
+                    <span>
+                      {aiSettings?.ollama.installed
+                        ? t.settings.localModelReady
+                        : t.settings.localModelMissing}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.aiModelStatusGrid}>
+                  <AIStatusPill
+                    active={Boolean(aiSettings?.ollama.reachable)}
+                    label={t.settings.ollamaService}
+                  />
+                  <AIStatusPill
+                    active={Boolean(aiSettings?.ollama.installed)}
+                    label={t.settings.localModelInstalled}
+                  />
+                  <AIStatusPill
+                    active={Boolean(aiSettings?.ollama.running)}
+                    label={t.settings.localModelLoaded}
+                  />
+                </div>
+
+                <div className={styles.aiActions}>
+                  <button
+                    className={styles.orangeButton}
+                    disabled={downloadLocalModelMutation.isPending}
+                    onClick={handleDownloadLocalModel}
+                    type="button"
+                  >
+                    <Download size={15} aria-hidden="true" />
+                    {downloadLocalModelMutation.isPending
+                      ? t.settings.downloadingModel
+                      : t.settings.downloadLocalModel}
+                  </button>
+                  <button
+                    className={styles.secondaryActionButton}
+                    disabled={
+                      deleteLocalModelMutation.isPending ||
+                      !aiSettings?.ollama.installed
+                    }
+                    onClick={handleDeleteLocalModel}
+                    type="button"
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                    {deleteLocalModelMutation.isPending
+                      ? t.settings.deletingModel
+                      : t.settings.deleteLocalModel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </SettingsSection>
+
           <footer className={styles.footerActions}>
             <button
               className={styles.cancelButton}
@@ -436,6 +688,21 @@ function SuccessDialog({
         <button className={styles.successButton} onClick={onClose} type="button">{buttonLabel}</button>
       </section>
     </div>
+  );
+}
+
+function AIStatusPill({
+  active,
+  label,
+}: {
+  active: boolean;
+  label: string;
+}) {
+  return (
+    <span className={[styles.aiStatusPill, active ? styles.aiStatusPillActive : ""].filter(Boolean).join(" ")}>
+      <span className={styles.aiStatusDot} />
+      {label}
+    </span>
   );
 }
 

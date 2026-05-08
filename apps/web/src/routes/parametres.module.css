@@ -157,6 +157,128 @@
   padding-top: 1.2rem;
 }
 
+.aiSettingsGrid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.85fr) minmax(18rem, 1fr) minmax(18rem, 1fr);
+  gap: 1rem;
+  padding-top: 1.2rem;
+}
+
+.aiProviderPanel {
+  min-width: 0;
+  border: 0.667px solid rgba(194, 224, 239, 0.65);
+  border-radius: 0.75rem;
+  background: var(--parametres-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.aiProviderHeader {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.aiProviderHeader p,
+.aiProviderHeader span,
+.aiHint {
+  margin: 0;
+}
+
+.aiProviderHeader p {
+  color: var(--parametres-dark-blue);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.aiProviderHeader span,
+.aiHint,
+.aiStatusRow {
+  color: var(--parametres-blue);
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+.aiProviderIcon {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.72rem;
+  background: rgba(194, 224, 239, 0.45);
+  color: var(--parametres-blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aiHint {
+  opacity: 0.82;
+}
+
+.aiStatusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.aiStatusDot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #d6e3ea;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.aiStatusOk,
+.aiStatusPillActive .aiStatusDot {
+  background: #16c784;
+}
+
+.aiModelStatusGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.aiStatusPill {
+  min-height: 2rem;
+  border: 0.667px solid rgba(194, 224, 239, 0.7);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--parametres-blue);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.aiStatusPillActive {
+  border-color: rgba(22, 199, 132, 0.32);
+  color: #0f7a52;
+}
+
+.aiActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: auto;
+}
+
+.aiActions .orangeButton,
+.aiActions .secondaryActionButton,
+.aiActions .saveButtonSmall {
+  width: 100%;
+  min-width: 0;
+}
+
 .field {
   min-width: 0;
   display: flex;
@@ -406,7 +528,8 @@
 
 .orangeButton,
 .cancelButton,
-.saveButton {
+.saveButton,
+.saveButtonSmall {
   border: 0;
   border-radius: 0.75rem;
   min-height: 2.75rem;
@@ -442,7 +565,8 @@
   font-weight: 700;
 }
 
-.orangeButton:hover,
+.orangeButton:hover:not(:disabled),
+.saveButtonSmall:hover:not(:disabled),
 .saveButton:hover:not(:disabled),
 .cancelButton:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -475,8 +599,19 @@
   font-size: 1rem;
 }
 
+.saveButtonSmall {
+  min-width: 0;
+  background: var(--parametres-blue);
+  color: #ffffff;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+}
+
 .cancelButton:disabled,
-.saveButton:disabled {
+.saveButton:disabled,
+.saveButtonSmall:disabled,
+.orangeButton:disabled,
+.secondaryActionButton:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -799,6 +934,7 @@
 
   .profileGrid,
   .preferencesGrid,
+  .aiSettingsGrid,
   .sideBySideSections,
   .securityActionsGrid {
     grid-template-columns: 1fr;
@@ -824,8 +960,13 @@
   .orangeButton,
   .secondaryActionButton,
   .cancelButton,
-  .saveButton {
+  .saveButton,
+  .saveButtonSmall {
     width: 100%;
+  }
+
+  .aiActions {
+    grid-template-columns: 1fr;
   }
 
   .modalBackdrop {

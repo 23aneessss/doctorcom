@@ -1,3 +1,4 @@
+export * from "./app-settings";
 export * from "./documents";
 export * from "./enums";
 export * from "./mobile";
