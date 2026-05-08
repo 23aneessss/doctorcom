@@ -3,6 +3,10 @@ import { useEffect, useState } from "react";
 const HELP_BUTTON_SELECTOR = "[data-context-help-button='true']";
 const HELP_CANDIDATE_SELECTOR =
   "button[aria-label='Aide'], button[aria-label='Help'], a[aria-label='Aide'], a[aria-label='Help'], button[aria-label='Aide contextuelle'], a[aria-label='Aide contextuelle'], button:has(svg.lucide-circle-help), a:has(svg.lucide-circle-help)";
+const CLOSE_BUTTON_SELECTOR =
+  "button[aria-label='Fermer'], button[aria-label='Close']";
+const HEADER_CLOSE_BUTTON_SELECTOR =
+  `${CLOSE_BUTTON_SELECTOR}, button:has(svg.lucide-x)`;
 const SUPPORT_BUTTON_TEXT = "contacter le support";
 const PATIENT_DIALOG_CLASS_MARKER = "modal";
 
@@ -107,33 +111,33 @@ function resolveHelpHref(dialog: Element) {
   return "/aide";
 }
 
-function styleHelpButton(button: HTMLElement, compact: boolean) {
-  button.dataset.contextHelpButton = "true";
-  button.setAttribute("aria-label", "Aide contextuelle");
-  button.setAttribute("title", "Aide contextuelle");
-
+function styleDialogIconButton(button: HTMLElement) {
   Object.assign(button.style, {
     alignItems: "center",
     background: "transparent",
     border: "0",
-    borderRadius: compact ? "999px" : "10px",
+    borderRadius: "999px",
     color: "#052ca0",
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: "0",
-    fontFamily: "Inter, sans-serif",
-    fontSize: compact ? "0" : "12px",
-    fontWeight: "700",
-    gap: compact ? "0" : "6px",
-    height: compact ? "20px" : "32px",
+    height: "32px",
     justifyContent: "center",
     lineHeight: "1",
-    minWidth: compact ? "20px" : "auto",
-    padding: compact ? "0" : "0 10px",
+    minWidth: "32px",
+    padding: "0",
     textDecoration: "none",
-    transition: "color 0.16s ease, opacity 0.16s ease, transform 0.16s ease",
-    width: compact ? "20px" : "auto",
+    transition:
+      "background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.16s ease",
+    width: "32px",
   });
+}
+
+function styleHelpButton(button: HTMLElement) {
+  button.dataset.contextHelpButton = "true";
+  button.setAttribute("aria-label", "Aide contextuelle");
+  button.setAttribute("title", "Aide contextuelle");
+  styleDialogIconButton(button);
 }
 
 function setHelpIcon(button: HTMLElement) {
@@ -157,25 +161,34 @@ function setHelpIcon(button: HTMLElement) {
   `;
 }
 
-function attachHelpHover(button: HTMLElement) {
-  if (button.dataset.contextHelpHoverBound === "true") {
+function attachIconButtonHover(button: HTMLElement) {
+  if (button.dataset.contextIconHoverBound === "true") {
     return;
   }
 
-  button.dataset.contextHelpHoverBound = "true";
+  button.dataset.contextIconHoverBound = "true";
   button.style.cursor = "pointer";
   button.style.transition =
     button.style.transition ||
-    "color 0.16s ease, opacity 0.16s ease, transform 0.16s ease";
+    "background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.16s ease";
 
   button.addEventListener("mouseenter", () => {
-    button.style.opacity = "0.78";
+    button.style.backgroundColor = "#eaf3fb";
+    button.style.opacity = "1";
     button.style.transform = "translateY(-1px)";
   });
   button.addEventListener("mouseleave", () => {
+    button.style.backgroundColor = "";
     button.style.opacity = "";
     button.style.transform = "";
   });
+}
+
+function configureCloseButton(button: HTMLButtonElement) {
+  button.setAttribute("aria-label", "Fermer");
+  button.setAttribute("title", "Fermer");
+  styleDialogIconButton(button);
+  attachIconButtonHover(button);
 }
 
 function configureHelpButton(
@@ -184,16 +197,9 @@ function configureHelpButton(
   options: { preserveStyle?: boolean } = {},
 ) {
   const href = button.dataset.contextHelpHref || resolveHelpHref(dialog);
-  if (!options.preserveStyle) {
-    styleHelpButton(button, true);
-  } else {
-    button.dataset.contextHelpButton = "true";
-    button.setAttribute("aria-label", "Aide contextuelle");
-    button.setAttribute("title", "Aide contextuelle");
-    button.style.cursor = "pointer";
-  }
+  styleHelpButton(button);
   button.dataset.contextHelpHref = href;
-  attachHelpHover(button);
+  attachIconButtonHover(button);
 
   if (button instanceof HTMLAnchorElement) {
     button.href = href;
@@ -253,23 +259,26 @@ function enhanceDialog(dialog: Element) {
   const existingHelpButton = dialog.querySelector<HTMLButtonElement | HTMLAnchorElement>(
     `${HELP_BUTTON_SELECTOR}, ${HELP_CANDIDATE_SELECTOR}`,
   );
+  const header = findDialogHeader(dialog);
+  const closeButton = header?.querySelector<HTMLButtonElement>(
+    HEADER_CLOSE_BUTTON_SELECTOR,
+  );
+
+  if (closeButton) {
+    configureCloseButton(closeButton);
+  }
 
   if (existingHelpButton) {
     configureHelpButton(existingHelpButton, dialog, { preserveStyle: true });
     return;
   }
 
-  const header = findDialogHeader(dialog);
   const helpButton = createHelpButton(dialog);
 
   if (!header) {
     dialog.prepend(helpButton);
     return;
   }
-
-  const closeButton = header.querySelector(
-    "button[aria-label='Fermer'], button[aria-label='Close'], button:last-of-type",
-  );
 
   if (isPatientFormDialog(dialog) && closeButton) {
     const actions = document.createElement("div");
@@ -335,6 +344,17 @@ function enhanceDialogs(root: ParentNode = document) {
     configureHelpButton(helpButton, findContextRoot(helpButton), {
       preserveStyle: true,
     });
+  }
+
+  const closeButtons = Array.from(
+    root.querySelectorAll<HTMLButtonElement>(CLOSE_BUTTON_SELECTOR),
+  );
+  if (root instanceof HTMLButtonElement && root.matches(CLOSE_BUTTON_SELECTOR)) {
+    closeButtons.unshift(root);
+  }
+
+  for (const closeButton of closeButtons) {
+    configureCloseButton(closeButton);
   }
 }
 
