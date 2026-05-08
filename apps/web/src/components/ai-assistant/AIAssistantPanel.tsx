@@ -789,9 +789,9 @@ export function AIAssistantPanel() {
           };
         }
       }
-      throw new Error(
-        "Aucune recommandation fiable n'a pu être produite pour ce contexte.",
-      );
+      return {
+        done: "Aucune recommandation médicamenteuse n'a pu être générée pour ce contexte. Enrichissez le motif de consultation ou l'hypothèse diagnostique puis réessayez.",
+      };
     }
 
     const primaryRecommendation = {

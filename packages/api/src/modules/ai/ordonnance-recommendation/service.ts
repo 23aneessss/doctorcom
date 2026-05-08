@@ -14,6 +14,7 @@ import {
   medicamentsService,
   type MedicamentAggregate,
 } from "../../medicaments/service";
+import type { MedicamentRecord } from "../../medicaments/repo";
 import {
   ordonnanceRecommendationRepository,
   type AntecedentFamilialRecord,
@@ -1042,6 +1043,19 @@ export class OrdonnanceRecommendationService {
     );
   }
 
+  private buildMinimalAggregate(record: MedicamentRecord): MedicamentAggregate {
+    return {
+      medicament: record,
+      substances_actives: [],
+      indications: [],
+      contre_indications: [],
+      precautions: [],
+      interactions: [],
+      effets_indesirables: [],
+      presentations: [],
+    };
+  }
+
   private async retrieveMedicationCandidatesViaLocalFallback(
     clinicalProblemBasis: ClinicalProblemBasis,
     clinicalContext: ClinicalContext,
@@ -1052,77 +1066,54 @@ export class OrdonnanceRecommendationService {
       clinicalContext,
     );
     const queries = this.buildFallbackMedicationQueries(contextTokens);
-    const foundIds: number[] = [];
+
+    // Collect MedicamentRecord directly from keyword search results.
+    // This bypasses the heavy getMedicamentsAggregatesByIds call as the primary
+    // source of candidates, which can silently return empty under pool pressure.
+    const foundRecords = new Map<number, MedicamentRecord>();
 
     for (const query of queries) {
-      const results = await medicamentsService.rechercherMedicaments({
-        query,
-        page: 1,
-        page_size: 4,
-      });
+      try {
+        const results = await medicamentsService.rechercherMedicaments({
+          query,
+          page: 1,
+          page_size: 4,
+        });
 
-      for (const item of results.items) {
-        if (!foundIds.includes(item.id)) {
-          foundIds.push(item.id);
+        for (const item of results.items) {
+          if (!foundRecords.has(item.id)) {
+            foundRecords.set(item.id, item);
+          }
         }
+      } catch {
+        // ignore individual query failures
       }
     }
 
-    if (foundIds.length === 0) {
-      const catalogFallback = await medicamentsService.listAllMedicaments();
-      const rankedIds = this.rankCatalogMedicamentsByContext(
-        catalogFallback,
-        contextTokens,
-      );
+    if (foundRecords.size === 0) {
+      try {
+        const catalogFallback = await medicamentsService.listAllMedicaments();
+        const rankedIds = this.rankCatalogMedicamentsByContext(catalogFallback, contextTokens);
+        const topIds = new Set(rankedIds.slice(0, 6));
+        const topRecords = topIds.size > 0
+          ? catalogFallback.filter((m) => topIds.has(m.id)).slice(0, 6)
+          : catalogFallback.slice(0, 6);
 
-      for (const item of rankedIds.slice(0, 6)) {
-        foundIds.push(item);
-      }
-
-      if (foundIds.length === 0) {
-        warnings.push(
-          "La recherche locale n'a pas trouve de correspondance clinique precise; les premiers medicaments du catalogue ont ete proposes comme base de brouillon a verifier.",
-        );
-      }
-
-      for (const item of catalogFallback.slice(0, 6)) {
-        if (foundIds.length >= 6) {
-          break;
+        for (const item of topRecords) {
+          foundRecords.set(item.id, item);
         }
-        if (!foundIds.includes(item.id)) {
-          foundIds.push(item.id);
-        }
+      } catch {
+        // catalog fallback unavailable
       }
     }
 
-    for (const activeRecord of clinicalContext.treatments.active_records) {
-      const activeId = Number(activeRecord.medicament_externe_id);
-      if (
-        Number.isInteger(activeId) &&
-        activeId > 0 &&
-        !foundIds.includes(activeId)
-      ) {
-        foundIds.push(activeId);
-      }
-    }
-
-    if (foundIds.length === 0) {
-      const allMedicaments = await medicamentsService.listAllMedicaments();
-      for (const item of allMedicaments.slice(0, 6)) {
-        foundIds.push(item.id);
-      }
-    }
-
-    if (foundIds.length === 0) {
+    if (foundRecords.size === 0) {
       warnings.push(
         "La recherche locale de secours n'a retourne aucun medicament exploitable.",
       );
       return [];
     }
 
-    const aggregates = await medicamentsService.getMedicamentsAggregatesByIds(
-      foundIds.slice(0, 6),
-    );
     const activeTreatmentIds = new Set(
       clinicalContext.treatments.active_records
         .map((record) => record.medicament_externe_id)
@@ -1134,15 +1125,34 @@ export class OrdonnanceRecommendationService {
         .filter((value): value is string => Boolean(value)),
     );
 
-    return aggregates.map((aggregate, index) => ({
-      aggregate,
-      similarity: 0.7 - index * 0.05,
-      is_active_treatment: this.isActiveTreatmentMedication(
+    const records = [...foundRecords.values()].slice(0, 6);
+
+    // Attempt to enrich with full aggregates (relational data); degrade gracefully on failure.
+    const aggregateMap = new Map<number, MedicamentAggregate>();
+    try {
+      const aggregates = await medicamentsService.getMedicamentsAggregatesByIds(
+        records.map((r) => r.id),
+      );
+      for (const agg of aggregates) {
+        aggregateMap.set(agg.medicament.id, agg);
+      }
+    } catch {
+      // aggregate enrichment unavailable; minimal records used
+    }
+
+    return records.map((record, index) => {
+      const aggregate = aggregateMap.get(record.id) ?? this.buildMinimalAggregate(record);
+      const isActive =
+        activeTreatmentIds.has(String(record.id)) ||
+        activeTreatmentNames.has(record.nom_medicament.toLowerCase()) ||
+        Boolean(record.nom_generique && activeTreatmentNames.has(record.nom_generique.toLowerCase()));
+
+      return {
         aggregate,
-        activeTreatmentIds,
-        activeTreatmentNames,
-      ),
-    }));
+        similarity: 0.7 - index * 0.05,
+        is_active_treatment: isActive,
+      };
+    });
   }
 
   private extractClinicalSearchTokens(
