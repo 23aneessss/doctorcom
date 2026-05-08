@@ -1,4 +1,3 @@
-import { env } from "@doctor.com/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -27,6 +26,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { getServerBaseUrl } from "@/lib/server-url";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import {
   DialogShell,
@@ -476,7 +476,7 @@ function PatientRdvPage() {
               type_document: "autre",
               description: null,
             }));
-            const res = await fetch(`${env.VITE_SERVER_URL}/api/upload/document`, {
+            const res = await fetch(`${getServerBaseUrl()}/api/upload/document`, {
               method: "POST",
               body: formData,
               credentials: "include",
