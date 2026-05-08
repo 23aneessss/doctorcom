@@ -327,7 +327,14 @@ export function NouveauCertMedicalDialog({
             </div>
 
             <div className="flex items-center gap-4 text-[#0f3460]">
-              <CircleHelp className="size-5" strokeWidth={1.8} />
+              <button
+                aria-label="Aide"
+                className="cursor-pointer transition-colors hover:text-[#265284]"
+                data-context-help-href="/aide/ordonnances#templates"
+                type="button"
+              >
+                <CircleHelp className="size-5" strokeWidth={1.8} />
+              </button>
               <button
                 className="cursor-pointer transition-colors hover:text-[#265284]"
                 onClick={() => onOpenChange(false)}

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
@@ -534,9 +534,19 @@ export function NouveauPatientDialog({
               <p className={styles.subtitle}>{`Étape ${currentStep} sur ${stepLabels.length} · ${stepLabels[currentStep - 1]}`}</p>
             </div>
           </div>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
-            <X size={18} aria-hidden="true" />
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.closeButton}
+              aria-label="Aide"
+              data-context-help-href="/aide/patients#creation"
+            >
+              <CircleHelp size={18} aria-hidden="true" />
+            </button>
+            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <div className={styles.progressBarTrack}>

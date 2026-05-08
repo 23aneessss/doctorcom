@@ -4,6 +4,7 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useNavigate,
   useSearch,
 } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
@@ -201,6 +202,7 @@ function PatientLayout() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
@@ -1109,7 +1111,16 @@ function PatientLayout() {
                   layout="centered"
                   specialIcon={<RendezVousIcon />}
                   onClick={() => {
-                    window.location.href = `/patients/${id}/rdv`;
+                    window.sessionStorage.setItem(
+                      `doctor-com-open-patient-rdv-${id}`,
+                      "1",
+                    );
+                    window.dispatchEvent(
+                      new CustomEvent("patient-rdv-create-request", {
+                        detail: { patientId: id },
+                      }),
+                    );
+                    void navigate({ to: "/patients/$id/rdv", params: { id } });
                   }}
                 />
               </div>

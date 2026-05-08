@@ -442,7 +442,14 @@ export function ModeleOrdonnanceDialog({
             </div>
 
             <div className="flex items-center gap-4 text-[#7a93af]">
-              <CircleHelp className="size-5" strokeWidth={1.8} />
+              <button
+                aria-label="Aide"
+                className="cursor-pointer transition-colors hover:text-[#0f3460]"
+                data-context-help-href="/aide/ordonnances#templates"
+                type="button"
+              >
+                <CircleHelp className="size-5" strokeWidth={1.8} />
+              </button>
               <button
                 className="text-[#7a93af] transition-colors hover:text-[#0f3460]"
                 onClick={() => onOpenChange(false)}

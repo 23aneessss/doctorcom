@@ -198,11 +198,19 @@ export function NouveauSuiviDialog({
         }
       }}
     >
-      <div className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
+      <div
+        aria-labelledby="nouveau-suivi-title"
+        aria-modal="true"
+        className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]"
+        role="dialog"
+      >
         <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 pb-[0.8px]">
           <div className="flex items-center gap-2">
             <ClipboardList className="size-5 "  color="#0f3460"/>
-            <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]">
+            <h3
+              className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]"
+              id="nouveau-suivi-title"
+            >
               {mode === "edit" ? "Modifier suivi" : "Nouveau suivi"}
             </h3>
           </div>

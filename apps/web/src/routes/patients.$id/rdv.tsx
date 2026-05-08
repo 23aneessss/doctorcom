@@ -21,7 +21,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -363,6 +363,39 @@ function PatientRdvPage() {
     setRdvForm(createDefaultForm());
     setIsCreateOpen(true);
   };
+
+  useEffect(() => {
+    const storageKey = `doctor-com-open-patient-rdv-${id}`;
+
+    const consumeOpenRequest = () => {
+      if (window.sessionStorage.getItem(storageKey) !== "1") {
+        return;
+      }
+
+      window.sessionStorage.removeItem(storageKey);
+      openCreate();
+    };
+
+    const handleOpenRequest = (event: Event) => {
+      const detail = (event as CustomEvent<{ patientId?: string }>).detail;
+      if (detail?.patientId && detail.patientId !== id) {
+        return;
+      }
+
+      window.sessionStorage.setItem(storageKey, "1");
+      consumeOpenRequest();
+    };
+
+    consumeOpenRequest();
+    window.addEventListener("patient-rdv-create-request", handleOpenRequest);
+
+    return () => {
+      window.removeEventListener(
+        "patient-rdv-create-request",
+        handleOpenRequest,
+      );
+    };
+  }, [id]);
 
   const openEdit = (rdv: PatientRdv) => {
     setEditingRdv(rdv);

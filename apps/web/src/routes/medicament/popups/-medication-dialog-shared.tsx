@@ -75,7 +75,11 @@ export function MedicationDialogShell({
             {title}
           </h3>
           <div className="flex items-center gap-4">
-            <button className="flex size-5 items-center justify-center text-[#0f3460]" type="button">
+            <button
+              aria-label="Aide"
+              className="flex size-5 items-center justify-center text-[#0f3460]"
+              type="button"
+            >
               <CircleHelp className="size-5" />
             </button>
             <button

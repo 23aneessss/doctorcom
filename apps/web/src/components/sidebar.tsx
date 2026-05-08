@@ -13,6 +13,10 @@ import {
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import {
+  useInterfaceLanguage,
+  type SidebarTranslationKey,
+} from "@/lib/interface-language";
 
 import doctorLogo from "@/assets/doctor-logo.svg";
 
@@ -48,19 +52,9 @@ interface NavItemProps {
   onNavigate?: (href: string) => void;
 }
 
-const SIDEBAR_TEXT = {
-  accueil: "Accueil",
-  patients: "Patients",
-  agenda: "Agenda",
-  ordonnances: "Ordonnances",
-  medicaments: "Médicaments",
-  parametres: "Paramètres",
-  aide: "Aide et Assistance",
-} as const;
-
 type SidebarRouteItem = {
   href: string;
-  label: string;
+  labelKey: SidebarTranslationKey;
   icon: ReactNode;
   state?: NavItemProps["state"];
 };
@@ -68,27 +62,27 @@ type SidebarRouteItem = {
 const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/dashboard",
-    label: SIDEBAR_TEXT.accueil,
+    labelKey: "accueil",
     icon: <House size={24} weight="regular" />,
   },
   {
     href: "/patients",
-    label: SIDEBAR_TEXT.patients,
+    labelKey: "patients",
     icon: <UsersThree size={24} weight="fill" />,
   },
   {
     href: "/agenda",
-    label: SIDEBAR_TEXT.agenda,
+    labelKey: "agenda",
     icon: <CalendarDots size={24} weight="fill" />,
   },
   {
     href: "/ordonnance",
-    label: SIDEBAR_TEXT.ordonnances,
+    labelKey: "ordonnances",
     icon: <NotePencil size={24} weight="fill" />,
   },
   {
     href: "/medicament",
-    label: SIDEBAR_TEXT.medicaments,
+    labelKey: "medicaments",
     icon: <Pill size={24} weight="fill" />,
   },
 ];
@@ -96,12 +90,12 @@ const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
 const SECONDARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/parametres",
-    label: SIDEBAR_TEXT.parametres,
+    labelKey: "parametres",
     icon: <GearSix size={24} weight="fill" />,
   },
   {
     href: "/aide",
-    label: SIDEBAR_TEXT.aide,
+    labelKey: "aide",
     icon: <Question size={24} weight="fill" />,
   },
 ];
@@ -367,6 +361,7 @@ function SidebarUserCard({
 }) {
   const { data: session } = authClient.useSession();
   const navigate = useNavigate();
+  const { t } = useInterfaceLanguage();
 
   const sessionUser = session?.user;
   const currentUser: NonNullable<SidebarProps["currentUser"]> = sessionUser
@@ -392,7 +387,7 @@ function SidebarUserCard({
   return (
     <div
       style={SIDEBAR_STYLE_MAP.userCard}
-      aria-label="Current user profile"
+      aria-label={t.sidebar.currentUser}
       data-node-id="1:1050"
     >
       <div style={SIDEBAR_STYLE_MAP.userRow}>
@@ -403,7 +398,7 @@ function SidebarUserCard({
         <button
           type="button"
           onClick={handleLogout}
-          aria-label="Se déconnecter"
+          aria-label={t.sidebar.logout}
           style={{
             background: "none",
             border: "none",
@@ -442,6 +437,7 @@ function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useInterfaceLanguage();
   const { style, ...asideProps } = props;
 
   const handleNavigate = (href: string) => {
@@ -462,14 +458,14 @@ function Sidebar({
           SIDEBAR_STYLE_MAP.navBase,
           SIDEBAR_STYLE_MAP.primaryNav,
         )}
-        aria-label="Primary sidebar navigation"
+        aria-label={t.sidebar.primaryNavigation}
       >
         <ul style={SIDEBAR_STYLE_MAP.navList}>
           {PRIMARY_NAV_ITEMS.map((item) => (
             <li key={item.href}>
               <SidebarNavItem
                 icon={item.icon}
-                label={item.label}
+                label={t.sidebar[item.labelKey]}
                 href={item.href}
                 isActive={isRouteActive(location.pathname, item.href)}
                 state={item.state}
@@ -487,14 +483,14 @@ function Sidebar({
           SIDEBAR_STYLE_MAP.navBase,
           SIDEBAR_STYLE_MAP.secondaryNav,
         )}
-        aria-label="Secondary sidebar navigation"
+        aria-label={t.sidebar.secondaryNavigation}
       >
         <ul style={SIDEBAR_STYLE_MAP.navList}>
           {SECONDARY_NAV_ITEMS.map((item) => (
             <li key={item.href}>
               <SidebarNavItem
                 icon={item.icon}
-                label={item.label}
+                label={t.sidebar[item.labelKey]}
                 href={item.href}
                 isActive={isRouteActive(location.pathname, item.href)}
                 state={item.state}
