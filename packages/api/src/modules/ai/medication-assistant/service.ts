@@ -1869,17 +1869,6 @@ export class MedicationAssistantService {
     };
   }
 
-  private shouldPreferDeterministicResponse(
-    intent: MedicationAssistantIntent,
-    policyProfile: MedicationPolicyProfile,
-  ): boolean {
-    if (intent === "compare" || intent === "explain" || intent === "safety") {
-      return true;
-    }
-
-    return policyProfile !== "generic";
-  }
-
   private buildFallbackResponse(
     intent: MedicationAssistantIntent,
     structuredQuery: StructuredMedicationQuery,

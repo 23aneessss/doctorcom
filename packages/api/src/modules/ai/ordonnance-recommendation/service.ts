@@ -254,10 +254,18 @@ export class OrdonnanceRecommendationService {
       globalWarnings,
     );
     const medicamentSuggestions = this.buildMedicationSuggestions(candidates);
-    const ordonnanceRecommendations = this.buildOrdonnanceRecommendations(
+    const draftRecommendations = this.buildOrdonnanceRecommendations(
       candidates,
       clinicalProblemBasis,
     );
+    const ordonnanceRecommendations =
+      draftRecommendations.length > 0
+        ? await this.enrichOrdonnanceWithAI(
+            draftRecommendations,
+            clinicalContext,
+            clinicalProblemBasis,
+          )
+        : draftRecommendations;
 
     const selectedRecommendations =
       responseMode === "medicaments"

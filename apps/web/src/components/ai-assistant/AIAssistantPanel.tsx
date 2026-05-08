@@ -154,6 +154,13 @@ interface AssistantChatMessageInput {
   content: string;
 }
 
+interface AssistantChatMedication {
+  medicament_externe_id: string;
+  nom_medicament: string;
+  dci: string | null;
+  classe_therapeutique: string | null;
+}
+
 interface AssistantChatResult {
   resolved_intent:
     | "patient_qna"
@@ -162,6 +169,7 @@ interface AssistantChatResult {
   answer: string;
   warnings: string[];
   follow_up_suggestions: string[];
+  referenced_medicaments?: AssistantChatMedication[];
 }
 
 interface MedicationSuggestionResultItem {
@@ -1148,9 +1156,34 @@ export function AIAssistantPanel() {
         });
 
         const chatResult = result as AssistantChatResult;
+        const parts: string[] = [chatResult.answer];
+
+        if (chatResult.warnings.length > 0) {
+          parts.push(
+            `**Avertissements**\n${chatResult.warnings.map((w) => `* ${w}`).join("\n")}`,
+          );
+        }
+
+        if ((chatResult.referenced_medicaments ?? []).length > 0) {
+          const medLines = (chatResult.referenced_medicaments ?? [])
+            .map((med) => {
+              const detail = [med.dci, med.classe_therapeutique]
+                .filter(Boolean)
+                .join(" · ");
+              return `* ${med.nom_medicament}${detail ? ` — ${detail}` : ""}`;
+            })
+            .join("\n");
+          parts.push(`**Médicaments mentionnés**\n${medLines}`);
+        }
+
+        if (chatResult.follow_up_suggestions.length > 0) {
+          parts.push(
+            `**Questions de suivi**\n${chatResult.follow_up_suggestions.map((s) => `* ${s}`).join("\n")}`,
+          );
+        }
 
         return {
-          done: chatResult.answer,
+          done: parts.join("\n\n"),
         };
       },
     });
