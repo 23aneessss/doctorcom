@@ -1755,10 +1755,7 @@ export class MedicationAssistantService {
       policyProfile,
       shortlistedCandidates,
     );
-    const response =
-      this.shouldPreferDeterministicResponse(intent, policyProfile) || !aiResponse
-        ? fallback
-        : aiResponse;
+    const response = aiResponse ?? fallback;
     const warnings = [...response.warnings];
     const followUpSuggestions =
       response.follow_up_suggestions.length > 0

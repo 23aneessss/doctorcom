@@ -37,6 +37,23 @@ import {
 } from "./schema";
 import { ordonnanceVectorRepository } from "./vector-repo";
 
+const aiEnrichmentPayloadSchema = z.object({
+  rationale: z.string().trim().min(1).max(2400),
+  remarques: z.string().max(800).default(""),
+  medicaments: z
+    .array(
+      z.object({
+        medicament_externe_id: z.string().trim().min(1),
+        posologie: z.string().trim().min(1).max(600),
+        duree_traitement: z.string().max(180).default(""),
+        instructions: z.string().max(600).default(""),
+        justification: z.string().trim().min(1).max(800),
+      }),
+    )
+    .min(1)
+    .max(6),
+});
+
 type DatabaseClient = typeof databaseClient;
 type OrdonnanceRecommendationSession = Exclude<SessionUtilisateur, null>;
 type AIProviderName = "google-ai-studio" | "ollama";
@@ -530,6 +547,140 @@ export class OrdonnanceRecommendationService {
   private emptyStringToNull(value: string): string | null {
     const normalized = value.trim();
     return normalized ? normalized : null;
+  }
+
+  private buildEnrichmentPrompt(
+    draft: Array<z.infer<typeof recommendationSchema>>,
+    clinicalContext: ClinicalContext,
+    clinicalProblemBasis: ClinicalProblemBasis,
+  ): string {
+    const patientParts = [
+      clinicalContext.patient.age !== null ? `age: ${clinicalContext.patient.age} ans` : null,
+      clinicalContext.patient.sexe ? `sexe: ${clinicalContext.patient.sexe}` : null,
+      clinicalContext.current_consultation.examen?.poids
+        ? `poids: ${clinicalContext.current_consultation.examen.poids} kg`
+        : null,
+      clinicalContext.antecedents.allergy_signals.length > 0
+        ? `allergies connues: ${clinicalContext.antecedents.allergy_signals.join(", ")}`
+        : null,
+      clinicalContext.treatments.active_labels.length > 0
+        ? `traitements actifs: ${clinicalContext.treatments.active_labels.slice(0, 5).join("; ")}`
+        : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(", ");
+
+    const exampleMed = draft[0]?.ordonnance_draft.medicaments[0];
+    const jsonExample = JSON.stringify({
+      rationale: "Traitement adapte au contexte clinique du patient.",
+      remarques: "",
+      medicaments: [
+        {
+          medicament_externe_id: exampleMed?.medicament_externe_id ?? "id",
+          posologie: "1 comprime matin et soir pendant les repas",
+          duree_traitement: "7 jours",
+          instructions: "Prendre avec un grand verre d'eau.",
+          justification: "Indique en premiere intention selon le contexte clinique.",
+        },
+      ],
+    });
+
+    return [
+      "Tu es un assistant medical specialise en prescription medicale pour medecins.",
+      "Adapte ce brouillon d'ordonnance au contexte clinique specifique du patient.",
+      "Reponds uniquement avec un objet JSON valide, sans markdown ni texte supplementaire.",
+      "Format JSON attendu (respecte exactement ces champs):",
+      jsonExample,
+      "Regles:",
+      "- Conserve tous les medicament_externe_id du brouillon sans les modifier.",
+      "- Adapte la posologie a l'age, au poids et au sexe du patient.",
+      "- Indique systematiquement une duree_traitement si elle peut etre estimee.",
+      "- Ajoute des instructions utiles (prise alimentaire, conduite a tenir, etc.).",
+      "- Redige une justification clinique concise pour chaque medicament.",
+      "- Ecris la rationale globale en 1-2 phrases expliquant le choix therapeutique.",
+      "- Pour les champs vides (remarques, duree_traitement, instructions), utilise une chaine vide.",
+      `Probleme clinique: ${clinicalProblemBasis.chief_problem}`,
+      patientParts ? `Patient: ${patientParts}` : null,
+      clinicalContext.current_consultation.motif
+        ? `Motif: ${this.truncateText(clinicalContext.current_consultation.motif, 300)}`
+        : null,
+      clinicalContext.current_consultation.examen?.conclusion
+        ? `Conclusion examen: ${this.truncateText(clinicalContext.current_consultation.examen.conclusion, 300)}`
+        : null,
+      "Brouillon a enrichir:",
+      JSON.stringify(
+        draft.map((rec) => ({
+          label: rec.label,
+          medicaments: rec.ordonnance_draft.medicaments.map((med) => ({
+            medicament_externe_id: med.medicament_externe_id,
+            nom_medicament: med.nom_medicament,
+            dci: med.dci,
+            posologie_brute: med.posologie,
+          })),
+        })),
+      ),
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join("\n");
+  }
+
+  private async enrichOrdonnanceWithAI(
+    draft: Array<z.infer<typeof recommendationSchema>>,
+    clinicalContext: ClinicalContext,
+    clinicalProblemBasis: ClinicalProblemBasis,
+  ): Promise<Array<z.infer<typeof recommendationSchema>>> {
+    if (draft.length === 0 || draft[0]?.ordonnance_draft.medicaments.length === 0) {
+      return draft;
+    }
+
+    try {
+      const provider = this.resolveAiProvider();
+      const response = await generateGeminiText({
+        provider,
+        system: [
+          "Tu es un assistant medical specialise en prescription.",
+          "Tu reponds uniquement avec un objet JSON valide, sans markdown.",
+          "La sortie doit avoir exactement les champs: rationale, remarques, medicaments.",
+          "medicaments doit etre un tableau avec exactement les memes medicament_externe_id que le brouillon fourni.",
+        ].join(" "),
+        prompt: this.buildEnrichmentPrompt(draft, clinicalContext, clinicalProblemBasis),
+        temperature: 0.2,
+        timeoutMs: 18000,
+      });
+
+      const payload = aiEnrichmentPayloadSchema.parse(
+        parseSharedModelJson(response.text.trim()),
+      );
+
+      const enrichedById = new Map(
+        payload.medicaments.map((med) => [med.medicament_externe_id, med]),
+      );
+
+      return draft.map((rec) => ({
+        ...rec,
+        rationale: payload.rationale,
+        ordonnance_draft: {
+          remarques: this.emptyStringToNull(payload.remarques),
+          medicaments: rec.ordonnance_draft.medicaments.map((med) => {
+            const enriched = enrichedById.get(med.medicament_externe_id);
+            if (!enriched) {
+              return med;
+            }
+
+            return {
+              ...med,
+              posologie: enriched.posologie || med.posologie,
+              duree_traitement: this.emptyStringToNull(enriched.duree_traitement),
+              instructions: this.emptyStringToNull(enriched.instructions),
+              justification: enriched.justification || med.justification,
+            };
+          }),
+        },
+      }));
+    } catch (error) {
+      logAiError("ordonnance-recommendation.enrichment", error);
+      return draft;
+    }
   }
 
   private buildVerificationPrompt(draftResult: OrdonnanceRecommendationResult): string {
