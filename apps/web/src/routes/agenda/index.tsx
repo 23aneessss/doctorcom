@@ -281,6 +281,7 @@ function RouteComponent() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
+  const [isDaySelected, setIsDaySelected] = useState(false);
   const [activeDialog, setActiveDialog] = useState<"add" | "view" | "edit" | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AgendaEvent | null>(null);
   const [createdSuccessAppointment, setCreatedSuccessAppointment] = useState<AgendaEvent | null>(null);
@@ -371,6 +372,7 @@ function RouteComponent() {
   const selectedDateIso = formatDateFromSelection(selectedYear, selectedMonth, selectedDay);
 
   const filteredGroupedEvents = groupedEvents
+    .filter((group: GroupedEvent) => !isDaySelected || group.events[0]?.date === selectedDateIso)
     .map((group: GroupedEvent) => ({
       ...group,
       events: group.events.filter(matchesFilters),
@@ -390,9 +392,18 @@ function RouteComponent() {
 
   useEffect(() => {
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-
     setSelectedDay((currentDay) => Math.min(currentDay, daysInMonth));
   }, [selectedMonth, selectedYear]);
+
+  const handleSelectMonth = (month: number) => {
+    setSelectedMonth(month);
+    setIsDaySelected(false);
+  };
+
+  const handleSelectDay = (day: number) => {
+    setSelectedDay(day);
+    setIsDaySelected(true);
+  };
 
   const handleCreateRdv = async (values: RdvFormValues) => {
     try {
@@ -553,13 +564,18 @@ function RouteComponent() {
           {/* Main Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_21rem] gap-3.5 items-start">
             <section className="min-w-0 space-y-8">
-              <MonthSelector selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
+              <MonthSelector selectedMonth={selectedMonth} onSelectMonth={handleSelectMonth} />
 
               <TimelineSection
                 groupedEvents={filteredGroupedEvents}
                 isLoading={isAgendaLoading}
                 selectedDate={selectedDateIso}
                 onAppointmentClick={handleAppointmentClick}
+                emptyMessage={
+                  isDaySelected
+                    ? "Aucun rendez-vous pour ce jour."
+                    : "Aucun rendez-vous pour ce mois."
+                }
               />
             </section>
 
@@ -568,10 +584,10 @@ function RouteComponent() {
               <CalendarSection
                 selectedMonth={selectedMonth}
                 selectedYear={selectedYear}
-                onSelectMonth={setSelectedMonth}
-                onSelectYear={setSelectedYear}
+                onSelectMonth={(month) => { setSelectedMonth(month); setIsDaySelected(false); }}
+                onSelectYear={(year) => { setSelectedYear(year); setIsDaySelected(false); }}
                 selectedDay={selectedDay}
-                onSelectDate={setSelectedDay}
+                onSelectDate={handleSelectDay}
               />
 
               <section className="border border-[rgba(194,224,239,0.5)] rounded-xl bg-white shadow-[0px_4px_24px_rgba(194,224,239,0.5)] p-5">

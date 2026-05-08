@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import { PDFDocument } from "pdf-lib";
 import { auth } from "@doctor.com/auth";
 import { db } from "@doctor.com/db";
 import { ordonnance_pdf_templates, patients, utilisateurs } from "@doctor.com/db/schema";
@@ -87,6 +88,23 @@ function isPdfUpload(file: Express.Multer.File): boolean {
   return file.buffer.subarray(0, 5).toString("utf8") === "%PDF-";
 }
 
+async function extractPdfPageSize(
+  buffer: Buffer,
+): Promise<{ width: number; height: number } | null> {
+  try {
+    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const page = pdfDoc.getPages()[0];
+    if (!page) return null;
+    const { width, height } = page.getSize();
+    return {
+      width: Math.round(width),
+      height: Math.round(height),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function resolveDefaultDocumentCategorieId(): Promise<string> {
   const categories = await documentsService.getToutesCategories({ db });
   const defaultCategory =
@@ -147,6 +165,8 @@ router.post("/ordonnance-template", upload.single("file"), async (req, res) => {
       folder: "ordonnance-templates",
     });
 
+    const pageSize = await extractPdfPageSize(req.file.buffer);
+
     const template = await ordonnanceService.creerPdfTemplateFromUpload({
       db,
       session,
@@ -156,6 +176,8 @@ router.post("/ordonnance-template", upload.single("file"), async (req, res) => {
         chemin_fichier: uploaded.url,
         type_fichier: uploaded.mimeType || "application/pdf",
         taille_fichier: uploaded.size,
+        page_width: pageSize?.width ?? undefined,
+        page_height: pageSize?.height ?? undefined,
       },
     });
 
