@@ -1090,17 +1090,18 @@ export class OrdonnanceRecommendationService {
       }
     }
 
-    if (foundRecords.size === 0) {
+    if (foundRecords.size === 0 && contextTokens.length > 0) {
       try {
         const catalogFallback = await medicamentsService.listAllMedicaments();
         const rankedIds = this.rankCatalogMedicamentsByContext(catalogFallback, contextTokens);
-        const topIds = new Set(rankedIds.slice(0, 6));
-        const topRecords = topIds.size > 0
-          ? catalogFallback.filter((m) => topIds.has(m.id)).slice(0, 6)
-          : catalogFallback.slice(0, 6);
-
-        for (const item of topRecords) {
-          foundRecords.set(item.id, item);
+        // Only seed fallback medications when ranking actually matched the clinical context.
+        // Returning arbitrary "first 6 medications" would suggest unrelated drugs.
+        if (rankedIds.length > 0) {
+          const topIds = new Set(rankedIds.slice(0, 6));
+          const topRecords = catalogFallback.filter((m) => topIds.has(m.id)).slice(0, 6);
+          for (const item of topRecords) {
+            foundRecords.set(item.id, item);
+          }
         }
       } catch {
         // catalog fallback unavailable
