@@ -1,10 +1,10 @@
 import PDFDocument from "pdfkit";
 import {
   PDFDocument as PdfLibDocument,
+  type PDFImage,
   StandardFonts,
   rgb,
   type PDFFont,
-  type PDFImage,
   type PDFPage,
 } from "pdf-lib";
 import { TRPCError } from "@trpc/server";
@@ -119,7 +119,7 @@ export class ExportService {
     }).format(date);
   }
 
-  private async readStoredPdfBuffer(fileUrl: string): Promise<Buffer> {
+  private async readStoredFileBuffer(fileUrl: string): Promise<Buffer> {
     const objectName = getObjectNameFromUrl(fileUrl);
     const stream = await minioClient.getObject(storageConfig.bucket, objectName);
     const chunks: Buffer[] = [];
@@ -271,23 +271,59 @@ export class ExportService {
     });
   }
 
-  private async embedLogoImage(
-    pdfDoc: PdfLibDocument,
-    logoUrl: string,
-  ): Promise<PDFImage | null> {
-    try {
-      const buffer = await this.readStoredPdfBuffer(logoUrl);
-      const lower = logoUrl.toLowerCase();
-      if (lower.includes(".png")) {
-        return await pdfDoc.embedPng(buffer);
-      }
-      if (lower.includes(".svg")) {
-        return null;
-      }
-      return await pdfDoc.embedJpg(buffer);
-    } catch {
+  private drawMappedImageBlock(
+    page: PDFPage,
+    image: PDFImage,
+    field: OrdonnancePdfTemplateField,
+    pageHeight: number,
+  ) {
+    if (field.enabled === false) {
+      return;
+    }
+
+    const imageWidth = image.width;
+    const imageHeight = image.height;
+    if (imageWidth <= 0 || imageHeight <= 0) {
+      return;
+    }
+
+    const scale = Math.min(field.width / imageWidth, field.height / imageHeight);
+    const renderedWidth = imageWidth * scale;
+    const renderedHeight = imageHeight * scale;
+
+    page.drawImage(image, {
+      x: field.x + Math.max(0, (field.width - renderedWidth) / 2),
+      y:
+        pageHeight -
+        field.y -
+        field.height +
+        Math.max(0, (field.height - renderedHeight) / 2),
+      width: renderedWidth,
+      height: renderedHeight,
+    });
+  }
+
+  private async embedTemplateImage(params: {
+    pdfDoc: PdfLibDocument;
+    fileUrl: string | null;
+    mimeType: string | null;
+  }): Promise<PDFImage | null> {
+    if (!params.fileUrl) {
       return null;
     }
+
+    const imageBytes = await this.readStoredFileBuffer(params.fileUrl);
+    const mimeType = params.mimeType?.toLowerCase() ?? "";
+
+    if (mimeType.includes("png")) {
+      return params.pdfDoc.embedPng(imageBytes);
+    }
+
+    if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+      return params.pdfDoc.embedJpg(imageBytes);
+    }
+
+    return null;
   }
 
   private renderDoctorComClinicalPdf({
@@ -631,7 +667,7 @@ export class ExportService {
       });
     }
 
-    const pdfBytes = await this.readStoredPdfBuffer(template.chemin_fichier);
+    const pdfBytes = await this.readStoredFileBuffer(template.chemin_fichier);
     const pdfDoc = await PdfLibDocument.load(pdfBytes);
     const [page] = pdfDoc.getPages();
 
@@ -645,6 +681,11 @@ export class ExportService {
     const { height: pageHeight } = page.getSize();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const layout = normalizeOrdonnancePdfLayout(template.layout_config);
+    const logoImage = await this.embedTemplateImage({
+      pdfDoc,
+      fileUrl: template.logo_chemin_fichier,
+      mimeType: template.logo_type_fichier,
+    });
     const patient = this.ensurePatientExportData(data.patient);
     const utilisateur = this.ensureUtilisateurExportData(data.utilisateur);
     const ord = data.ordonnance;
@@ -707,21 +748,21 @@ export class ExportService {
             .join("\n\n")
         : "Aucun médicament renseigné.";
 
-    if (template.logo_url && layout.fields.logo_medecin.enabled !== false) {
-      const logoImage = await this.embedLogoImage(pdfDoc, template.logo_url);
-      if (logoImage) {
-        const f = layout.fields.logo_medecin;
-        page.drawImage(logoImage, {
-          x: f.x,
-          y: pageHeight - f.y - f.height,
-          width: f.width,
-          height: f.height,
-        });
-      } else {
-        this.drawMappedLogoBlock(page, doctorInitials || "Dr", layout.fields.logo_medecin, pageHeight, font);
-      }
+    if (logoImage) {
+      this.drawMappedImageBlock(
+        page,
+        logoImage,
+        layout.fields.logo_medecin,
+        pageHeight,
+      );
     } else {
-      this.drawMappedLogoBlock(page, doctorInitials || "Dr", layout.fields.logo_medecin, pageHeight, font);
+      this.drawMappedLogoBlock(
+        page,
+        doctorInitials || "Dr",
+        layout.fields.logo_medecin,
+        pageHeight,
+        font,
+      );
     }
     this.drawMappedTextBlock(
       page,
