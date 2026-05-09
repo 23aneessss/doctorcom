@@ -182,6 +182,7 @@ function groupAgendaEvents(events: AgendaEvent[]): GroupedEvent[] {
     }
 
     groups.set(event.date, {
+      date: event.date,
       day: event.day,
       weekday: getWeekdayLabel(event.date),
       events: [event],

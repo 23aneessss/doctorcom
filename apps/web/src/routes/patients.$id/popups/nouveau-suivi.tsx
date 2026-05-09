@@ -1,10 +1,11 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { X, CircleHelp, ClipboardList, Plus } from "lucide-react";
+import { X, ClipboardList, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DialogShell } from "@/routes/agenda/popups/rdv-dialog-shared";
 import { trpcClient } from "@/utils/trpc";
 
 
@@ -167,17 +168,6 @@ export function NouveauSuiviDialog({
     setSymptomDraft("");
   }, [form, initialValues, mode, open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onOpenChange]);
-
   if (!open) return null;
 
   const isPending = createSuiviMutation.isPending || updateSuiviMutation.isPending;
@@ -190,58 +180,57 @@ export function NouveauSuiviDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,35,65,0.2)]"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) {
-          onOpenChange(false);
-        }
-      }}
+    <DialogShell
+      footer={
+        <>
+          <button
+            className="h-[37.6px] w-[90.582px] cursor-pointer rounded-[12px] border border-[#f77a21] font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-6 text-[#f77a21]"
+            onClick={() => onOpenChange(false)}
+            type="button"
+          >
+            Annuler
+          </button>
+
+          <form.Subscribe selector={(state) => state.values}>
+            {(currentValues) => {
+              const canSubmit =
+                symptoms.length > 0 &&
+                /^\d{4}-\d{2}-\d{2}$/.test(currentValues.date_ouverture ?? "");
+
+              return (
+                <button
+                  className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#052ca0] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_rgba(5,44,160,0.4)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                  disabled={isPending || !canSubmit}
+                  form="nouveau-suivi-form"
+                  type="submit"
+                >
+                  {isPending
+                    ? "Enregistrement..."
+                    : mode === "edit"
+                      ? "Enregistrer"
+                      : "Creer le suivi"}
+                </button>
+              );
+            }}
+          </form.Subscribe>
+        </>
+      }
+      icon={<ClipboardList className="size-5" />}
+      maxWidth="max-w-[512px]"
+      open={open}
+      title={mode === "edit" ? "Modifier suivi" : "Nouveau suivi"}
+      onOpenChange={onOpenChange}
     >
-      <div
-        aria-labelledby="nouveau-suivi-title"
-        aria-modal="true"
-        className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]"
-        role="dialog"
-      >
-        <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 pb-[0.8px]">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="size-5 "  color="#0f3460"/>
-            <h3
-              className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]"
-              id="nouveau-suivi-title"
-            >
-              {mode === "edit" ? "Modifier suivi" : "Nouveau suivi"}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              aria-label="Help"
-              className="flex size-5 items-center justify-center text-[#0f3460]"
-              type="button"
-            >
-              <CircleHelp className="size-5" />
-            </button>
-            <button
-              className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460]"
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
-
         <form
-          className="flex h-[508px] flex-col justify-between"
+          className="flex flex-col"
+          id="nouveau-suivi-form"
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
             form.handleSubmit();
           }}
         >
-          <div className="flex flex-col gap-4 px-5 pt-5">
+          <div className="flex flex-col gap-4">
             <div className="flex min-h-[104px] flex-col gap-1">
               <label className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold uppercase tracking-[0.3px] text-[#0f3460]">
                 Symptoms <span className="text-[#f97316]">*</span>
@@ -359,40 +348,8 @@ export function NouveauSuiviDialog({
             </form.Field>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 border-t-[0.67px] border-[rgba(194,224,239,0.4)] pb-2 pr-5 pt-[8.67px]">
-            <button
-              className="h-[37.6px] w-[90.582px] cursor-pointer rounded-[12px] border border-[#f77a21] font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-6 text-[#f77a21]"
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              Annuler
-            </button>
-
-            <form.Subscribe selector={(state) => state.values}>
-              {(currentValues) => {
-                const canSubmit =
-                  symptoms.length > 0 &&
-                  /^\d{4}-\d{2}-\d{2}$/.test(currentValues.date_ouverture ?? "");
-
-                return (
-                  <button
-                    className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
-                    disabled={isPending || !canSubmit}
-                    type="submit"
-                  >
-                    {isPending
-                      ? "Enregistrement..."
-                      : mode === "edit"
-                        ? "Enregistrer"
-                        : "Creer le suivi"}
-                  </button>
-                );
-              }}
-            </form.Subscribe>
-          </div>
         </form>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
-  CircleHelp,
   FileCheck2,
   FileText,
   Loader2,
@@ -18,6 +17,7 @@ import { toast } from "sonner";
 
 import { getServerBaseUrl } from "@/lib/server-url";
 import { cn } from "@/lib/utils";
+import { DialogShell } from "@/routes/agenda/popups/rdv-dialog-shared";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 type UploadedDocument = {
@@ -463,44 +463,50 @@ export function NouveauDocumentPatientDialog({
     fileDrafts.some((draft) => draft.status !== "uploaded") && !isBusy;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(10,35,65,0.2)] p-4"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target && !isBusy) {
-          onOpenChange(false);
-        }
-      }}
-    >
-      <div className="my-6 w-full max-w-[920px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.22)]">
-        <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5">
-          <div className="flex items-center gap-2">
-            <FileCheck2 className="size-5 text-[#0f3460]" />
-            <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]">
-              Nouveaux documents
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-4">
+    <DialogShell
+      footer={
+        <div className="flex w-full items-center justify-between gap-4">
+          <p className="font-['Inter'] text-[12px] text-[#64748b]">
+            {fileDrafts.length > 0
+              ? `${fileDrafts.length} fichier(s) pret(s)`
+              : "Aucun fichier selectionne"}
+          </p>
+          <div className="flex items-center gap-3">
             <button
-              aria-label="Aide"
-              className="flex size-5 items-center justify-center text-[#0f3460]"
-              type="button"
-            >
-              <CircleHelp className="size-5" />
-            </button>
-            <button
-              aria-label="Fermer"
-              className="flex size-5 cursor-pointer items-center justify-center text-[#0f3460] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-[40px] cursor-pointer rounded-[10px] border border-[#c2e0ef] bg-white px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#0f3460] transition-colors hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isBusy}
               onClick={() => onOpenChange(false)}
               type="button"
             >
-              <X className="size-5" />
+              Fermer
+            </button>
+            <button
+              className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.32)] transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+              disabled={!canSubmit}
+              onClick={() => uploadMutation.mutate()}
+              type="button"
+            >
+              {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {analysisMutation.isPending
+                ? "Analyse..."
+                : uploadMutation.isPending
+                  ? "Import..."
+                  : "Valider l'import"}
             </button>
           </div>
         </div>
-
-        <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      }
+      icon={<FileCheck2 className="size-5" />}
+      maxWidth="max-w-[920px]"
+      open={open}
+      title="Nouveaux documents"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isBusy) {
+          onOpenChange(false);
+        }
+      }}
+    >
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex flex-col gap-4">
             <label
               className={cn(
@@ -633,39 +639,7 @@ export function NouveauDocumentPatientDialog({
             ) : null}
           </aside>
         </div>
-
-        <div className="flex items-center justify-between border-t-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 py-4">
-          <p className="font-['Inter'] text-[12px] text-[#64748b]">
-            {fileDrafts.length > 0
-              ? `${fileDrafts.length} fichier(s) pret(s)`
-              : "Aucun fichier selectionne"}
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              className="h-[40px] cursor-pointer rounded-[10px] border border-[#c2e0ef] bg-white px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-[#0f3460] transition-colors hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isBusy}
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              Fermer
-            </button>
-            <button
-              className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.32)] transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
-              disabled={!canSubmit}
-              onClick={() => uploadMutation.mutate()}
-              type="button"
-            >
-              {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {analysisMutation.isPending
-                ? "Analyse..."
-                : uploadMutation.isPending
-                  ? "Import..."
-                  : "Valider l'import"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 
