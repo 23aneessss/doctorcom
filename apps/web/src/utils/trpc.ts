@@ -12,6 +12,10 @@ const serverBaseUrl = getServerBaseUrl();
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
+      if (query.state.data !== undefined) {
+        return;
+      }
+
       const networkError = error.message === "Failed to fetch";
 
       toast.error(
@@ -21,7 +25,9 @@ export const queryClient = new QueryClient({
         {
         action: {
           label: "retry",
-          onClick: query.invalidate,
+          onClick: () => {
+            void query.invalidate();
+          },
         },
         },
       );
