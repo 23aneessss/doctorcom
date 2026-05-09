@@ -7,6 +7,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { trpc } from "@/utils/trpc";
 
 import { GlobalAIAssistant } from "@/components/ai-assistant/GlobalAIAssistant";
+import { AppointmentReminderNotifier } from "@/components/appointment-reminder-notifier";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -54,6 +55,7 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <Outlet />
+        <AppointmentReminderNotifier />
         <GlobalAIAssistant />
         <Toaster richColors />
       </ThemeProvider>

@@ -198,6 +198,27 @@ const tabs = [
   { label: "Voyages", to: "/patients/$id/voyage", icon: MapPin },
 ] as const;
 
+function isMobilePlaceholderPatient(matricule: string | null | undefined) {
+  return Boolean(matricule?.startsWith("mobile-slot-"));
+}
+
+function getPatientDisplayName(patient: {
+  nom: string;
+  prenom: string;
+  matricule?: string | null;
+}) {
+  if (!isMobilePlaceholderPatient(patient.matricule)) {
+    return `${patient.prenom} ${patient.nom}`.trim();
+  }
+
+  const parts = [patient.prenom, patient.nom]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => part.toLowerCase() !== "agenda");
+
+  return parts.join(" ").trim() || "Patient a completer";
+}
+
 function PatientLayout() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
@@ -454,7 +475,8 @@ function PatientLayout() {
   }
 
   const patientAge = ageData.age;
-  const fullName = `${patient.prenom} ${patient.nom}`;
+  const isPlaceholderPatient = isMobilePlaceholderPatient(patient.matricule);
+  const fullName = getPatientDisplayName(patient);
   const isFemalePatient = isFemaleSex(patient.sexe);
   const sexeLabel = formatSexLabel(patient.sexe);
 
@@ -584,6 +606,28 @@ function PatientLayout() {
       await updatePatientMutation.mutateAsync(nextData);
     },
   });
+
+  useEffect(() => {
+    if (!isPlaceholderPatient) {
+      return;
+    }
+
+    const storageKey = `doctor-com-placeholder-patient-warning:${patient.id}`;
+    if (window.sessionStorage.getItem(storageKey)) {
+      return;
+    }
+
+    window.sessionStorage.setItem(storageKey, "1");
+    toast.warning("Informations patient a verifier", {
+      description:
+        "Ce dossier vient d'un rendez-vous cree sans patient existant. Veuillez completer ou corriger les informations du patient.",
+      action: {
+        label: "Modifier",
+        onClick: () => setIsEditing(true),
+      },
+      duration: 9000,
+    });
+  }, [isPlaceholderPatient, patient.id]);
 
   const handleSuiviCreated = async () => {
     await Promise.all([

@@ -830,20 +830,33 @@ export class AgendaService {
   ): Promise<string> {
     const matricule = `mobile-slot-${utilisateur.id}`;
     const [existing] = await db
-      .select({ id: patients.id })
+      .select({ id: patients.id, nom: patients.nom, prenom: patients.prenom })
       .from(patients)
       .where(eq(patients.matricule, matricule))
       .limit(1);
 
     if (existing) {
+      if (
+        existing.nom.trim().toLowerCase() === "agenda" ||
+        existing.prenom.trim().toLowerCase() === "mobile"
+      ) {
+        await db
+          .update(patients)
+          .set({
+            nom: "Patient",
+            prenom: "Nouveau",
+          })
+          .where(eq(patients.id, existing.id));
+      }
+
       return existing.id;
     }
 
     const [created] = await db
       .insert(patients)
       .values({
-        nom: "Agenda",
-        prenom: "Mobile",
+        nom: "Patient",
+        prenom: "Nouveau",
         matricule,
         date_naissance: "1970-01-01",
         cree_par_utilisateur: utilisateur.id,
