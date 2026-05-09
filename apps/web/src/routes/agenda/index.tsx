@@ -401,8 +401,12 @@ function RouteComponent() {
   };
 
   const handleSelectDay = (day: number) => {
-    setSelectedDay(day);
-    setIsDaySelected(true);
+    if (isDaySelected && day === selectedDay) {
+      setIsDaySelected(false);
+    } else {
+      setSelectedDay(day);
+      setIsDaySelected(true);
+    }
   };
 
   const handleCreateRdv = async (values: RdvFormValues) => {
@@ -586,7 +590,7 @@ function RouteComponent() {
                 selectedYear={selectedYear}
                 onSelectMonth={(month) => { setSelectedMonth(month); setIsDaySelected(false); }}
                 onSelectYear={(year) => { setSelectedYear(year); setIsDaySelected(false); }}
-                selectedDay={selectedDay}
+                selectedDay={isDaySelected ? selectedDay : 0}
                 onSelectDate={handleSelectDay}
               />
 
