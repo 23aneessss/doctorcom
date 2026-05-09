@@ -219,6 +219,52 @@
   opacity: 0.82;
 }
 
+.aiComparisonGrid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.aiComparisonItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  border: 0.667px solid rgba(194, 224, 239, 0.65);
+  border-radius: 0.7rem;
+  background: #ffffff;
+  padding: 0.7rem;
+}
+
+.aiComparisonIcon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.6rem;
+  background: rgba(194, 224, 239, 0.38);
+  color: var(--parametres-blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aiComparisonItem p,
+.aiComparisonItem span {
+  margin: 0;
+}
+
+.aiComparisonItem p {
+  color: var(--parametres-dark-blue);
+  font-size: 0.84rem;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.aiComparisonItem span {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--parametres-blue);
+  font-size: 0.75rem;
+  line-height: 1.42;
+}
+
 .aiStatusRow {
   display: inline-flex;
   align-items: center;

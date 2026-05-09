@@ -411,6 +411,10 @@ const TRANSLATIONS = {
       localGemmaActive: "Gemma local est utilisé pour les réponses IA.",
       cloudGemini: "Gemini cloud",
       localGemma: "Gemma local",
+      localAiDescription:
+        "Fonctionne sur l'ordinateur du cabinet. Les données restent plus sécurisées en local, avec une précision généralement plus limitée.",
+      cloudAiDescription:
+        "Utilise Gemini via Internet. Les réponses sont généralement plus précises, mais le service n'est pas gratuit.",
       aiFallbackHint:
         "Sans clé Gemini valide, l'application bascule automatiquement vers le modèle local.",
       geminiApiKey: "Clé API Gemini",
@@ -489,6 +493,10 @@ const TRANSLATIONS = {
       localGemmaActive: "يُستخدم Gemma المحلي للردود الذكية.",
       cloudGemini: "Gemini السحابي",
       localGemma: "Gemma المحلي",
+      localAiDescription:
+        "يعمل على جهاز العيادة. تبقى البيانات أكثر أماناً محلياً، مع دقة عادةً أقل.",
+      cloudAiDescription:
+        "يستخدم Gemini عبر الإنترنت. تكون الإجابات عادةً أدق، لكن الخدمة ليست مجانية.",
       aiFallbackHint:
         "بدون مفتاح Gemini صالح، ينتقل التطبيق تلقائياً إلى النموذج المحلي.",
       geminiApiKey: "مفتاح Gemini API",
@@ -567,6 +575,10 @@ const TRANSLATIONS = {
       localGemmaActive: "Local Gemma is used for AI responses.",
       cloudGemini: "Cloud Gemini",
       localGemma: "Local Gemma",
+      localAiDescription:
+        "Runs on the clinic computer. Data stays more secure locally, with usually lower accuracy.",
+      cloudAiDescription:
+        "Uses Gemini over the internet. Answers are usually more accurate, but the service is not free.",
       aiFallbackHint:
         "Without a valid Gemini key, the app automatically falls back to the local model.",
       geminiApiKey: "Gemini API key",

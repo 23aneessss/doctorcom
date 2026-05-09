@@ -497,6 +497,26 @@ function ParametresPage() {
                   </div>
                 </SettingsField>
 
+                <div className={styles.aiComparisonGrid}>
+                  <div className={styles.aiComparisonItem}>
+                    <span className={styles.aiComparisonIcon}>
+                      <Cpu size={15} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p>{t.settings.localGemma}</p>
+                      <span>{t.settings.localAiDescription}</span>
+                    </div>
+                  </div>
+                  <div className={styles.aiComparisonItem}>
+                    <span className={styles.aiComparisonIcon}>
+                      <Cloud size={15} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p>{t.settings.cloudGemini}</p>
+                      <span>{t.settings.cloudAiDescription}</span>
+                    </div>
+                  </div>
+                </div>
                 <p className={styles.aiHint}>{t.settings.aiFallbackHint}</p>
               </div>
 
