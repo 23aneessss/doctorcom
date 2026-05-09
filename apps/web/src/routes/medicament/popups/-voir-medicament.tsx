@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
@@ -364,9 +364,17 @@ function EditableField({
   minHeight?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el || !collapsible || isEditing || expanded) return;
+    setIsClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [value, collapsible, isEditing, expanded]);
+
   const boxClass = `rounded-[10px] border border-[#deeef8] bg-[#f8fbff] px-4 py-[10px] font-['Inter'] text-[13px] leading-[21px] text-[#1a3d5c] ${minHeight ?? ""}`;
-  const isLong = value && value.length > 80;
-  const showToggle = collapsible && isLong && !isEditing;
+  const showToggle = collapsible && isClamped && !isEditing;
 
   if (!isEditing || !name) {
     return (
@@ -386,7 +394,8 @@ function EditableField({
         ) : (
           <div className={`${boxClass} relative`}>
             <p
-              className={`${multiline ? "whitespace-pre-wrap break-words" : ""} ${showToggle && !expanded ? "line-clamp-3" : ""}`}
+              ref={textRef}
+              className={`${multiline ? "whitespace-pre-wrap break-words" : ""} ${collapsible && !expanded ? "line-clamp-3" : ""}`}
             >
               {value || "-"}
             </p>
