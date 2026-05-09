@@ -513,10 +513,25 @@ function PatientTrendChart({
   bars: DashboardOverview["patientTrend"];
   loading: boolean;
 }) {
-  const data = loading ? DEMO_TREND : DEMO_TREND; // TODO: swap to real data: bars.slice(-18)
+  const data = loading ? DEMO_TREND : (bars.length > 0 ? bars.slice(-18) : DEMO_TREND);
   const max = Math.max(1, ...data.map((bar) => bar.value));
   const total = data.reduce((sum, bar) => sum + bar.value, 0);
   const allZero = !loading && total === 0;
+
+  const enriched = data.map((bar, index) => {
+    const prevIso = data[index - 1]?.isoDate;
+    const isMonthStart =
+      bar.isoDate && prevIso
+        ? new Date(bar.isoDate + "T00:00:00").getMonth() !== new Date(prevIso + "T00:00:00").getMonth()
+        : false;
+    const monthName = isMonthStart && bar.isoDate
+      ? MONTH_LABELS_FR[new Date(bar.isoDate + "T00:00:00").getMonth()]
+      : null;
+    const valueHeight = loading
+      ? 28
+      : Math.max(bar.value > 0 ? 14 : 3, Math.round((bar.value / max) * 178));
+    return { ...bar, monthName, valueHeight };
+  });
 
   const rangeLabel = (() => {
     const first = data[0]?.isoDate;
@@ -550,48 +565,38 @@ function PatientTrendChart({
 
       {/* Bars */}
       <div className="relative flex h-[13rem] items-end gap-2">
-        {data.map((bar, index) => {
-          const valueHeight = loading
-            ? 28
-            : Math.max(bar.value > 0 ? 14 : 3, Math.round((bar.value / max) * 178));
-
-          const prevIso = index > 0 ? data[index - 1]?.isoDate : undefined;
-          const currIso = bar.isoDate;
-          const isMonthStart =
-            currIso && prevIso
-              ? new Date(currIso + "T00:00:00").getMonth() !== new Date(prevIso + "T00:00:00").getMonth()
-              : false;
-          const monthName = isMonthStart && currIso
-            ? MONTH_LABELS_FR[new Date(currIso + "T00:00:00").getMonth()]
-            : null;
-
-          return (
-            <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${bar.label}-${index}`}>
-              <div className="relative flex h-[11.25rem] w-full flex-col items-center justify-end">
-                <span
-                  className="relative z-10 w-[42%] rounded-t-full shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
-                  style={{
-                    height: valueHeight,
-                    background: bar.value > 0
-                      ? "linear-gradient(180deg,#76bbdd 0%,#052ca0 100%)"
-                      : "#e3f3fb",
-                  }}
-                  title={bar.isoDate ? `${bar.isoDate}: ${bar.value} patient${bar.value > 1 ? "s" : ""}` : `${bar.value}`}
-                />
-              </div>
-              <div className="flex flex-col items-center gap-[2px]">
-                <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
-                  {bar.label}
-                </span>
-                {monthName && (
-                  <span className="rounded-[3px] bg-[#e8f3fb] px-[3px] py-[1px] font-['Inter'] text-[7px] font-bold uppercase leading-none tracking-widest text-[#265284]">
-                    {monthName}
-                  </span>
-                )}
-              </div>
+        {enriched.map((bar, index) => (
+          <div className="flex min-w-0 flex-1 flex-col items-center" key={`bar-${index}`}>
+            <div className="relative flex h-[11.25rem] w-full flex-col items-center justify-end">
+              <span
+                className="relative z-10 w-[42%] rounded-t-full shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
+                style={{
+                  height: bar.valueHeight,
+                  background: bar.value > 0
+                    ? "linear-gradient(180deg,#76bbdd 0%,#052ca0 100%)"
+                    : "#e3f3fb",
+                }}
+                title={bar.isoDate ? `${bar.isoDate}: ${bar.value} patient${bar.value > 1 ? "s" : ""}` : `${bar.value}`}
+              />
             </div>
-          );
-        })}
+          </div>
+        ))}
+      </div>
+
+      {/* X-axis labels — separate row so all dates stay on the same baseline */}
+      <div className="mt-2 flex gap-2">
+        {enriched.map((bar, index) => (
+          <div key={`lbl-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-[3px]">
+            <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
+              {bar.label}
+            </span>
+            {bar.monthName && (
+              <span className="rounded-[3px] bg-[#e8f3fb] px-[3px] py-[1px] font-['Inter'] text-[7px] font-bold uppercase leading-none tracking-widest text-[#265284]">
+                {bar.monthName}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Legend */}
