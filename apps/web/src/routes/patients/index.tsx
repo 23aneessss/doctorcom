@@ -690,7 +690,8 @@ function getMatriculeInitial(value: string) {
 }
 
 function mapPatientRecord(patient: PatientRecord): PatientViewModel {
-  const fullName = [patient.nom, patient.prenom]
+  const { nom, prenom } = normalizePatientDisplayParts(patient);
+  const fullName = [nom, prenom]
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -705,7 +706,7 @@ function mapPatientRecord(patient: PatientRecord): PatientViewModel {
     id: patient.id,
     fullName: fullName || "Patient inconnu",
     matricule: patient.matricule,
-    initials: getInitials(patient.nom, patient.prenom),
+    initials: getInitials(nom, prenom),
     ageText,
     sexeText,
     phoneText,
@@ -723,6 +724,21 @@ function mapPatientRecord(patient: PatientRecord): PatientViewModel {
       .filter(Boolean)
       .join(" ")
       .toLowerCase(),
+  };
+}
+
+function normalizePatientDisplayParts(patient: PatientRecord) {
+  const nom = patient.nom.trim();
+  const prenom = patient.prenom.trim();
+  const isAgendaCreatedPatient = /^[A-Z0-9]{1,3}-\d{4}-\d{4}$/i.test(
+    patient.matricule.trim(),
+  );
+  const shouldHidePlaceholder =
+    isAgendaCreatedPatient && /^(agenda|nouveau)$/i.test(prenom);
+
+  return {
+    nom,
+    prenom: shouldHidePlaceholder ? "" : prenom,
   };
 }
 

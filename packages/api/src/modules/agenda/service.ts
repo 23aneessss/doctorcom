@@ -686,13 +686,13 @@ export class AgendaService {
 
   private formatMobileSlot(slot: AgendaMobileSlotRecord): MobileAgendaSlot {
     const patientLabel =
-      slot.patient_label?.trim() ||
-      `${slot.patient_prenom} ${slot.patient_nom}`.trim() ||
+      this.normalizeAgendaPlaceholderName(slot.patient_label) ||
+      this.formatPatientName(slot.patient_prenom, slot.patient_nom) ||
       "Rendez-vous";
 
     const patientInitials =
       slot.patient_initials?.trim() ||
-      `${slot.patient_prenom.charAt(0)}${slot.patient_nom.charAt(0)}`.toUpperCase();
+      `${this.normalizeAgendaPlaceholderName(slot.patient_prenom).charAt(0)}${slot.patient_nom.charAt(0)}`.toUpperCase();
 
     return {
       id: slot.id,
@@ -707,6 +707,20 @@ export class AgendaService {
       color: slot.couleur,
       important: slot.important,
     };
+  }
+
+  private formatPatientName(prenom: string, nom: string): string {
+    return [
+      this.normalizeAgendaPlaceholderName(prenom),
+      this.normalizeAgendaPlaceholderName(nom),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+
+  private normalizeAgendaPlaceholderName(value: string | null | undefined): string {
+    return (value ?? "").replace(/\s+agenda$/i, "").trim();
   }
 
   private mapMobileStatusToRendezVous(status: MobileSlotStatus): RendezVousStatut {

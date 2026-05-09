@@ -94,7 +94,7 @@ export class PatientService {
     );
 
     return {
-      ...patient,
+      ...this.normalizeAgendaPlaceholderPatient(patient),
       female_info: femaleInfo,
     };
   }
@@ -237,7 +237,7 @@ export class PatientService {
       : null;
 
     return {
-      ...patient,
+      ...this.normalizeAgendaPlaceholderPatient(patient),
       female_info: femaleInfo,
     };
   }
@@ -260,7 +260,7 @@ export class PatientService {
       });
     }
 
-    return patient;
+    return this.normalizeAgendaPlaceholderPatient(patient);
   }
 
   async searchPatients(data: {
@@ -281,7 +281,10 @@ export class PatientService {
       sexe: this.normalizeOptionalText(data.criteres.sexe) ?? undefined,
     };
 
-    return patientRepository.searchPatients(data.db, criteres);
+    const patients = await patientRepository.searchPatients(data.db, criteres);
+    return patients.map((patient) =>
+      this.normalizeAgendaPlaceholderPatient(patient),
+    );
   }
 
   async getPatientFullRecord(data: {
@@ -821,6 +824,22 @@ export class PatientService {
 
     const normalized = value.trim();
     return normalized ? normalized : null;
+  }
+
+  private normalizeAgendaPlaceholderPatient<T extends PatientRecord>(patient: T): T {
+    const prenom = patient.prenom.trim();
+    const isAgendaCreatedPatient = /^[A-Z0-9]{1,3}-\d{4}-\d{4}$/i.test(
+      patient.matricule.trim(),
+    );
+
+    if (!isAgendaCreatedPatient || !/^(agenda|nouveau)$/i.test(prenom)) {
+      return patient;
+    }
+
+    return {
+      ...patient,
+      prenom: "",
+    };
   }
 
   private calculateAge(dateNaissance: string): number {

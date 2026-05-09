@@ -193,7 +193,7 @@ function groupAgendaEvents(events: AgendaEvent[]): GroupedEvent[] {
 }
 
 function toSlotPayload(values: RdvFormValues) {
-  const patientName = values.patientName.trim();
+  const patientName = normalizeAgendaPlaceholderName(values.patientName);
 
   return {
     date: values.date,
@@ -210,11 +210,13 @@ function toSlotPayload(values: RdvFormValues) {
 }
 
 function getPatientInitials(patient: PatientRecord) {
-  return `${patient.nom.trim().slice(0, 1)}${patient.prenom.trim().slice(0, 1)}`.toUpperCase() || "PT";
+  const { nom, prenom } = normalizePatientDisplayParts(patient);
+  return `${nom.slice(0, 1)}${prenom.slice(0, 1)}`.toUpperCase() || "PT";
 }
 
 function getPatientLabel(patient: PatientRecord) {
-  return [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
+  const { nom, prenom } = normalizePatientDisplayParts(patient);
+  return [nom, prenom].filter(Boolean).join(" ").trim() || "Patient inconnu";
 }
 
 function mapPatientToOption(patient: PatientRecord): RdvPatientOption {
@@ -227,11 +229,30 @@ function mapPatientToOption(patient: PatientRecord): RdvPatientOption {
 }
 
 function splitPatientName(patientName: string) {
-  const parts = patientName.trim().split(/\s+/).filter(Boolean);
+  const parts = normalizeAgendaPlaceholderName(patientName).split(/\s+/).filter(Boolean);
   const [nom = "Patient", ...prenomParts] = parts;
-  const prenom = prenomParts.join(" ") || "Agenda";
+  const prenom = prenomParts.join(" ") || "Nouveau";
 
   return { nom, prenom };
+}
+
+function normalizeAgendaPlaceholderName(value: string) {
+  return value.replace(/\s+agenda$/i, "").trim();
+}
+
+function normalizePatientDisplayParts(patient: PatientRecord) {
+  const nom = patient.nom.trim();
+  const prenom = patient.prenom.trim();
+  const isAgendaCreatedPatient = /^[A-Z0-9]{1,3}-\d{4}-\d{4}$/i.test(
+    patient.matricule.trim(),
+  );
+  const shouldHidePlaceholder =
+    isAgendaCreatedPatient && /^(agenda|nouveau)$/i.test(prenom);
+
+  return {
+    nom,
+    prenom: shouldHidePlaceholder ? "" : prenom,
+  };
 }
 
 function buildPatientMatricule(patientName: string, patientNumber: number) {
