@@ -568,11 +568,6 @@ function PatientTrendChart({
           return (
             <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${bar.label}-${index}`}>
               <div className="relative flex h-[11.25rem] w-full flex-col items-center justify-end">
-                {monthName && (
-                  <span className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 font-['Inter'] text-[8px] font-bold uppercase tracking-wide text-[#052ca0] opacity-60">
-                    {monthName}
-                  </span>
-                )}
                 <span
                   className="relative z-10 w-[42%] rounded-t-full shadow-[0_8px_18px_-14px_rgba(5,44,160,0.65)]"
                   style={{
@@ -584,9 +579,16 @@ function PatientTrendChart({
                   title={bar.isoDate ? `${bar.isoDate}: ${bar.value} patient${bar.value > 1 ? "s" : ""}` : `${bar.value}`}
                 />
               </div>
-              <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
-                {bar.label}
-              </span>
+              <div className="flex flex-col items-center gap-[2px]">
+                <span className="font-['Inter'] text-[10px] font-medium text-[#7a93af]">
+                  {bar.label}
+                </span>
+                {monthName && (
+                  <span className="rounded-[3px] bg-[#e8f3fb] px-[3px] py-[1px] font-['Inter'] text-[7px] font-bold uppercase leading-none tracking-widest text-[#265284]">
+                    {monthName}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
