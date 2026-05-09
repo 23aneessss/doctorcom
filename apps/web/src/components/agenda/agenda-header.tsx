@@ -20,7 +20,7 @@ export function AgendaHeader({ onAddRdv }: AgendaHeaderProps) {
             Agenda
           </h1>
           <p className={patientsStyles.heroSubtitle}>
-            Consultez votre agenda, planifiez de nouveaux rendez-vous et accédez aux RDV à venir, quel que soit le jour.
+            Planifiez et gérez vos rendez-vous, consultez vos disponibilités en un coup d&apos;œil.
           </p>
         </div>
 
