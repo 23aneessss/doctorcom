@@ -11,6 +11,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
   Activity,
+  AlertCircle,
   ArrowLeft,
   Briefcase,
   Calendar,
@@ -200,6 +201,44 @@ const tabs = [
 
 function isMobilePlaceholderPatient(matricule: string | null | undefined) {
   return Boolean(matricule?.startsWith("mobile-slot-"));
+}
+
+function isAgendaCreatedMatricule(matricule: string | null | undefined) {
+  return /^[A-Z0-9]{1,3}-\d{4}-\d{4}$/i.test((matricule ?? "").trim());
+}
+
+function isDefaultAgendaBirthDate(dateNaissance: string | null | undefined) {
+  return (dateNaissance ?? "").slice(0, 10) === "1970-01-01";
+}
+
+function shouldReviewRdvCreatedPatient(patient: {
+  matricule?: string | null;
+  date_naissance?: string | null;
+  telephone?: string | null;
+  email?: string | null;
+  sexe?: string | null;
+  lieu_naissance?: string | null;
+  nationalite?: string | null;
+  nss?: number | null;
+}) {
+  const isGeneratedFromRdv =
+    isMobilePlaceholderPatient(patient.matricule) ||
+    (isAgendaCreatedMatricule(patient.matricule) &&
+      isDefaultAgendaBirthDate(patient.date_naissance));
+
+  if (!isGeneratedFromRdv) {
+    return false;
+  }
+
+  const missingIdentityFields = [
+    patient.telephone,
+    patient.email,
+    patient.sexe,
+    patient.lieu_naissance,
+    patient.nationalite,
+  ].filter((value) => !(value ?? "").trim()).length;
+
+  return missingIdentityFields >= 2 || !patient.nss;
 }
 
 function getPatientDisplayName(patient: {
@@ -475,7 +514,7 @@ function PatientLayout() {
   }
 
   const patientAge = ageData.age;
-  const isPlaceholderPatient = isMobilePlaceholderPatient(patient.matricule);
+  const shouldReviewPatient = shouldReviewRdvCreatedPatient(patient);
   const fullName = getPatientDisplayName(patient);
   const isFemalePatient = isFemaleSex(patient.sexe);
   const sexeLabel = formatSexLabel(patient.sexe);
@@ -608,26 +647,20 @@ function PatientLayout() {
   });
 
   useEffect(() => {
-    if (!isPlaceholderPatient) {
+    if (!shouldReviewPatient) {
       return;
     }
 
-    const storageKey = `doctor-com-placeholder-patient-warning:${patient.id}`;
-    if (window.sessionStorage.getItem(storageKey)) {
-      return;
-    }
-
-    window.sessionStorage.setItem(storageKey, "1");
-    toast.warning("Informations patient a verifier", {
+    toast.warning("Informations patient à vérifier", {
       description:
-        "Ce dossier vient d'un rendez-vous cree sans patient existant. Veuillez completer ou corriger les informations du patient.",
+        "Ce dossier vient d'un rendez-vous créé sans patient existant. Veuillez compléter ou corriger les informations du patient.",
       action: {
         label: "Modifier",
         onClick: () => setIsEditing(true),
       },
       duration: 9000,
     });
-  }, [isPlaceholderPatient, patient.id]);
+  }, [shouldReviewPatient, patient.id]);
 
   const handleSuiviCreated = async () => {
     await Promise.all([
@@ -759,6 +792,33 @@ function PatientLayout() {
             <ArrowLeft className="size-5" />
             Retour aux patients
           </Link>
+
+          {shouldReviewPatient ? (
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[#9a3412] shadow-[0_10px_26px_-24px_rgba(154,52,18,0.45)]">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#f97316]">
+                  <AlertCircle className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="m-0 font-['Plus_Jakarta_Sans'] text-[14px] font-bold leading-5">
+                    Informations patient à vérifier
+                  </p>
+                  <p className="m-0 mt-1 font-['Inter'] text-[13px] font-medium leading-5">
+                    Ce dossier a été créé automatiquement depuis un rendez-vous.
+                    Complétez l'identité, le contact et les informations
+                    administratives avant de poursuivre le suivi.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="inline-flex h-9 items-center justify-center rounded-[11px] bg-[#f97316] px-4 font-['Plus_Jakarta_Sans'] text-[12px] font-bold text-white shadow-[0_8px_18px_-14px_rgba(154,52,18,0.55)] transition hover:bg-[#ea6a13]"
+                onClick={() => setIsEditing(true)}
+                type="button"
+              >
+                Modifier maintenant
+              </button>
+            </section>
+          ) : null}
 
           {/* Patient Info Card */}
           <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)] max-[58rem]:px-4">
