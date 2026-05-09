@@ -268,9 +268,7 @@ export class DocumentRecommendationService {
       );
     }
 
-    userPromptParts.push("", "Contexte clinique du patient:", JSON.stringify(context));
-
-    // Prepend the doctor context to the user prompt
+    // Prepend the doctor context and append clinical context once
     const fullPrompt = [doctorContext, "", ...userPromptParts, "", "Contexte clinique du patient:", JSON.stringify(context)].join("\n");
 
     const response = await generateGeminiText({

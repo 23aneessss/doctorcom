@@ -10,6 +10,7 @@ interface TimelineSectionProps {
   isLoading: boolean;
   selectedDate?: string;
   onAppointmentClick: (appointment: AgendaEvent) => void;
+  emptyMessage?: string;
 }
 
 export function TimelineSection({
@@ -17,6 +18,7 @@ export function TimelineSection({
   isLoading,
   selectedDate,
   onAppointmentClick,
+  emptyMessage = "Aucun rendez-vous pour cette période.",
 }: TimelineSectionProps) {
   useEffect(() => {
     if (isLoading || !selectedDate) {
@@ -35,7 +37,7 @@ export function TimelineSection({
   if (!groupedEvents || groupedEvents.length === 0) {
     return (
       <div className="min-h-24 border border-dashed border-[rgba(15,52,96,0.2)] rounded-xl bg-white/60 text-[#395271] font-['Inter',sans-serif] text-sm leading-5 font-medium flex items-center justify-center text-center p-3">
-        Aucun rendez-vous pour cette période.
+        {emptyMessage}
       </div>
     );
   }

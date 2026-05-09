@@ -46,6 +46,42 @@ type DatabaseClient = typeof databaseClient;
 type DatabaseTransaction = Parameters<Parameters<typeof withTx>[0]>[0];
 type OrdonnanceSession = Exclude<SessionUtilisateur, null>;
 
+function buildScaledDefaultLayout(
+  pageWidth: number,
+  pageHeight: number,
+): OrdonnancePdfTemplateLayoutConfig {
+  const sx = pageWidth / DEFAULT_PDF_TEMPLATE_PAGE.width;
+  const sy = pageHeight / DEFAULT_PDF_TEMPLATE_PAGE.height;
+  const sf = Math.min(sx, sy);
+  const src = DEFAULT_ORDONNANCE_PDF_LAYOUT.fields;
+
+  const scale = (field: typeof src.logo_medecin) => ({
+    ...field,
+    x: Math.round(field.x * sx),
+    y: Math.round(field.y * sy),
+    width: Math.round(field.width * sx),
+    height: Math.round(field.height * sy),
+    fontSize: Math.max(6, Math.round(field.fontSize * sf)),
+    lineHeight: field.lineHeight ? Math.max(7, Math.round(field.lineHeight * sf)) : field.lineHeight,
+  });
+
+  return {
+    version: 1,
+    page: 1,
+    fields: {
+      logo_medecin: scale(src.logo_medecin),
+      medecin: scale(src.medecin),
+      cabinet: scale(src.cabinet),
+      date_prescription: scale(src.date_prescription),
+      titre: scale(src.titre),
+      patient: scale(src.patient),
+      medicaments: scale(src.medicaments),
+      remarques: scale(src.remarques),
+      signature_cachet: scale(src.signature_cachet),
+    },
+  };
+}
+
 export interface CreateOrdonnanceServiceInput {
   patient_id: string;
   rendez_vous_id: string;
@@ -943,6 +979,10 @@ export class OrdonnanceService {
       });
     }
 
+    const pageWidth = data.input.page_width ?? DEFAULT_PDF_TEMPLATE_PAGE.width;
+    const pageHeight = data.input.page_height ?? DEFAULT_PDF_TEMPLATE_PAGE.height;
+    const defaultLayout = buildScaledDefaultLayout(pageWidth, pageHeight);
+
     const payload: CreateOrdonnancePdfTemplateInput = {
       utilisateur_id: utilisateur.id,
       nom,
@@ -950,9 +990,9 @@ export class OrdonnanceService {
       chemin_fichier: data.input.chemin_fichier,
       type_fichier: data.input.type_fichier,
       taille_fichier: data.input.taille_fichier,
-      page_width: data.input.page_width ?? DEFAULT_PDF_TEMPLATE_PAGE.width,
-      page_height: data.input.page_height ?? DEFAULT_PDF_TEMPLATE_PAGE.height,
-      layout_config: DEFAULT_ORDONNANCE_PDF_LAYOUT,
+      page_width: pageWidth,
+      page_height: pageHeight,
+      layout_config: defaultLayout,
       est_actif: true,
       is_default_for_user: false,
     };

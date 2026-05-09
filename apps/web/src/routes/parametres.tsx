@@ -1,12 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  BrainCircuit,
   CheckCircle2,
   ChevronDown,
-  Cloud,
-  Cpu,
-  Download,
   Globe2,
   KeyRound,
   Mail,
@@ -14,7 +10,6 @@ import {
   Phone,
   Save,
   Shield,
-  Trash2,
   UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -23,15 +18,11 @@ import { toast } from "sonner";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import { Sidebar } from "@/components/sidebar";
 import { authClient } from "@/lib/auth-client";
-import {
-  toInterfaceLanguage,
-  useInterfaceLanguage,
-  type InterfaceLanguage,
-} from "@/lib/interface-language";
 import { requireSession } from "@/lib/require-session";
 import { ChangerMdpDialog } from "@/routes/parametres/popups/changer-mdp";
 
 import styles from "./parametres.module.css";
+import patientsStyles from "@/components/patients/patients-page.module.css";
 
 export const Route = createFileRoute("/parametres")({
   component: ParametresPage,
@@ -48,11 +39,11 @@ type ProfileFormValues = {
   adresse: string;
 };
 
+type InterfaceLanguage = "fr" | "ar" | "en";
+
 type ProfileUpdatePayload = Partial<ProfileFormValues> & {
   langue_interface?: InterfaceLanguage;
 };
-
-type AIProviderPreference = "gemini" | "ollama";
 
 const EMPTY_PROFILE_FORM: ProfileFormValues = {
   nom: "",
@@ -61,21 +52,17 @@ const EMPTY_PROFILE_FORM: ProfileFormValues = {
   adresse: "",
 };
 
+function toInterfaceLanguage(value: string | null | undefined): InterfaceLanguage {
+  return value === "ar" || value === "en" ? value : "fr";
+}
+
 function ParametresPage() {
   const { session, trpc, queryClient } = Route.useRouteContext();
-  const {
-    hasStoredLanguagePreference,
-    language: activeLanguage,
-    setLanguage: setActiveLanguage,
-    t,
-  } = useInterfaceLanguage();
   const sessionUser = session?.data?.user;
   const [profileForm, setProfileForm] = useState<ProfileFormValues>(
     EMPTY_PROFILE_FORM,
   );
-  const [language, setLanguage] = useState<InterfaceLanguage>(activeLanguage);
-  const [aiProvider, setAiProvider] = useState<AIProviderPreference>("gemini");
-  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [language, setLanguage] = useState<InterfaceLanguage>("fr");
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [successDialog, setSuccessDialog] = useState<null | "password">(null);
 
@@ -86,27 +73,13 @@ function ParametresPage() {
   const updateProfileMutation = useMutation(
     trpc.auth.updateMyProfile.mutationOptions(),
   );
-  const aiSettingsQuery = useQuery({
-    ...trpc.ai.settings.get.queryOptions(),
-    throwOnError: false,
-  });
-  const updateAiSettingsMutation = useMutation(
-    trpc.ai.settings.update.mutationOptions(),
-  );
-  const downloadLocalModelMutation = useMutation(
-    trpc.ai.settings.downloadLocalModel.mutationOptions(),
-  );
-  const deleteLocalModelMutation = useMutation(
-    trpc.ai.settings.deleteLocalModel.mutationOptions(),
-  );
 
   const profile = profileQuery.data?.profile;
-  const aiSettings = aiSettingsQuery.data;
   const email = profile?.email ?? sessionUser?.email ?? "";
   const displayedName = buildFullName(profile?.prenom, profile?.nom)
     || sessionUser?.name?.trim()
     || email
-    || t.settings.userProfile;
+    || "Profil utilisateur";
 
   const sidebarUser = email
     ? {
@@ -127,23 +100,8 @@ function ParametresPage() {
       telephone: profile.telephone ?? "",
       adresse: profile.adresse ?? "",
     });
-    const persistedLanguage = toInterfaceLanguage(profile.langue_interface);
-    const preferredLanguage =
-      hasStoredLanguagePreference && activeLanguage !== persistedLanguage
-        ? activeLanguage
-        : persistedLanguage;
-    setLanguage(preferredLanguage);
-    setActiveLanguage(preferredLanguage);
-  }, [activeLanguage, hasStoredLanguagePreference, profile, setActiveLanguage]);
-
-  useEffect(() => {
-    if (!aiSettings) {
-      return;
-    }
-
-    setAiProvider(aiSettings.preferred_provider);
-    setGeminiApiKey("");
-  }, [aiSettings]);
+    setLanguage(toInterfaceLanguage(profile.langue_interface));
+  }, [profile]);
 
   const hasProfileChanges = useMemo(() => {
     if (!profile) {
@@ -163,120 +121,29 @@ function ParametresPage() {
     setProfileForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleLanguageChange = (nextLanguage: InterfaceLanguage) => {
-    setLanguage(nextLanguage);
-    setActiveLanguage(nextLanguage);
-
-    if (!profile || nextLanguage === toInterfaceLanguage(profile.langue_interface)) {
-      return;
-    }
-
-    updateProfileMutation.mutate(
-      { langue_interface: nextLanguage },
-      {
-        onSuccess: () => {
-          void queryClient.invalidateQueries({
-            queryKey: trpc.auth.me.queryKey(),
-          });
-        },
-        onError: (error) => {
-          toast.error(
-            error instanceof Error ? error.message : t.settings.saveError,
-          );
-        },
-      },
-    );
-  };
-
-  const refreshAISettings = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: trpc.ai.settings.get.queryKey(),
-    });
-  };
-
-  const handleSaveAISettings = async () => {
-    const trimmedApiKey = geminiApiKey.trim();
-
-    try {
-      await updateAiSettingsMutation.mutateAsync({
-        preferred_provider: aiProvider,
-        ...(trimmedApiKey ? { gemini_api_key: trimmedApiKey } : {}),
-      });
-      setGeminiApiKey("");
-      await refreshAISettings();
-      toast.success(t.settings.aiSettingsSaved);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t.settings.saveError,
-      );
-    }
-  };
-
-  const handleClearGeminiApiKey = async () => {
-    try {
-      await updateAiSettingsMutation.mutateAsync({
-        clear_gemini_api_key: true,
-      });
-      setGeminiApiKey("");
-      await refreshAISettings();
-      toast.success(t.settings.aiSettingsSaved);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t.settings.saveError,
-      );
-    }
-  };
-
-  const handleDownloadLocalModel = async () => {
-    try {
-      await downloadLocalModelMutation.mutateAsync();
-      await refreshAISettings();
-      toast.success(t.settings.localModelDownloaded);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t.settings.localModelError,
-      );
-    }
-  };
-
-  const handleDeleteLocalModel = async () => {
-    try {
-      await deleteLocalModelMutation.mutateAsync();
-      await refreshAISettings();
-      toast.success(t.settings.localModelDeleted);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t.settings.localModelError,
-      );
-    }
-  };
-
   const handleCancel = () => {
     if (!profile) {
       setProfileForm(EMPTY_PROFILE_FORM);
-      setLanguage(activeLanguage);
       return;
     }
 
-    const persistedLanguage = toInterfaceLanguage(profile.langue_interface);
     setProfileForm({
       nom: profile.nom ?? "",
       prenom: profile.prenom ?? "",
       telephone: profile.telephone ?? "",
       adresse: profile.adresse ?? "",
     });
-    setLanguage(persistedLanguage);
-    setActiveLanguage(persistedLanguage);
+    setLanguage(toInterfaceLanguage(profile.langue_interface));
   };
 
   const handleSave = async () => {
     if (!profile) {
-      toast.error(t.settings.profileLoadError);
+      toast.error("Impossible de charger votre profil.");
       return;
     }
 
     if (!hasProfileChanges) {
-      toast.info(t.settings.noChanges);
+      toast.info("Aucune modification à enregistrer.");
       return;
     }
 
@@ -289,12 +156,12 @@ function ParametresPage() {
     };
 
     if (!trimmedForm.nom || !trimmedForm.prenom) {
-      toast.error(t.settings.nameRequired);
+      toast.error("Le nom et le prénom sont requis.");
       return;
     }
 
     if (!trimmedForm.telephone || !trimmedForm.adresse) {
-      toast.error(t.settings.contactRequired);
+      toast.error("Le téléphone et l'adresse du cabinet sont requis.");
       return;
     }
 
@@ -316,7 +183,6 @@ function ParametresPage() {
 
     try {
       await updateProfileMutation.mutateAsync(payload);
-      setActiveLanguage(language);
       await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
 
       const fullName = [trimmedForm.prenom, trimmedForm.nom].filter(Boolean).join(" ");
@@ -324,12 +190,12 @@ function ParametresPage() {
         await authClient.updateUser({ name: fullName });
       }
 
-      toast.success(t.settings.saved);
+      toast.success("Paramètres enregistrés.");
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : t.settings.saveError,
+          : "Impossible d'enregistrer les paramètres.",
       );
     }
   };
@@ -341,47 +207,50 @@ function ParametresPage() {
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
           <header
-            className={styles.hero}
-            style={{ "--parametres-hero-texture": `url(${headerTexture})` } as React.CSSProperties}
+            className={patientsStyles.hero}
+            style={{ "--patients-hero-texture": `url(${headerTexture})` } as React.CSSProperties}
           >
-            <div className={styles.heroInner}>
-              <div className={styles.heroText}>
-                <h1 className={styles.heroTitle}>{t.settings.title}</h1>
-                <p className={styles.heroSubtitle}>{t.settings.subtitle}</p>
+            <div className={patientsStyles.heroInner}>
+              <div className={patientsStyles.heroText}>
+                <h1 className={patientsStyles.heroTitle}>Paramètres</h1>
+                <p className={patientsStyles.heroSubtitle}>
+                  Modifiez vos informations, gérez la sécurité de votre compte et
+                  ajustez vos préférences en toute simplicité.
+                </p>
               </div>
             </div>
           </header>
 
-          <SettingsSection icon={<UserRound size={20} />} title={t.settings.profile}>
+          <SettingsSection icon={<UserRound size={20} />} title="Profil">
             <div className={styles.profileGrid}>
-              <SettingsField label={t.settings.fullName} icon={<UserRound size={16} />}>
+              <SettingsField label="Nom complet" icon={<UserRound size={16} />}>
                 <div className={styles.nameGrid}>
                   <input
-                    aria-label={t.settings.firstName}
+                    aria-label="Prénom"
                     className={styles.input}
                     onChange={(event) =>
                       updateProfileField("prenom", event.currentTarget.value)
                     }
-                    placeholder={t.settings.firstName}
+                    placeholder="Prénom"
                     value={profileForm.prenom}
                   />
                   <input
-                    aria-label={t.settings.lastName}
+                    aria-label="Nom"
                     className={styles.input}
                     onChange={(event) =>
                       updateProfileField("nom", event.currentTarget.value)
                     }
-                    placeholder={t.settings.lastName}
+                    placeholder="Nom"
                     value={profileForm.nom}
                   />
                 </div>
               </SettingsField>
 
-              <SettingsField label={t.settings.email} icon={<Mail size={16} />}>
+              <SettingsField label="Adresse e-mail" icon={<Mail size={16} />}>
                 <input className={styles.input} disabled value={email} />
               </SettingsField>
 
-              <SettingsField label={t.settings.phone} icon={<Phone size={16} />}>
+              <SettingsField label="Numéro de téléphone" icon={<Phone size={16} />}>
                 <input
                   className={styles.input}
                   onChange={(event) =>
@@ -395,7 +264,7 @@ function ParametresPage() {
 
               <SettingsField
                 className={styles.addressField}
-                label={t.settings.cabinetAddress}
+                label="Adresse du cabinet"
                 icon={<MapPin size={16} />}
               >
                 <input
@@ -403,7 +272,7 @@ function ParametresPage() {
                   onChange={(event) =>
                     updateProfileField("adresse", event.currentTarget.value)
                   }
-                  placeholder={t.settings.cabinetAddress}
+                  placeholder="Adresse du cabinet"
                   value={profileForm.adresse}
                 />
               </SettingsField>
@@ -411,21 +280,20 @@ function ParametresPage() {
           </SettingsSection>
 
           <div className={styles.sideBySideSections}>
-            <SettingsSection icon={<Globe2 size={20} />} title={t.settings.preferences}>
+            <SettingsSection icon={<Globe2 size={20} />} title="Préférences">
               <div className={styles.preferencesGrid}>
-                <SettingsField label={t.settings.interfaceLanguage} icon={<Globe2 size={16} />}>
+                <SettingsField label="Langue de l'interface" icon={<Globe2 size={16} />}>
                   <div className={styles.selectWrap}>
                     <select
                       className={styles.select}
-                      onChange={(event) => {
-                        const nextLanguage = toInterfaceLanguage(event.currentTarget.value);
-                        handleLanguageChange(nextLanguage);
-                      }}
+                      onChange={(event) =>
+                        setLanguage(toInterfaceLanguage(event.currentTarget.value))
+                      }
                       value={language}
                     >
-                      <option value="fr">{t.settings.french}</option>
-                      <option value="ar">{t.settings.arabic}</option>
-                      <option value="en">{t.settings.english}</option>
+                      <option value="fr">Français</option>
+                      <option value="ar">Arabe</option>
+                      <option value="en">Anglais</option>
                     </select>
                     <ChevronDown size={16} aria-hidden="true" />
                   </div>
@@ -433,7 +301,7 @@ function ParametresPage() {
               </div>
             </SettingsSection>
 
-            <SettingsSection icon={<Shield size={20} />} title={t.settings.security}>
+            <SettingsSection icon={<Shield size={20} />} title="Sécurité">
               <div className={styles.passwordManagerCard}>
                 <div className={styles.passwordManagerCopy}>
                   <div className={styles.passwordActionGroup}>
@@ -442,8 +310,8 @@ function ParametresPage() {
                         <KeyRound size={18} aria-hidden="true" />
                       </div>
                       <div className={styles.passwordChoiceCopy}>
-                        <p>{t.settings.changeNow}</p>
-                        <span>{t.settings.passwordHelp}</span>
+                        <p>Changer maintenant</p>
+                        <span>Remplacez-le avec votre mot de passe actuel. Cette option met à jour votre accès immédiatement.</span>
                       </div>
                     </div>
                   </div>
@@ -453,189 +321,12 @@ function ParametresPage() {
                     type="button"
                   >
                     <KeyRound size={16} aria-hidden="true" />
-                    {t.settings.changePassword}
+                    Changer le mot de passe
                   </button>
                 </div>
               </div>
             </SettingsSection>
           </div>
-
-          <SettingsSection icon={<BrainCircuit size={20} />} title={t.settings.aiAssistant}>
-            <div className={styles.aiSettingsGrid}>
-              <div className={styles.aiProviderPanel}>
-                <div className={styles.aiProviderHeader}>
-                  <span className={styles.aiProviderIcon}>
-                    {aiProvider === "gemini" ? (
-                      <Cloud size={18} aria-hidden="true" />
-                    ) : (
-                      <Cpu size={18} aria-hidden="true" />
-                    )}
-                  </span>
-                  <div>
-                    <p>{t.settings.aiProvider}</p>
-                    <span>
-                      {aiSettings?.active_provider === "gemini"
-                        ? t.settings.cloudGeminiActive
-                        : t.settings.localGemmaActive}
-                    </span>
-                  </div>
-                </div>
-
-                <SettingsField label={t.settings.aiProvider} icon={<BrainCircuit size={16} />}>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      onChange={(event) =>
-                        setAiProvider(event.currentTarget.value as AIProviderPreference)
-                      }
-                      value={aiProvider}
-                    >
-                      <option value="gemini">{t.settings.cloudGemini}</option>
-                      <option value="ollama">{t.settings.localGemma}</option>
-                    </select>
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </div>
-                </SettingsField>
-
-                <div className={styles.aiComparisonGrid}>
-                  <div className={styles.aiComparisonItem}>
-                    <span className={styles.aiComparisonIcon}>
-                      <Cpu size={15} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p>{t.settings.localGemma}</p>
-                      <span>{t.settings.localAiDescription}</span>
-                    </div>
-                  </div>
-                  <div className={styles.aiComparisonItem}>
-                    <span className={styles.aiComparisonIcon}>
-                      <Cloud size={15} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <p>{t.settings.cloudGemini}</p>
-                      <span>{t.settings.cloudAiDescription}</span>
-                    </div>
-                  </div>
-                </div>
-                <p className={styles.aiHint}>{t.settings.aiFallbackHint}</p>
-              </div>
-
-              <div className={styles.aiProviderPanel}>
-                <SettingsField label={t.settings.geminiApiKey} icon={<KeyRound size={16} />}>
-                  <input
-                    className={styles.input}
-                    onChange={(event) => setGeminiApiKey(event.currentTarget.value)}
-                    placeholder={
-                      aiSettings?.gemini_api_key_configured
-                        ? t.settings.apiKeyConfigured
-                        : t.settings.apiKeyPlaceholder
-                    }
-                    type="password"
-                    value={geminiApiKey}
-                  />
-                </SettingsField>
-
-                <div className={styles.aiStatusRow}>
-                  <span
-                    className={[
-                      styles.aiStatusDot,
-                      aiSettings?.gemini_api_key_configured ? styles.aiStatusOk : "",
-                    ].filter(Boolean).join(" ")}
-                  />
-                  <span>
-                    {aiSettings?.gemini_api_key_configured
-                      ? t.settings.apiKeyConfigured
-                      : t.settings.apiKeyMissing}
-                  </span>
-                </div>
-
-                <div className={styles.aiActions}>
-                  <button
-                    className={styles.saveButtonSmall}
-                    disabled={updateAiSettingsMutation.isPending}
-                    onClick={handleSaveAISettings}
-                    type="button"
-                  >
-                    <Save size={15} aria-hidden="true" />
-                    {updateAiSettingsMutation.isPending
-                      ? t.settings.saving
-                      : t.settings.saveAISettings}
-                  </button>
-                  <button
-                    className={styles.secondaryActionButton}
-                    disabled={
-                      updateAiSettingsMutation.isPending ||
-                      !aiSettings?.gemini_api_key_configured
-                    }
-                    onClick={handleClearGeminiApiKey}
-                    type="button"
-                  >
-                    <Trash2 size={15} aria-hidden="true" />
-                    {t.settings.clearApiKey}
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.aiProviderPanel}>
-                <div className={styles.aiProviderHeader}>
-                  <span className={styles.aiProviderIcon}>
-                    <Cpu size={18} aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p>{aiSettings?.ollama.model ?? "gemma4:e2b"}</p>
-                    <span>
-                      {aiSettings?.ollama.installed
-                        ? t.settings.localModelReady
-                        : t.settings.localModelMissing}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.aiModelStatusGrid}>
-                  <AIStatusPill
-                    active={Boolean(aiSettings?.ollama.reachable)}
-                    label={t.settings.ollamaService}
-                  />
-                  <AIStatusPill
-                    active={Boolean(aiSettings?.ollama.installed)}
-                    label={t.settings.localModelInstalled}
-                  />
-                  <AIStatusPill
-                    active={Boolean(aiSettings?.ollama.running)}
-                    label={t.settings.localModelLoaded}
-                  />
-                </div>
-
-                <div className={styles.aiActions}>
-                  <button
-                    className={styles.orangeButton}
-                    disabled={downloadLocalModelMutation.isPending}
-                    onClick={handleDownloadLocalModel}
-                    type="button"
-                  >
-                    <Download size={15} aria-hidden="true" />
-                    {downloadLocalModelMutation.isPending
-                      ? t.settings.downloadingModel
-                      : t.settings.downloadLocalModel}
-                  </button>
-                  <button
-                    className={styles.secondaryActionButton}
-                    disabled={
-                      deleteLocalModelMutation.isPending ||
-                      !aiSettings?.ollama.installed
-                    }
-                    onClick={handleDeleteLocalModel}
-                    type="button"
-                  >
-                    <Trash2 size={15} aria-hidden="true" />
-                    {deleteLocalModelMutation.isPending
-                      ? t.settings.deletingModel
-                      : t.settings.deleteLocalModel}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </SettingsSection>
 
           <footer className={styles.footerActions}>
             <button
@@ -644,7 +335,7 @@ function ParametresPage() {
               onClick={handleCancel}
               type="button"
             >
-              {t.settings.cancel}
+              Annuler
             </button>
             <button
               className={styles.saveButton}
@@ -654,8 +345,8 @@ function ParametresPage() {
             >
               <Save size={16} aria-hidden="true" />
               {updateProfileMutation.isPending
-                ? t.settings.saving
-                : t.settings.save}
+                ? "Enregistrement..."
+                : "Enregistrer les modifications"}
             </button>
           </footer>
         </div>
@@ -671,9 +362,8 @@ function ParametresPage() {
       />
       <SuccessDialog
         open={successDialog !== null}
-        title={t.settings.passwordChangedTitle}
-        description={t.settings.passwordChangedDescription}
-        buttonLabel={t.settings.finish}
+        title="Mot de passe modifié"
+        description="Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant l'utiliser pour vos prochaines connexions."
         onClose={() => setSuccessDialog(null)}
       />
     </div>
@@ -681,13 +371,11 @@ function ParametresPage() {
 }
 
 function SuccessDialog({
-  buttonLabel,
   description,
   onClose,
   open,
   title,
 }: {
-  buttonLabel: string;
   description: string;
   onClose: () => void;
   open: boolean;
@@ -705,24 +393,9 @@ function SuccessDialog({
         </div>
         <h2 id="success-title">{title}</h2>
         <p>{description}</p>
-        <button className={styles.successButton} onClick={onClose} type="button">{buttonLabel}</button>
+        <button className={styles.successButton} onClick={onClose} type="button">Terminer</button>
       </section>
     </div>
-  );
-}
-
-function AIStatusPill({
-  active,
-  label,
-}: {
-  active: boolean;
-  label: string;
-}) {
-  return (
-    <span className={[styles.aiStatusPill, active ? styles.aiStatusPillActive : ""].filter(Boolean).join(" ")}>
-      <span className={styles.aiStatusDot} />
-      {label}
-    </span>
   );
 }
 

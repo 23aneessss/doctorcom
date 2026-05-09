@@ -14,6 +14,7 @@ import {
   medicamentsService,
   type MedicamentAggregate,
 } from "../../medicaments/service";
+import type { MedicamentRecord } from "../../medicaments/repo";
 import {
   ordonnanceRecommendationRepository,
   type AntecedentFamilialRecord,
@@ -36,6 +37,23 @@ import {
   type RecommendationResponseMode,
 } from "./schema";
 import { ordonnanceVectorRepository } from "./vector-repo";
+
+const aiEnrichmentPayloadSchema = z.object({
+  rationale: z.string().trim().min(1).max(2400),
+  remarques: z.string().max(800).default(""),
+  medicaments: z
+    .array(
+      z.object({
+        medicament_externe_id: z.string().trim().min(1),
+        posologie: z.string().trim().min(1).max(600),
+        duree_traitement: z.string().max(180).default(""),
+        instructions: z.string().max(600).default(""),
+        justification: z.string().trim().min(1).max(800),
+      }),
+    )
+    .min(1)
+    .max(6),
+});
 
 type DatabaseClient = typeof databaseClient;
 type OrdonnanceRecommendationSession = Exclude<SessionUtilisateur, null>;
@@ -237,10 +255,18 @@ export class OrdonnanceRecommendationService {
       globalWarnings,
     );
     const medicamentSuggestions = this.buildMedicationSuggestions(candidates);
-    const ordonnanceRecommendations = this.buildOrdonnanceRecommendations(
+    const draftRecommendations = this.buildOrdonnanceRecommendations(
       candidates,
       clinicalProblemBasis,
     );
+    const ordonnanceRecommendations =
+      draftRecommendations.length > 0
+        ? await this.enrichOrdonnanceWithAI(
+            draftRecommendations,
+            clinicalContext,
+            clinicalProblemBasis,
+          )
+        : draftRecommendations;
 
     const selectedRecommendations =
       responseMode === "medicaments"
@@ -530,6 +556,140 @@ export class OrdonnanceRecommendationService {
   private emptyStringToNull(value: string): string | null {
     const normalized = value.trim();
     return normalized ? normalized : null;
+  }
+
+  private buildEnrichmentPrompt(
+    draft: Array<z.infer<typeof recommendationSchema>>,
+    clinicalContext: ClinicalContext,
+    clinicalProblemBasis: ClinicalProblemBasis,
+  ): string {
+    const patientParts = [
+      clinicalContext.patient.age !== null ? `age: ${clinicalContext.patient.age} ans` : null,
+      clinicalContext.patient.sexe ? `sexe: ${clinicalContext.patient.sexe}` : null,
+      clinicalContext.current_consultation.examen?.poids
+        ? `poids: ${clinicalContext.current_consultation.examen.poids} kg`
+        : null,
+      clinicalContext.antecedents.allergy_signals.length > 0
+        ? `allergies connues: ${clinicalContext.antecedents.allergy_signals.join(", ")}`
+        : null,
+      clinicalContext.treatments.active_labels.length > 0
+        ? `traitements actifs: ${clinicalContext.treatments.active_labels.slice(0, 5).join("; ")}`
+        : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(", ");
+
+    const exampleMed = draft[0]?.ordonnance_draft.medicaments[0];
+    const jsonExample = JSON.stringify({
+      rationale: "Traitement adapte au contexte clinique du patient.",
+      remarques: "",
+      medicaments: [
+        {
+          medicament_externe_id: exampleMed?.medicament_externe_id ?? "id",
+          posologie: "1 comprime matin et soir pendant les repas",
+          duree_traitement: "7 jours",
+          instructions: "Prendre avec un grand verre d'eau.",
+          justification: "Indique en premiere intention selon le contexte clinique.",
+        },
+      ],
+    });
+
+    return [
+      "Tu es un assistant medical specialise en prescription medicale pour medecins.",
+      "Adapte ce brouillon d'ordonnance au contexte clinique specifique du patient.",
+      "Reponds uniquement avec un objet JSON valide, sans markdown ni texte supplementaire.",
+      "Format JSON attendu (respecte exactement ces champs):",
+      jsonExample,
+      "Regles:",
+      "- Conserve tous les medicament_externe_id du brouillon sans les modifier.",
+      "- Adapte la posologie a l'age, au poids et au sexe du patient.",
+      "- Indique systematiquement une duree_traitement si elle peut etre estimee.",
+      "- Ajoute des instructions utiles (prise alimentaire, conduite a tenir, etc.).",
+      "- Redige une justification clinique concise pour chaque medicament.",
+      "- Ecris la rationale globale en 1-2 phrases expliquant le choix therapeutique.",
+      "- Pour les champs vides (remarques, duree_traitement, instructions), utilise une chaine vide.",
+      `Probleme clinique: ${clinicalProblemBasis.chief_problem}`,
+      patientParts ? `Patient: ${patientParts}` : null,
+      clinicalContext.current_consultation.motif
+        ? `Motif: ${this.truncateText(clinicalContext.current_consultation.motif, 300)}`
+        : null,
+      clinicalContext.current_consultation.examen?.conclusion
+        ? `Conclusion examen: ${this.truncateText(clinicalContext.current_consultation.examen.conclusion, 300)}`
+        : null,
+      "Brouillon a enrichir:",
+      JSON.stringify(
+        draft.map((rec) => ({
+          label: rec.label,
+          medicaments: rec.ordonnance_draft.medicaments.map((med) => ({
+            medicament_externe_id: med.medicament_externe_id,
+            nom_medicament: med.nom_medicament,
+            dci: med.dci,
+            posologie_brute: med.posologie,
+          })),
+        })),
+      ),
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join("\n");
+  }
+
+  private async enrichOrdonnanceWithAI(
+    draft: Array<z.infer<typeof recommendationSchema>>,
+    clinicalContext: ClinicalContext,
+    clinicalProblemBasis: ClinicalProblemBasis,
+  ): Promise<Array<z.infer<typeof recommendationSchema>>> {
+    if (draft.length === 0 || draft[0]?.ordonnance_draft.medicaments.length === 0) {
+      return draft;
+    }
+
+    try {
+      const provider = this.resolveAiProvider();
+      const response = await generateGeminiText({
+        provider,
+        system: [
+          "Tu es un assistant medical specialise en prescription.",
+          "Tu reponds uniquement avec un objet JSON valide, sans markdown.",
+          "La sortie doit avoir exactement les champs: rationale, remarques, medicaments.",
+          "medicaments doit etre un tableau avec exactement les memes medicament_externe_id que le brouillon fourni.",
+        ].join(" "),
+        prompt: this.buildEnrichmentPrompt(draft, clinicalContext, clinicalProblemBasis),
+        temperature: 0.2,
+        timeoutMs: 18000,
+      });
+
+      const payload = aiEnrichmentPayloadSchema.parse(
+        parseSharedModelJson(response.text.trim()),
+      );
+
+      const enrichedById = new Map(
+        payload.medicaments.map((med) => [med.medicament_externe_id, med]),
+      );
+
+      return draft.map((rec) => ({
+        ...rec,
+        rationale: payload.rationale,
+        ordonnance_draft: {
+          remarques: this.emptyStringToNull(payload.remarques),
+          medicaments: rec.ordonnance_draft.medicaments.map((med) => {
+            const enriched = enrichedById.get(med.medicament_externe_id);
+            if (!enriched) {
+              return med;
+            }
+
+            return {
+              ...med,
+              posologie: enriched.posologie || med.posologie,
+              duree_traitement: this.emptyStringToNull(enriched.duree_traitement),
+              instructions: this.emptyStringToNull(enriched.instructions),
+              justification: enriched.justification || med.justification,
+            };
+          }),
+        },
+      }));
+    } catch (error) {
+      logAiError("ordonnance-recommendation.enrichment", error);
+      return draft;
+    }
   }
 
   private buildVerificationPrompt(draftResult: OrdonnanceRecommendationResult): string {
@@ -883,6 +1043,19 @@ export class OrdonnanceRecommendationService {
     );
   }
 
+  private buildMinimalAggregate(record: MedicamentRecord): MedicamentAggregate {
+    return {
+      medicament: record,
+      substances_actives: [],
+      indications: [],
+      contre_indications: [],
+      precautions: [],
+      interactions: [],
+      effets_indesirables: [],
+      presentations: [],
+    };
+  }
+
   private async retrieveMedicationCandidatesViaLocalFallback(
     clinicalProblemBasis: ClinicalProblemBasis,
     clinicalContext: ClinicalContext,
@@ -893,77 +1066,55 @@ export class OrdonnanceRecommendationService {
       clinicalContext,
     );
     const queries = this.buildFallbackMedicationQueries(contextTokens);
-    const foundIds: number[] = [];
+
+    // Collect MedicamentRecord directly from keyword search results.
+    // This bypasses the heavy getMedicamentsAggregatesByIds call as the primary
+    // source of candidates, which can silently return empty under pool pressure.
+    const foundRecords = new Map<number, MedicamentRecord>();
 
     for (const query of queries) {
-      const results = await medicamentsService.rechercherMedicaments({
-        query,
-        page: 1,
-        page_size: 4,
-      });
+      try {
+        const results = await medicamentsService.rechercherMedicaments({
+          query,
+          page: 1,
+          page_size: 4,
+        });
 
-      for (const item of results.items) {
-        if (!foundIds.includes(item.id)) {
-          foundIds.push(item.id);
+        for (const item of results.items) {
+          if (!foundRecords.has(item.id)) {
+            foundRecords.set(item.id, item);
+          }
         }
+      } catch {
+        // ignore individual query failures
       }
     }
 
-    if (foundIds.length === 0) {
-      const catalogFallback = await medicamentsService.listAllMedicaments();
-      const rankedIds = this.rankCatalogMedicamentsByContext(
-        catalogFallback,
-        contextTokens,
-      );
-
-      for (const item of rankedIds.slice(0, 6)) {
-        foundIds.push(item);
-      }
-
-      if (foundIds.length === 0) {
-        warnings.push(
-          "La recherche locale n'a pas trouve de correspondance clinique precise; les premiers medicaments du catalogue ont ete proposes comme base de brouillon a verifier.",
-        );
-      }
-
-      for (const item of catalogFallback.slice(0, 6)) {
-        if (foundIds.length >= 6) {
-          break;
+    if (foundRecords.size === 0 && contextTokens.length > 0) {
+      try {
+        const catalogFallback = await medicamentsService.listAllMedicaments();
+        const rankedIds = this.rankCatalogMedicamentsByContext(catalogFallback, contextTokens);
+        // Only seed fallback medications when ranking actually matched the clinical context.
+        // Returning arbitrary "first 6 medications" would suggest unrelated drugs.
+        if (rankedIds.length > 0) {
+          const topIds = new Set(rankedIds.slice(0, 6));
+          const topRecords = catalogFallback.filter((m) => topIds.has(m.id)).slice(0, 6);
+          for (const item of topRecords) {
+            foundRecords.set(item.id, item);
+          }
         }
-        if (!foundIds.includes(item.id)) {
-          foundIds.push(item.id);
-        }
+      } catch {
+        // catalog fallback unavailable
       }
     }
 
-    for (const activeRecord of clinicalContext.treatments.active_records) {
-      const activeId = Number(activeRecord.medicament_externe_id);
-      if (
-        Number.isInteger(activeId) &&
-        activeId > 0 &&
-        !foundIds.includes(activeId)
-      ) {
-        foundIds.push(activeId);
-      }
-    }
-
-    if (foundIds.length === 0) {
-      const allMedicaments = await medicamentsService.listAllMedicaments();
-      for (const item of allMedicaments.slice(0, 6)) {
-        foundIds.push(item.id);
-      }
-    }
-
-    if (foundIds.length === 0) {
+    if (foundRecords.size === 0) {
       warnings.push(
         "La recherche locale de secours n'a retourne aucun medicament exploitable.",
       );
       return [];
     }
 
-    const aggregates = await medicamentsService.getMedicamentsAggregatesByIds(
-      foundIds.slice(0, 6),
-    );
     const activeTreatmentIds = new Set(
       clinicalContext.treatments.active_records
         .map((record) => record.medicament_externe_id)
@@ -975,15 +1126,34 @@ export class OrdonnanceRecommendationService {
         .filter((value): value is string => Boolean(value)),
     );
 
-    return aggregates.map((aggregate, index) => ({
-      aggregate,
-      similarity: 0.7 - index * 0.05,
-      is_active_treatment: this.isActiveTreatmentMedication(
+    const records = [...foundRecords.values()].slice(0, 6);
+
+    // Attempt to enrich with full aggregates (relational data); degrade gracefully on failure.
+    const aggregateMap = new Map<number, MedicamentAggregate>();
+    try {
+      const aggregates = await medicamentsService.getMedicamentsAggregatesByIds(
+        records.map((r) => r.id),
+      );
+      for (const agg of aggregates) {
+        aggregateMap.set(agg.medicament.id, agg);
+      }
+    } catch {
+      // aggregate enrichment unavailable; minimal records used
+    }
+
+    return records.map((record, index) => {
+      const aggregate = aggregateMap.get(record.id) ?? this.buildMinimalAggregate(record);
+      const isActive =
+        activeTreatmentIds.has(String(record.id)) ||
+        activeTreatmentNames.has(record.nom_medicament.toLowerCase()) ||
+        Boolean(record.nom_generique && activeTreatmentNames.has(record.nom_generique.toLowerCase()));
+
+      return {
         aggregate,
-        activeTreatmentIds,
-        activeTreatmentNames,
-      ),
-    }));
+        similarity: 0.7 - index * 0.05,
+        is_active_treatment: isActive,
+      };
+    });
   }
 
   private extractClinicalSearchTokens(

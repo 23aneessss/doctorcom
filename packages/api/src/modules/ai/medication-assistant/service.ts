@@ -1755,10 +1755,7 @@ export class MedicationAssistantService {
       policyProfile,
       shortlistedCandidates,
     );
-    const response =
-      this.shouldPreferDeterministicResponse(intent, policyProfile) || !aiResponse
-        ? fallback
-        : aiResponse;
+    const response = aiResponse ?? fallback;
     const warnings = [...response.warnings];
     const followUpSuggestions =
       response.follow_up_suggestions.length > 0
@@ -1870,17 +1867,6 @@ export class MedicationAssistantService {
       warnings: [...new Set(warnings)],
       follow_up_suggestions: followUpSuggestions,
     };
-  }
-
-  private shouldPreferDeterministicResponse(
-    intent: MedicationAssistantIntent,
-    policyProfile: MedicationPolicyProfile,
-  ): boolean {
-    if (intent === "compare" || intent === "explain" || intent === "safety") {
-      return true;
-    }
-
-    return policyProfile !== "generic";
   }
 
   private buildFallbackResponse(

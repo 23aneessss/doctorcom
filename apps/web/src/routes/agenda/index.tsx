@@ -162,7 +162,7 @@ function mapEventToUpcomingItem(event: AgendaEvent): UpcomingItem {
   };
 }
 
-function buildMonthAgendaGroups(year: number, month: number, events: AgendaEvent[]): GroupedEvent[] {
+function groupAgendaEvents(events: AgendaEvent[]): GroupedEvent[] {
   const sortedEvents = [...events].sort((firstEvent, secondEvent) => {
     const dateCompare = firstEvent.date.localeCompare(secondEvent.date);
     if (dateCompare !== 0) {
@@ -172,28 +172,23 @@ function buildMonthAgendaGroups(year: number, month: number, events: AgendaEvent
     return firstEvent.startTime.localeCompare(secondEvent.startTime);
   });
 
-  const eventsByDate = new Map<string, AgendaEvent[]>();
+  const groups = new Map<string, GroupedEvent>();
 
   for (const event of sortedEvents) {
-    const existingEvents = eventsByDate.get(event.date) ?? [];
-    existingEvents.push(event);
-    eventsByDate.set(event.date, existingEvents);
-  }
+    const existingGroup = groups.get(event.date);
+    if (existingGroup) {
+      existingGroup.events.push(event);
+      continue;
+    }
 
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const groups: GroupedEvent[] = [];
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = formatDateFromSelection(year, month, day);
-    groups.push({
-      date,
-      day,
-      weekday: getWeekdayLabel(date),
-      events: eventsByDate.get(date) ?? [],
+    groups.set(event.date, {
+      day: event.day,
+      weekday: getWeekdayLabel(event.date),
+      events: [event],
     });
   }
 
-  return groups;
+  return Array.from(groups.values());
 }
 
 function toSlotPayload(values: RdvFormValues) {
@@ -286,6 +281,7 @@ function RouteComponent() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
+  const [isDaySelected, setIsDaySelected] = useState(false);
   const [activeDialog, setActiveDialog] = useState<"add" | "view" | "edit" | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AgendaEvent | null>(null);
   const [createdSuccessAppointment, setCreatedSuccessAppointment] = useState<AgendaEvent | null>(null);
@@ -321,6 +317,11 @@ function RouteComponent() {
   const allAgendaEvents = useMemo(
     () => (monthSlotsQuery.data ?? []).map((slot) => mapSlotToEvent(slot)),
     [monthSlotsQuery.data],
+  );
+
+  const groupedEvents = useMemo(
+    () => groupAgendaEvents(allAgendaEvents),
+    [allAgendaEvents],
   );
 
   const typeFilterOptions = useMemo(
@@ -370,11 +371,13 @@ function RouteComponent() {
 
   const selectedDateIso = formatDateFromSelection(selectedYear, selectedMonth, selectedDay);
 
-  const filteredGroupedEvents = buildMonthAgendaGroups(
-    selectedYear,
-    selectedMonth,
-    allAgendaEvents.filter(matchesFilters),
-  );
+  const filteredGroupedEvents = groupedEvents
+    .filter((group: GroupedEvent) => !isDaySelected || group.events[0]?.date === selectedDateIso)
+    .map((group: GroupedEvent) => ({
+      ...group,
+      events: group.events.filter(matchesFilters),
+    }))
+    .filter((group: GroupedEvent) => group.events.length > 0);
 
   const filteredUpcomingItems = upcomingItems.filter(matchesFilters);
 
@@ -389,9 +392,22 @@ function RouteComponent() {
 
   useEffect(() => {
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-
     setSelectedDay((currentDay) => Math.min(currentDay, daysInMonth));
   }, [selectedMonth, selectedYear]);
+
+  const handleSelectMonth = (month: number) => {
+    setSelectedMonth(month);
+    setIsDaySelected(false);
+  };
+
+  const handleSelectDay = (day: number) => {
+    if (isDaySelected && day === selectedDay) {
+      setIsDaySelected(false);
+    } else {
+      setSelectedDay(day);
+      setIsDaySelected(true);
+    }
+  };
 
   const handleCreateRdv = async (values: RdvFormValues) => {
     try {
@@ -498,7 +514,7 @@ function RouteComponent() {
     <div className="flex h-screen h-[100svh] overflow-hidden bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="h-full flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-[clamp(1.25rem,_2.3vw,_2.2rem)] py-[clamp(0.875rem,_1.6vw,_1.5rem)] max-[58rem]:px-3">
+      <main className="h-full flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-[clamp(1.25rem,_2.3vw,_2.2rem)] py-[clamp(0.875rem,_1.6vw,_1.5rem)]">
         <div className="flex flex-col gap-[clamp(0.75rem,_1.5vw,_1.125rem)] px-[clamp(0.25rem,_0.65vw,_0.55rem)]">
           {/* Header */}
           <AgendaHeader onAddRdv={() => setActiveDialog("add")} />
@@ -552,13 +568,18 @@ function RouteComponent() {
           {/* Main Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_21rem] gap-3.5 items-start">
             <section className="min-w-0 space-y-8">
-              <MonthSelector selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
+              <MonthSelector selectedMonth={selectedMonth} onSelectMonth={handleSelectMonth} />
 
               <TimelineSection
                 groupedEvents={filteredGroupedEvents}
                 isLoading={isAgendaLoading}
                 selectedDate={selectedDateIso}
                 onAppointmentClick={handleAppointmentClick}
+                emptyMessage={
+                  isDaySelected
+                    ? "Aucun rendez-vous pour ce jour."
+                    : "Aucun rendez-vous pour ce mois."
+                }
               />
             </section>
 
@@ -567,10 +588,10 @@ function RouteComponent() {
               <CalendarSection
                 selectedMonth={selectedMonth}
                 selectedYear={selectedYear}
-                onSelectMonth={setSelectedMonth}
-                onSelectYear={setSelectedYear}
-                selectedDay={selectedDay}
-                onSelectDate={setSelectedDay}
+                onSelectMonth={(month) => { setSelectedMonth(month); setIsDaySelected(false); }}
+                onSelectYear={(year) => { setSelectedYear(year); setIsDaySelected(false); }}
+                selectedDay={isDaySelected ? selectedDay : 0}
+                onSelectDate={handleSelectDay}
               />
 
               <section className="border border-[rgba(194,224,239,0.5)] rounded-xl bg-white shadow-[0px_4px_24px_rgba(194,224,239,0.5)] p-5">
