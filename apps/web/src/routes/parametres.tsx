@@ -22,6 +22,7 @@ import { requireSession } from "@/lib/require-session";
 import { ChangerMdpDialog } from "@/routes/parametres/popups/changer-mdp";
 
 import styles from "./parametres.module.css";
+import patientsStyles from "@/components/patients/patients-page.module.css";
 
 export const Route = createFileRoute("/parametres")({
   component: ParametresPage,
@@ -206,13 +207,13 @@ function ParametresPage() {
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
           <header
-            className={styles.hero}
-            style={{ "--parametres-hero-texture": `url(${headerTexture})` } as React.CSSProperties}
+            className={patientsStyles.hero}
+            style={{ "--patients-hero-texture": `url(${headerTexture})` } as React.CSSProperties}
           >
-            <div className={styles.heroInner}>
-              <div className={styles.heroText}>
-                <h1 className={styles.heroTitle}>Paramètres</h1>
-                <p className={styles.heroSubtitle}>
+            <div className={patientsStyles.heroInner}>
+              <div className={patientsStyles.heroText}>
+                <h1 className={patientsStyles.heroTitle}>Paramètres</h1>
+                <p className={patientsStyles.heroSubtitle}>
                   Modifiez vos informations, gérez la sécurité de votre compte et
                   ajustez vos préférences en toute simplicité.
                 </p>

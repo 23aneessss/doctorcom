@@ -39,6 +39,7 @@ import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
+import patientsStyles from "@/components/patients/patients-page.module.css";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { ModifierOrdonnanceDialog } from "@/routes/ordonnance/popups/modifier-ordonnance";
@@ -724,10 +725,6 @@ function RouteComponent() {
     setEditingTemplateId(templateId);
   };
 
-  const heroStyle = {
-    "--ordonnance-hero-texture": `url(${headerTexture})`,
-  } as CSSProperties;
-
   return (
     <div className="min-h-screen bg-[#f8fbff]">
       <div className="flex min-h-screen">
@@ -753,29 +750,18 @@ function RouteComponent() {
 
             <section
               aria-labelledby="ordonnances-page-title"
-              className="relative h-[clamp(7.15rem,12.8vh,8.4rem)] overflow-hidden rounded-[0.9375rem] border border-[color:color-mix(in_srgb,#c2e0ef_68%,white)] bg-[linear-gradient(97.5deg,color-mix(in_srgb,#c2e0ef_87%,white_13%)_0%,#ffffff_99.9%)] px-[clamp(1rem,2vw,1.5rem)] py-[clamp(0.65rem,1.35vh,1rem)] shadow-[0_0.25rem_1.25rem_rgba(118,187,221,0.5)]"
-              style={heroStyle}
+              className={patientsStyles.hero}
+              style={{ "--patients-hero-texture": `url(${headerTexture})` } as CSSProperties}
             >
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[-5%] right-[-9%] top-[-205%] bottom-[-70%] opacity-20"
-                style={{
-                  backgroundImage: "var(--ordonnance-hero-texture)",
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              />
-
-              <div className="relative z-[1] flex h-full items-center gap-4">
-                <div className="min-w-0">
+              <div className={patientsStyles.heroInner}>
+                <div className={patientsStyles.heroText}>
                   <h1
-                    className="m-0 font-['Inter'] text-[clamp(1.28rem,2.12vw,1.78rem)] font-bold leading-[1.1] text-[#0f3460]"
                     id="ordonnances-page-title"
+                    className={patientsStyles.heroTitle}
                   >
                     Ordonnances
                   </h1>
-                  <p className="mt-[0.18rem] font-['Inter'] text-[clamp(0.88rem,1.22vw,1.06rem)] font-semibold leading-[1.2] text-[#052ca0]">
+                  <p className={patientsStyles.heroSubtitle}>
                     Consultez vos ordonnances récentes et créez de nouveaux modèles
                   </p>
                 </div>
