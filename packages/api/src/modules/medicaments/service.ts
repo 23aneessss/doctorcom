@@ -110,17 +110,6 @@ export interface MobileMedicationDetail extends MobileMedicationSummary {
   sideEffects: Array<{ effect: string; frequency: string | null }>;
 }
 
-interface MobileMedicationDataset {
-  summaries: MobileMedicationSummary[];
-  categories: string[];
-  totalCount: number;
-  byId: Map<number, MobileMedicationDetail>;
-}
-
-let mobileMedicationDatasetCache: MobileMedicationDataset | null = null;
-let mobileMedicationDatasetLoadPromise: Promise<MobileMedicationDataset> | null =
-  null;
-
 export class MedicamentsService {
   async creerMedicament(
     input: CreateMedicamentAggregateInput,
@@ -145,7 +134,6 @@ export class MedicamentsService {
       },
     );
 
-    mobileMedicationDatasetCache = null;
     ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
     return aggregate;
   }
@@ -196,7 +184,6 @@ export class MedicamentsService {
       },
     );
 
-    mobileMedicationDatasetCache = null;
     ordonnanceEmbeddingTasks.scheduleUpsertFromAggregate(aggregate);
     return aggregate;
   }
@@ -226,7 +213,6 @@ export class MedicamentsService {
       });
     }
 
-    mobileMedicationDatasetCache = null;
     ordonnanceEmbeddingTasks.scheduleDelete(medicamentId);
     return { success: true };
   }
@@ -340,10 +326,22 @@ export class MedicamentsService {
     categories: string[];
     totalCount: number;
   }> {
-    const dataset = await this.getMobileMedicationDataset();
+    const categorySources =
+      await medicamentsRepository.listMedicationCategorySources(medicationsDb);
+    const categories = Array.from(
+      new Set(
+        categorySources.map((item) =>
+          this.getPrimaryCategoryFromValues(
+            item.classe_therapeutique,
+            item.famille_pharmacologique,
+          ),
+        ),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "fr-FR"));
+
     return {
-      categories: dataset.categories,
-      totalCount: dataset.totalCount,
+      categories,
+      totalCount: categorySources.length,
     };
   }
 
@@ -352,48 +350,85 @@ export class MedicamentsService {
     startsWith?: string;
     category?: string;
     limit?: number;
+    page?: number;
+    pageSize?: number;
   }): Promise<{
     items: MobileMedicationSummary[];
     total: number;
+    page: number;
+    page_size: number;
+    page_count: number;
   }> {
-    const dataset = await this.getMobileMedicationDataset();
-    const normalizedQuery = this.normalizeText(filters.query);
-    const normalizedCategory = filters.category?.trim();
-    const normalizedLetter = filters.startsWith?.trim().toUpperCase();
+    const pageSize = filters.pageSize ?? filters.limit ?? 24;
+    const result = await medicamentsRepository.searchMobileMedicationCatalog(
+      medicationsDb,
+      {
+        query: filters.query?.trim() || undefined,
+        startsWith: filters.startsWith?.trim().toUpperCase() || undefined,
+        category: filters.category?.trim() || undefined,
+        page: filters.page ?? 1,
+        page_size: pageSize,
+      },
+    );
 
-    const items = dataset.summaries.filter((medication) => {
-      const matchesQuery =
-        !normalizedQuery || medication.searchKey.includes(normalizedQuery);
-      const matchesLetter =
-        !normalizedLetter || medication.alphabet === normalizedLetter;
-      const matchesCategory =
-        !normalizedCategory ||
-        normalizedCategory === "Toutes les catégories" ||
-        medication.category === normalizedCategory;
-
-      return matchesQuery && matchesLetter && matchesCategory;
-    });
+    const items = result.items.map((medicament) =>
+      this.toMobileMedicationSummary(medicament),
+    );
 
     return {
-      items: items.slice(0, filters.limit ?? 80),
-      total: items.length,
+      items,
+      total: result.total,
+      page: result.page,
+      page_size: result.page_size,
+      page_count: result.page_count,
     };
   }
 
   async getMobileMedicationById(
     medicamentId: number,
   ): Promise<MobileMedicationDetail> {
-    const dataset = await this.getMobileMedicationDataset();
-    const medication = dataset.byId.get(medicamentId);
+    const aggregate = await this.getMedicamentById(medicamentId);
+    const summary = this.toMobileMedicationSummary(aggregate.medicament);
+    const unique = <T>(values: T[]) => Array.from(new Set(values));
 
-    if (!medication) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Médicament introuvable.",
-      });
-    }
-
-    return medication;
+    return {
+      ...summary,
+      adultDosage: aggregate.medicament.posologie_adulte,
+      childDosage: aggregate.medicament.posologie_enfant,
+      maxDose: aggregate.medicament.dose_maximale,
+      administrationFrequency: aggregate.medicament.frequence_administration,
+      pregnancy: aggregate.medicament.grossesse,
+      breastfeeding: aggregate.medicament.allaitement,
+      indications: unique(
+        aggregate.indications.map((item) => item.indication.trim()).filter(Boolean),
+      ),
+      precautions: unique(
+        aggregate.precautions.map((item) => item.description.trim()).filter(Boolean),
+      ),
+      contraIndications: unique(
+        aggregate.contre_indications
+          .map((item) => item.description.trim())
+          .filter(Boolean),
+      ),
+      activeSubstances: unique(
+        aggregate.substances_actives
+          .map((item) => item.nom_substance.trim())
+          .filter(Boolean),
+      ),
+      interactions: unique(
+        aggregate.interactions
+          .map((item) => item.medicament_interaction.trim())
+          .filter(Boolean),
+      ),
+      presentations: aggregate.presentations.map((item) => ({
+        forme: item.forme?.trim() ?? null,
+        dosage: item.dosage?.trim() ?? null,
+      })),
+      sideEffects: aggregate.effets_indesirables.map((item) => ({
+        effect: item.effet.trim(),
+        frequency: item.frequence?.trim() ?? null,
+      })),
+    };
   }
 
   private normalizeMedicamentId(value: number | string): number {
@@ -568,9 +603,19 @@ export class MedicamentsService {
   }
 
   private getPrimaryCategory(medicament: MedicamentRecord): string {
+    return this.getPrimaryCategoryFromValues(
+      medicament.classe_therapeutique,
+      medicament.famille_pharmacologique,
+    );
+  }
+
+  private getPrimaryCategoryFromValues(
+    classeTherapeutique: string | null | undefined,
+    famillePharmacologique: string | null | undefined,
+  ): string {
     const source =
-      medicament.classe_therapeutique ??
-      medicament.famille_pharmacologique ??
+      classeTherapeutique ??
+      famillePharmacologique ??
       "Autres";
     const firstSegment = source.split("||")[0] ?? "Autres";
     const cleaned = firstSegment
@@ -582,180 +627,36 @@ export class MedicamentsService {
     return primary.length > 0 ? primary : "Autres";
   }
 
-  private async getMobileMedicationDataset(): Promise<MobileMedicationDataset> {
-    if (mobileMedicationDatasetCache) {
-      return mobileMedicationDatasetCache;
-    }
+  private toMobileMedicationSummary(
+    medicament: MedicamentRecord,
+  ): MobileMedicationSummary {
+    const category = this.getPrimaryCategory(medicament);
 
-    if (mobileMedicationDatasetLoadPromise) {
-      return mobileMedicationDatasetLoadPromise;
-    }
-
-    mobileMedicationDatasetLoadPromise = this.loadMobileMedicationDataset();
-
-    try {
-      return await mobileMedicationDatasetLoadPromise;
-    } finally {
-      mobileMedicationDatasetLoadPromise = null;
-    }
-  }
-
-  private async loadMobileMedicationDataset(): Promise<MobileMedicationDataset> {
-    const medicaments =
-      await medicamentsRepository.listAllMedicaments(medicationsDb);
-    const indications =
-      await medicamentsRepository.listAllIndications(medicationsDb);
-    const precautions =
-      await medicamentsRepository.listAllPrecautions(medicationsDb);
-    const contreIndications =
-      await medicamentsRepository.listAllContreIndications(medicationsDb);
-    const effetsIndesirables =
-      await medicamentsRepository.listAllEffetsIndesirables(medicationsDb);
-    const presentations =
-      await medicamentsRepository.listAllPresentations(medicationsDb);
-    const interactions =
-      await medicamentsRepository.listAllInteractions(medicationsDb);
-    const substancesActives =
-      await medicamentsRepository.listAllSubstances(medicationsDb);
-
-    const groupByMedicament = <T extends { medicament_id: number | string }>(
-      rows: T[],
-    ) => {
-      const map = new Map<number, T[]>();
-
-      for (const row of rows) {
-        const medicamentId = this.normalizeMedicamentId(row.medicament_id);
-        const current = map.get(medicamentId) ?? [];
-        current.push(row);
-        map.set(medicamentId, current);
-      }
-
-      return map;
-    };
-
-    const unique = <T>(values: T[]) => Array.from(new Set(values));
-
-    const indicationsMap = groupByMedicament(indications);
-    const precautionsMap = groupByMedicament(precautions);
-    const contreIndicationsMap = groupByMedicament(contreIndications);
-    const sideEffectsMap = groupByMedicament(effetsIndesirables);
-    const presentationsMap = groupByMedicament(presentations);
-    const interactionsMap = groupByMedicament(interactions);
-    const substancesMap = groupByMedicament(substancesActives);
-
-    const summaries: MobileMedicationSummary[] = [];
-    const byId = new Map<number, MobileMedicationDetail>();
-
-    for (const medicament of medicaments) {
-      const medicamentId = this.normalizeMedicamentId(medicament.id);
-      const category = this.getPrimaryCategory(medicament);
-      const medicationIndications = unique(
-        (indicationsMap.get(medicamentId) ?? [])
-          .map((row) => row.indication.trim())
-          .filter(Boolean),
-      );
-      const medicationPrecautions = unique(
-        (precautionsMap.get(medicamentId) ?? [])
-          .map((row) => row.description.trim())
-          .filter(Boolean),
-      );
-      const medicationContraIndications = unique(
-        (contreIndicationsMap.get(medicamentId) ?? [])
-          .map((row) => row.description.trim())
-          .filter(Boolean),
-      );
-      const medicationInteractions = unique(
-        (interactionsMap.get(medicamentId) ?? [])
-          .map((row) => row.medicament_interaction.trim())
-          .filter(Boolean),
-      );
-      const medicationSubstances = unique(
-        (substancesMap.get(medicamentId) ?? [])
-          .map((row) => row.nom_substance.trim())
-          .filter(Boolean),
-      );
-      const medicationPresentations = unique(
-        (presentationsMap.get(medicamentId) ?? []).map((row) =>
-          JSON.stringify({
-            forme: row.forme?.trim() ?? null,
-            dosage: row.dosage?.trim() ?? null,
-          }),
-        ),
-      ).map(
-        (value) =>
-          JSON.parse(value) as { forme: string | null; dosage: string | null },
-      );
-
-      const medicationSideEffects = (
-        sideEffectsMap.get(medicamentId) ?? []
-      ).map((row) => ({
-        effect: row.effet.trim(),
-        frequency: row.frequence?.trim() ?? null,
-      }));
-
-      const summary: MobileMedicationSummary = {
-        id: medicamentId,
-        name: medicament.nom_medicament,
-        genericName: medicament.nom_generique,
-        category,
-        classification: medicament.classe_therapeutique,
-        family: medicament.famille_pharmacologique,
-        usageSnippet:
-          medicationIndications[0] ??
-          medicament.classe_therapeutique ??
+    return {
+      id: this.normalizeMedicamentId(medicament.id),
+      name: medicament.nom_medicament,
+      genericName: medicament.nom_generique,
+      category,
+      classification: medicament.classe_therapeutique,
+      family: medicament.famille_pharmacologique,
+      usageSnippet:
+        medicament.classe_therapeutique ?? medicament.famille_pharmacologique,
+      alphabet:
+        this.normalizeText(medicament.nom_medicament).charAt(0).toUpperCase() ||
+        "#",
+      searchKey: this.normalizeText(
+        [
+          medicament.nom_medicament,
+          medicament.nom_generique,
+          category,
+          medicament.classe_therapeutique,
           medicament.famille_pharmacologique,
-        alphabet:
-          this.normalizeText(medicament.nom_medicament)
-            .charAt(0)
-            .toUpperCase() || "#",
-        searchKey: this.normalizeText(
-          [
-            medicament.nom_medicament,
-            medicament.nom_generique,
-            category,
-            medicament.classe_therapeutique,
-            medicament.famille_pharmacologique,
-            medicationIndications[0],
-          ]
-            .filter(Boolean)
-            .join(" "),
-        ),
-      };
-
-      summaries.push(summary);
-      byId.set(medicamentId, {
-        ...summary,
-        adultDosage: medicament.posologie_adulte,
-        childDosage: medicament.posologie_enfant,
-        maxDose: medicament.dose_maximale,
-        administrationFrequency: medicament.frequence_administration,
-        pregnancy: medicament.grossesse,
-        breastfeeding: medicament.allaitement,
-        indications: medicationIndications,
-        precautions: medicationPrecautions,
-        contraIndications: medicationContraIndications,
-        activeSubstances: medicationSubstances,
-        interactions: medicationInteractions,
-        presentations: medicationPresentations,
-        sideEffects: medicationSideEffects,
-      });
-    }
-
-    summaries.sort((a, b) => a.name.localeCompare(b.name, "fr-FR"));
-    const categories = unique(summaries.map((item) => item.category)).sort(
-      (a, b) => a.localeCompare(b, "fr-FR"),
-    );
-
-    mobileMedicationDatasetCache = {
-      summaries,
-      categories,
-      totalCount: summaries.length,
-      byId,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ),
     };
-
-    return mobileMedicationDatasetCache;
   }
-
   private async replaceNestedCollections(
     database: MedicationsDatabaseClient | MedicationsTransaction,
     medicamentId: number,

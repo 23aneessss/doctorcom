@@ -119,12 +119,102 @@ function RouteComponent() {
       callout:
         "Cliquez sur \"Enregistrer et Ajouter\" pour créer définitivement la fiche patient.",
     },
+    {
+      id: "suivis",
+      title: "Suivis patient",
+      intro:
+        "Les suivis regroupent les symptomes, hypotheses diagnostiques et consultations liees a un meme probleme de sante.",
+      subtitle: "Creer ou modifier un suivi",
+      steps: [
+        "Depuis le dossier patient, utilisez l'action rapide \"Ajouter suivi\".",
+        "Ajoutez au moins un symptome, puis completez l'hypothese diagnostique et l'historique si necessaire.",
+        "La date d'ouverture permet de suivre l'evolution du probleme dans le temps.",
+        "Un suivi peut ensuite etre relie a des consultations, documents, traitements et ordonnances.",
+      ],
+      calloutTone: "success",
+      callout:
+        "Un suivi bien renseigne donne plus de contexte a l'assistant IA et facilite les prescriptions futures.",
+    },
+    {
+      id: "consultations",
+      title: "Consultations",
+      intro:
+        "La consultation formalise l'examen realise pendant un rendez-vous et garde une trace medicale exploitable.",
+      subtitle: "Enregistrer une consultation",
+      steps: [
+        "Utilisez \"Ajouter consultation\" depuis les actions rapides ou demarrez la session depuis l'onglet RDV.",
+        "Associez la consultation a un suivi et a un rendez-vous lorsque c'est possible.",
+        "Renseignez les constantes, l'examen clinique, le diagnostic et les observations utiles.",
+        "Validez pour conserver la consultation dans le dossier patient.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Une ordonnance doit etre rattachee a un rendez-vous termine pour garder une chronologie medicale propre.",
+    },
+    {
+      id: "documents",
+      title: "Documents patient",
+      intro:
+        "Les documents patient centralisent les pieces importees pendant ou apres une consultation.",
+      subtitle: "Importer et verifier un document",
+      steps: [
+        "Cliquez sur \"Ajouter documents\" dans les actions rapides du dossier patient.",
+        "Importez un PDF, une image ou un document medical compatible.",
+        "Donnez un nom clair au document pour le retrouver rapidement.",
+        "Utilisez l'analyse apres import lorsque le document doit etre verifie ou rattache au contexte patient.",
+      ],
+      calloutTone: "success",
+      callout:
+        "Conserver les documents dans le dossier patient evite de perdre les bilans, comptes rendus et pieces justificatives.",
+    },
+    {
+      id: "vaccinations",
+      title: "Vaccinations",
+      intro:
+        "La fiche vaccination permet de suivre les injections deja realisees et les rappels utiles.",
+      subtitle: "Ajouter une vaccination",
+      steps: [
+        "Ouvrez l'onglet Vaccinations ou utilisez l'action correspondante dans le dossier patient.",
+        "Indiquez le vaccin, la date d'administration et les remarques utiles.",
+        "Verifiez la date avant l'enregistrement pour conserver un historique fiable.",
+      ],
+      calloutTone: "success",
+      callout:
+        "Un historique vaccinal a jour aide a prendre de meilleures decisions lors des suivis et voyages.",
+    },
+    {
+      id: "voyages",
+      title: "Voyages",
+      intro:
+        "La rubrique Voyages rassemble les destinations et risques sanitaires a anticiper pour le patient.",
+      subtitle: "Preparer un voyage",
+      steps: [
+        "Ajoutez le pays ou la destination, les dates et les remarques sanitaires.",
+        "Consultez les epidemies et recommandations liees a la destination.",
+        "Reliez les conseils de prevention, vaccinations et traitements necessaires au dossier patient.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Les informations de voyage doivent etre mises a jour lorsque la destination ou les dates changent.",
+    },
   ] as const;
 
-  const articleLinks = ["Accès à la création patient"] as const;
+  const articleLinks = [
+    "Accès à la création patient",
+    "Suivis patient",
+    "Consultations",
+    "Documents patient",
+    "Vaccinations",
+    "Voyages",
+  ] as const;
 
   const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
     "Accès à la création patient": "creation",
+    "Suivis patient": "suivis",
+    "Consultations": "consultations",
+    "Documents patient": "documents",
+    "Vaccinations": "vaccinations",
+    "Voyages": "voyages",
   };
 
   const scrollToArticleSection = (targetId: string) => {

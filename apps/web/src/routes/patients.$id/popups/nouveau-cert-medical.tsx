@@ -288,6 +288,12 @@ export function NouveauCertMedicalDialog({
 
   if (!open) return null;
 
+  const isSaveBlocked =
+    !selectedSuiviId ||
+    !dateEmission ||
+    !typeCertificat ||
+    !statut;
+
   return (
     <div
       className="fixed inset-0 z-[140] flex items-center justify-center overflow-hidden bg-[rgba(10,35,65,0.24)] px-4 py-8 backdrop-blur-[4px]"
@@ -321,7 +327,14 @@ export function NouveauCertMedicalDialog({
             </div>
 
             <div className="flex items-center gap-4 text-[#0f3460]">
-              <CircleHelp className="size-5" strokeWidth={1.8} />
+              <button
+                aria-label="Aide"
+                className="cursor-pointer transition-colors hover:text-[#265284]"
+                data-context-help-href="/aide/ordonnances#templates"
+                type="button"
+              >
+                <CircleHelp className="size-5" strokeWidth={1.8} />
+              </button>
               <button
                 className="cursor-pointer transition-colors hover:text-[#265284]"
                 onClick={() => onOpenChange(false)}
@@ -486,8 +499,8 @@ export function NouveauCertMedicalDialog({
               Annuler
             </button>
             <button
-              className="inline-flex h-[38px] min-w-[150px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={saveMutation.isPending}
+              className="inline-flex h-[38px] min-w-[150px] items-center justify-center gap-2 rounded-[12px] bg-[#76bbdd] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+              disabled={saveMutation.isPending || isSaveBlocked}
               onClick={() => saveMutation.mutate()}
               type="button"
             >

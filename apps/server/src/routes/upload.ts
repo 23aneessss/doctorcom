@@ -7,6 +7,7 @@ import { ordonnanceService } from "@doctor.com/api/modules/ordonnance/service";
 import {
   buildPatientDocumentObjectName,
   buildPatientStorageSlug,
+  deleteFile,
   getObjectNameFromUrl,
   isStorageUnavailableError,
   minioClient,
@@ -82,8 +83,85 @@ function buildContentDisposition(filename: string, download: boolean): string {
   return `${download ? "attachment" : "inline"}; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+function getRouteParam(
+  req: express.Request,
+  name: string,
+  res: express.Response,
+): string | null {
+  const value = req.params[name];
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  res.status(400).json({ error: "Parametre de route invalide." });
+  return null;
+}
+
 function isPdfUpload(file: Express.Multer.File): boolean {
   return file.buffer.subarray(0, 5).toString("utf8") === "%PDF-";
+}
+
+function getSupportedLogoMimeType(file: Express.Multer.File): string | null {
+  const isPng =
+    file.buffer.length >= 8 &&
+    file.buffer[0] === 0x89 &&
+    file.buffer[1] === 0x50 &&
+    file.buffer[2] === 0x4e &&
+    file.buffer[3] === 0x47 &&
+    file.buffer[4] === 0x0d &&
+    file.buffer[5] === 0x0a &&
+    file.buffer[6] === 0x1a &&
+    file.buffer[7] === 0x0a;
+
+  if (isPng) {
+    return "image/png";
+  }
+
+  const isJpeg =
+    file.buffer.length >= 3 &&
+    file.buffer[0] === 0xff &&
+    file.buffer[1] === 0xd8 &&
+    file.buffer[2] === 0xff;
+
+  if (isJpeg) {
+    return "image/jpeg";
+  }
+
+  return null;
+}
+
+function getSupportedDocumentMimeType(file: Express.Multer.File): string | null {
+  if (isPdfUpload(file)) {
+    return "application/pdf";
+  }
+
+  const logoMimeType = getSupportedLogoMimeType(file);
+  if (logoMimeType) {
+    return logoMimeType;
+  }
+
+  const isWebp =
+    file.buffer.length >= 12 &&
+    file.buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    file.buffer.subarray(8, 12).toString("ascii") === "WEBP";
+
+  if (isWebp) {
+    return "image/webp";
+  }
+
+  return null;
+}
+
+async function deleteStoredFileBestEffort(fileUrl: string | null | undefined) {
+  if (!fileUrl) {
+    return;
+  }
+
+  try {
+    await deleteFile(getObjectNameFromUrl(fileUrl));
+  } catch (error) {
+    console.warn("Unable to delete replaced storage object:", error);
+  }
 }
 
 async function resolveDefaultDocumentCategorieId(): Promise<string> {
@@ -223,6 +301,172 @@ router.get("/ordonnance-template/:id/file", async (req, res) => {
   }
 });
 
+router.post("/ordonnance-template/:id/logo", upload.single("file"), async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    const templateId = getRouteParam(req, "id", res);
+    if (!templateId) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: "Aucun fichier fourni." });
+      return;
+    }
+
+    const logoMimeType = getSupportedLogoMimeType(req.file);
+    if (!logoMimeType) {
+      res.status(400).json({
+        error:
+          "Logo refuse: choisissez une image PNG ou JPG valide.",
+      });
+      return;
+    }
+
+    const existing = await ordonnanceService.getPdfTemplate({
+      db,
+      session,
+      id: templateId,
+    });
+
+    const uploaded = await uploadFile({
+      file: {
+        ...req.file,
+        mimetype: logoMimeType,
+      },
+      folder: "ordonnance-template-assets",
+    });
+
+    const updated = await ordonnanceService.updatePdfTemplateLogo({
+      db,
+      session,
+      id: templateId,
+      input: {
+        chemin_fichier: uploaded.url,
+        type_fichier: uploaded.mimeType,
+        taille_fichier: uploaded.size,
+      },
+    });
+
+    await deleteStoredFileBestEffort(existing.logo_chemin_fichier);
+
+    res.status(200).json(updated);
+  } catch (err: any) {
+    console.error("Upload ordonnance template logo error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
+router.delete("/ordonnance-template/:id/logo", async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const utilisateurId = await requireUtilisateurId(session.user.email, res);
+    if (!utilisateurId) return;
+
+    const templateId = getRouteParam(req, "id", res);
+    if (!templateId) return;
+
+    const existing = await ordonnanceService.getPdfTemplate({
+      db,
+      session,
+      id: templateId,
+    });
+
+    const updated = await ordonnanceService.removePdfTemplateLogo({
+      db,
+      session,
+      id: templateId,
+    });
+
+    await deleteStoredFileBestEffort(existing.logo_chemin_fichier);
+
+    res.status(200).json(updated);
+  } catch (err: any) {
+    console.error("Delete ordonnance template logo error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
+router.get("/ordonnance-template/:id/logo", async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    const templateId = getRouteParam(req, "id", res);
+    if (!templateId) return;
+
+    const template = await ordonnanceService.getPdfTemplate({
+      db,
+      session,
+      id: templateId,
+    });
+
+    if (!template.logo_chemin_fichier) {
+      res.status(404).json({ error: "Aucun logo importe pour ce template." });
+      return;
+    }
+
+    const objectName = getObjectNameFromUrl(template.logo_chemin_fichier);
+    const filename = getDocumentDownloadName(`${template.nom}-logo`, objectName);
+    const stream = await minioClient.getObject(storageConfig.bucket, objectName);
+
+    res.setHeader("Content-Type", template.logo_type_fichier || "application/octet-stream");
+    res.setHeader("Content-Length", String(template.logo_taille_fichier ?? 0));
+    res.setHeader("Content-Disposition", buildContentDisposition(filename, false));
+
+    stream.on("error", (error) => {
+      console.error("Ordonnance template logo stream error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Le logo n'a pas pu etre lu." });
+      } else {
+        res.destroy(error);
+      }
+    });
+
+    stream.pipe(res);
+  } catch (err: any) {
+    console.error("Read ordonnance template logo error:", err);
+    if (isStorageUnavailableError(err)) {
+      res.status(503).json({
+        error:
+          "Le stockage des documents est temporairement indisponible. Reessayez dans quelques instants.",
+      });
+      return;
+    }
+
+    res.status(err?.code === "NoSuchKey" ? 404 : 500).json({
+      error:
+        err?.code === "NoSuchKey"
+          ? "Le logo associe a ce template est introuvable."
+          : toSimpleFrenchRuntimeMessage({
+              code: "INTERNAL_SERVER_ERROR",
+              message: err?.message,
+            }),
+    });
+  }
+});
+
 async function resolvePatientStorageInfo(patientId: string) {
   const [patient] = await db
     .select({
@@ -276,6 +520,15 @@ router.post("/document", upload.single("file"), async (req, res) => {
       return;
     }
 
+    const documentMimeType = getSupportedDocumentMimeType(req.file);
+    if (!documentMimeType) {
+      res.status(400).json({
+        error:
+          "Format non pris en charge. Importez un PDF, PNG, JPG ou WebP valide.",
+      });
+      return;
+    }
+
     const body = JSON.parse(req.body.json ?? "{}");
     const { patient_id, categorie_id, nom_document, type_document, description } = body;
 
@@ -289,7 +542,10 @@ router.post("/document", upload.single("file"), async (req, res) => {
 
     const resolvedCategorieId = categorie_id ?? (await resolveDefaultDocumentCategorieId());
     const uploaded = await uploadPatientDocumentFile({
-      file: req.file,
+      file: {
+        ...req.file,
+        mimetype: documentMimeType,
+      },
       patientId: patient_id,
       typeDocument: type_document,
     });

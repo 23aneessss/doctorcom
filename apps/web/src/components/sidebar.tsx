@@ -13,6 +13,10 @@ import {
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import {
+  useInterfaceLanguage,
+  type SidebarTranslationKey,
+} from "@/lib/interface-language";
 
 import doctorLogo from "@/assets/doctor-logo.svg";
 
@@ -48,19 +52,9 @@ interface NavItemProps {
   onNavigate?: (href: string) => void;
 }
 
-const SIDEBAR_TEXT = {
-  accueil: "Accueil",
-  patients: "Patients",
-  agenda: "Agenda",
-  ordonnances: "Ordonnances",
-  medicaments: "Médicaments",
-  parametres: "Paramètres",
-  aide: "Aide et Assistance",
-} as const;
-
 type SidebarRouteItem = {
   href: string;
-  label: string;
+  labelKey: SidebarTranslationKey;
   icon: ReactNode;
   state?: NavItemProps["state"];
 };
@@ -68,27 +62,27 @@ type SidebarRouteItem = {
 const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/dashboard",
-    label: SIDEBAR_TEXT.accueil,
+    labelKey: "accueil",
     icon: <House size={24} weight="regular" />,
   },
   {
     href: "/patients",
-    label: SIDEBAR_TEXT.patients,
+    labelKey: "patients",
     icon: <UsersThree size={24} weight="fill" />,
   },
   {
     href: "/agenda",
-    label: SIDEBAR_TEXT.agenda,
+    labelKey: "agenda",
     icon: <CalendarDots size={24} weight="fill" />,
   },
   {
     href: "/ordonnance",
-    label: SIDEBAR_TEXT.ordonnances,
+    labelKey: "ordonnances",
     icon: <NotePencil size={24} weight="fill" />,
   },
   {
     href: "/medicament",
-    label: SIDEBAR_TEXT.medicaments,
+    labelKey: "medicaments",
     icon: <Pill size={24} weight="fill" />,
   },
 ];
@@ -96,12 +90,12 @@ const PRIMARY_NAV_ITEMS: SidebarRouteItem[] = [
 const SECONDARY_NAV_ITEMS: SidebarRouteItem[] = [
   {
     href: "/parametres",
-    label: SIDEBAR_TEXT.parametres,
+    labelKey: "parametres",
     icon: <GearSix size={24} weight="fill" />,
   },
   {
     href: "/aide",
-    label: SIDEBAR_TEXT.aide,
+    labelKey: "aide",
     icon: <Question size={24} weight="fill" />,
   },
 ];
@@ -152,7 +146,14 @@ const SIDEBAR_STYLE_MAP = {
     width: 203,
     marginTop: 34,
   } satisfies CSSProperties,
-  navList: { margin: 0, padding: 0, listStyle: "none" } satisfies CSSProperties,
+  navList: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  } satisfies CSSProperties,
   navButton: {
     display: "flex",
     alignItems: "center",
@@ -184,6 +185,9 @@ const SIDEBAR_STYLE_MAP = {
   } satisfies CSSProperties,
   navLabel: {
     margin: 0,
+    color: SIDEBAR_COLORS.textDefault,
+    fontSize: 16,
+    fontWeight: 600,
     lineHeight: "22px",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
@@ -213,15 +217,6 @@ const SIDEBAR_STYLE_MAP = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-  } satisfies CSSProperties,
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 9999,
-    objectFit: "cover",
-    display: "block",
-    flexShrink: 0,
-    background: "#d9d9d9",
   } satisfies CSSProperties,
   userText: { minWidth: 0, flex: 1 } satisfies CSSProperties,
   userName: {
@@ -300,7 +295,7 @@ function SidebarNavItem({
     SIDEBAR_STYLE_MAP.navButton,
     visualState === "active"
       ? {
-          gap: 12,
+          gap: 18,
           background: SIDEBAR_COLORS.activeItemBg,
           boxShadow: "0px 10px 3.9px -4px rgba(0, 0, 0, 0.15)",
         }
@@ -317,10 +312,10 @@ function SidebarNavItem({
   const labelStyle = mergeStyles(
     SIDEBAR_STYLE_MAP.navLabel,
     visualState === "active"
-      ? { color: SIDEBAR_COLORS.textActive, fontSize: 14, fontWeight: 500 }
+      ? { color: SIDEBAR_COLORS.textActive }
       : visualState === "hover"
-        ? { color: SIDEBAR_COLORS.textActive, fontSize: 16, fontWeight: 600 }
-        : { color: SIDEBAR_COLORS.textDefault, fontSize: 16, fontWeight: 600 },
+        ? { color: SIDEBAR_COLORS.textActive }
+        : undefined,
   );
 
   const iconOpacity = visualState === "default" ? 0.88 : 1;
@@ -366,6 +361,7 @@ function SidebarUserCard({
 }) {
   const { data: session } = authClient.useSession();
   const navigate = useNavigate();
+  const { t } = useInterfaceLanguage();
 
   const sessionUser = session?.user;
   const currentUser: NonNullable<SidebarProps["currentUser"]> = sessionUser
@@ -388,24 +384,13 @@ function SidebarUserCard({
     });
   };
 
-  const avatar = currentUser.avatarUrl ? (
-    <img
-      style={SIDEBAR_STYLE_MAP.avatar}
-      src={currentUser.avatarUrl}
-      alt={currentUser.name}
-    />
-  ) : (
-    <span style={SIDEBAR_STYLE_MAP.avatar} aria-hidden="true" />
-  );
-
   return (
     <div
       style={SIDEBAR_STYLE_MAP.userCard}
-      aria-label="Current user profile"
+      aria-label={t.sidebar.currentUser}
       data-node-id="1:1050"
     >
       <div style={SIDEBAR_STYLE_MAP.userRow}>
-        {avatar}
         <div style={SIDEBAR_STYLE_MAP.userText}>
           <p style={SIDEBAR_STYLE_MAP.userName}>{currentUser.name}</p>
           <p style={SIDEBAR_STYLE_MAP.userEmail}>{currentUser.email}</p>
@@ -413,7 +398,7 @@ function SidebarUserCard({
         <button
           type="button"
           onClick={handleLogout}
-          aria-label="Se déconnecter"
+          aria-label={t.sidebar.logout}
           style={{
             background: "none",
             border: "none",
@@ -452,73 +437,161 @@ function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useInterfaceLanguage();
   const { style, ...asideProps } = props;
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNavigate = (href: string) => {
+    setIsMobileMenuOpen(false);
     void navigate({ to: href as never });
   };
 
+  const mobileNavItems = [...PRIMARY_NAV_ITEMS, ...SECONDARY_NAV_ITEMS];
+  const activeMobileItem =
+    mobileNavItems.find((item) => isRouteActive(location.pathname, item.href)) ??
+    PRIMARY_NAV_ITEMS[0];
+  const activeMobileLabel = activeMobileItem
+    ? t.sidebar[activeMobileItem.labelKey]
+    : t.sidebar.accueil;
+
   return (
-    <aside
-      className={mergeClassNames(className)}
-      style={mergeStyles(SIDEBAR_STYLE_MAP.sidebar, style)}
-      data-node-id="1:1014"
-      {...asideProps}
-    >
-      <SidebarLogo />
+    <>
+      <aside
+        className={mergeClassNames("app-sidebar", className)}
+        style={mergeStyles(SIDEBAR_STYLE_MAP.sidebar, style)}
+        data-node-id="1:1014"
+        {...asideProps}
+      >
+        <SidebarLogo />
+
+        <nav
+          style={mergeStyles(
+            SIDEBAR_STYLE_MAP.navBase,
+            SIDEBAR_STYLE_MAP.primaryNav,
+          )}
+          aria-label={t.sidebar.primaryNavigation}
+        >
+          <ul style={SIDEBAR_STYLE_MAP.navList}>
+            {PRIMARY_NAV_ITEMS.map((item) => (
+              <li key={item.href}>
+                <SidebarNavItem
+                  icon={item.icon}
+                  label={t.sidebar[item.labelKey]}
+                  href={item.href}
+                  isActive={isRouteActive(location.pathname, item.href)}
+                  state={item.state}
+                  onNavigate={handleNavigate}
+                />
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div style={SIDEBAR_STYLE_MAP.divider} data-node-id="1:1046" />
+
+        <nav
+          style={mergeStyles(
+            SIDEBAR_STYLE_MAP.navBase,
+            SIDEBAR_STYLE_MAP.secondaryNav,
+          )}
+          aria-label={t.sidebar.secondaryNavigation}
+        >
+          <ul style={SIDEBAR_STYLE_MAP.navList}>
+            {SECONDARY_NAV_ITEMS.map((item) => (
+              <li key={item.href}>
+                <SidebarNavItem
+                  icon={item.icon}
+                  label={t.sidebar[item.labelKey]}
+                  href={item.href}
+                  isActive={isRouteActive(location.pathname, item.href)}
+                  state={item.state}
+                  onNavigate={handleNavigate}
+                />
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div style={SIDEBAR_STYLE_MAP.userCardWrap}>
+          <SidebarUserCard currentUser={currentUser} />
+        </div>
+      </aside>
+
+      <header className="app-mobile-header">
+        <button
+          type="button"
+          className="app-mobile-header__menu"
+          aria-label="Ouvrir le menu"
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="app-mobile-nav-drawer"
+          onClick={() => setIsMobileMenuOpen(true)}
+        >
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+        </button>
+
+        <div className="app-mobile-header__current">
+          <span className="app-mobile-header__icon" aria-hidden="true">
+            {activeMobileItem?.icon}
+          </span>
+          <span className="app-mobile-header__label">{activeMobileLabel}</span>
+        </div>
+      </header>
+
+      <button
+        type="button"
+        className="app-mobile-overlay"
+        data-open={isMobileMenuOpen ? "true" : undefined}
+        aria-label="Fermer le menu"
+        onClick={() => setIsMobileMenuOpen(false)}
+      />
 
       <nav
-        style={mergeStyles(
-          SIDEBAR_STYLE_MAP.navBase,
-          SIDEBAR_STYLE_MAP.primaryNav,
-        )}
-        aria-label="Primary sidebar navigation"
+        className="app-mobile-drawer"
+        data-open={isMobileMenuOpen ? "true" : undefined}
+        id="app-mobile-nav-drawer"
+        aria-label={t.sidebar.primaryNavigation}
       >
-        <ul style={SIDEBAR_STYLE_MAP.navList}>
-          {PRIMARY_NAV_ITEMS.map((item) => (
-            <li key={item.href}>
-              <SidebarNavItem
-                icon={item.icon}
-                label={item.label}
-                href={item.href}
-                isActive={isRouteActive(location.pathname, item.href)}
-                state={item.state}
-                onNavigate={handleNavigate}
-              />
-            </li>
-          ))}
+        <button
+          type="button"
+          className="app-mobile-drawer__close"
+          aria-label="Fermer le menu"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+        </button>
+
+        <div className="app-mobile-drawer__brand">
+          <img src={doctorLogo} alt="doctor.com" />
+        </div>
+
+        <ul className="app-mobile-drawer__list">
+          {mobileNavItems.map((item) => {
+            const label = t.sidebar[item.labelKey];
+            const isActive = isRouteActive(location.pathname, item.href);
+
+            return (
+              <li key={item.href}>
+                <button
+                  type="button"
+                  className="app-mobile-drawer__button"
+                  data-active={isActive ? "true" : undefined}
+                  onClick={() => handleNavigate(item.href)}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <span className="app-mobile-drawer__icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span className="app-mobile-drawer__label">{label}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </nav>
-
-      <div style={SIDEBAR_STYLE_MAP.divider} data-node-id="1:1046" />
-
-      <nav
-        style={mergeStyles(
-          SIDEBAR_STYLE_MAP.navBase,
-          SIDEBAR_STYLE_MAP.secondaryNav,
-        )}
-        aria-label="Secondary sidebar navigation"
-      >
-        <ul style={SIDEBAR_STYLE_MAP.navList}>
-          {SECONDARY_NAV_ITEMS.map((item) => (
-            <li key={item.href}>
-              <SidebarNavItem
-                icon={item.icon}
-                label={item.label}
-                href={item.href}
-                isActive={isRouteActive(location.pathname, item.href)}
-                state={item.state}
-                onNavigate={handleNavigate}
-              />
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div style={SIDEBAR_STYLE_MAP.userCardWrap}>
-        <SidebarUserCard currentUser={currentUser} />
-      </div>
-    </aside>
+    </>
   );
 }
 

@@ -1126,6 +1126,31 @@ export function NouvelleOrdonnanceDialog({
 
   const isBusy =
     createOrdonnanceMutation.isPending || previewMutation.isPending;
+  const saveableMedicationRows = rows.filter((row) => {
+    const hasMedicationName = Boolean(row.nom_medicament.trim());
+    const hasPosologie = Boolean(row.posologie.trim());
+
+    return hasMedicationName && hasPosologie;
+  });
+  const touchedMedicationRows = rows.filter((row) =>
+    Boolean(
+      row.nom_medicament.trim() ||
+        row.medicament_externe_id.trim() ||
+        row.dosage.trim() ||
+        row.posologie.trim() ||
+        row.duree_traitement.trim() ||
+        row.instructions.trim(),
+    ),
+  );
+  const hasIncompleteMedicationRows = touchedMedicationRows.some(
+    (row) => !row.nom_medicament.trim() || !row.posologie.trim(),
+  );
+  const isOrdonnanceSaveBlocked =
+    !selectedSuiviId ||
+    !selectedRendezVousId ||
+    (mode === "pre-remplie" && !selectedPreRempliId) ||
+    saveableMedicationRows.length === 0 ||
+    hasIncompleteMedicationRows;
   const showManualEditor = mode === "manuel";
   const hasRightPanel = showMedicationAiPanel;
   const isRowConfirmable = (row: OrdonnanceRow) => {
@@ -2011,12 +2036,14 @@ export function NouvelleOrdonnanceDialog({
                     Annuler
                   </button>
                   <button
-                    className={`h-[37.6px] cursor-pointer rounded-[10px] px-4 font-['Poppins'] text-[14px] text-white transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-                      mode === "pre-remplie"
-                        ? "bg-[#0f3460] hover:bg-[#0b2747]"
-                        : "bg-[#76bbdd] hover:bg-[#63b0d6]"
+                    className={`h-[37.6px] cursor-pointer rounded-[10px] px-4 font-['Poppins'] text-[14px] transition-colors disabled:cursor-not-allowed ${
+                      isOrdonnanceSaveBlocked || isBusy
+                        ? "bg-[#c2e0ef] text-[#6b819d]"
+                        : mode === "pre-remplie"
+                          ? "bg-[#0f3460] text-white hover:bg-[#0b2747]"
+                          : "bg-[#76bbdd] text-white hover:bg-[#63b0d6]"
                     }`}
-                    disabled={isBusy}
+                    disabled={isBusy || isOrdonnanceSaveBlocked}
                     onClick={() => createOrdonnanceMutation.mutate()}
                     type="button"
                   >

@@ -196,13 +196,20 @@ export function VoirMedicamentDialog({
                 >
                   Annuler
                 </button>
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending}
-                  className="h-[38px] min-w-[120px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_14px_rgba(118,187,221,0.45)] transition-[background-color,opacity] hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
-                </button>
+                <form.Subscribe selector={(state) => state.values}>
+                  {(currentValues) => (
+                    <button
+                      type="submit"
+                      disabled={
+                        updateMutation.isPending ||
+                        !medicationFormSchema.safeParse(currentValues).success
+                      }
+                      className="h-[38px] min-w-[120px] rounded-[10px] bg-[#76BBDD] px-5 font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#FFFDFB] shadow-[0px_4px_14px_rgba(118,187,221,0.45)] transition-[background-color,opacity] hover:bg-[#69b2d6] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                    >
+                      {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                    </button>
+                  )}
+                </form.Subscribe>
               </>
             ) : (
               <>

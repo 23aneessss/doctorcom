@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Info, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { z } from "zod";
@@ -171,6 +171,52 @@ const step1Schema = z.object({
   adresseComplete: z.string().trim().max(255, "L'adresse ne doit pas dépasser 255 caractères").optional().or(z.literal("")),
 });
 
+const buildStep1ValidationPayload = (values: NouveauPatientFormValues) => ({
+  nom: values.nom,
+  prenom: values.prenom,
+  profession: values.profession,
+  sexe: values.sexe === "Homme" ? "Masculin" : values.sexe === "Femme" ? "Féminin" : values.sexe,
+  lieuNaissance: values.lieuNaissance,
+  dateNaissance: values.dateNaissance,
+  nss: values.nss,
+  nationalite: values.nationalite,
+  telephone: values.telephone,
+  email: values.email,
+  situationFamiliale: values.situationFamiliale,
+  adresseComplete: values.adresseComplete,
+});
+
+const getStep1ValidationErrors = (values: NouveauPatientFormValues) => {
+  const parsed = step1Schema.safeParse(buildStep1ValidationPayload(values));
+  const nextErrors: Partial<Record<keyof NouveauPatientFormValues, string>> = {};
+
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0];
+      if (
+        key === "nom" ||
+        key === "prenom" ||
+        key === "profession" ||
+        key === "sexe" ||
+        key === "lieuNaissance" ||
+        key === "dateNaissance" ||
+        key === "nss" ||
+        key === "nationalite" ||
+        key === "telephone" ||
+        key === "email" ||
+        key === "situationFamiliale"
+      ) {
+        nextErrors[key] = issue.message;
+      }
+      if (key === "adresseComplete") {
+        nextErrors.adresseComplete = issue.message;
+      }
+    }
+  }
+
+  return nextErrors;
+};
+
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 const initialPersonalAntecedent = (): PersonalAntecedentValues => ({ id: createId(), type: "", details: "", maladieActive: false });
@@ -242,12 +288,15 @@ export function NouveauPatientDialog({
     : (["Informations essentielles", "Antécédents", "Traitements", "Informations sociales"] as const);
   const maxStep = isFemalePatient ? 5 : 4;
 
-  const isFormValid = useMemo(() => requiredFields.every((field) => (values[field] ?? "").trim().length > 0), [values]);
+  const step1LiveErrors = useMemo(() => getStep1ValidationErrors(values), [values]);
+  const isStepOneValid = Object.keys(step1LiveErrors).length === 0;
   const isStepTwoValid = useMemo(() => {
     const hasValidPersonalAntecedents = personalAntecedents.every((entry) => (entry.type ?? "").trim().length > 0 && (entry.details ?? "").trim().length > 0);
     const hasValidFamilyAntecedents = familyAntecedents.every((entry) => (entry.lienParente ?? "").trim().length > 0 && (entry.pathologie ?? "").trim().length > 0);
     return hasValidPersonalAntecedents && hasValidFamilyAntecedents;
   }, [personalAntecedents, familyAntecedents]);
+  const isCurrentStepValid = currentStep === 1 ? isStepOneValid : currentStep === 2 ? isStepTwoValid : true;
+  const canAddNow = currentStep === 1 ? isStepOneValid : isStepOneValid && isStepTwoValid;
 
   useEffect(() => {
     if (!open) {
@@ -419,7 +468,7 @@ export function NouveauPatientDialog({
       return;
     }
 
-    if (!ALLOW_STEP_PREVIEW_NAVIGATION && (!isFormValid || (currentStep >= 2 && !isStepTwoValid))) {
+    if (!ALLOW_STEP_PREVIEW_NAVIGATION && (!isStepOneValid || (currentStep >= 2 && !isStepTwoValid))) {
       setShowValidation(true);
       return;
     }
@@ -464,7 +513,13 @@ export function NouveauPatientDialog({
     setTreatments((current) => (current.length === 1 ? [{ ...current[0], medicament: "", dosage: "", indication: "", posologie: "", maladieActive: true }] : current.filter((entry) => entry.id !== id)));
   };
 
-  const getError = (field: keyof NouveauPatientFormValues, fallback: string) => step1Errors[field] ?? (touchedFields.has(field) && !values[field].trim() ? fallback : undefined);
+  const shouldShowFieldError = (field: keyof NouveauPatientFormValues) =>
+    showValidation || touchedFields.has(field);
+  const getFieldError = (field: keyof NouveauPatientFormValues) =>
+    shouldShowFieldError(field) ? (step1LiveErrors[field] ?? step1Errors[field]) : undefined;
+  const getError = (field: keyof NouveauPatientFormValues, fallback: string) =>
+    getFieldError(field) ??
+    (shouldShowFieldError(field) && !values[field].trim() ? fallback : undefined);
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -479,9 +534,19 @@ export function NouveauPatientDialog({
               <p className={styles.subtitle}>{`Étape ${currentStep} sur ${stepLabels.length} · ${stepLabels[currentStep - 1]}`}</p>
             </div>
           </div>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
-            <X size={18} aria-hidden="true" />
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.closeButton}
+              aria-label="Aide"
+              data-context-help-href="/aide/patients#creation"
+            >
+              <CircleHelp size={18} aria-hidden="true" />
+            </button>
+            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Fermer">
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <div className={styles.progressBarTrack}>
@@ -512,7 +577,7 @@ export function NouveauPatientDialog({
           {currentStep === 1 ? (
             <>
               <div className={styles.noticeBox}><Info size={15} aria-hidden="true" /><p><strong>Informations essentielles</strong> — Ces champs sont obligatoires pour créer le dossier patient.</p></div>
-              {showValidation && !isFormValid ? <p className={styles.validationHint}>Veuillez renseigner tous les champs obligatoires.</p> : null}
+              {showValidation && !isStepOneValid ? <p className={styles.validationHint}>Veuillez renseigner tous les champs obligatoires.</p> : null}
               <div className={styles.formGrid}>
                 <Field label="Nom" required error={getError("nom", "Le nom est obligatoire")}>
                   <input className={styles.input} style={getError("nom", "Le nom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.nom} onChange={(e) => updateField("nom", e.currentTarget.value)} onBlur={() => markFieldTouched("nom")} placeholder="Nom de famille" />
@@ -520,8 +585,8 @@ export function NouveauPatientDialog({
                 <Field label="Prénom" required error={getError("prenom", "Le prénom est obligatoire")}>
                   <input className={styles.input} style={getError("prenom", "Le prénom est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.prenom} onChange={(e) => updateField("prenom", e.currentTarget.value)} onBlur={() => markFieldTouched("prenom")} placeholder="Prénom" />
                 </Field>
-                <Field label="Profession" error={step1Errors.profession}>
-                  <input className={styles.input} style={step1Errors.profession ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} placeholder="Ex : Ingénieur, Médecin…" />
+                <Field label="Profession" error={getFieldError("profession")}>
+                  <input className={styles.input} style={getFieldError("profession") ? { borderColor: "#ef4444" } : {}} value={values.profession} onChange={(e) => updateField("profession", e.currentTarget.value)} onBlur={() => markFieldTouched("profession")} placeholder="Ex : Ingénieur, Médecin…" />
                 </Field>
                 <Field label="Sexe" required error={getError("sexe", "Le sexe est obligatoire")}>
                   <select className={styles.input} style={getError("sexe", "Le sexe est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.sexe} onChange={(e) => updateField("sexe", e.currentTarget.value)} onBlur={() => markFieldTouched("sexe")}>
@@ -536,14 +601,14 @@ export function NouveauPatientDialog({
                 <Field label="Date de naissance" required error={getError("dateNaissance", "La date de naissance est obligatoire")}>
                   <input className={styles.input} style={getError("dateNaissance", "La date de naissance est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.dateNaissance} onChange={(e) => updateField("dateNaissance", e.currentTarget.value)} onBlur={() => markFieldTouched("dateNaissance")} placeholder="JJ/MM/AAAA" />
                 </Field>
-                <Field label="NSS" required error={step1Errors.nss}><input className={styles.input} style={step1Errors.nss ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} placeholder="15 chiffres" /></Field>
-                <Field label="Nationalité" error={step1Errors.nationalite}><input className={styles.input} style={step1Errors.nationalite ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} placeholder="Ex : Algérienne" /></Field>
+                <Field label="NSS" required error={getFieldError("nss")}><input className={styles.input} style={getFieldError("nss") ? { borderColor: "#ef4444" } : {}} value={values.nss} onChange={(e) => updateField("nss", e.currentTarget.value)} onBlur={() => markFieldTouched("nss")} placeholder="15 chiffres" /></Field>
+                <Field label="Nationalité" error={getFieldError("nationalite")}><input className={styles.input} style={getFieldError("nationalite") ? { borderColor: "#ef4444" } : {}} value={values.nationalite} onChange={(e) => updateField("nationalite", e.currentTarget.value)} onBlur={() => markFieldTouched("nationalite")} placeholder="Ex : Algérienne" /></Field>
                 <Field label="Téléphone" required error={getError("telephone", "Le téléphone est obligatoire")}>
                   <input className={styles.input} style={getError("telephone", "Le téléphone est obligatoire") ? { borderColor: "#ef4444" } : {}} value={values.telephone} onChange={(e) => updateField("telephone", e.currentTarget.value)} onBlur={() => markFieldTouched("telephone")} placeholder="0X XX XX XX XX" />
                 </Field>
-                <Field label="Email" error={step1Errors.email}><input className={styles.input} style={step1Errors.email ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} placeholder="exemple@email.com" /></Field>
-                <Field label="Situation familiale" error={step1Errors.situationFamiliale}>
-                  <select className={styles.input} style={step1Errors.situationFamiliale ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")}>
+                <Field label="Email" error={getFieldError("email")}><input className={styles.input} style={getFieldError("email") ? { borderColor: "#ef4444" } : {}} value={values.email} onChange={(e) => updateField("email", e.currentTarget.value)} onBlur={() => markFieldTouched("email")} placeholder="exemple@email.com" /></Field>
+                <Field label="Situation familiale" error={getFieldError("situationFamiliale")}>
+                  <select className={styles.input} style={getFieldError("situationFamiliale") ? { borderColor: "#ef4444" } : {}} value={values.situationFamiliale} onChange={(e) => updateField("situationFamiliale", e.currentTarget.value)} onBlur={() => markFieldTouched("situationFamiliale")}>
                     <option value="">Sélectionner</option>
                     <option value="Célibataire">Célibataire</option>
                     <option value="Marié(e)">Marié(e)</option>
@@ -551,7 +616,7 @@ export function NouveauPatientDialog({
                     <option value="Veuf(ve)">Veuf(ve)</option>
                   </select>
                 </Field>
-                <Field label="Adresse complète" error={step1Errors.adresseComplete}><input className={styles.input} style={step1Errors.adresseComplete ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} placeholder="Rue, cité, wilaya…" /></Field>
+                <Field label="Adresse complète" error={getFieldError("adresseComplete")}><input className={styles.input} style={getFieldError("adresseComplete") ? { borderColor: "#ef4444" } : {}} value={values.adresseComplete} onChange={(e) => updateField("adresseComplete", e.currentTarget.value)} onBlur={() => markFieldTouched("adresseComplete")} placeholder="Rue, cité, wilaya…" /></Field>
               </div>
             </>
           ) : null}
@@ -693,8 +758,8 @@ export function NouveauPatientDialog({
           <footer className={styles.footer}>
             {currentStep === 1 ? <button type="button" className={styles.cancelButton} onClick={onClose}><X size={16} aria-hidden="true" />Annuler</button> : <button type="button" className={styles.cancelButton} onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1) as 1 | 2 | 3 | 4 | 5)}><ChevronLeft size={16} aria-hidden="true" />Précédent</button>}
             <div className={styles.footerActionsRight}>
-              <button type="button" className={styles.addNowButton} onClick={handleAddNow} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Ajout en cours..." : "Ajouter maintenant"}</button>
-              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>{currentStep < maxStep ? "Continuer" : "Terminer"}</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="button" className={styles.addNowButton} onClick={handleAddNow} disabled={isSubmitting || !canAddNow}><Check size={16} aria-hidden="true" />{isSubmitting ? "Ajout en cours..." : "Ajouter maintenant"}</button>
+              <button type="submit" className={styles.continueButton} disabled={isSubmitting || !isCurrentStepValid}><span>{currentStep < maxStep ? "Continuer" : "Terminer"}</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </footer>
         </form>

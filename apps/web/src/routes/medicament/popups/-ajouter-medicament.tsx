@@ -95,12 +95,17 @@ export function AjouterMedicamentDialog({
           <MedicationFieldTextarea form={form} name="presentations" label="Présentations" placeholder="Format: forme | dosage" />
         </div>
 
-        <MedicationDialogFooter
-          isPending={createMutation.isPending}
-          onCancel={() => onOpenChange(false)}
-          pendingLabel="Enregistrement..."
-          submitLabel="Ajouter"
-        />
+        <form.Subscribe selector={(state) => state.values}>
+          {(currentValues) => (
+            <MedicationDialogFooter
+              isPending={createMutation.isPending}
+              isSubmitBlocked={!medicationFormSchema.safeParse(currentValues).success}
+              onCancel={() => onOpenChange(false)}
+              pendingLabel="Enregistrement..."
+              submitLabel="Ajouter"
+            />
+          )}
+        </form.Subscribe>
       </form>
     </MedicationDialogShell>
   );

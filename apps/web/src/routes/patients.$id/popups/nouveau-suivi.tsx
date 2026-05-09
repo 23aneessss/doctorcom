@@ -198,11 +198,19 @@ export function NouveauSuiviDialog({
         }
       }}
     >
-      <div className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]">
+      <div
+        aria-labelledby="nouveau-suivi-title"
+        aria-modal="true"
+        className="h-[583px] w-[512px] overflow-hidden rounded-[14px] bg-white shadow-[0px_25px_50px_-12px_rgba(15,52,96,0.2)]"
+        role="dialog"
+      >
         <div className="flex h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 pb-[0.8px]">
           <div className="flex items-center gap-2">
             <ClipboardList className="size-5 "  color="#0f3460"/>
-            <h3 className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]">
+            <h3
+              className="font-['Plus_Jakarta_Sans'] text-[18px] font-semibold leading-[27px] text-[#0f3460]"
+              id="nouveau-suivi-title"
+            >
               {mode === "edit" ? "Modifier suivi" : "Nouveau suivi"}
             </h3>
           </div>
@@ -360,17 +368,27 @@ export function NouveauSuiviDialog({
               Annuler
             </button>
 
-            <button
-              className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isPending}
-              type="submit"
-            >
-              {isPending
-                ? "Enregistrement..."
-                : mode === "edit"
-                  ? "Enregistrer"
-                  : "Creer le suivi"}
-            </button>
+            <form.Subscribe selector={(state) => state.values}>
+              {(currentValues) => {
+                const canSubmit =
+                  symptoms.length > 0 &&
+                  /^\d{4}-\d{2}-\d{2}$/.test(currentValues.date_ouverture ?? "");
+
+                return (
+                  <button
+                    className="h-[37.6px] w-[160px] cursor-pointer rounded-[12px] bg-[#76bbdd] font-['Inter'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                    disabled={isPending || !canSubmit}
+                    type="submit"
+                  >
+                    {isPending
+                      ? "Enregistrement..."
+                      : mode === "edit"
+                        ? "Enregistrer"
+                        : "Creer le suivi"}
+                  </button>
+                );
+              }}
+            </form.Subscribe>
           </div>
         </form>
       </div>

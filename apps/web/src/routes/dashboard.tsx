@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import {
   Activity,
+  AlertCircle,
   ArrowRight,
   CalendarDays,
   CircleX,
@@ -11,6 +12,7 @@ import {
   FileText,
   Pill,
   Plus,
+  RefreshCw,
   Sparkles,
   TrendingUp,
   UserPlus,
@@ -115,6 +117,7 @@ function RouteComponent() {
   const createPatientMutation = useMutation(trpc.patient.createPatient.mutationOptions());
   const overview = (overviewQuery.data ?? EMPTY_OVERVIEW) as DashboardOverview;
   const isLoading = overviewQuery.isLoading;
+  const isError = overviewQuery.isError;
   const fallbackSelectedDate =
     overview.calendarDays.find((day) => day.isActive)?.isoDate ??
     overview.calendarDays[0]?.isoDate ??
@@ -244,6 +247,18 @@ function RouteComponent() {
             displayName={displayName}
             onCreateAppointment={() => setIsAddRdvOpen(true)}
           />
+
+          {isError ? (
+            <DashboardErrorPanel
+              message={getErrorMessage(
+                overviewQuery.error,
+                "Impossible de charger les données du tableau de bord.",
+              )}
+              onRetry={() => {
+                void overviewQuery.refetch();
+              }}
+            />
+          ) : null}
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <KpiCard
@@ -484,28 +499,6 @@ function PanelHeader({
 
 const MONTH_LABELS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
-// TODO: remove when real data is consistently populated
-const DEMO_TREND: Array<{ label: string; value: number; isoDate: string }> = [
-  { label: "18", value: 3,  isoDate: "2026-04-18" },
-  { label: "19", value: 1,  isoDate: "2026-04-19" },
-  { label: "20", value: 0,  isoDate: "2026-04-20" },
-  { label: "21", value: 4,  isoDate: "2026-04-21" },
-  { label: "22", value: 5,  isoDate: "2026-04-22" },
-  { label: "23", value: 4,  isoDate: "2026-04-23" },
-  { label: "24", value: 3,  isoDate: "2026-04-24" },
-  { label: "25", value: 2,  isoDate: "2026-04-25" },
-  { label: "26", value: 1,  isoDate: "2026-04-26" },
-  { label: "27", value: 0,  isoDate: "2026-04-27" },
-  { label: "28", value: 4,  isoDate: "2026-04-28" },
-  { label: "29", value: 5,  isoDate: "2026-04-29" },
-  { label: "30", value: 6,  isoDate: "2026-04-30" },
-  { label: "01", value: 4,  isoDate: "2026-05-01" },
-  { label: "02", value: 3,  isoDate: "2026-05-02" },
-  { label: "03", value: 2,  isoDate: "2026-05-03" },
-  { label: "04", value: 1,  isoDate: "2026-05-04" },
-  { label: "05", value: 3,  isoDate: "2026-05-05" },
-];
-
 function PatientTrendChart({
   bars,
   loading,
@@ -513,10 +506,19 @@ function PatientTrendChart({
   bars: DashboardOverview["patientTrend"];
   loading: boolean;
 }) {
-  const data = loading ? DEMO_TREND : DEMO_TREND; // TODO: swap to real data: bars.slice(-18)
+  if (loading) {
+    return <ChartLoadingState />;
+  }
+
+  const data = bars.slice(-18);
+
+  if (data.length === 0) {
+    return <EmptyPanel text="Aucune donnée patient disponible" />;
+  }
+
   const max = Math.max(1, ...data.map((bar) => bar.value));
   const total = data.reduce((sum, bar) => sum + bar.value, 0);
-  const allZero = !loading && total === 0;
+  const allZero = total === 0;
 
   const rangeLabel = (() => {
     const first = data[0]?.isoDate;
@@ -551,9 +553,10 @@ function PatientTrendChart({
       {/* Bars */}
       <div className="relative flex h-[13rem] items-end gap-2">
         {data.map((bar, index) => {
-          const valueHeight = loading
-            ? 28
-            : Math.max(bar.value > 0 ? 14 : 3, Math.round((bar.value / max) * 178));
+          const valueHeight = Math.max(
+            bar.value > 0 ? 14 : 3,
+            Math.round((bar.value / max) * 178),
+          );
 
           const prevIso = index > 0 ? data[index - 1]?.isoDate : undefined;
           const currIso = bar.isoDate;
@@ -600,6 +603,62 @@ function PatientTrendChart({
         )}
       </div>
     </div>
+  );
+}
+
+function ChartLoadingState() {
+  return (
+    <div className="relative min-h-[18rem] overflow-hidden rounded-[16px] border border-[#e3f3fb] bg-[linear-gradient(180deg,#f8fcff_0%,#ffffff_100%)] px-5 pb-5 pt-6">
+      <div className="pointer-events-none absolute inset-x-5 top-8 grid h-[13rem] grid-rows-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <span key={index} className="border-t border-dashed border-[#dbeef7]" />
+        ))}
+      </div>
+      <div className="relative flex h-[13rem] items-end gap-2">
+        {Array.from({ length: 18 }).map((_, index) => (
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={index}>
+            <span
+              className="w-[42%] animate-pulse rounded-t-full bg-[#dceef8]"
+              style={{ height: 24 + ((index * 17) % 92) }}
+            />
+            <span className="h-2 w-4 rounded-full bg-[#e8f4fa]" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center justify-between border-t border-[#edf6fb] pt-4">
+        <span className="h-3 w-32 animate-pulse rounded-full bg-[#e8f4fa]" />
+        <span className="h-3 w-20 animate-pulse rounded-full bg-[#e8f4fa]" />
+      </div>
+    </div>
+  );
+}
+
+function DashboardErrorPanel({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[#9a3412]">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#f77a21]">
+          <AlertCircle className="size-5" />
+        </span>
+        <p className="m-0 font-['Inter'] text-[13px] font-semibold leading-5">
+          {message}
+        </p>
+      </div>
+      <button
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-[11px] bg-[#f77a21] px-3 font-['Plus_Jakarta_Sans'] text-[12px] font-bold text-white shadow-[0_8px_18px_-14px_rgba(154,52,18,0.55)] transition hover:bg-[#ea6b13]"
+        onClick={onRetry}
+        type="button"
+      >
+        <RefreshCw className="size-3.5" />
+        Réessayer
+      </button>
+    </section>
   );
 }
 

@@ -212,13 +212,17 @@ export function ModifierAntecedentPersonnelDialog({
             >
               Annuler
             </button>
-            <button
-              className="h-[37.6px] rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:opacity-70"
-              disabled={updateMutation.isPending}
-              type="submit"
-            >
-              {updateMutation.isPending ? "Enregistrement..." : "Ajouter"}
-            </button>
+            <form.Subscribe selector={(state) => state.values}>
+              {(currentValues) => (
+                <button
+                  className="h-[37.6px] rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+                  disabled={updateMutation.isPending || !currentValues.pathologie.trim()}
+                  type="submit"
+                >
+                  {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              )}
+            </form.Subscribe>
           </div>
         </form>
       </div>

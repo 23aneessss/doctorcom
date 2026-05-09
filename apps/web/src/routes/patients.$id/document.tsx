@@ -1,4 +1,3 @@
-import { env } from "@doctor.com/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -25,6 +24,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { getServerBaseUrl } from "@/lib/server-url";
 import { cn } from "@/lib/utils";
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { NouveauCertMedicalDialog } from "@/routes/patients.$id/popups/nouveau-cert-medical";
@@ -1351,7 +1351,7 @@ function formatFileSize(size: number) {
 
 function getDocumentFileUrl(documentId: string, download = false) {
   const query = download ? "?download=1" : "";
-  return `${env.VITE_SERVER_URL}/api/upload/document/${documentId}/file${query}`;
+  return `${getServerBaseUrl()}/api/upload/document/${documentId}/file${query}`;
 }
 
 function EmptyState({ text }: { text: string }) {

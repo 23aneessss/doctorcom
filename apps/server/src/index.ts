@@ -1,9 +1,14 @@
 import "dotenv/config";
 
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import { auth } from "@doctor.com/auth";
+import { db } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
 import express from "express";
 import { createContext } from "@doctor.com/api/context";
+import { aiSettingsService } from "@doctor.com/api/modules/ai/settings/service";
 import { appRouter } from "@doctor.com/api/routers/index";
 import { ensureBucketExists, isStorageUnavailableError } from "@doctor.com/api/infrastructure/storage";
 import { startScheduler } from "@doctor.com/api/infrastructure/scheduler";
@@ -118,11 +123,35 @@ app.use(
     },
   }),
 );
-app.get("/", (_req, res) => {
+app.get("/healthz", (_req, res) => {
   res.status(200).send("server running");
 });
 
+const webDistDir = process.env.WEB_DIST_DIR;
+const webIndexFile = webDistDir ? path.join(webDistDir, "index.html") : null;
+
+if (webDistDir && webIndexFile && existsSync(webIndexFile)) {
+  app.use(express.static(webDistDir));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/") || req.path.startsWith("/trpc")) {
+      next();
+      return;
+    }
+
+    res.sendFile(webIndexFile);
+  });
+}
+
 async function startServer(): Promise<void> {
+  try {
+    await aiSettingsService.initializeRuntimeSettings(db);
+  } catch (error) {
+    console.warn(
+      "AI settings could not be initialized. Falling back to environment configuration.",
+      error,
+    );
+  }
+
   setStorageAvailable(true);
   const storageReady = await ensureStorageWithRetry();
   if (!storageReady) {

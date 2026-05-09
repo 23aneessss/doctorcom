@@ -82,6 +82,22 @@ function RouteComponent() {
       callout:
         "Un modèle bien documenté accélère la prescription future sans modifier les ordonnances déjà émises.",
     },
+    {
+      id: "template-pdf",
+      title: "Configurer le template Ordonnance",
+      intro:
+        "La configuration du template Ordonnance permet d'adapter un PDF personnel au format d'impression de votre cabinet.",
+      subtitle: "Utiliser un PDF personnel",
+      steps: [
+        "Ouvrez la popup \"Configurer le template Ordonnance\" depuis la page Ordonnances.",
+        "Importez uniquement le PDF de fond ou le logo autorise par la configuration actuelle.",
+        "Activez les champs presents sur le PDF et ajustez leur position dans l'aperçu.",
+        "Enregistrez la configuration puis testez l'aperçu avant d'imprimer une ordonnance.",
+      ],
+      calloutTone: "warning",
+      callout:
+        "Vérifiez toujours l'aperçu final : les rectangles configurés utilisent les mêmes coordonnées que l'export PDF.",
+    },
   ] as const;
 
   const articleLinks = [
@@ -89,6 +105,7 @@ function RouteComponent() {
     "Actions (Impression, PDF)",
     "Utilisation et modification des modèles",
     "Création d'un modele personnalisé",
+    "Configurer le template Ordonnance",
   ] as const;
 
   const articleLinkTargets: Record<(typeof articleLinks)[number], string> = {
@@ -96,6 +113,7 @@ function RouteComponent() {
     "Actions (Impression, PDF)": "actions",
     "Utilisation et modification des modèles": "templates",
     "Création d'un modele personnalisé": "templates",
+    "Configurer le template Ordonnance": "template-pdf",
   };
 
   const scrollToArticleSection = (targetId: string) => {

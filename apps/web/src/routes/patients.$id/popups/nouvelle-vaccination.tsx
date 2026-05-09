@@ -281,18 +281,23 @@ export function NouvelleVaccinationDialog({
             </div>
           )}
 
-          <DialogFooter
-            mode={mode}
-            isPending={isPending}
-            onCancel={() => onOpenChange(false)}
-            onDelete={async () => {
-              if (!vaccinationId) {
-                toast.error("Vaccination introuvable");
-                return;
-              }
-              await deleteMutation.mutateAsync(vaccinationId);
-            }}
-          />
+          <form.Subscribe selector={(state) => state.values}>
+            {(currentValues) => (
+              <DialogFooter
+                mode={mode}
+                isPending={isPending}
+                isSubmitBlocked={mode !== "delete" && isVaccinationSubmitBlocked(currentValues)}
+                onCancel={() => onOpenChange(false)}
+                onDelete={async () => {
+                  if (!vaccinationId) {
+                    toast.error("Vaccination introuvable");
+                    return;
+                  }
+                  await deleteMutation.mutateAsync(vaccinationId);
+                }}
+              />
+            )}
+          </form.Subscribe>
         </form>
       </div>
       </div>
@@ -444,11 +449,13 @@ function DeleteContent({ values }: { values?: VaccinationDialogValues }) {
 function DialogFooter({
   mode,
   isPending,
+  isSubmitBlocked,
   onCancel,
   onDelete,
 }: {
   mode: "create" | "edit" | "delete";
   isPending: boolean;
+  isSubmitBlocked: boolean;
   onCancel: () => void;
   onDelete: () => Promise<void>;
 }) {
@@ -475,8 +482,8 @@ function DialogFooter({
         </button>
       ) : (
         <button
-          className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isPending}
+          className="h-[37.6px] cursor-pointer rounded-[12px] bg-[#76bbdd] px-4 font-['Plus_Jakarta_Sans'] text-[14px] font-medium leading-5 text-white shadow-[0px_4px_12px_0px_rgba(118,187,221,0.5)] transition-colors hover:bg-[#65afd4] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
+          disabled={isPending || isSubmitBlocked}
           type="submit"
         >
           {isPending
@@ -490,6 +497,13 @@ function DialogFooter({
       )}
     </div>
   );
+}
+
+function isVaccinationSubmitBlocked(values: {
+  vaccin: string;
+  date_vaccination: string;
+}) {
+  return !values.vaccin.trim() || parseDisplayDateToIso(values.date_vaccination) === null;
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {

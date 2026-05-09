@@ -1,4 +1,3 @@
-import { env } from "@doctor.com/env/web";
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -17,6 +16,7 @@ import type { ChangeEvent, DragEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { getServerBaseUrl } from "@/lib/server-url";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -174,9 +174,17 @@ export function NouveauDocumentPatientDialog({
         throw new Error("Ajoutez au moins un document.");
       }
 
-      const uploadedItems: { draftId: string; document: UploadedDocument }[] = [];
+      const draftsToUpload = fileDrafts.filter(
+        (draft) => draft.status !== "uploaded",
+      );
+      if (draftsToUpload.length === 0) {
+        throw new Error("Tous les documents sélectionnés sont déjà importés.");
+      }
 
-      for (const draft of fileDrafts) {
+      const uploadedItems: { draftId: string; document: UploadedDocument }[] = [];
+      const failedItems: { draftId: string; message: string }[] = [];
+
+      for (const draft of draftsToUpload) {
         setFileDrafts((current) =>
           current.map((item) =>
             item.id === draft.id
@@ -207,15 +215,25 @@ export function NouveauDocumentPatientDialog({
                 : item,
             ),
           );
-          throw error;
+          failedItems.push({ draftId: draft.id, message });
         }
       }
 
-      return uploadedItems;
+      if (uploadedItems.length === 0 && failedItems.length > 0) {
+        throw new Error(failedItems[0]?.message ?? "Import impossible.");
+      }
+
+      return { uploadedItems, failedItems };
     },
-    onSuccess: async (uploadedItems) => {
+    onSuccess: async ({ uploadedItems, failedItems }) => {
       const uploadedDocuments = uploadedItems.map((item) => item.document);
-      toast.success(`${uploadedDocuments.length} document(s) importe(s)`);
+      if (failedItems.length > 0) {
+        toast.warning(
+          `${uploadedDocuments.length} document(s) importe(s), ${failedItems.length} en erreur`,
+        );
+      } else {
+        toast.success(`${uploadedDocuments.length} document(s) importe(s)`);
+      }
       await onCreated?.();
 
       const uploadedByDraftId = new Map(
@@ -226,7 +244,7 @@ export function NouveauDocumentPatientDialog({
         .map((draft) => uploadedByDraftId.get(draft.id) ?? draft.uploadedDocument)
         .filter((document): document is UploadedDocument => Boolean(document));
 
-      if (analyzeDocuments.length === 0) {
+      if (analyzeDocuments.length === 0 || uploadedDocuments.length === 0) {
         return;
       }
 
@@ -441,7 +459,8 @@ export function NouveauDocumentPatientDialog({
 
   if (!open) return null;
 
-  const canSubmit = fileDrafts.length > 0 && !isBusy;
+  const canSubmit =
+    fileDrafts.some((draft) => draft.status !== "uploaded") && !isBusy;
 
   return (
     <div
@@ -631,7 +650,7 @@ export function NouveauDocumentPatientDialog({
               Fermer
             </button>
             <button
-              className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.32)] transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-[40px] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[#052ca0] px-5 font-['Plus_Jakarta_Sans'] text-[14px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.32)] transition-colors hover:bg-[#0a3ac7] disabled:cursor-not-allowed disabled:bg-[#c2e0ef] disabled:text-[#6b819d] disabled:shadow-none"
               disabled={!canSubmit}
               onClick={() => uploadMutation.mutate()}
               type="button"
@@ -986,7 +1005,7 @@ async function uploadDocument(patientId: string, draft: FileDraft) {
     }),
   );
 
-  const response = await fetch(`${env.VITE_SERVER_URL}/api/upload/document`, {
+  const response = await fetch(`${getServerBaseUrl()}/api/upload/document`, {
     method: "POST",
     body: formData,
     credentials: "include",

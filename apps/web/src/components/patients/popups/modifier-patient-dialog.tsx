@@ -270,6 +270,9 @@ export function ModifierPatientDialog({
 
     return hasValidPersonalAntecedents && hasValidFamilyAntecedents;
   }, [personalAntecedents, familyAntecedents]);
+  const isCurrentStepValid =
+    currentStep === 1 ? isFormValid : currentStep === 2 ? isStepTwoValid : true;
+  const canSaveNow = isFormValid && isStepTwoValid;
 
   useEffect(() => {
     if (!open) {
@@ -834,8 +837,8 @@ export function ModifierPatientDialog({
             )}
 
             <div className={styles.footerActionsRight}>
-              <button type="button" className={styles.addNowButton} onClick={handleSave} disabled={isSubmitting}><Check size={16} aria-hidden="true" />{isSubmitting ? "Modification en cours..." : "Modifier maintenant"}</button>
-              <button type="submit" className={styles.continueButton} disabled={isSubmitting}><span>Continuer</span><ChevronRight size={16} aria-hidden="true" /></button>
+              <button type="button" className={styles.addNowButton} onClick={handleSave} disabled={isSubmitting || !canSaveNow}><Check size={16} aria-hidden="true" />{isSubmitting ? "Modification en cours..." : "Modifier maintenant"}</button>
+              <button type="submit" className={styles.continueButton} disabled={isSubmitting || !isCurrentStepValid}><span>Continuer</span><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           </footer>
         </form>

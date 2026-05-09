@@ -7,10 +7,12 @@ import { mapGeminiProviderError } from "./errors";
 
 export const GEMINI_PROVIDER_NAME = "google-ai-studio" as const;
 export const OLLAMA_PROVIDER_NAME = "ollama" as const;
+export const DEFAULT_APP_AI_SETTINGS_ID = "default" as const;
 
 export type GeminiProviderName = typeof GEMINI_PROVIDER_NAME;
 export type OllamaProviderName = typeof OLLAMA_PROVIDER_NAME;
 export type AITextProviderName = GeminiProviderName | OllamaProviderName;
+export type PreferredAIProvider = "gemini" | "ollama";
 
 export interface AITextProviderConfig {
   name: AITextProviderName;
@@ -25,6 +27,17 @@ export type GeminiProviderConfig = AITextProviderConfig & {
   apiKey: string;
 };
 
+interface RuntimeAISettings {
+  preferredProvider: PreferredAIProvider;
+  geminiApiKey: string | null;
+}
+
+let runtimeAISettings: RuntimeAISettings | null = null;
+
+export function setRuntimeAISettings(settings: RuntimeAISettings): void {
+  runtimeAISettings = settings;
+}
+
 export interface GeminiTextGenerationInput {
   provider?: AITextProviderConfig;
   system?: string;
@@ -36,8 +49,17 @@ export interface GeminiTextGenerationInput {
 export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-001" as const;
 export const GEMINI_EMBEDDING_DIMENSIONS = 3072 as const;
 
+function getConfiguredGeminiApiKey(): string | undefined {
+  return runtimeAISettings?.geminiApiKey ?? env.GEMINI_API_KEY;
+}
+
+function getPreferredAIProvider(): PreferredAIProvider {
+  return runtimeAISettings?.preferredProvider ?? env.AI_PROVIDER;
+}
+
 export function resolveGeminiProvider(): GeminiProviderConfig {
-  if (!env.GEMINI_API_KEY) {
+  const apiKey = getConfiguredGeminiApiKey();
+  if (!apiKey) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Le service d’aide médicale n’est pas disponible pour le moment.",
@@ -47,12 +69,15 @@ export function resolveGeminiProvider(): GeminiProviderConfig {
   return {
     name: GEMINI_PROVIDER_NAME,
     model: env.GEMINI_MODEL,
-    apiKey: env.GEMINI_API_KEY,
+    apiKey,
   };
 }
 
 export function resolveTextProvider(): AITextProviderConfig {
-  if (env.AI_PROVIDER === "ollama") {
+  const preferredProvider = getPreferredAIProvider();
+  const geminiApiKey = getConfiguredGeminiApiKey();
+
+  if (preferredProvider === "ollama" || !geminiApiKey) {
     return {
       name: OLLAMA_PROVIDER_NAME,
       model: env.OLLAMA_MODEL,
@@ -170,14 +195,15 @@ async function generateOllamaText(input: {
 export async function generateGeminiEmbedding(
   value: string,
 ): Promise<number[]> {
-  if (!env.GEMINI_API_KEY) {
+  const apiKey = getConfiguredGeminiApiKey();
+  if (!apiKey) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Le service d'aide medicale n'est pas disponible pour le moment.",
     });
   }
 
-  const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+  const google = createGoogleGenerativeAI({ apiKey });
   try {
     const result = await embed({
       model: google.textEmbedding(GEMINI_EMBEDDING_MODEL),

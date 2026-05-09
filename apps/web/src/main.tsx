@@ -3,6 +3,8 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
 import { RoutePendingSkeleton } from "./components/loader";
+import { PopupContextHelpProvider } from "./components/popup-context-help";
+import { InterfaceLanguageProvider } from "./lib/interface-language";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, trpc } from "./utils/trpc";
 
@@ -14,7 +16,14 @@ const router = createRouter({
   defaultPendingMinMs: 220,
   context: { trpc, queryClient },
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <InterfaceLanguageProvider>
+          {children}
+          <PopupContextHelpProvider />
+        </InterfaceLanguageProvider>
+      </QueryClientProvider>
+    );
   },
 });
 

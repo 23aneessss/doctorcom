@@ -154,6 +154,12 @@ export interface UpdateOrdonnancePdfTemplateLayoutInput {
   layout_config: OrdonnancePdfTemplateLayoutConfig;
 }
 
+export interface UpdateOrdonnancePdfTemplateLogoInput {
+  chemin_fichier: string;
+  type_fichier: string;
+  taille_fichier: number;
+}
+
 export class OrdonnanceService {
   async creerOrdonnance(data: {
     db: DatabaseClient;
@@ -1011,6 +1017,93 @@ export class OrdonnanceService {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Echec de mise a jour du template PDF.",
+      });
+    }
+
+    return updated;
+  }
+
+  async updatePdfTemplateLogo(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string;
+    input: UpdateOrdonnancePdfTemplateLogoInput;
+  }): Promise<OrdonnancePdfTemplateRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const existing = await ordonnanceRepository.getPdfTemplateById(
+      data.db,
+      data.id,
+    );
+    const template = this.ensureOwnedPdfTemplate(existing, utilisateur.id);
+    const layout = normalizeOrdonnancePdfLayout(template.layout_config);
+
+    const updated = await ordonnanceRepository.updatePdfTemplate(
+      data.db,
+      data.id,
+      {
+        logo_chemin_fichier: data.input.chemin_fichier,
+        logo_type_fichier: data.input.type_fichier,
+        logo_taille_fichier: data.input.taille_fichier,
+        layout_config: {
+          ...layout,
+          fields: {
+            ...layout.fields,
+            logo_medecin: {
+              ...layout.fields.logo_medecin,
+              enabled: true,
+            },
+          },
+        },
+      },
+    );
+
+    if (!updated) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Echec de mise a jour du logo du template Ordonnance.",
+      });
+    }
+
+    return updated;
+  }
+
+  async removePdfTemplateLogo(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+    id: string;
+  }): Promise<OrdonnancePdfTemplateRecord> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    const existing = await ordonnanceRepository.getPdfTemplateById(
+      data.db,
+      data.id,
+    );
+    const template = this.ensureOwnedPdfTemplate(existing, utilisateur.id);
+    const layout = normalizeOrdonnancePdfLayout(template.layout_config);
+
+    const updated = await ordonnanceRepository.updatePdfTemplate(
+      data.db,
+      data.id,
+      {
+        logo_chemin_fichier: null,
+        logo_type_fichier: null,
+        logo_taille_fichier: null,
+        layout_config: {
+          ...layout,
+          fields: {
+            ...layout.fields,
+            logo_medecin: {
+              ...layout.fields.logo_medecin,
+              enabled: false,
+            },
+          },
+        },
+      },
+    );
+
+    if (!updated) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Echec de suppression du logo du template Ordonnance.",
       });
     }
 

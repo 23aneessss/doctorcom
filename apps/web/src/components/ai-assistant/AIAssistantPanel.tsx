@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  ChevronDown,
   ChevronRight,
   Eye,
   FileText,
@@ -201,6 +202,12 @@ type PatientRendezVousLite = {
   statut: string;
 };
 
+type AssistantSuiviOption = {
+  id: string;
+  motif?: string | null;
+  est_actif?: boolean | null;
+};
+
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 const diagnosticActionLabel = "Proposer une hypothese diagnostique";
 const ordonnanceActionLabel = "Recommander une ordonnance";
@@ -329,6 +336,22 @@ function selectCurrentSuiviFromLists<
   return suivis.find((suivi) => Boolean(suivi.est_actif)) ?? suivis[0] ?? null;
 }
 
+function mergeSuiviOptions(
+  primary: AssistantSuiviOption[],
+  secondary: AssistantSuiviOption[],
+) {
+  const merged = new Map<string, AssistantSuiviOption>();
+
+  for (const suivi of primary) {
+    merged.set(suivi.id, suivi);
+  }
+  for (const suivi of secondary) {
+    merged.set(suivi.id, suivi);
+  }
+
+  return [...merged.values()];
+}
+
 function selectLatestCompletedRendezVous(
   rendezVous: PatientRendezVousLite[],
   suiviId: string | null,
@@ -398,6 +421,8 @@ export function AIAssistantPanel() {
   const [viewerModal, setViewerModal] = useState<AssistantResultView | null>(
     null,
   );
+  const [selectedSuiviId, setSelectedSuiviId] = useState<string | null>(null);
+  const [isSuiviChooserOpen, setIsSuiviChooserOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
 
@@ -432,9 +457,25 @@ export function AIAssistantPanel() {
     [examensQuery.data],
   );
 
+  const availableSuivis = useMemo(
+    () =>
+      mergeSuiviOptions(
+        (patientFullRecordQuery.data?.suivi ?? []) as AssistantSuiviOption[],
+        (suivisQuery.data ?? []) as AssistantSuiviOption[],
+      ),
+    [patientFullRecordQuery.data?.suivi, suivisQuery.data],
+  );
+
+  const inferredSuivi = useMemo(() => {
+    return selectCurrentSuiviFromLists(availableSuivis, currentExamen);
+  }, [availableSuivis, currentExamen]);
+
   const currentSuivi = useMemo(() => {
-    return selectCurrentSuiviFromLists(suivisQuery.data ?? [], currentExamen);
-  }, [currentExamen, suivisQuery.data]);
+    return (
+      availableSuivis.find((suivi) => suivi.id === selectedSuiviId) ??
+      inferredSuivi
+    );
+  }, [availableSuivis, inferredSuivi, selectedSuiviId]);
 
   const currentRendezVous = useMemo(
     () =>
@@ -449,6 +490,20 @@ export function AIAssistantPanel() {
   const currentContextLabel =
     currentSuivi?.motif?.trim() ||
     (currentPatientId ? "Dossier patient ouvert" : "Aucun dossier patient");
+
+  useEffect(() => {
+    setSelectedSuiviId(null);
+    setIsSuiviChooserOpen(false);
+  }, [currentPatientId]);
+
+  useEffect(() => {
+    if (
+      selectedSuiviId &&
+      !availableSuivis.some((suivi) => suivi.id === selectedSuiviId)
+    ) {
+      setSelectedSuiviId(null);
+    }
+  }, [availableSuivis, selectedSuiviId]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -855,9 +910,18 @@ export function AIAssistantPanel() {
         patientFullRecordQuery.refetch(),
       ]);
     const freshExamens = examensResult.data ?? examensQuery.data ?? [];
-    const freshSuivis = suivisResult.data ?? suivisQuery.data ?? [];
+    const freshSuivis = mergeSuiviOptions(
+      (patientFullRecordResult.data?.suivi ??
+        patientFullRecordQuery.data?.suivi ??
+        []) as AssistantSuiviOption[],
+      (suivisResult.data ?? suivisQuery.data ?? []) as AssistantSuiviOption[],
+    );
     const examen = selectLatestExamen(freshExamens);
-    const suivi = selectCurrentSuiviFromLists(freshSuivis, examen);
+    const selectedFreshSuivi = selectedSuiviId
+      ? freshSuivis.find((suivi) => suivi.id === selectedSuiviId)
+      : null;
+    const suivi =
+      selectedFreshSuivi ?? selectCurrentSuiviFromLists(freshSuivis, examen);
     const rendezVous = selectLatestCompletedRendezVous(
       (patientFullRecordResult.data?.rendez_vous ??
         []) as PatientRendezVousLite[],
@@ -1324,41 +1388,111 @@ export function AIAssistantPanel() {
                           initial={{ opacity: 0, y: 4, scale: 0.96 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           transition={{ ...springBouncy, delay: 0.1 }}
-                          className="mb-2 inline-flex w-fit max-w-[240px] items-start gap-2 self-start rounded-[22px] px-3 py-2"
+                          className="mb-2 w-full rounded-[22px] px-3 py-3"
                           style={{
                             background: "rgba(118,187,221,0.08)",
                             border: `1px solid ${cDiscussionBorder}`,
                           }}
                         >
-                          <motion.div
-                            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ background: cSky }}
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.75, 1, 0.75],
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Number.POSITIVE_INFINITY,
-                              ease: "easeInOut",
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 11.5,
-                              fontWeight: 600,
-                              color: cDiscussionText,
-                              lineHeight: 1.25,
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
-                            }}
+                          <button
+                            aria-expanded={isSuiviChooserOpen}
+                            className="flex w-full items-start gap-2 text-left"
+                            onClick={() =>
+                              currentPatientId &&
+                              availableSuivis.length > 1 &&
+                              setIsSuiviChooserOpen((value) => !value)
+                            }
+                            type="button"
                           >
-                            {currentContextLabel}
-                          </span>
+                            <motion.div
+                              className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ background: cSky }}
+                              animate={{
+                                scale: [1, 1.2, 1],
+                                opacity: [0.75, 1, 0.75],
+                              }}
+                              transition={{
+                                duration: 2,
+                                repeat: Number.POSITIVE_INFINITY,
+                                ease: "easeInOut",
+                              }}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span
+                                className="block font-['Inter'] text-[10px] font-bold uppercase tracking-[0.08em]"
+                                style={{ color: cDiscussionMuted }}
+                              >
+                                Suivi sélectionné
+                              </span>
+                              <span
+                                className="mt-1 block whitespace-normal break-words font-['Inter'] text-[12.5px] font-semibold leading-[1.45]"
+                                style={{ color: cDiscussionText }}
+                              >
+                                {currentContextLabel}
+                              </span>
+                            </span>
+                            {currentPatientId && availableSuivis.length > 1 ? (
+                              <motion.span
+                                animate={{ rotate: isSuiviChooserOpen ? 180 : 0 }}
+                                className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full"
+                                style={{ background: "rgba(255,255,255,0.72)" }}
+                                transition={springBouncy}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  style={{ color: cDiscussionText }}
+                                />
+                              </motion.span>
+                            ) : null}
+                          </button>
+
+                          <AnimatePresence initial={false}>
+                            {isSuiviChooserOpen &&
+                            currentPatientId &&
+                            availableSuivis.length > 1 ? (
+                              <motion.div
+                                animate={{ opacity: 1, height: "auto", y: 0 }}
+                                className="mt-3 max-h-[210px] overflow-y-auto rounded-[16px] border p-1.5"
+                                exit={{ opacity: 0, height: 0, y: -4 }}
+                                initial={{ opacity: 0, height: 0, y: -4 }}
+                                style={{
+                                  borderColor: cDiscussionBorder,
+                                  background: "rgba(255,255,255,0.86)",
+                                }}
+                                transition={{ duration: 0.18 }}
+                              >
+                                {availableSuivis.map((suivi) => {
+                                  const isSelected = suivi.id === currentSuivi?.id;
+                                  return (
+                                    <button
+                                      className="flex w-full items-start justify-between gap-3 rounded-[12px] px-3 py-2.5 text-left transition-colors hover:bg-[#f0f6ff]"
+                                      key={suivi.id}
+                                      onClick={() => {
+                                        setSelectedSuiviId(suivi.id);
+                                        setIsSuiviChooserOpen(false);
+                                      }}
+                                      style={{
+                                        background: isSelected
+                                          ? "rgba(118,187,221,0.18)"
+                                          : "transparent",
+                                      }}
+                                      type="button"
+                                    >
+                                      <span className="min-w-0 flex-1 whitespace-normal break-words font-['Inter'] text-[12px] font-semibold leading-[1.45] text-[#08233f]">
+                                        {suivi.motif?.trim() || "Suivi sans motif"}
+                                      </span>
+                                      {isSelected ? (
+                                        <Check
+                                          className="mt-0.5 size-4 shrink-0"
+                                          style={{ color: cSky }}
+                                        />
+                                      ) : null}
+                                    </button>
+                                  );
+                                })}
+                              </motion.div>
+                            ) : null}
+                          </AnimatePresence>
                         </motion.div>
 
                         <motion.p

@@ -4,6 +4,7 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useNavigate,
   useSearch,
 } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
@@ -201,6 +202,7 @@ function PatientLayout() {
   const { id } = Route.useParams();
   const { session } = Route.useRouteContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const sessionUser = session?.data?.user;
   const sidebarUser =
     sessionUser && typeof sessionUser.email === "string"
@@ -703,8 +705,8 @@ function PatientLayout() {
       <Sidebar currentUser={sidebarUser} />
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px]">
+      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden max-[58rem]:p-3">
+        <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px] max-[58rem]:gap-5">
           {/* Back Link */}
           <Link
             to="/patients"
@@ -715,11 +717,11 @@ function PatientLayout() {
           </Link>
 
           {/* Patient Info Card */}
-          <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)]">
-            <div className="flex justify-between gap-8">
+          <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)] max-[58rem]:px-4">
+            <div className="flex justify-between gap-8 max-[72rem]:flex-col">
               {/* Left: Identity */}
-              <div className="flex w-[330px] flex-col gap-[8px]">
-                <h1 className="font-['Plus_Jakarta_Sans'] font-medium text-[30px] leading-[36px] text-[#0f3460]">
+              <div className="flex w-[330px] max-w-full flex-col gap-[8px]">
+                <h1 className="break-words font-['Plus_Jakarta_Sans'] font-medium text-[clamp(1.55rem,6vw,1.875rem)] leading-[1.2] text-[#0f3460]">
                   {fullName}
                 </h1>
                 <p className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
@@ -727,7 +729,7 @@ function PatientLayout() {
                 </p>
 
                 {/* Badges */}
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   {patientAge !== undefined && (
                     <span className="bg-[#c2e0ef] border-[0.8px] border-[#0f3460] rounded-[8px] px-[9px] py-[3px] font-['Poppins'] text-[12px] leading-[16px] text-[#0f3460]">
                       {patientAge} ans
@@ -747,7 +749,7 @@ function PatientLayout() {
                 </div>
 
                 {/* Contact rows */}
-                <div className="mt-1 flex max-w-[320px] flex-col gap-[8px]">
+                <div className="mt-1 flex max-w-[320px] max-[40rem]:max-w-full flex-col gap-[8px]">
                   <div className="flex items-center gap-2">
                     <User className="size-4 text-[#265284]" />
                     {isEditing ? (
@@ -756,7 +758,7 @@ function PatientLayout() {
                           {(field) => (
                             <div>
                               <input
-                                className="h-8 w-[132px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                                className="h-8 w-[132px] max-w-full rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
                                 onChange={(e) =>
@@ -776,7 +778,7 @@ function PatientLayout() {
                           {(field) => (
                             <div>
                               <input
-                                className="h-8 w-[132px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                                className="h-8 w-[132px] max-w-full rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
                                 onChange={(e) =>
@@ -863,7 +865,7 @@ function PatientLayout() {
                         {isEditing ? (
                           <div>
                             <input
-                              className="h-8 w-[260px] rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
+                              className="h-8 w-[260px] max-w-full rounded-md border border-[#c2e0ef] bg-white px-2 font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[#265284]"
                               value={field.state.value}
                               onBlur={field.handleBlur}
                               onChange={(e) =>
@@ -1034,7 +1036,7 @@ function PatientLayout() {
               <div className="flex flex-col gap-[8px] justify-center">
                 {!isEditing ? (
                   <button
-                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
                     onClick={() => {
                       form.reset({
                         nom: patient.nom ?? "",
@@ -1056,14 +1058,14 @@ function PatientLayout() {
                 ) : (
                   <>
                     <button
-                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
                       onClick={() => setIsEditing(false)}
                       type="button"
                     >
                       Annuler
                     </button>
                     <button
-                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
+                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors max-[40rem]:w-full"
                       onClick={() => form.handleSubmit()}
                       disabled={updatePatientMutation.isPending}
                       type="button"
@@ -1109,7 +1111,16 @@ function PatientLayout() {
                   layout="centered"
                   specialIcon={<RendezVousIcon />}
                   onClick={() => {
-                    window.location.href = `/patients/${id}/rdv`;
+                    window.sessionStorage.setItem(
+                      `doctor-com-open-patient-rdv-${id}`,
+                      "1",
+                    );
+                    window.dispatchEvent(
+                      new CustomEvent("patient-rdv-create-request", {
+                        detail: { patientId: id },
+                      }),
+                    );
+                    void navigate({ to: "/patients/$id/rdv", params: { id } });
                   }}
                 />
               </div>
@@ -1355,8 +1366,8 @@ function PatientLayoutSkeleton() {
     <div className="flex h-svh">
       <Sidebar />
 
-      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px]">
+      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden max-[58rem]:p-3">
+        <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px] max-[58rem]:gap-5">
           <Skeleton className="h-7 w-56 rounded-md" />
 
           <Skeleton className="h-[360px] rounded-[20px]" />
@@ -1372,12 +1383,12 @@ function PatientLayoutSkeleton() {
             </div>
           </div>
 
-          <div className="flex items-start gap-6">
+          <div className="flex items-start gap-6 max-[72rem]:flex-col">
             <div className="flex flex-1 flex-col gap-6">
               <Skeleton className="h-[298px] rounded-[14px]" />
               <Skeleton className="h-[360px] rounded-[14px]" />
             </div>
-            <div className="w-[360px] space-y-6">
+            <div className="w-[360px] max-w-full space-y-6">
               <Skeleton className="h-[286px] rounded-[14px]" />
               <Skeleton className="h-[286px] rounded-[14px]" />
             </div>
@@ -1398,12 +1409,12 @@ function PatientInfoRow({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-[8px]">
+    <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
       <div className="text-[#265284] shrink-0">{icon}</div>
-      <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)] whitespace-nowrap">
+      <span className="font-['Plus_Jakarta_Sans'] text-[14px] leading-[20px] text-[rgba(100,116,139,0.9)]">
         {label}
       </span>
-      <span className="font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
+      <span className="min-w-0 break-words font-['Poppins'] text-[14px] leading-[20px] text-[#265284]">
         {value}
       </span>
     </div>
@@ -1425,7 +1436,7 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
+        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors max-[40rem]:w-full",
         layout === "suivi"
           ? "flex items-center"
           : "flex items-center justify-start",

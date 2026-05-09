@@ -91,6 +91,14 @@ export interface PaginatedMedicaments {
   page_count: number;
 }
 
+export interface MobileMedicationCatalogFilters {
+  query?: string;
+  startsWith?: string;
+  category?: string;
+  page: number;
+  page_size: number;
+}
+
 export class MedicamentsRepository {
   async createMedicament(
     database: DatabaseClient,
@@ -547,6 +555,89 @@ export class MedicamentsRepository {
 
   async listAllMedicaments(database: DatabaseClient): Promise<MedicamentRecord[]> {
     return database.select().from(medicaments).orderBy(asc(medicaments.nom_medicament));
+  }
+
+  async listMedicationCategorySources(
+    database: DatabaseClient,
+  ): Promise<
+    Array<{
+      classe_therapeutique: string | null;
+      famille_pharmacologique: string | null;
+    }>
+  > {
+    return database
+      .select({
+        classe_therapeutique: medicaments.classe_therapeutique,
+        famille_pharmacologique: medicaments.famille_pharmacologique,
+      })
+      .from(medicaments);
+  }
+
+  async searchMobileMedicationCatalog(
+    database: DatabaseClient,
+    filters: MobileMedicationCatalogFilters,
+  ): Promise<PaginatedMedicaments> {
+    const conditions: SQL<unknown>[] = [];
+
+    if (filters.query) {
+      const pattern = `%${filters.query}%`;
+      const searchCondition = or(
+        ilike(medicaments.nom_medicament, pattern),
+        ilike(medicaments.nom_generique, pattern),
+        ilike(medicaments.classe_therapeutique, pattern),
+        ilike(medicaments.famille_pharmacologique, pattern),
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    if (filters.startsWith) {
+      conditions.push(ilike(medicaments.nom_medicament, `${filters.startsWith}%`));
+    }
+
+    if (
+      filters.category &&
+      !filters.category.toLowerCase().startsWith("toutes les cat")
+    ) {
+      const categoryCondition = or(
+        ilike(medicaments.classe_therapeutique, `%${filters.category}%`),
+        ilike(medicaments.famille_pharmacologique, `%${filters.category}%`),
+      );
+      if (categoryCondition) {
+        conditions.push(categoryCondition);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const offset = (filters.page - 1) * filters.page_size;
+
+    const countQuery = database.select({ total: count() }).from(medicaments);
+    const itemsQuery = database.select().from(medicaments);
+
+    const countRows = whereClause
+      ? await countQuery.where(whereClause)
+      : await countQuery;
+    const total = countRows[0]?.total ?? 0;
+
+    const items = whereClause
+      ? await itemsQuery
+          .where(whereClause)
+          .orderBy(asc(medicaments.nom_medicament))
+          .limit(filters.page_size)
+          .offset(offset)
+      : await itemsQuery
+          .orderBy(asc(medicaments.nom_medicament))
+          .limit(filters.page_size)
+          .offset(offset);
+
+    return {
+      items,
+      total,
+      page: filters.page,
+      page_size: filters.page_size,
+      page_count: Math.max(1, Math.ceil(total / filters.page_size)),
+    };
   }
 }
 

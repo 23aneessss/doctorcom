@@ -1,18 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import doctorLogo from "@/assets/doctor-logo.svg";
 import bgPattern from "@/assets/figma-temp/a57fb6f5d09df55185bc4fee2167b90f10d18288.png";
 
 import SignInForm from "@/components/sign-in-form";
-import SignUpForm from "@/components/sign-up-form";
 
 export const Route = createFileRoute("/login")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const [showSignIn, setShowSignIn] = useState(true);
-
   return (
     <div className="flex min-h-screen w-full bg-[#f8fafd]">
       {/* Left Side - Branding/Illustration */}
@@ -72,11 +68,7 @@ function RouteComponent() {
 
           {/* Form Content */}
           <div className="relative z-10 flex min-h-[640px] w-full items-center px-8 py-10 sm:px-12 lg:px-20">
-            {showSignIn ? (
-              <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
-            ) : (
-              <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
-            )}
+            <SignInForm />
           </div>
         </div>
       </div>

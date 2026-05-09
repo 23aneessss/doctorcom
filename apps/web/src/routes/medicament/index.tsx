@@ -1,9 +1,7 @@
-import type { AppRouter } from "@doctor.com/api/routers/index";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import type { inferRouterOutputs } from "@trpc/server";
 import { Search } from "lucide-react";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/sidebar";
@@ -17,9 +15,7 @@ import { CategoryDropdown } from "./components/-category-dropdown";
 import {
   formatMedicationBaseCount,
   formatMedicationCount,
-  type MobileCatalogItem,
   toCardFromMobileItem,
-  toCardFromSearchItem,
 } from "./components/-medication-helpers";
 import { MedicationCard } from "./components/-medication-card";
 import { MEDICATIONS_PAGE_TEXT } from "./components/-page-data";
@@ -27,8 +23,7 @@ import { TopographicHeader } from "./components/-topographic-header";
 import { AjouterMedicamentDialog } from "./popups/-ajouter-medicament";
 import { VoirMedicamentDialog } from "./popups/-voir-medicament";
 
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type SearchMedicamentsItem = RouterOutputs["medicaments"]["rechercherMedicaments"]["items"][number];
+const MEDICATIONS_PAGE_SIZE = 24;
 
 export const Route = createFileRoute("/medicament/")({
   component: RouteComponent,
@@ -58,8 +53,13 @@ function RouteComponent() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [viewMedicamentId, setViewMedicamentId] = useState<number | null>(null);
   const [isDetailEditing, setIsDetailEditing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const deferredSearchValue = useDeferredValue(searchValue.trim());
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deferredSearchValue, selectedCategory, selectedLetter]);
 
   const filtersQuery = useQuery(trpc.medicaments.getMobileCatalogFilters.queryOptions());
 
@@ -68,22 +68,10 @@ function RouteComponent() {
       query: deferredSearchValue.length > 0 ? deferredSearchValue : null,
       starts_with: selectedLetter,
       category: selectedCategory,
-      limit: 80,
+      page: currentPage,
+      page_size: MEDICATIONS_PAGE_SIZE,
     }),
   );
-
-  const advancedSearchQuery = useQuery({
-    ...trpc.medicaments.rechercherMedicaments.queryOptions({
-      query: deferredSearchValue.length >= 2 ? deferredSearchValue : null,
-      classe_therapeutique:
-        selectedCategory !== MEDICATIONS_PAGE_TEXT.selectedCategory
-          ? selectedCategory
-          : null,
-      page: 1,
-      page_size: 80,
-    }),
-    enabled: deferredSearchValue.length >= 2,
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -111,37 +99,15 @@ function RouteComponent() {
     ];
   }, [filtersQuery.data?.categories]);
 
-  const mobileMap = useMemo(() => {
-    const map = new Map<number, MobileCatalogItem>();
-    for (const item of mobileCatalogQuery.data?.items ?? []) {
-      map.set(item.id, item);
-    }
-    return map;
+  const displayedItems = useMemo(() => {
+    return (mobileCatalogQuery.data?.items ?? []).map((item) => toCardFromMobileItem(item));
   }, [mobileCatalogQuery.data?.items]);
 
-  const displayedItems = useMemo(() => {
-    if (deferredSearchValue.length >= 2 && advancedSearchQuery.data) {
-      return advancedSearchQuery.data.items
-        .filter((item: SearchMedicamentsItem) => {
-          const firstLetter = item.nom_medicament.trim().charAt(0).toUpperCase();
-          return !selectedLetter || firstLetter === selectedLetter;
-        })
-        .map((item) => toCardFromSearchItem(item, mobileMap));
-    }
-
-    return (mobileCatalogQuery.data?.items ?? []).map((item) => toCardFromMobileItem(item));
-  }, [
-    advancedSearchQuery.data,
-    deferredSearchValue.length,
-    mobileCatalogQuery.data?.items,
-    mobileMap,
-    selectedLetter,
-  ]);
-
-  const totalResults =
-    deferredSearchValue.length >= 2 && advancedSearchQuery.data
-      ? displayedItems.length
-      : mobileCatalogQuery.data?.total ?? 0;
+  const totalResults = mobileCatalogQuery.data?.total ?? 0;
+  const pageCount = mobileCatalogQuery.data?.page_count ?? 1;
+  const pageStart =
+    totalResults === 0 ? 0 : (currentPage - 1) * MEDICATIONS_PAGE_SIZE + 1;
+  const pageEnd = Math.min(currentPage * MEDICATIONS_PAGE_SIZE, totalResults);
 
   const resultsTitle = `Médicaments commençant par "${selectedLetter}"`;
   const headerSubtitle = formatMedicationBaseCount(filtersQuery.data?.totalCount ?? 0);
@@ -151,7 +117,6 @@ function RouteComponent() {
     await Promise.all([
       filtersQuery.refetch(),
       mobileCatalogQuery.refetch(),
-      deferredSearchValue.length >= 2 ? advancedSearchQuery.refetch() : Promise.resolve(),
     ]);
   }
 
@@ -168,7 +133,7 @@ function RouteComponent() {
     <div className="flex h-svh bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)] max-[58rem]:px-3">
         {isDetailView ? (
           <VoirMedicamentDialog
             isDeleting={deleteMutation.isPending && deleteMutation.variables === viewMedicamentId}
@@ -221,15 +186,15 @@ function RouteComponent() {
             </div>
 
             <section className="mt-2 w-full">
-              <div className="flex items-center gap-[16px]">
-                <div className="flex size-[64px] items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#FFB14A_0%,#FF8A1F_58%,#FF7A00_100%)] shadow-[0px_8px_20px_rgba(255,138,31,0.22)]">
+              <div className="flex items-center gap-[16px] max-[40rem]:items-start">
+                <div className="flex size-[64px] shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#FFB14A_0%,#FF8A1F_58%,#FF7A00_100%)] shadow-[0px_8px_20px_rgba(255,138,31,0.22)]">
                   <span className="font-['Inter'] text-[36px] font-semibold leading-none text-white">
                     {selectedLetter}
                   </span>
                 </div>
 
-                <div className="flex flex-col">
-                  <h2 className="font-['Inter'] text-[32px] font-semibold leading-[1.1] text-[#0F3460]">
+                <div className="flex min-w-0 flex-col">
+                  <h2 className="break-words font-['Inter'] text-[clamp(1.45rem,7vw,2rem)] font-semibold leading-[1.1] text-[#0F3460]">
                     {resultsTitle}
                   </h2>
                   <p className="mt-[7px] font-['Inter'] text-[14px] font-normal leading-none text-[#1F4CC3]">
@@ -238,7 +203,7 @@ function RouteComponent() {
                 </div>
               </div>
 
-              {mobileCatalogQuery.isLoading || advancedSearchQuery.isLoading ? (
+              {mobileCatalogQuery.isLoading ? (
                 <MedicationCatalogSkeleton />
               ) : displayedItems.length === 0 ? (
                 <div className="mt-[30px] flex h-[352px] w-full flex-col items-center justify-center gap-[13px] rounded-[14px] border-[0.67px] border-[#C2E0EF] bg-white px-6 py-8 shadow-[0px_4px_20px_rgba(194,224,239,0.2)]">
@@ -258,28 +223,63 @@ function RouteComponent() {
                   </p>
                 </div>
               ) : (
-                <div className="mt-[30px] grid w-full grid-cols-1 gap-x-[16px] gap-y-[14px] xl:grid-cols-3">
-                  {displayedItems.map((medication) => (
-                    <MedicationCard
-                      key={medication.id}
-                      id={medication.id}
-                      isDeleting={deleteMutation.isPending && deleteMutation.variables === medication.id}
-                      name={medication.name}
-                      onDelete={handleDelete}
-                      onEdit={(id) => {
-                        setViewMedicamentId(id);
-                        setIsDetailEditing(true);
-                      }}
-                      onView={(id) => {
-                        setViewMedicamentId(id);
-                        setIsDetailEditing(false);
-                      }}
-                      pharmacologicalFamily={medication.pharmacologicalFamily}
-                      primaryTag={medication.primaryTag}
-                      scientificName={medication.scientificName}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="mt-[30px] grid w-full grid-cols-1 gap-x-[16px] gap-y-[14px] xl:grid-cols-3">
+                    {displayedItems.map((medication) => (
+                      <MedicationCard
+                        key={medication.id}
+                        id={medication.id}
+                        isDeleting={deleteMutation.isPending && deleteMutation.variables === medication.id}
+                        name={medication.name}
+                        onDelete={handleDelete}
+                        onEdit={(id) => {
+                          setViewMedicamentId(id);
+                          setIsDetailEditing(true);
+                        }}
+                        onView={(id) => {
+                          setViewMedicamentId(id);
+                          setIsDetailEditing(false);
+                        }}
+                        pharmacologicalFamily={medication.pharmacologicalFamily}
+                        primaryTag={medication.primaryTag}
+                        scientificName={medication.scientificName}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-3 rounded-[14px] border border-[#C2E0EF] bg-white px-4 py-3 shadow-[0px_4px_20px_rgba(194,224,239,0.18)] sm:flex-row sm:items-center sm:justify-between">
+                    <p className="font-['Inter'] text-[12px] font-medium text-[#4d7291]">
+                      Affichage {pageStart.toLocaleString("fr-FR")}-
+                      {pageEnd.toLocaleString("fr-FR")} sur{" "}
+                      {totalResults.toLocaleString("fr-FR")}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="h-9 rounded-[10px] border border-[#C2E0EF] bg-white px-3 font-['Inter'] text-[12px] font-semibold text-[#265284] transition-colors hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={currentPage <= 1 || mobileCatalogQuery.isFetching}
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        type="button"
+                      >
+                        Précédent
+                      </button>
+                      <span className="min-w-[92px] text-center font-['Inter'] text-[12px] font-semibold text-[#0F3460]">
+                        Page {currentPage} / {pageCount}
+                      </span>
+                      <button
+                        className="h-9 rounded-[10px] border border-[#C2E0EF] bg-white px-3 font-['Inter'] text-[12px] font-semibold text-[#265284] transition-colors hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={
+                          currentPage >= pageCount || mobileCatalogQuery.isFetching
+                        }
+                        onClick={() =>
+                          setCurrentPage((page) => Math.min(pageCount, page + 1))
+                        }
+                        type="button"
+                      >
+                        Suivant
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </section>
           </div>
