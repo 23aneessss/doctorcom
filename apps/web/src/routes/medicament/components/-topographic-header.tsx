@@ -45,21 +45,16 @@ export function TopographicHeader({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex min-h-[60px] min-w-[222px] items-center justify-center gap-[13px] rounded-[15px] border-0 bg-[#C2E0EF] px-[23px] py-[12px] text-[#0F3460] transition-[background-color,box-shadow] duration-150"
-          style={{
-            boxShadow: "none",
-          }}
+          className="inline-flex h-[2.625rem] min-w-[13.5rem] shrink-0 cursor-pointer items-center justify-center gap-[0.65rem] whitespace-nowrap rounded-[0.875rem] border-0 bg-[#052ca0] px-6 text-[1rem] font-semibold tracking-[-0.01em] text-white shadow-[0px_4px_12px_rgba(5,44,160,0.38)] transition-[background-color,box-shadow,transform] duration-[180ms] ease-[ease] hover:-translate-y-px hover:bg-[#0a3ac7] hover:shadow-[0px_8px_20px_rgba(5,44,160,0.44)]"
         >
           <img
             src={plusIcon}
             alt=""
             aria-hidden="true"
-            className="block h-[24px] w-[24px] shrink-0"
+            className="block h-[1.25rem] w-[1.25rem] shrink-0 brightness-0 invert"
           />
-          <span className="block font-['Plus_Jakarta_Sans'] text-[16px] font-bold leading-[1.15]">
-            Ajouter un
-            <br />
-            médicament
+          <span className="block font-['Plus_Jakarta_Sans'] text-[1rem] font-semibold leading-[1.15]">
+            Ajouter un médicament
           </span>
         </button>
       </div>

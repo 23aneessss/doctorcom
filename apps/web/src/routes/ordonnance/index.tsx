@@ -753,7 +753,7 @@ function RouteComponent() {
 
             <section
               aria-labelledby="ordonnances-page-title"
-              className="relative overflow-hidden rounded-[15px] border border-[color:color-mix(in_srgb,#c2e0ef_68%,white)] bg-[linear-gradient(97.5deg,color-mix(in_srgb,#c2e0ef_87%,white_13%)_0%,#ffffff_99.9%)] px-6 py-4 shadow-[0_4px_20px_rgba(118,187,221,0.5)]"
+              className="relative h-[clamp(7.15rem,12.8vh,8.4rem)] overflow-hidden rounded-[0.9375rem] border border-[color:color-mix(in_srgb,#c2e0ef_68%,white)] bg-[linear-gradient(97.5deg,color-mix(in_srgb,#c2e0ef_87%,white_13%)_0%,#ffffff_99.9%)] px-[clamp(1rem,2vw,1.5rem)] py-[clamp(0.65rem,1.35vh,1rem)] shadow-[0_0.25rem_1.25rem_rgba(118,187,221,0.5)]"
               style={heroStyle}
             >
               <div
@@ -767,17 +767,16 @@ function RouteComponent() {
                 }}
               />
 
-              <div className="relative z-[1] flex min-h-[104px] flex-col items-start justify-center gap-3">
+              <div className="relative z-[1] flex h-full items-center gap-4">
                 <div className="min-w-0">
                   <h1
-                    className="m-0 font-['Plus_Jakarta_Sans'] text-[28px] font-bold leading-[1.1] text-[#0f3460]"
+                    className="m-0 font-['Inter'] text-[clamp(1.28rem,2.12vw,1.78rem)] font-bold leading-[1.1] text-[#0f3460]"
                     id="ordonnances-page-title"
                   >
                     Ordonnances
                   </h1>
-                  <p className="mt-[3px] font-['Plus_Jakarta_Sans'] text-[17px] font-semibold leading-[1.2] text-[#052ca0]">
-                    Consultez vos ordonnances récentes et créez de nouveaux
-                    modèles
+                  <p className="mt-[0.18rem] font-['Inter'] text-[clamp(0.88rem,1.22vw,1.06rem)] font-semibold leading-[1.2] text-[#052ca0]">
+                    Consultez vos ordonnances récentes et créez de nouveaux modèles
                   </p>
                 </div>
               </div>

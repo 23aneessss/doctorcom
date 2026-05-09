@@ -36,10 +36,10 @@ export function AgendaHeader({ onAddRdv }: AgendaHeaderProps) {
 
         <button
           type="button"
-          className="inline-flex min-h-[3.75rem] min-w-[13.9rem] shrink-0 items-center justify-center gap-3 self-center rounded-[0.9375rem] border-0 bg-[#c2e0ef] px-5 py-[0.72rem] text-[1.02rem] font-bold tracking-[-0.01em] text-[#0f3460] whitespace-nowrap transition-all duration-150 hover:bg-[color-mix(in_srgb,_#c2e0ef_88%,_white_12%)] hover:shadow-[0_0.35rem_0.8rem_rgba(15,52,96,0.14)] md:self-center cursor-pointer"
+          className="inline-flex h-[2.625rem] min-w-[13.5rem] shrink-0 cursor-pointer items-center justify-center gap-[0.65rem] whitespace-nowrap rounded-[0.875rem] border-0 bg-[#052ca0] px-6 text-[1rem] font-semibold tracking-[-0.01em] text-white shadow-[0px_4px_12px_rgba(5,44,160,0.38)] transition-[background-color,box-shadow,transform] duration-[180ms] ease-[ease] hover:-translate-y-px hover:bg-[#0a3ac7] hover:shadow-[0px_8px_20px_rgba(5,44,160,0.44)]"
           onClick={onAddRdv}
         >
-          <img src={plusIcon} alt="" aria-hidden="true" className="w-[1.55rem] h-[1.55rem] block flex-shrink-0" />
+          <img src={plusIcon} alt="" aria-hidden="true" className="block h-[1.25rem] w-[1.25rem] shrink-0 brightness-0 invert" />
           <span className="block leading-[1.15]">Ajouter un RDV</span>
         </button>
       </div>
