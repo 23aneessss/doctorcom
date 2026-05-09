@@ -18,7 +18,7 @@ export function TopographicHeader({
 
   return (
     <section
-      className="relative h-[clamp(7.15rem,12.8vh,8.4rem)] w-full overflow-hidden rounded-[15px] border bg-white px-[clamp(1.35rem,2.8vw,2.6rem)] py-[clamp(0.75rem,1.35vh,1rem)]"
+      className="relative min-h-[clamp(7.15rem,12.8vh,8.4rem)] w-full overflow-hidden rounded-[15px] border bg-white px-[clamp(1rem,2.8vw,2.6rem)] py-[clamp(0.75rem,1.35vh,1rem)]"
       style={{
         borderColor: "color-mix(in srgb, #c2e0ef 68%, white)",
         background:
@@ -32,7 +32,7 @@ export function TopographicHeader({
         style={heroTextureStyle}
       />
 
-      <div className="relative z-[1] flex h-full items-center justify-between gap-4">
+      <div className="relative z-[1] flex min-h-[inherit] flex-col items-start justify-center gap-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h1 className="m-0 font-['Inter'] text-[clamp(1.28rem,2.12vw,1.78rem)] font-bold leading-[1.1] text-[#0F3460]">
             {MEDICATIONS_PAGE_TEXT.title}
@@ -45,7 +45,7 @@ export function TopographicHeader({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex min-h-[60px] min-w-[222px] items-center justify-center gap-[13px] rounded-[15px] border-0 bg-[#C2E0EF] px-[23px] py-[12px] text-[#0F3460] transition-[background-color,box-shadow] duration-150"
+          className="inline-flex min-h-[52px] w-full items-center justify-center gap-[13px] rounded-[15px] border-0 bg-[#C2E0EF] px-[23px] py-[12px] text-[#0F3460] transition-[background-color,box-shadow] duration-150 sm:w-auto sm:min-w-[222px] sm:min-h-[60px]"
           style={{
             boxShadow: "none",
           }}

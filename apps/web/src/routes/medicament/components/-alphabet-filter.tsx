@@ -8,7 +8,7 @@ export function AlphabetFilter({
   onSelect: (letter: string) => void;
 }) {
   return (
-    <div className="flex w-[1091px] max-w-full flex-col gap-[10px] overflow-hidden">
+    <div className="scrollbar-hide flex w-full max-w-full flex-col gap-[10px] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1">
       {MEDICATIONS_ALPHABET_ROWS.map((row, rowIndex) => (
         <div
           key={rowIndex}

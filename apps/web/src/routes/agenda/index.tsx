@@ -498,7 +498,7 @@ function RouteComponent() {
     <div className="flex h-screen h-[100svh] overflow-hidden bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="h-full flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-[clamp(1.25rem,_2.3vw,_2.2rem)] py-[clamp(0.875rem,_1.6vw,_1.5rem)]">
+      <main className="h-full flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-[clamp(1.25rem,_2.3vw,_2.2rem)] py-[clamp(0.875rem,_1.6vw,_1.5rem)] max-[58rem]:px-3">
         <div className="flex flex-col gap-[clamp(0.75rem,_1.5vw,_1.125rem)] px-[clamp(0.25rem,_0.65vw,_0.55rem)]">
           {/* Header */}
           <AgendaHeader onAddRdv={() => setActiveDialog("add")} />

@@ -269,6 +269,16 @@
   }
 }
 
+@media (max-width: 62rem) {
+  .backdrop {
+    padding-inline: 0.75rem;
+  }
+
+  .dialog {
+    width: min(32rem, calc(100vw - 1.5rem));
+  }
+}
+
 @media (max-width: 36rem) {
   .header,
   .form {

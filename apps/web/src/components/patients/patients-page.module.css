@@ -18,8 +18,10 @@
   display: flex;
   height: 100vh;
   height: 100svh;
+  height: 100dvh;
   min-height: 100vh;
   min-height: 100svh;
+  min-height: 100dvh;
   background: var(--patients-bg);
 }
 
@@ -603,6 +605,10 @@
 /* ── Responsive ── */
 
 @media (max-width: 72rem) {
+  .pageMain {
+    padding-bottom: clamp(0.875rem, 1.6vw, 1.5rem);
+  }
+
   .heroInner {
     align-items: flex-start;
     flex-direction: column;
@@ -636,6 +642,20 @@
 
   .pageContent {
     padding-inline: 0;
+  }
+
+  .hero {
+    min-height: 9.25rem;
+  }
+
+  .addButton {
+    width: 100%;
+  }
+
+  .toolbarLeft,
+  .toolbarRight {
+    width: 100%;
+    padding-left: 0;
   }
 
   .searchWrap,

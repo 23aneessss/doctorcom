@@ -133,7 +133,7 @@ function RouteComponent() {
     <div className="flex h-svh bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)] max-[58rem]:px-3">
         {isDetailView ? (
           <VoirMedicamentDialog
             isDeleting={deleteMutation.isPending && deleteMutation.variables === viewMedicamentId}
@@ -186,15 +186,15 @@ function RouteComponent() {
             </div>
 
             <section className="mt-2 w-full">
-              <div className="flex items-center gap-[16px]">
-                <div className="flex size-[64px] items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#FFB14A_0%,#FF8A1F_58%,#FF7A00_100%)] shadow-[0px_8px_20px_rgba(255,138,31,0.22)]">
+              <div className="flex items-center gap-[16px] max-[40rem]:items-start">
+                <div className="flex size-[64px] shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#FFB14A_0%,#FF8A1F_58%,#FF7A00_100%)] shadow-[0px_8px_20px_rgba(255,138,31,0.22)]">
                   <span className="font-['Inter'] text-[36px] font-semibold leading-none text-white">
                     {selectedLetter}
                   </span>
                 </div>
 
-                <div className="flex flex-col">
-                  <h2 className="font-['Inter'] text-[32px] font-semibold leading-[1.1] text-[#0F3460]">
+                <div className="flex min-w-0 flex-col">
+                  <h2 className="break-words font-['Inter'] text-[clamp(1.45rem,7vw,2rem)] font-semibold leading-[1.1] text-[#0F3460]">
                     {resultsTitle}
                   </h2>
                   <p className="mt-[7px] font-['Inter'] text-[14px] font-normal leading-none text-[#1F4CC3]">

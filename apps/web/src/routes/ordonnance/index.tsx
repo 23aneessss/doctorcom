@@ -736,7 +736,7 @@ function RouteComponent() {
       <div className="flex min-h-screen">
         <Sidebar currentUser={sidebarUser} />
 
-        <main className="flex-1 overflow-auto px-8 py-6">
+        <main className="min-w-0 flex-1 overflow-auto px-8 py-6 max-[58rem]:px-3">
           <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-7">
             {failedQueries.length > 0 ? (
               <div className="flex items-center justify-between rounded-[14px] border border-[#f77a21] bg-[#fff7ed] px-4 py-3">
@@ -787,7 +787,7 @@ function RouteComponent() {
             </section>
 
             <section className="flex flex-col gap-4">
-              <div className="flex items-end justify-between gap-4">
+              <div className="flex items-end justify-between gap-4 max-[40rem]:flex-col max-[40rem]:items-stretch">
                 <SectionHeading
                   icon={<Files className="size-[17px] text-[#265284]" />}
                   title="Ordonnances récentes"
@@ -824,8 +824,8 @@ function RouteComponent() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
-                <div className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
+              <div className="overflow-x-auto rounded-[20px] border border-[#cfe6f3] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-3 shadow-[0px_10px_28px_-20px_rgba(15,52,96,0.22)]">
+                <div className="grid min-w-[850px] grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[14px] bg-[#f5fbff] px-4 py-[12px]">
                   <TableHeadCell>PATIENT</TableHeadCell>
                   <TableHeadCell className="text-center">DATE</TableHeadCell>
                   <TableHeadCell className="text-center">TYPE</TableHeadCell>
@@ -838,7 +838,7 @@ function RouteComponent() {
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
+                        className="grid min-w-[850px] grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#e6f1f8] bg-white px-4 py-[8px]"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="size-[40px] rounded-full bg-[#edf5fb]" />
@@ -863,7 +863,7 @@ function RouteComponent() {
                     {visibleRecentOrdonnances.map((ordonnance) => (
                       <article
                         key={ordonnance.id}
-                        className="grid grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
+                        className="grid min-w-[850px] grid-cols-[minmax(0,420px)_154px_140px_minmax(36px,1fr)_144px] items-center gap-4 rounded-[15px] border border-[#dbeaf4] bg-white px-4 py-[8px] shadow-[0px_10px_22px_-20px_rgba(15,52,96,0.18)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#b7d8ea] hover:bg-[#fcfeff] hover:shadow-[0px_16px_28px_-24px_rgba(15,52,96,0.24)]"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-full border border-[#d9edf7] bg-[#cfe9f8] font-['Plus_Jakarta_Sans'] text-[14px] font-bold tracking-[-0.03em] text-[#5b84a0]">
@@ -937,13 +937,13 @@ function RouteComponent() {
             </section>
 
             <section className="flex flex-col gap-4 pb-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 max-[40rem]:flex-col max-[40rem]:items-stretch">
                 <SectionHeading
                   icon={<FileStack className="size-[18px] text-[#265284]" />}
                   title="Ordonnances pré-remplis"
                 />
                 <button
-                  className="inline-flex h-[42px] min-w-[288px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[24px] py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
+                  className="inline-flex h-[42px] min-w-[288px] max-[40rem]:min-w-0 max-[40rem]:w-full cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[14px] bg-[#052ca0] px-[24px] py-3 font-['Plus_Jakarta_Sans'] text-[16px] font-semibold text-white shadow-[0px_4px_12px_0px_rgba(5,44,160,0.4)] transition-colors hover:bg-[#0a3ac7]"
                   onClick={handleCreateNewTemplate}
                   type="button"
                 >
