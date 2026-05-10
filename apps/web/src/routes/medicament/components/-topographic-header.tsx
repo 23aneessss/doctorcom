@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
+import { Plus } from "lucide-react";
 
-import plusIcon from "@/assets/icons/+.svg";
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 
 import { MEDICATIONS_PAGE_TEXT } from "./-page-data";
@@ -12,32 +12,71 @@ export function TopographicHeader({
   subtitle: string;
   onAdd: () => void;
 }) {
-  const heroTextureStyle = {
-    backgroundImage: `url(${headerTexture})`,
-  } as CSSProperties;
-
   return (
     <section
-      className="relative min-h-[clamp(7.15rem,12.8vh,8.4rem)] w-full overflow-hidden rounded-[15px] border bg-white px-[clamp(1rem,2.8vw,2.6rem)] py-[clamp(0.75rem,1.35vh,1rem)]"
+      aria-labelledby="medicaments-page-title"
       style={{
-        borderColor: "color-mix(in srgb, #c2e0ef 68%, white)",
+        position: "relative",
+        overflow: "hidden",
+        height: "clamp(7.15rem, 12.8vh, 8.4rem)",
+        borderRadius: "0.9375rem",
+        border: "1px solid color-mix(in srgb, #c2e0ef 68%, white)",
         background:
           "linear-gradient(97.5deg, color-mix(in srgb, #c2e0ef 87%, white 13%) 0%, #ffffff 99.9%)",
         boxShadow: "0 0.25rem 1.25rem rgba(118, 187, 221, 0.5)",
-      }}
+        padding: "clamp(0.65rem, 1.35vh, 1rem) clamp(1rem, 2vw, 1.5rem)",
+      } as CSSProperties}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-[-70%] left-[-5%] right-[-9%] top-[-205%] opacity-20"
-        style={heroTextureStyle}
+        style={{
+          position: "absolute",
+          left: "-5%",
+          right: "-9%",
+          top: "-205%",
+          bottom: "-70%",
+          pointerEvents: "none",
+          opacity: 0.2,
+          backgroundImage: `url(${headerTexture})`,
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       />
 
-      <div className="relative z-[1] flex min-h-[inherit] flex-col items-start justify-center gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="m-0 font-['Inter'] text-[clamp(1.28rem,2.12vw,1.78rem)] font-bold leading-[1.1] text-[#0F3460]">
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h1
+            id="medicaments-page-title"
+            style={{
+              margin: 0,
+              color: "#0f3460",
+              fontSize: "clamp(1.28rem, 2.12vw, 1.78rem)",
+              lineHeight: 1.1,
+              fontWeight: 700,
+            }}
+          >
             {MEDICATIONS_PAGE_TEXT.title}
           </h1>
-          <p className="mt-[0.35rem] font-['Inter'] text-[clamp(0.88rem,1.22vw,1.06rem)] font-semibold leading-[1.2] text-[#052CA0]">
+          <p
+            style={{
+              margin: "0.18rem 0 0",
+              color: "#052ca0",
+              fontSize: "clamp(0.88rem, 1.22vw, 1.06rem)",
+              lineHeight: 1.2,
+              fontWeight: 600,
+            }}
+          >
             {subtitle}
           </p>
         </div>
@@ -45,22 +84,39 @@ export function TopographicHeader({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex min-h-[52px] w-full items-center justify-center gap-[13px] rounded-[15px] border-0 bg-[#C2E0EF] px-[23px] py-[12px] text-[#0F3460] transition-[background-color,box-shadow] duration-150 sm:w-auto sm:min-w-[222px] sm:min-h-[60px]"
           style={{
-            boxShadow: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.65rem",
+            height: "2.625rem",
+            minWidth: "13.5rem",
+            padding: "0 1.5rem",
+            border: 0,
+            borderRadius: "0.875rem",
+            background: "#052ca0",
+            color: "#ffffff",
+            fontSize: "1rem",
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+            boxShadow: "0px 4px 12px rgba(5, 44, 160, 0.38)",
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "#0a3ac7";
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0px 8px 20px rgba(5, 44, 160, 0.44)";
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "#052ca0";
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0px 4px 12px rgba(5, 44, 160, 0.38)";
+            (e.currentTarget as HTMLButtonElement).style.transform = "";
           }}
         >
-          <img
-            src={plusIcon}
-            alt=""
-            aria-hidden="true"
-            className="block h-[24px] w-[24px] shrink-0"
-          />
-          <span className="block font-['Plus_Jakarta_Sans'] text-[16px] font-bold leading-[1.15]">
-            Ajouter un
-            <br />
-            médicament
-          </span>
+          <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
+          Ajouter un médicament
         </button>
       </div>
     </section>
