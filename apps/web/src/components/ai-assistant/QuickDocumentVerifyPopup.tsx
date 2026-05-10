@@ -149,31 +149,40 @@ export function QuickDocumentVerifyPopup({ isOpen, onClose, patientId }: Props) 
     e.target.value = "";
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-[2px]"
-            onClick={handleClose}
-          />
-
+        /* Backdrop — same pattern as nouveau-patient-dialog */
+        <motion.div
+          key="backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingBlock: "1rem",
+            paddingLeft: "calc(clamp(210px, 12vw, 230px) + 0.5rem)",
+            paddingRight: "1.5rem",
+            background: "rgba(15, 52, 96, 0.28)",
+            backdropFilter: "blur(3px)",
+          }}
+          onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
+        >
           {/* Panel */}
           <motion.div
             key="panel"
-            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            initial={{ opacity: 0, scale: 0.96, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
             transition={{ type: "spring", stiffness: 420, damping: 30, mass: 0.8 }}
-            className="fixed inset-x-4 top-[10vh] z-[201] mx-auto max-w-[520px] rounded-[20px] bg-white shadow-2xl"
+            style={{ width: "min(32rem, calc(100vw - clamp(210px, 12vw, 230px) - 3.5rem))" }}
+            className="rounded-[16px] border border-[#d4deea] bg-[#f8fafc] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#e8f1f8] px-6 py-4">
@@ -239,7 +248,7 @@ export function QuickDocumentVerifyPopup({ isOpen, onClose, patientId }: Props) 
               </p>
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );
