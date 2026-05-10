@@ -288,6 +288,13 @@ export const ordonnanceRouter = createTRPCRouter({
       });
     }),
 
+  getOrdonnancesPageData: protectedProcedure.query(async ({ ctx }) => {
+    return ordonnanceService.getOrdonnancesPageData({
+      db: ctx.db,
+      session: ctx.session,
+    });
+  }),
+
 	envoyerOrdonnanceParEmail: protectedProcedure
 		.input(z.object({ ordonnanceId: uuidSchema }))
 		.mutation(async ({ ctx, input }) => {
@@ -457,6 +464,12 @@ export const ordonnanceRouter = createTRPCRouter({
         specialite: input.specialite,
       });
     }),
+
+  getPreRemplisPageData: protectedProcedure.query(async ({ ctx }) => {
+    return ordonnanceService.getPreRemplisPageData({
+      db: ctx.db,
+    });
+  }),
 
   listPdfTemplates: protectedProcedure.query(async ({ ctx }) => {
     return ordonnanceService.listPdfTemplates({

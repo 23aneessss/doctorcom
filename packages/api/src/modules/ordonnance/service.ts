@@ -24,7 +24,9 @@ import {
   type CreatePreRempliInput,
   type OrdonnancePdfTemplateRecord,
   type OrdonnanceMedicamentRecord,
+  type OrdonnancePageRecord,
   type OrdonnanceRecord,
+  type PreRempliPageRecord,
   type PreRempliMedicamentRecord,
   type PreRempliOrdonnanceRecord,
   type UpdateCategorieInput,
@@ -430,6 +432,17 @@ export class OrdonnanceService {
         ...item,
         medicaments: await ordonnanceRepository.getMedicamentsByOrdonnance(data.db, item.id),
       })),
+    );
+  }
+
+  async getOrdonnancesPageData(data: {
+    db: DatabaseClient;
+    session: OrdonnanceSession;
+  }): Promise<OrdonnancePageRecord[]> {
+    const utilisateur = await this.resolveUtilisateur(data.db, data.session);
+    return ordonnanceRepository.getOrdonnancesByUtilisateurWithPatients(
+      data.db,
+      utilisateur.id,
     );
   }
 
@@ -869,6 +882,20 @@ export class OrdonnanceService {
     specialite: string;
   }): Promise<PreRempliOrdonnanceRecord[]> {
     return ordonnanceRepository.getPreRemplisBySpecialite(data.db, data.specialite.trim());
+  }
+
+  async getPreRemplisPageData(data: {
+    db: DatabaseClient;
+  }): Promise<{
+    categories: CategoriePreRempliRecord[];
+    preRemplis: PreRempliPageRecord[];
+  }> {
+    const [categories, preRemplis] = await Promise.all([
+      ordonnanceRepository.getAllCategories(data.db),
+      ordonnanceRepository.getPreRemplisWithCategoriesAndMedicaments(data.db),
+    ]);
+
+    return { categories, preRemplis };
   }
 
   async ajouterMedicamentAuPreRempli(data: {

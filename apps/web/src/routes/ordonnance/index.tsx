@@ -1,5 +1,5 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import * as pdfjsLib from "pdfjs-dist";
@@ -59,8 +59,11 @@ export const Route = createFileRoute("/ordonnance/")({
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type PatientSearchRow = RouterOutputs["patient"]["searchPatients"][number];
 type OrdonnanceRow =
-  RouterOutputs["ordonnance"]["getOrdonnancesByPatient"][number];
-type CategoryRow = RouterOutputs["ordonnance"]["getToutesCategories"][number];
+  RouterOutputs["ordonnance"]["getOrdonnancesPageData"][number];
+type CategoryRow =
+  RouterOutputs["ordonnance"]["getPreRemplisPageData"]["categories"][number];
+type PreRempliPageRow =
+  RouterOutputs["ordonnance"]["getPreRemplisPageData"]["preRemplis"][number];
 type PreRempliDetail = RouterOutputs["ordonnance"]["getPreRempliById"];
 type OrdonnancePdfTemplateRow =
   RouterOutputs["ordonnance"]["listPdfTemplates"][number];
@@ -373,9 +376,16 @@ function RouteComponent() {
     throwOnError: false,
   });
 
-  const categoriesQuery = useQuery({
-    ...trpc.ordonnance.getToutesCategories.queryOptions(),
+  const ordonnancesPageQuery = useQuery({
+    ...trpc.ordonnance.getOrdonnancesPageData.queryOptions(),
     throwOnError: false,
+    staleTime: 60_000,
+  });
+
+  const preRemplisPageQuery = useQuery({
+    ...trpc.ordonnance.getPreRemplisPageData.queryOptions(),
+    throwOnError: false,
+    staleTime: 60_000,
   });
 
   const pdfTemplatesQuery = useQuery({
@@ -384,79 +394,31 @@ function RouteComponent() {
   });
 
   const patientRows = patientsQuery.data ?? [];
-  const categoryRows = categoriesQuery.data ?? [];
+  const categoryRows = preRemplisPageQuery.data?.categories ?? [];
+  const preRemplis = preRemplisPageQuery.data?.preRemplis ?? [];
   const pdfTemplates = pdfTemplatesQuery.data ?? [];
 
-  const ordonnancesByPatientQueries = useQueries({
-    queries: patientRows.map((patient) => ({
-      ...trpc.ordonnance.getOrdonnancesByPatient.queryOptions({
-        patientId: patient.id,
-      }),
-      throwOnError: false,
-      staleTime: 60_000,
-    })),
-  });
-
-  const preRemplisByCategoryQueries = useQueries({
-    queries: categoryRows.map((category) => ({
-      ...trpc.ordonnance.getPreRemplisByCategorie.queryOptions({
-        categorieId: category.id,
-      }),
-      throwOnError: false,
-      staleTime: 60_000,
-    })),
-  });
-
-  const preRemplis = useMemo(
-    () =>
-      categoryRows.flatMap((category, categoryIndex) =>
-        (preRemplisByCategoryQueries[categoryIndex]?.data ?? []).map(
-          (item) => ({
-            ...item,
-            category,
-          }),
-        ),
-      ),
-    [categoryRows, preRemplisByCategoryQueries],
-  );
-
-  const preRempliDetailQueries = useQueries({
-    queries: preRemplis.map((item) => ({
-      ...trpc.ordonnance.getPreRempliById.queryOptions({ id: item.id }),
-      throwOnError: false,
-      staleTime: 60_000,
-    })),
-  });
-
   const recentOrdonnances = useMemo<RecentOrdonnanceItem[]>(() => {
-    return patientRows
-      .flatMap((patient, patientIndex) => {
-        const fullName = buildFullName(patient);
-        return (ordonnancesByPatientQueries[patientIndex]?.data ?? []).map(
-          (ordonnance) => ({
-            id: ordonnance.id,
-            patientId: ordonnance.patient_id,
-            rendezVousId: ordonnance.rendez_vous_id,
-            patientName: fullName,
-            patientMatricule: patient.matricule ?? "",
-            date: ordonnance.date_prescription,
-            remarques: ordonnance.remarques,
-            type: inferOrdonnanceType(ordonnance),
-            medicaments: ordonnance.medicaments,
-          }),
-        );
-      })
+    return (ordonnancesPageQuery.data ?? [])
+      .map((ordonnance) => ({
+        id: ordonnance.id,
+        patientId: ordonnance.patient_id,
+        rendezVousId: ordonnance.rendez_vous_id,
+        patientName: buildFullName(ordonnance.patient),
+        patientMatricule: ordonnance.patient.matricule ?? "",
+        date: ordonnance.date_prescription,
+        remarques: ordonnance.remarques,
+        type: inferOrdonnanceType(ordonnance),
+        medicaments: ordonnance.medicaments,
+      }))
       .sort((left, right) => right.date.localeCompare(left.date));
-  }, [ordonnancesByPatientQueries, patientRows]);
+  }, [ordonnancesPageQuery.data]);
 
   const preRempliCards = useMemo<PreRempliCardItem[]>(() => {
     return preRemplis
-      .map((item, index) => {
-        const detail = preRempliDetailQueries[index]?.data as
-          | PreRempliDetail
-          | undefined;
+      .map((item: PreRempliPageRow) => {
         const medicationNames =
-          detail?.medicaments
+          item.medicaments
             ?.map((medicament) => medicament.nom_medicament)
             .filter(Boolean)
             .join(" ") ?? "";
@@ -468,7 +430,7 @@ function RouteComponent() {
           specialite: item.specialite,
           categorieId: item.category.id,
           categorieNom: item.category.nom,
-          medicationCount: detail?.medicaments?.length ?? 0,
+          medicationCount: item.medicaments.length,
           searchableText: [
             item.nom,
             item.description,
@@ -482,7 +444,7 @@ function RouteComponent() {
         };
       })
       .sort((left, right) => left.nom.localeCompare(right.nom, "fr"));
-  }, [preRempliDetailQueries, preRemplis]);
+  }, [preRemplis]);
 
   const availableSpecialites = useMemo(
     () =>
@@ -546,18 +508,16 @@ function RouteComponent() {
 
   const allQueries = [
     patientsQuery,
-    categoriesQuery,
+    ordonnancesPageQuery,
+    preRemplisPageQuery,
     pdfTemplatesQuery,
-    ...ordonnancesByPatientQueries,
-    ...preRemplisByCategoryQueries,
-    ...preRempliDetailQueries,
   ];
 
   const failedQueries = allQueries.filter((query) => query.isError);
   const isInitialLoading =
-    (patientsQuery.isLoading || categoriesQuery.isLoading) &&
+    (patientsQuery.isLoading || preRemplisPageQuery.isLoading) &&
     !patientsQuery.data &&
-    !categoriesQuery.data;
+    !preRemplisPageQuery.data;
 
   const retryFailedQueries = async () => {
     await Promise.all(failedQueries.map((query) => query.refetch()));
@@ -566,11 +526,9 @@ function RouteComponent() {
   const refreshOrdonnancePageData = async () => {
     await Promise.all([
       patientsQuery.refetch(),
-      categoriesQuery.refetch(),
+      ordonnancesPageQuery.refetch(),
+      preRemplisPageQuery.refetch(),
       pdfTemplatesQuery.refetch(),
-      ...ordonnancesByPatientQueries.map((query) => query.refetch()),
-      ...preRemplisByCategoryQueries.map((query) => query.refetch()),
-      ...preRempliDetailQueries.map((query) => query.refetch()),
     ]);
   };
 
@@ -1028,7 +986,7 @@ function RouteComponent() {
                 templates={pdfTemplates}
               />
 
-              {preRempliCards.length === 0 && categoriesQuery.isLoading ? (
+              {preRempliCards.length === 0 && preRemplisPageQuery.isLoading ? (
                 <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
                   {Array.from({ length: 6 }).map((_, index) => (
                     <div
@@ -4208,7 +4166,7 @@ function formatFileSize(size: number | null | undefined) {
   return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-function buildFullName(patient: PatientSearchRow) {
+function buildFullName(patient: Pick<PatientSearchRow, "nom" | "prenom">) {
   return (
     [patient.nom, patient.prenom].filter(Boolean).join(" ").trim() ||
     "Patient inconnu"

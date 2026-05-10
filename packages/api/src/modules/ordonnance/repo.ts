@@ -10,7 +10,7 @@ import {
   rendez_vous,
   utilisateurs,
 } from "@doctor.com/db/schema";
-import { and, asc, desc, eq, ilike } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray } from "drizzle-orm";
 
 type RootDatabaseClient = typeof rootDatabaseClient;
 type DatabaseTransaction = Parameters<Parameters<RootDatabaseClient["transaction"]>[0]>[0];
@@ -31,6 +31,19 @@ export type PreRempliMedicamentRecord = typeof pre_rempli_medicaments.$inferSele
 export type OrdonnancePdfTemplateRecord =
   typeof ordonnance_pdf_templates.$inferSelect;
 export type UtilisateurRecord = typeof utilisateurs.$inferSelect;
+export type OrdonnancePageRecord = OrdonnanceRecord & {
+  patient: {
+    id: string;
+    nom: string;
+    prenom: string;
+    matricule: string;
+  };
+  medicaments: OrdonnanceMedicamentRecord[];
+};
+export type PreRempliPageRecord = PreRempliOrdonnanceRecord & {
+  category: CategoriePreRempliRecord;
+  medicaments: PreRempliMedicamentRecord[];
+};
 
 export type CreateOrdonnanceInput = Omit<NewOrdonnanceRecord, "id">;
 export type UpdateOrdonnanceInput = Partial<CreateOrdonnanceInput>;
@@ -143,6 +156,53 @@ export class OrdonnanceRepository {
       .from(ordonnance)
       .where(eq(ordonnance.patient_id, patientId))
       .orderBy(desc(ordonnance.date_prescription), desc(ordonnance.id));
+  }
+
+  async getOrdonnancesByUtilisateurWithPatients(
+    database: DatabaseClient,
+    utilisateurId: string,
+  ): Promise<OrdonnancePageRecord[]> {
+    const rows = await database
+      .select({
+        ordonnance,
+        patient: {
+          id: patients.id,
+          nom: patients.nom,
+          prenom: patients.prenom,
+          matricule: patients.matricule,
+        },
+      })
+      .from(ordonnance)
+      .innerJoin(patients, eq(ordonnance.patient_id, patients.id))
+      .where(eq(ordonnance.utilisateur_id, utilisateurId))
+      .orderBy(desc(ordonnance.date_prescription), desc(ordonnance.id));
+
+    const ordonnanceIds = rows.map((row) => row.ordonnance.id);
+    const medicaments =
+      ordonnanceIds.length > 0
+        ? await database
+            .select()
+            .from(ordonnance_medicaments)
+            .where(inArray(ordonnance_medicaments.ordonnance_id, ordonnanceIds))
+            .orderBy(
+              asc(ordonnance_medicaments.ordonnance_id),
+              asc(ordonnance_medicaments.nom_medicament),
+              asc(ordonnance_medicaments.id),
+            )
+        : [];
+
+    const medicamentsByOrdonnance = new Map<string, OrdonnanceMedicamentRecord[]>();
+    for (const medicament of medicaments) {
+      const list = medicamentsByOrdonnance.get(medicament.ordonnance_id) ?? [];
+      list.push(medicament);
+      medicamentsByOrdonnance.set(medicament.ordonnance_id, list);
+    }
+
+    return rows.map((row) => ({
+      ...row.ordonnance,
+      patient: row.patient,
+      medicaments: medicamentsByOrdonnance.get(row.ordonnance.id) ?? [],
+    }));
   }
 
   async getOrdonnancesByRendezVous(
@@ -378,6 +438,50 @@ export class OrdonnanceRepository {
       .select()
       .from(pre_rempli_ordonnance)
       .orderBy(asc(pre_rempli_ordonnance.nom));
+  }
+
+  async getPreRemplisWithCategoriesAndMedicaments(
+    database: DatabaseClient,
+  ): Promise<PreRempliPageRecord[]> {
+    const rows = await database
+      .select({
+        preRempli: pre_rempli_ordonnance,
+        category: categories_pre_rempli,
+      })
+      .from(pre_rempli_ordonnance)
+      .innerJoin(
+        categories_pre_rempli,
+        eq(pre_rempli_ordonnance.categorie_pre_rempli_id, categories_pre_rempli.id),
+      )
+      .where(eq(pre_rempli_ordonnance.est_actif, true))
+      .orderBy(asc(pre_rempli_ordonnance.nom));
+
+    const preRempliIds = rows.map((row) => row.preRempli.id);
+    const medicaments =
+      preRempliIds.length > 0
+        ? await database
+            .select()
+            .from(pre_rempli_medicaments)
+            .where(inArray(pre_rempli_medicaments.pre_rempli_id, preRempliIds))
+            .orderBy(
+              asc(pre_rempli_medicaments.pre_rempli_id),
+              asc(pre_rempli_medicaments.ordre_affichage),
+              asc(pre_rempli_medicaments.nom_medicament),
+            )
+        : [];
+
+    const medicamentsByPreRempli = new Map<string, PreRempliMedicamentRecord[]>();
+    for (const medicament of medicaments) {
+      const list = medicamentsByPreRempli.get(medicament.pre_rempli_id) ?? [];
+      list.push(medicament);
+      medicamentsByPreRempli.set(medicament.pre_rempli_id, list);
+    }
+
+    return rows.map((row) => ({
+      ...row.preRempli,
+      category: row.category,
+      medicaments: medicamentsByPreRempli.get(row.preRempli.id) ?? [],
+    }));
   }
 
   async dupliquerPreRempli(
