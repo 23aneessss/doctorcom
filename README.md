@@ -27,14 +27,14 @@ Important:
 ## Prérequis
 
 1. Bun installe (version recommandee: `1.2.20` ou proche).
-2. PostgreSQL installe localement et en cours d’execution.
+2. Docker installe pour les services locaux (`postgres`, `minio`, `mailpit`).
 3. Git + terminal.
 
 Verifier rapidement:
 
 ```bash
 bun --version
-psql --version
+docker --version
 ```
 
 ## Installation (premier lancement)
@@ -54,27 +54,32 @@ Variables principales a connaitre:
   - `BETTER_AUTH_SECRET=...` (minimum 32 caracteres)
   - `BETTER_AUTH_URL=http://localhost:3000`
   - `CORS_ORIGIN=http://localhost:3001`
+  - `SMTP_HOST=localhost`, `SMTP_PORT=1025` pour Mailpit local.
 - `apps/web/.env`
   - `VITE_SERVER_URL=http://localhost:3000`
 
 ## Démarrage rapide (backend + DB + web)
 
-1. Demarrer PostgreSQL local (exemples), puis verifier:
+1. Demarrer les dependances backend locales:
 
 ```bash
-# macOS (Homebrew)
-brew services start postgresql@16
-# Linux (systemd)
-sudo systemctl start postgresql
-# verification
-pg_isready -h localhost -p 5432
+docker compose up -d postgres medications-postgres minio mailpit
 ```
 
-2. Generer puis appliquer les migrations:
+Services utiles:
+
+- PostgreSQL app: `localhost:5432`
+- PostgreSQL medicaments: `localhost:5433`
+- MinIO API: `http://localhost:9000`
+- MinIO console: `http://localhost:9001`
+- SMTP Mailpit: `localhost:1025`
+- Inbox Mailpit: `http://localhost:8025`
+
+2. Appliquer les migrations:
 
 ```bash
-bun run db:generate
 bun run db:migrate
+bun run medications-db:migrate
 ```
 
 3. Demarrer le serveur backend:
@@ -92,7 +97,9 @@ bun run dev:web
 URLs utiles:
 
 - Backend: `http://localhost:3000`
-- Health texte placeholder: `GET /` -> `server running`
+- Health texte: `GET /healthz` -> `server running`
+- Health backend detaille: `GET /healthz/backend`
+- Health backend avec test storage profond: `GET /healthz/backend?deep=1`
 - tRPC mount: `http://localhost:3000/trpc`
 - Auth Better-Auth: `http://localhost:3000/api/auth/*`
 - Web: `http://localhost:3001`
@@ -120,6 +127,11 @@ Typecheck global du monorepo (gate principal).
 bun run check-types:backend
 ```
 Typecheck backend uniquement (`server`, `api`, `db`, `auth`, `shared`).
+
+```bash
+bun run backend:smoke
+```
+Smoke test backend transactionnel avec rollback. Il couvre le workflow patient -> rendez-vous -> consultation -> dossier -> agenda -> ordonnance page data sans polluer la base.
 
 ```bash
 bun run build

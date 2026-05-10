@@ -1,0 +1,114 @@
+name: Backend Health
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  backend-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/doctor_com
+      MEDICATIONS_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/doctor_com_medicaments
+      BETTER_AUTH_SECRET: change-me-change-me-change-me-12345678
+      BETTER_AUTH_URL: http://localhost:3010
+      CORS_ORIGIN: http://localhost:3001
+      NODE_ENV: test
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BUCKET: doctorcom-documents
+      AI_PROVIDER: gemini
+      GEMINI_API_KEY: ci-placeholder-key
+      GEMINI_MODEL: gemini-2.5-flash
+      OLLAMA_BASE_URL: http://localhost:11434
+      OLLAMA_MODEL: gemma4:e2b
+      OLLAMA_TIMEOUT_MS: "60000"
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      SMTP_USER: test
+      SMTP_PASS: test
+      SMTP_FROM: noreply@doctor.com
+      APPOINTMENT_REMINDER_SCHEDULER: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start backend dependencies
+        run: docker compose up -d postgres medications-postgres minio mailpit
+
+      - name: Wait for services
+        run: |
+          for i in {1..60}; do
+            if docker compose ps postgres medications-postgres minio | grep -q "unhealthy"; then
+              docker compose ps
+              sleep 2
+              continue
+            fi
+
+            if docker compose ps postgres medications-postgres minio | grep -q "starting"; then
+              sleep 2
+              continue
+            fi
+
+            if curl --fail --silent http://localhost:8025/api/v1/info >/dev/null; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker compose ps
+          exit 1
+
+      - name: Run database migrations
+        run: |
+          bun run db:migrate
+          bun run medications-db:migrate
+
+      - name: Backend typecheck
+        run: bun run check-types:backend
+
+      - name: Backend smoke test
+        run: bun run backend:smoke
+
+      - name: Start server for health check
+        run: |
+          PORT=3010 bun apps/server/src/index.ts > /tmp/doctorcom-server.log 2>&1 &
+          echo $! > /tmp/doctorcom-server.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:3010/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/doctorcom-server.log
+          exit 1
+
+      - name: Backend health check
+        run: curl --fail --silent http://localhost:3010/healthz/backend?deep=1
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/doctorcom-server.pid ]; then
+            kill "$(cat /tmp/doctorcom-server.pid)" || true
+          fi
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs postgres medications-postgres minio mailpit
