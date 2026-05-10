@@ -108,6 +108,28 @@ export class ExportService {
     return normalized || fallback;
   }
 
+  private stripMarkdown(text: string): string {
+    return (
+      text
+        // Bold+italic ***text*** or **text**
+        .replace(/\*{3}([^*]+)\*{3}/g, "$1")
+        .replace(/\*{2}([^*]+)\*{2}/g, "$1")
+        // Italic *text* (but not bullet * items)
+        .replace(/(?<![*\s])\*([^*\n]+)\*(?![*])/g, "$1")
+        // Headings # ## ###
+        .replace(/^#{1,6}\s+/gm, "")
+        // Bullet list * item or - item → • item
+        .replace(/^[*-]\s+/gm, "• ")
+        // Inline code `text`
+        .replace(/`([^`]+)`/g, "$1")
+        // Horizontal rule
+        .replace(/^[-_*]{3,}\s*$/gm, "")
+        // Multiple blank lines → single blank line
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
+    );
+  }
+
   private formatDate(value: Date | string | null | undefined) {
     if (!value) return "Non renseignée";
     const date = value instanceof Date ? value : new Date(value);
@@ -505,7 +527,7 @@ export class ExportService {
       const rows = (section.rows ?? []).filter(
         (row) => this.cleanText(row.value, "") !== "",
       );
-      const body = this.cleanText(section.body, "");
+      const body = this.stripMarkdown(this.cleanText(section.body, ""));
       const rowHeight = rows.length > 0 ? rows.length * 19 + 8 : 0;
       const bodyHeight =
         body.length > 0
@@ -545,7 +567,7 @@ export class ExportService {
           .fillColor(colors.text)
           .font("Helvetica")
           .fontSize(9.5)
-          .text(this.cleanText(row.value), page.left + 170, sectionY - 1, {
+          .text(this.stripMarkdown(this.cleanText(row.value)), page.left + 170, sectionY - 1, {
             width: contentWidth - 188,
           });
         sectionY += 19;
@@ -808,7 +830,7 @@ export class ExportService {
     );
     this.drawMappedTextBlock(
       page,
-      this.cleanText(ord.remarques, ""),
+      this.stripMarkdown(this.cleanText(ord.remarques, "")),
       layout.fields.remarques,
       pageHeight,
       font,

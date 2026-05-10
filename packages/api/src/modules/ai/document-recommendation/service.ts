@@ -161,6 +161,8 @@ export class DocumentRecommendationService {
       "Basez-vous UNIQUEMENT sur les donnees cliniques fournies. Ne jamais inventer des informations.",
       "Repondez UNIQUEMENT en JSON valide sans backticks ni markdown.",
       "Le JSON doit contenir: contenu_lettre, raison, examen_demande, urgence.",
+      "IMPORTANT: Les valeurs texte du JSON doivent etre du texte brut SANS aucun formatage markdown.",
+      "Interdiction absolue d'utiliser ** * # dans les valeurs texte. Utilise uniquement du texte plat avec des sauts de ligne \\n si necessaire.",
       "Utilise exactement les informations du médecin fournies ci-dessus. Ne laisse aucun placeholder comme [Votre Nom] ou [Date du jour] dans le document final.",
     ].join("\n");
 
@@ -245,6 +247,8 @@ export class DocumentRecommendationService {
       "Basez-vous UNIQUEMENT sur les donnees cliniques fournies. Ne jamais inventer des informations.",
       "Repondez UNIQUEMENT en JSON valide sans backticks ni markdown.",
       "Le JSON doit contenir: contenu_certificat, diagnostic, notes.",
+      "IMPORTANT: Les valeurs texte du JSON doivent etre du texte brut SANS aucun formatage markdown.",
+      "Interdiction absolue d'utiliser ** * # dans les valeurs texte. Utilise uniquement du texte plat avec des sauts de ligne \\n si necessaire.",
       "Utilise exactement les informations du médecin fournies ci-dessus. Ne laisse aucun placeholder comme [Votre Nom] ou [Date du jour] dans le document final.",
     ].join("\n");
 
