@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+import { authClient } from "@/lib/auth-client";
 import { trpcClient } from "@/utils/trpc";
 
 type AppointmentSlot = Awaited<
@@ -94,6 +95,11 @@ export function AppointmentReminderNotifier() {
       const today = formatDateForApi(new Date());
 
       try {
+        const session = await authClient.getSession();
+        if (!session.data) {
+          return;
+        }
+
         const slots = await trpcClient.agenda.getSlots.query({
           startDate: today,
           endDate: today,

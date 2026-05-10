@@ -92,6 +92,13 @@
       "when": 1778419500000,
       "tag": "0012_ordonnance_template_compat",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778428800000,
+      "tag": "0013_patient_nss_text",
+      "breakpoints": true
     }
   ]
 }

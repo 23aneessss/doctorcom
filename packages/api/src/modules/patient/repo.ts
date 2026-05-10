@@ -45,7 +45,7 @@ export interface SearchPatientsCriteria {
   nom?: string;
   prenom?: string;
   matricule?: string;
-  nss?: number;
+  nss?: string;
   telephone?: string;
   sexe?: string;
 }
@@ -318,7 +318,7 @@ export class PatientRepository {
 
   async hasNssConflict(
     database: DatabaseClient,
-    nss: number,
+    nss: string,
     excludedPatientId?: string,
   ): Promise<boolean> {
     const whereClause = excludedPatientId

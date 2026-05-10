@@ -219,7 +219,7 @@ function shouldReviewRdvCreatedPatient(patient: {
   sexe?: string | null;
   lieu_naissance?: string | null;
   nationalite?: string | null;
-  nss?: number | null;
+  nss?: string | null;
 }) {
   const isGeneratedFromRdv =
     isMobilePlaceholderPatient(patient.matricule) ||

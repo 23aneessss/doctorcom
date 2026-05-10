@@ -473,7 +473,7 @@ export class DocumentAnomalyService {
       nom: string;
       prenom: string;
       date_naissance: string;
-      nss: number | null;
+      nss: string | null;
       matricule: string;
       sexe: string | null;
       lieu_naissance: string | null;

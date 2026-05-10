@@ -18,7 +18,7 @@ const patientMutationShape = {
   email: emailSchema.optional(),
   matricule: trimmedStringSchema.max(128),
   date_naissance: isoDateSchema,
-  nss: nonNegativeIntegerSchema.optional(),
+  nss: z.string().trim().regex(/^\d{15}$/).optional(),
   lieu_naissance: optionalTrimmedStringSchema,
   sexe: optionalTrimmedStringSchema,
   nationalite: optionalTrimmedStringSchema,

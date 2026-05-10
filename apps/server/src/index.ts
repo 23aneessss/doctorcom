@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS "app_settings" (
 );
 `;
 
+const PATIENT_COMPAT_SQL = `
+ALTER TABLE "patients" ALTER COLUMN "nss" TYPE varchar(32) USING "nss"::text;
+`;
+
 const REQUIRED_ORD_TEMPLATE_COLUMNS = [
   "id",
   "utilisateur_id",
@@ -145,17 +149,20 @@ function startStorageRecoveryLoop(): void {
 
 async function ensureOrdonnanceTemplateSchema(): Promise<void> {
   await pool.query(ORD_TEMPLATE_COMPAT_SQL);
+  await pool.query(PATIENT_COMPAT_SQL);
 }
 
 async function getBackendHealthDetails(): Promise<{
   database: "ok" | "error";
   ordonnanceTemplates: "ok" | "error";
+  patientNss: "ok" | "error";
   storage: "ok" | "degraded";
   missingOrdonnanceTemplateColumns: string[];
 }> {
   const details = {
     database: "error" as "ok" | "error",
     ordonnanceTemplates: "error" as "ok" | "error",
+    patientNss: "error" as "ok" | "error",
     storage: isStorageAvailable() ? ("ok" as const) : ("degraded" as const),
     missingOrdonnanceTemplateColumns: [] as string[],
   };
@@ -177,6 +184,23 @@ async function getBackendHealthDetails(): Promise<{
   );
   details.ordonnanceTemplates =
     details.missingOrdonnanceTemplateColumns.length === 0 ? "ok" : "error";
+
+  const patientNssResult = await pool.query<{
+    data_type: string;
+    character_maximum_length: number | null;
+  }>(
+    `
+      select data_type, character_maximum_length
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'patients'
+        and column_name = 'nss'
+      limit 1
+    `,
+  );
+  const patientNssColumn = patientNssResult.rows[0];
+  details.patientNss =
+    patientNssColumn?.data_type === "character varying" ? "ok" : "error";
 
   return details;
 }
@@ -229,6 +253,7 @@ app.get("/healthz/backend", async (_req, res) => {
     const healthy =
       details.database === "ok" &&
       details.ordonnanceTemplates === "ok" &&
+      details.patientNss === "ok" &&
       details.storage === "ok";
 
     res.status(healthy ? 200 : 503).json({
@@ -240,6 +265,7 @@ app.get("/healthz/backend", async (_req, res) => {
       status: "error",
       database: "error",
       ordonnanceTemplates: "unknown",
+      patientNss: "unknown",
       storage: isStorageAvailable() ? "ok" : "degraded",
       error: error instanceof Error ? error.message : "Backend health check failed.",
     });

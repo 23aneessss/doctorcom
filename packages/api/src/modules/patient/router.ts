@@ -130,7 +130,7 @@ export const patientRouter = createTRPCRouter({
 					nom: input.nom,
 					prenom: input.prenom,
 					matricule: input.matricule,
-					nss: input.NSS === undefined ? undefined : Number(input.NSS),
+					nss: input.NSS === undefined ? undefined : String(input.NSS).trim(),
 					telephone: input.telephone,
 					sexe: input.sexe,
 				},

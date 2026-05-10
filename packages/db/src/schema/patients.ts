@@ -27,7 +27,7 @@ export const patients = pgTable(
     email: varchar("email", { length: 255 }),
     matricule: varchar("matricule", { length: 128 }).notNull(),
     date_naissance: date("date_naissance").notNull(),
-    nss: integer("nss"),
+    nss: varchar("nss", { length: 32 }),
     lieu_naissance: varchar("lieu_naissance", { length: 255 }),
     sexe: varchar("sexe", { length: 64 }),
     nationalite: varchar("nationalite", { length: 128 }),

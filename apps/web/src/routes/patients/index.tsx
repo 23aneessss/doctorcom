@@ -301,7 +301,7 @@ function PatientsPage() {
               (patientsQuery.data?.length ?? 0) + 1,
             ),
             date_naissance: dateNouvelleIso,
-            nss: toOptionalInteger(values.nss),
+            nss: toOptionalText(values.nss),
             lieu_naissance: toOptionalText(
               values.lieuPatient || values.lieuNaissance,
             ),
@@ -352,7 +352,7 @@ function PatientsPage() {
             telephone: toOptionalText(values.telephone),
             email: toOptionalText(values.email),
             date_naissance: dateNouvelleIso,
-            nss: toOptionalInteger(values.nss),
+            nss: toOptionalText(values.nss),
             lieu_naissance: toOptionalText(
               values.lieuPatient || values.lieuNaissance,
             ),

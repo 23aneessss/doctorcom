@@ -53,7 +53,7 @@ export interface SearchPatientsServiceInput {
   nom?: string;
   prenom?: string;
   matricule?: string;
-  nss?: number;
+  nss?: string;
   telephone?: string;
   sexe?: string;
 }
@@ -590,7 +590,7 @@ export class PatientService {
 
   private async ensureNoNssConflict(
     database: DatabaseClient,
-    nss: number | null | undefined,
+    nss: string | null | undefined,
     excludedPatientId?: string,
   ): Promise<void> {
     if (nss === undefined || nss === null) {
