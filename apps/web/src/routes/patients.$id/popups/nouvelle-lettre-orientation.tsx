@@ -313,7 +313,7 @@ export function NouvelleLettreOrientationDialog({
               <button
                 aria-label="Aide"
                 className="cursor-pointer transition-colors hover:text-[#265284]"
-                data-context-help-href="/aide/ordonnances#templates"
+                data-context-help-href="/aide/patients#documents"
                 type="button"
               >
                 <CircleHelp className="size-5" strokeWidth={1.8} />

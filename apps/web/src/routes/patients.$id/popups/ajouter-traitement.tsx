@@ -300,6 +300,7 @@ function DialogHeader({
         <button
           aria-label="Aide"
           className="flex size-5 items-center justify-center text-[#0f3460]"
+          data-context-help-href="/aide/patients#traitements"
           type="button"
         >
           <CircleHelp className="size-5" />

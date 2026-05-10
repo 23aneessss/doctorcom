@@ -459,6 +459,7 @@ export function NouvelleConsultationDialog({
           )}
         </div>
       }
+      helpHref="/aide/patients#consultations"
       icon={<Stethoscope className="size-5" />}
       maxWidth="max-w-[672px]"
       open={open}

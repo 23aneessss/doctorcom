@@ -32,6 +32,14 @@ function resolveHelpHref(dialog: Element) {
   );
 
   if (
+    context.includes("parametre") ||
+    context.includes("mot de passe") ||
+    context.includes("profil")
+  ) {
+    return "/aide/parametres#securite";
+  }
+
+  if (
     context.includes("template ordonnance") ||
     context.includes("template pdf") ||
     context.includes("mapping") ||
@@ -47,13 +55,16 @@ function resolveHelpHref(dialog: Element) {
     return "/aide/medicaments#base";
   }
 
-  if (
-    context.includes("ordonnance") ||
-    context.includes("template") ||
-    context.includes("certificat") ||
-    context.includes("lettre")
-  ) {
-    return "/aide/ordonnances#templates";
+  if (context.includes("antecedent")) {
+    return "/aide/patients#antecedents";
+  }
+
+  if (context.includes("suivi")) {
+    return "/aide/patients#suivis";
+  }
+
+  if (context.includes("consultation")) {
+    return "/aide/patients#consultations";
   }
 
   if (
@@ -65,14 +76,6 @@ function resolveHelpHref(dialog: Element) {
     return "/aide/agenda-rendez-vous#creation";
   }
 
-  if (context.includes("suivi")) {
-    return "/aide/patients#suivis";
-  }
-
-  if (context.includes("consultation")) {
-    return "/aide/patients#consultations";
-  }
-
   if (context.includes("vaccination")) {
     return "/aide/patients#vaccinations";
   }
@@ -81,7 +84,11 @@ function resolveHelpHref(dialog: Element) {
     return "/aide/patients#voyages";
   }
 
-  if (context.includes("document")) {
+  if (
+    context.includes("lettre") ||
+    context.includes("certificat") ||
+    context.includes("document")
+  ) {
     return "/aide/patients#documents";
   }
 
@@ -89,8 +96,8 @@ function resolveHelpHref(dialog: Element) {
     return "/aide/patients#traitements";
   }
 
-  if (context.includes("antecedent")) {
-    return "/aide/patients#antecedents";
+  if (context.includes("ordonnance") || context.includes("template")) {
+    return "/aide/ordonnances#actions";
   }
 
   if (
@@ -98,14 +105,6 @@ function resolveHelpHref(dialog: Element) {
     context.includes("creation")
   ) {
     return "/aide/patients#creation";
-  }
-
-  if (
-    context.includes("parametre") ||
-    context.includes("mot de passe") ||
-    context.includes("profil")
-  ) {
-    return "/aide/parametres#securite";
   }
 
   return "/aide";

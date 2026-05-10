@@ -115,6 +115,7 @@ export function DialogShell({
   children,
   footer,
   maxWidth = "max-w-[560px]",
+  helpHref,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,6 +125,7 @@ export function DialogShell({
   children: ReactNode;
   footer: ReactNode;
   maxWidth?: string;
+  helpHref?: string;
 }) {
   useEffect(() => {
     if (!open) {
@@ -189,6 +191,7 @@ export function DialogShell({
         aria-labelledby="agenda-rdv-dialog-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
+        {helpHref && <span aria-hidden="true" data-context-help-href={helpHref} style={{ display: "none" }} />}
         <header className="flex min-h-[75px] items-center justify-between border-b-[0.8px] border-[#c2e0ef] bg-[#f8fafc] px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[#0f3460]">

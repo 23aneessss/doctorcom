@@ -2,13 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   CaretDown,
-  EnvelopeSimple,
   GearSix,
   House,
   MagnifyingGlass,
   Note,
   Pill,
-  Phone,
   Question,
   User,
   X,
@@ -84,7 +82,6 @@ function RouteComponent() {
 
   const [searchValue, setSearchValue] = useState("");
   const [openQuestionId, setOpenQuestionId] = useState<string>(FEATURED_QUESTIONS[0]?.id ?? "");
-  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const deferredSearch = useDeferredValue(searchValue.trim());
 
   const isSearching = deferredSearch.length >= 2;
@@ -311,7 +308,7 @@ function RouteComponent() {
                     </p>
                   </div>
                 </div>
-                <SupportButton onClick={() => setIsSupportOpen(true)} />
+                <SupportButton />
               </section>
             </>
           )}
@@ -319,10 +316,6 @@ function RouteComponent() {
         </div>
       </main>
 
-      <SupportContactDialog
-        isOpen={isSupportOpen}
-        onClose={() => setIsSupportOpen(false)}
-      />
     </div>
   );
 }
@@ -427,12 +420,11 @@ function QuestionItem({
   );
 }
 
-function SupportButton({ onClick }: { onClick: () => void }) {
+function SupportButton() {
   const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
-      onClick={onClick}
       style={{
         height: "42px",
         border: 0,
@@ -462,140 +454,3 @@ function SupportButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function SupportContactDialog({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  if (!isOpen) {
-    return null;
-  }
-
-  return (
-    <div
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "1.25rem",
-        background: "rgba(15,52,96,0.28)",
-        backdropFilter: "blur(4px)",
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="support-contact-title"
-        style={{
-          width: "min(28rem, 100%)",
-          borderRadius: "18px",
-          border: "1px solid #d8edf7",
-          background: "#ffffff",
-          boxShadow: "0px 24px 60px -34px rgba(15,52,96,0.45)",
-          padding: "1.25rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
-          <div>
-            <p
-              id="support-contact-title"
-              style={{
-                margin: 0,
-                color: "#0f3460",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                lineHeight: 1.35,
-              }}
-            >
-              Contacter le support
-            </p>
-            <p style={{ margin: "0.25rem 0 0", color: "#6b7e99", fontFamily: "Inter, sans-serif", fontSize: "0.86rem", lineHeight: 1.5 }}>
-              Utilisez l'un des contacts ci-dessous pour joindre l'équipe Doctor.com.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "2rem",
-              height: "2rem",
-              flexShrink: 0,
-              border: "1px solid #d8edf7",
-              borderRadius: "10px",
-              background: "#f8fbff",
-              color: "#0f3460",
-              cursor: "pointer",
-            }}
-          >
-            <X size={14} weight="bold" />
-          </button>
-        </div>
-
-        <div style={{ display: "grid", gap: "0.75rem", marginTop: "1.2rem" }}>
-          <SupportContactRow icon={<Phone size={17} weight="bold" />} label="Téléphone" value="0776202361" href="tel:0776202361" />
-          <SupportContactRow icon={<Phone size={17} weight="bold" />} label="Téléphone" value="0782594339" href="tel:0782594339" />
-          <SupportContactRow icon={<EnvelopeSimple size={17} weight="bold" />} label="Email" value="ok_amara@esi.dz" href="mailto:ok_amara@esi.dz" />
-          <SupportContactRow icon={<EnvelopeSimple size={17} weight="bold" />} label="Email" value="oa_bouziani@esi.dz" href="mailto:oa_bouziani@esi.dz" />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function SupportContactRow({
-  icon,
-  label,
-  value,
-  href,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  href: string;
-}) {
-  return (
-    <a
-      href={href}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.75rem",
-        minHeight: "3.2rem",
-        borderRadius: "14px",
-        border: "1px solid #d8edf7",
-        background: "#f8fbff",
-        padding: "0.75rem",
-        color: "#0f3460",
-        textDecoration: "none",
-      }}
-    >
-      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem", flexShrink: 0, borderRadius: "10px", background: "#fff7ed", color: "#f77a21" }}>
-        {icon}
-      </span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "#6b7e99", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          {label}
-        </span>
-        <span style={{ display: "block", marginTop: "0.1rem", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.92rem", fontWeight: 700, color: "#0f3460", wordBreak: "break-word" }}>
-          {value}
-        </span>
-      </span>
-    </a>
-  );
-}

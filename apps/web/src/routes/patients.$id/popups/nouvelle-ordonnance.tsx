@@ -1270,6 +1270,7 @@ export function NouvelleOrdonnanceDialog({
                 <button
                   aria-label="Aide"
                   className="cursor-pointer text-[#0f3460] transition-colors hover:text-[#265284]"
+                  data-context-help-href="/aide/ordonnances#actions"
                   type="button"
                 >
                   <CircleHelp className="size-5" />

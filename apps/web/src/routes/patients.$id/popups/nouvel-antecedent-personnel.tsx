@@ -100,7 +100,9 @@ export function NouvelAntecedentPersonnelDialog({
 
           <div className="flex items-center gap-4">
             <button
+              aria-label="Aide"
               className="flex size-5 items-center justify-center text-[#0f3460]"
+              data-context-help-href="/aide/patients#antecedents"
               type="button"
             >
               <CircleHelp className="size-5" />

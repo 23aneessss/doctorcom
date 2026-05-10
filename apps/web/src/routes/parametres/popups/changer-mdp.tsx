@@ -154,7 +154,7 @@ export function ChangerMdpDialog({
             <p>Renseignez votre mot de passe actuel puis choisissez un nouveau mot de passe.</p>
           </div>
           <div className={styles.headerActions}>
-            <button aria-label="Aide" className={styles.iconButton} type="button">
+            <button aria-label="Aide" className={styles.iconButton} data-context-help-href="/aide/parametres#securite" type="button">
               <CircleHelp size={20} aria-hidden="true" />
             </button>
             <button
