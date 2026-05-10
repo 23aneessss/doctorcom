@@ -17,7 +17,6 @@ const FILTER_OPTIONS: Array<{ value: PatientsFilter; label: string }> = [
   { value: "all", label: "Filtrer par" },
   { value: "female", label: "Femmes" },
   { value: "male", label: "Hommes" },
-  { value: "other", label: "Autres" },
 ];
 
 export function PatientToolbar({

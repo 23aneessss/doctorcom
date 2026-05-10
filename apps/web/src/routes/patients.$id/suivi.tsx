@@ -131,7 +131,7 @@ function RouteComponent() {
     <div className="grid items-start gap-6 pb-6 xl:grid-cols-[288px_minmax(0,1fr)]">
       <aside className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
-          {suivis.slice(0, 3).map((suivi) => {
+          {suivis.map((suivi) => {
             const consultationsCount =
               examensBySuivi.get(suivi.id)?.length ?? 0;
             const isSelected = selectedSuivi?.id === suivi.id;

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, FileText, Pencil, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Clock, FileText, FolderOpen, Pencil, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import type { AgendaEvent } from "@/components/agenda/types";
@@ -10,6 +10,7 @@ interface VoirRdvDialogProps {
   onOpenChange: (open: boolean) => void;
   appointment: AgendaEvent | null;
   onEdit: (appointment: AgendaEvent) => void;
+  onOpenPatient?: (appointment: AgendaEvent) => void;
   onDelete: (appointment: AgendaEvent) => Promise<boolean>;
   isDeleting?: boolean;
 }
@@ -33,6 +34,7 @@ export function VoirRdvDialog({
   onOpenChange,
   appointment,
   onEdit,
+  onOpenPatient,
   onDelete,
   isDeleting = false,
 }: VoirRdvDialogProps) {
@@ -62,6 +64,17 @@ export function VoirRdvDialog({
           >
             Fermer
           </button>
+          {onOpenPatient ? (
+            <button
+              className="inline-flex h-[38px] items-center justify-center gap-2 rounded-[12px] border border-[#c2e0ef] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#0f3460] transition-colors hover:bg-[#f8fafc]"
+              onClick={() => onOpenPatient(appointment)}
+              type="button"
+              disabled={isDeleting || !appointment.patientId}
+            >
+              <FolderOpen className="size-4" aria-hidden="true" />
+              Dossier patient
+            </button>
+          ) : null}
           <button
             className="inline-flex h-[38px] items-center justify-center gap-2 rounded-[12px] border border-[#CA3500]/55 bg-[#fff5f3] px-4 font-['Inter'] text-[13px] font-medium text-[#CA3500] transition-colors hover:bg-[#ffe8e3]"
             onClick={() => setIsConfirmingDelete(true)}

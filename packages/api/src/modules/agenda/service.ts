@@ -27,6 +27,7 @@ type MobileSlotStatus = "booked" | "pending" | "completed" | "cancelled" | "bloc
 
 export interface MobileAgendaSlot {
   id: string;
+  patientId: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -724,6 +725,7 @@ export class AgendaService {
 
     return {
       id: slot.id,
+      patientId: slot.patient_id,
       date: slot.date,
       startTime: this.normalizeTime(slot.heure),
       endTime: this.normalizeTime(slot.heure_fin ?? this.addMinutes(slot.heure, 30)),

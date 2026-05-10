@@ -1,6 +1,6 @@
 import type { AppRouter } from "@doctor.com/api/routers/index";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { CalendarCheck, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -133,6 +133,7 @@ function mapSlotToEvent(slot: MobileAgendaSlot): AgendaEvent {
 
   return {
     id: slot.id,
+    patientId: slot.patientId,
     day,
     startTime: normalizeTime(slot.startTime),
     endTime: normalizeTime(slot.endTime),
@@ -306,6 +307,7 @@ function RouteComponent() {
   const [isDaySelected, setIsDaySelected] = useState(false);
   const [activeDialog, setActiveDialog] = useState<"add" | "view" | "edit" | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AgendaEvent | null>(null);
+  const navigate = useNavigate();
   const [createdSuccessAppointment, setCreatedSuccessAppointment] = useState<AgendaEvent | null>(null);
 
   const monthRange = useMemo(() => {
@@ -409,7 +411,17 @@ function RouteComponent() {
 
   const handleAppointmentClick = (appointment: AgendaEvent) => {
     setSelectedAppointment(appointment);
-    setActiveDialog("edit");
+    setActiveDialog("view");
+  };
+
+  const handleOpenPatientFromView = (appointment: AgendaEvent) => {
+    if (!appointment.patientId) {
+      toast.error("Dossier patient introuvable pour ce rendez-vous.");
+      return;
+    }
+
+    setActiveDialog(null);
+    void navigate({ to: "/patients/$id", params: { id: appointment.patientId } });
   };
 
   useEffect(() => {
@@ -644,6 +656,7 @@ function RouteComponent() {
         onOpenChange={(open) => setActiveDialog(open ? "view" : null)}
         appointment={selectedAppointment}
         onEdit={handleEditFromView}
+        onOpenPatient={handleOpenPatientFromView}
         onDelete={handleDeleteFromView}
         isDeleting={deleteSlotMutation.isPending}
       />

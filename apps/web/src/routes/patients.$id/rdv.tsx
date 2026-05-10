@@ -21,7 +21,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -125,6 +125,51 @@ const TYPE_OPTIONS = [
 
 const STEPS_FULL = ["Rendez-vous", "Suivi", "Consultation", "Documents", "Terminer"] as const;
 const STEPS_SHORT = ["Suivi", "Consultation", "Documents", "Terminer"] as const;
+
+function focusNextFormControl(current: HTMLElement) {
+  const dialog = current.closest("section, form, [role='dialog']");
+  if (!dialog) return;
+
+  const controls = Array.from(
+    dialog.querySelectorAll<HTMLElement>(
+      "input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)",
+    ),
+  ).filter((element) => element.tabIndex !== -1);
+  const currentIndex = controls.indexOf(current);
+  controls[currentIndex + 1]?.focus();
+}
+
+function handleEnterAsNextField(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Enter" || event.shiftKey) return;
+  event.preventDefault();
+  focusNextFormControl(event.currentTarget);
+}
+
+function isNumberInRange(value: string, min: number, max: number) {
+  if (!value.trim()) return true;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max;
+}
+
+function isBloodPressureValid(value: string) {
+  if (!value.trim()) return true;
+  const match = value.trim().match(/^(\d{2,3})(?:\s*[/\-]\s*(\d{2,3}))?$/);
+  if (!match) return false;
+
+  const systolic = Number(match[1]);
+  const diastolic = match[2] ? Number(match[2]) : null;
+  return systolic >= 70 && systolic <= 250 && (diastolic === null || (diastolic >= 40 && diastolic <= 150));
+}
+
+function getConsultationValidationError(fields: ConsultationFields) {
+  if (!isNumberInRange(fields.taille, 30, 230)) return "La taille doit être entre 30 et 230 cm.";
+  if (!isNumberInRange(fields.poids, 2, 350)) return "Le poids doit être entre 2 et 350 kg.";
+  if (!isNumberInRange(fields.spo2, 50, 100)) return "La SpO2 doit être entre 50 et 100%.";
+  if (!isBloodPressureValid(fields.tension_arterielle)) return "La tension doit être au format 120/80 avec des valeurs réalistes.";
+  if (!isNumberInRange(fields.frequence_cardiaque, 30, 220)) return "La fréquence cardiaque doit être entre 30 et 220 bpm.";
+  if (!isNumberInRange(fields.temperature, 34, 43)) return "La température doit être entre 34 et 43 °C.";
+  return "";
+}
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
 
@@ -315,7 +360,7 @@ function PatientRdvPage() {
     mutationFn: () =>
       trpcClient.consultation.createSuivi.mutate({
         patient_id: id,
-        symptoms,
+        symptoms: symptomDraft.trim() ? [...symptoms, symptomDraft.trim()] : symptoms,
         date_ouverture: new Date().toISOString().slice(0, 10),
       }),
     onSuccess: async (suivi) => {
@@ -490,6 +535,11 @@ function PatientRdvPage() {
     if (backendStep === 3) {
       if (!selectedSuiviId || !selectedRdvId) {
         toast.error("Suivi ou rendez-vous manquant.");
+        return;
+      }
+      const validationError = getConsultationValidationError(consultationFields);
+      if (validationError) {
+        toast.error(validationError);
         return;
       }
       await createExamenMutation.mutateAsync(consultationFields);
@@ -1038,6 +1088,8 @@ function WorkflowDialog({
         ? "Sélectionnez ou créez un suivi pour continuer."
         : backendStep === 3 && !consultationFields.date
           ? "Renseignez la date de consultation pour continuer."
+          : backendStep === 3 && getConsultationValidationError(consultationFields)
+            ? getConsultationValidationError(consultationFields)
           : "";
   const canContinue = !stepBlockReason;
 
@@ -1373,7 +1425,7 @@ function WorkflowDialog({
               </div>
               <button
                 className="mt-3 flex h-9 cursor-pointer items-center gap-2 rounded-[10px] border-[1.4px] border-[#052ca0] px-3 font-['Inter'] text-[12px] font-semibold text-[#052ca0] transition-colors hover:bg-[#f0f6ff] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isUpdating || symptoms.length === 0}
+                disabled={isUpdating || (symptoms.length === 0 && !symptomDraft.trim())}
                 onClick={onCreateSuivi}
                 type="button"
               >
@@ -1443,6 +1495,7 @@ function WorkflowDialog({
                     <input
                       className="h-[36px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none transition hover:border-[#9ecae0] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
                       onChange={(e) => onConsultationChange({ [key]: e.target.value })}
+                      onKeyDown={handleEnterAsNextField}
                       placeholder="—"
                       value={consultationFields[key] as string}
                     />
@@ -1479,6 +1532,7 @@ function WorkflowDialog({
                     <input
                       className="h-[36px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[13px] text-[#0f3460] outline-none transition hover:border-[#9ecae0] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#76bbdd]/20"
                       onChange={(e) => onConsultationChange({ [key]: e.target.value })}
+                      onKeyDown={handleEnterAsNextField}
                       placeholder="—"
                       value={consultationFields[key] as string}
                     />

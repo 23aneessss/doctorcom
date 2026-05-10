@@ -80,6 +80,16 @@ export interface ModifierPatientSubmissionValues extends ModifierPatientFormValu
 }
 
 const ALLOW_STEP_PREVIEW_NAVIGATION = false;
+const BLOOD_GROUP_OPTIONS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const MEDICATION_SUGGESTIONS = [
+  "Paracétamol 500 mg",
+  "Amoxicilline 1 g",
+  "Ibuprofène 400 mg",
+  "Metformine 500 mg",
+  "Amlodipine 5 mg",
+  "Oméprazole 20 mg",
+  "Salbutamol inhalateur",
+];
 
 const requiredFields: Array<keyof ModifierPatientFormValues> = [
   "nom",
@@ -132,6 +142,18 @@ const initialTreatment = (): TreatmentValues => ({
   posologie: "",
   maladieActive: true,
 });
+
+const isPersonalAntecedentBlank = (entry: PersonalAntecedentValues) =>
+  !entry.type.trim() && !entry.details.trim();
+
+const isPersonalAntecedentValid = (entry: PersonalAntecedentValues) =>
+  isPersonalAntecedentBlank(entry) || (entry.type.trim().length > 0 && entry.details.trim().length > 0);
+
+const isFamilyAntecedentBlank = (entry: FamilyAntecedentValues) =>
+  !entry.lienParente.trim() && !entry.pathologie.trim();
+
+const isFamilyAntecedentValid = (entry: FamilyAntecedentValues) =>
+  isFamilyAntecedentBlank(entry) || (entry.lienParente.trim().length > 0 && entry.pathologie.trim().length > 0);
 
 export function ModifierPatientDialog({
   open,
@@ -244,12 +266,12 @@ export function ModifierPatientDialog({
 
   const isMalePatient = useMemo(() => {
     const normalized = (values.sexe ?? "").trim().toLowerCase();
-    return normalized === "homme" || normalized === "male" || normalized === "m";
+    return normalized === "homme" || normalized === "male" || normalized === "m" || normalized === "masculin";
   }, [values.sexe]);
 
   const isFemalePatient = useMemo(() => {
     const normalized = (values.sexe ?? "").trim().toLowerCase();
-    return normalized === "femme" || normalized === "female" || normalized === "f";
+    return normalized === "femme" || normalized === "female" || normalized === "f" || normalized === "féminin" || normalized === "feminin";
   }, [values.sexe]);
 
   const stepLabels = isFemalePatient ? femaleStepLabels : maleStepLabels;
@@ -260,13 +282,8 @@ export function ModifierPatientDialog({
   }, [values]);
 
   const isStepTwoValid = useMemo(() => {
-    const hasValidPersonalAntecedents = personalAntecedents.every(
-      (entry) => (entry.type ?? "").trim().length > 0 && (entry.details ?? "").trim().length > 0,
-    );
-
-    const hasValidFamilyAntecedents = familyAntecedents.every(
-      (entry) => (entry.lienParente ?? "").trim().length > 0 && (entry.pathologie ?? "").trim().length > 0,
-    );
+    const hasValidPersonalAntecedents = personalAntecedents.every(isPersonalAntecedentValid);
+    const hasValidFamilyAntecedents = familyAntecedents.every(isFamilyAntecedentValid);
 
     return hasValidPersonalAntecedents && hasValidFamilyAntecedents;
   }, [personalAntecedents, familyAntecedents]);
@@ -496,7 +513,6 @@ export function ModifierPatientDialog({
                     <option value="">Selectionner</option>
                     <option value="Homme">Homme</option>
                     <option value="Femme">Femme</option>
-                    <option value="Autre">Autre</option>
                   </select>
                 </Field>
                 <Field label="Lieu de naissance" required error={showValidation && !values.lieuNaissance.trim() ? "Le lieu de naissance est obligatoire" : undefined}><input className={styles.input} style={showValidation && !values.lieuNaissance.trim() ? { borderColor: '#ef4444' } : {}} value={values.lieuNaissance} onChange={(e) => updateField("lieuNaissance", e.currentTarget.value)} /></Field>
@@ -516,35 +532,57 @@ export function ModifierPatientDialog({
               <div className={styles.noticeBox}><Info size={16} aria-hidden="true" /><p><strong>Informations medicales</strong> - Ces informations aideront au suivi medical du patient.</p></div>
               {showValidation && !isStepTwoValid ? <p className={styles.validationHint}>Veuillez renseigner les champs obligatoires de cette etape avant de continuer.</p> : null}
               <div className={`${styles.stepTwoMedicalGrid} ${isFemalePatient ? styles.stepTwoMedicalGridSingle : ""}`}>
-                <Field label="Groupe sanguin"><input className={styles.input} value={groupeSanguin} onChange={(e) => setGroupeSanguin(e.currentTarget.value)} placeholder="Ex: A+, O-, B+..." /></Field>
-                <Field label="Age de circoncision">
+                <Field label="Groupe sanguin">
                   <div className={styles.selectWrap}>
-                    <select className={styles.input} value={ageCirconcision} onChange={(e) => setAgeCirconcision(e.currentTarget.value)}>
-                      <option value="13 ans">13 ans</option>
-                      <option value="14 ans">14 ans</option>
-                      <option value="15 ans">15 ans</option>
+                    <select className={styles.input} value={groupeSanguin} onChange={(e) => setGroupeSanguin(e.currentTarget.value)}>
+                      <option value="">Non renseigné</option>
+                      {BLOOD_GROUP_OPTIONS.map((group) => (
+                        <option key={group} value={group}>{group}</option>
+                      ))}
                     </select>
                     <ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" />
                   </div>
                 </Field>
+                {isMalePatient ? (
+                  <Field label="Age de circoncision">
+                    <div className={styles.selectWrap}>
+                      <select className={styles.input} value={ageCirconcision} onChange={(e) => setAgeCirconcision(e.currentTarget.value)}>
+                        <option value="">Non renseigné</option>
+                        <option value="1 an">1 an</option>
+                        <option value="2 ans">2 ans</option>
+                        <option value="3 ans">3 ans</option>
+                        <option value="4 ans">4 ans</option>
+                        <option value="5 ans">5 ans</option>
+                        <option value="6 ans">6 ans</option>
+                        <option value="7 ans">7 ans</option>
+                      </select>
+                      <ChevronDown size={16} className={styles.selectIcon} aria-hidden="true" />
+                    </div>
+                  </Field>
+                ) : null}
               </div>
 
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>ANTECEDENTS PERSONNELS</h3>
-                {personalAntecedents.map((antecedent) => (
+                {personalAntecedents.map((antecedent) => {
+                  const isBlank = isPersonalAntecedentBlank(antecedent);
+                  const typeError = showValidation && !isBlank && !antecedent.type.trim() ? "Le type est obligatoire" : undefined;
+                  const detailsError = showValidation && !isBlank && !antecedent.details.trim() ? "Les details sont obligatoires" : undefined;
+
+                  return (
                   <div className={styles.antecedentCard} key={antecedent.id}>
                     <div className={styles.personalTypeRow}>
-                      <Field label="Type" required error={showValidation && !antecedent.type.trim() ? "Le type est obligatoire" : undefined}>
+                      <Field label="Type" error={typeError}>
                         <div className={styles.inputWithAction}>
                           <input
                             className={`${styles.input} ${styles.inputWithInlineAction}`}
-                            style={showValidation && !antecedent.type.trim() ? { borderColor: '#ef4444' } : {}}
+                            style={typeError ? { borderColor: '#ef4444' } : {}}
                             type="text"
                             value={antecedent.type}
                             onChange={(event) =>
                               updatePersonalAntecedent(antecedent.id, { type: event.currentTarget.value })
                             }
-                            placeholder="Ex: Diabete type 2, Hypertension..."
+                            placeholder="Ex: Diabète type 2, hypertension..."
                           />
                           <button
                             type="button"
@@ -567,19 +605,20 @@ export function ModifierPatientDialog({
                         <span>maladie active</span>
                       </label>
                     </div>
-                    <Field label="Details" required error={showValidation && !antecedent.details.trim() ? "Les details sont obligatoires" : undefined}>
+                    <Field label="Details" error={detailsError}>
                       <textarea
                         className={`${styles.input} ${styles.textareaInput}`}
-                        style={showValidation && !antecedent.details.trim() ? { borderColor: '#ef4444' } : {}}
+                        style={detailsError ? { borderColor: '#ef4444' } : {}}
                         value={antecedent.details}
                         onChange={(event) =>
                           updatePersonalAntecedent(antecedent.id, { details: event.currentTarget.value })
                         }
-                        placeholder="Ex: Diagnostique en 2020, sous traitement..."
+                        placeholder="Ex: Diagnostiqué en 2020, sous traitement..."
                       />
                     </Field>
                   </div>
-                ))}
+                  );
+                })}
                 <button
                   type="button"
                   className={styles.addAntecedentButton}
@@ -592,31 +631,36 @@ export function ModifierPatientDialog({
 
               <section className={styles.sectionBlock}>
                 <h3 className={styles.sectionTitle}>ANTECEDENTS FAMILIAUX</h3>
-                {familyAntecedents.map((antecedent) => (
+                {familyAntecedents.map((antecedent) => {
+                  const isBlank = isFamilyAntecedentBlank(antecedent);
+                  const lienError = showValidation && !isBlank && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined;
+                  const pathologieError = showValidation && !isBlank && !antecedent.pathologie.trim() ? "La pathologie est obligatoire" : undefined;
+
+                  return (
                   <div className={styles.antecedentCard} key={antecedent.id}>
-                    <Field label="Lien de parente" required error={showValidation && !antecedent.lienParente.trim() ? "Le lien de parente est obligatoire" : undefined}>
+                    <Field label="Lien de parente" error={lienError}>
                       <input
                         className={styles.input}
-                        style={showValidation && !antecedent.lienParente.trim() ? { borderColor: '#ef4444' } : {}}
+                        style={lienError ? { borderColor: '#ef4444' } : {}}
                         type="text"
                         value={antecedent.lienParente}
                         onChange={(event) =>
                           updateFamilyAntecedent(antecedent.id, { lienParente: event.currentTarget.value })
                         }
-                        placeholder="Ex: Pere, Mere, Grand-pere..."
+                        placeholder="Ex: Père, mère, grand-père..."
                       />
                     </Field>
                     <div className={styles.familyPathologieRow}>
-                      <Field label="Pathologie" required error={showValidation && !antecedent.pathologie.trim() ? "La pathologie est obligatoire" : undefined}>
+                      <Field label="Pathologie" error={pathologieError}>
                         <input
                           className={styles.input}
-                          style={showValidation && !antecedent.pathologie.trim() ? { borderColor: '#ef4444' } : {}}
+                          style={pathologieError ? { borderColor: '#ef4444' } : {}}
                           type="text"
                           value={antecedent.pathologie}
                           onChange={(event) =>
                             updateFamilyAntecedent(antecedent.id, { pathologie: event.currentTarget.value })
                           }
-                          placeholder="Ex: Cardiopathie, Cancer du sein..."
+                          placeholder="Ex: Cardiopathie, cancer du sein..."
                         />
                       </Field>
                       <button
@@ -629,7 +673,8 @@ export function ModifierPatientDialog({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 <button
                   type="button"
                   className={styles.addAntecedentButton}
@@ -650,12 +695,20 @@ export function ModifierPatientDialog({
                 {treatments.map((treatment) => (
                   <div className={styles.treatmentCard} key={treatment.id}>
                     <div className={styles.medicationTopRow}>
-                      <input
-                        className={styles.input}
-                        value={treatment.medicament}
-                        onChange={(event) => updateTreatment(treatment.id, { medicament: event.currentTarget.value })}
-                        placeholder="Ex: Paracetamol 500mg"
-                      />
+                      <div className={styles.selectWrap}>
+                        <input
+                          className={styles.input}
+                          list={`modifier-patient-medication-options-${treatment.id}`}
+                          value={treatment.medicament}
+                          onChange={(event) => updateTreatment(treatment.id, { medicament: event.currentTarget.value })}
+                          placeholder="Sélectionner ou rechercher un médicament"
+                        />
+                        <datalist id={`modifier-patient-medication-options-${treatment.id}`}>
+                          {MEDICATION_SUGGESTIONS.map((medication) => (
+                            <option key={medication} value={medication} />
+                          ))}
+                        </datalist>
+                      </div>
                       <button type="button" className={styles.removeIconButton} onClick={() => removeTreatment(treatment.id)}><Trash2 size={16} aria-hidden="true" /></button>
                       <label className={styles.checkboxPill}><input type="checkbox" checked={treatment.maladieActive} onChange={(event) => updateTreatment(treatment.id, { maladieActive: event.currentTarget.checked })} /><span>Maladie active</span></label>
                     </div>

@@ -5,6 +5,7 @@ export type AgendaStatusFilter = AgendaSlotStatus | "all";
 
 export interface AgendaEvent {
   id: string;
+  patientId?: string;
   day: number;
   startTime: string;
   endTime?: string;

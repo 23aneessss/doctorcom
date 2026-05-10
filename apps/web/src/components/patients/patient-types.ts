@@ -1,4 +1,4 @@
-export type PatientsFilter = "all" | "female" | "male" | "other";
+export type PatientsFilter = "all" | "female" | "male";
 
 export interface PatientViewModel {
   id: string;

@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Calendar, ChevronDown, Loader2, Plus, Stethoscope } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -72,6 +72,46 @@ function buildPatientInitials(patient?: PatientIdentity | null) {
 
 function normalizeTime(value: string) {
   return value.length === 5 ? `${value}:00` : value;
+}
+
+function focusNextFormControl(current: HTMLElement) {
+  const form = current.closest("form");
+  if (!form) return;
+
+  const controls = Array.from(
+    form.querySelectorAll<HTMLElement>(
+      "input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled), button[type='submit']:not(:disabled)",
+    ),
+  ).filter((element) => element.tabIndex !== -1);
+  const currentIndex = controls.indexOf(current);
+  controls[currentIndex + 1]?.focus();
+}
+
+function handleEnterAsNextField(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Enter" || event.shiftKey) return;
+  event.preventDefault();
+  focusNextFormControl(event.currentTarget);
+}
+
+function isNumberInRange(value: string | undefined, min: number, max: number) {
+  if (!value?.trim()) return true;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max;
+}
+
+function isBloodPressureValid(value: string | undefined) {
+  if (!value?.trim()) return true;
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{2,3})(?:\s*[/\-]\s*(\d{2,3}))?$/);
+  if (!match) return false;
+
+  const systolic = Number(match[1]);
+  const diastolic = match[2] ? Number(match[2]) : null;
+  return (
+    systolic >= 70 &&
+    systolic <= 250 &&
+    (diastolic === null || (diastolic >= 40 && diastolic <= 150))
+  );
 }
 
 export function NouvelleConsultationDialog({
@@ -215,20 +255,20 @@ export function NouvelleConsultationDialog({
           .regex(/^\d{4}-\d{2}-\d{2}$/, "Format de date invalide"),
         description_consultation: z.string(),
         conclusion: z.string(),
-        taille: z.string(),
-        poids: z.string(),
+        taille: z.string().refine((value) => isNumberInRange(value, 30, 230), "Taille incohérente"),
+        poids: z.string().refine((value) => isNumberInRange(value, 2, 350), "Poids incohérent"),
         spo2: z.union([
           z.literal(""),
-          z.string().regex(/^\d+(\.\d+)?$/, "Valeur invalide"),
+          z.string().regex(/^\d+(\.\d+)?$/, "Valeur invalide").refine((value) => isNumberInRange(value, 50, 100), "SpO2 incohérente"),
         ]),
-        tension_arterielle: z.string(),
+        tension_arterielle: z.string().refine(isBloodPressureValid, "Tension incohérente"),
         frequence_cardiaque: z.union([
           z.literal(""),
-          z.string().regex(/^\d+$/, "Valeur invalide"),
+          z.string().regex(/^\d+$/, "Valeur invalide").refine((value) => isNumberInRange(value, 30, 220), "Fréquence incohérente"),
         ]),
         temperature: z.union([
           z.literal(""),
-          z.string().regex(/^\d+(\.\d+)?$/, "Valeur invalide"),
+          z.string().regex(/^\d+(\.\d+)?$/, "Valeur invalide").refine((value) => isNumberInRange(value, 34, 43), "Température incohérente"),
         ]),
         aspect_general: z.string(),
         examen_respiratoire: z.string(),
@@ -846,13 +886,20 @@ function isConsultationSubmitBlocked(values: ConsultationDialogValues) {
   const hasRequiredLinks =
     Boolean(values.suivi_id?.trim()) && Boolean(values.rendez_vous_id?.trim());
   const hasValidDate = /^\d{4}-\d{2}-\d{2}$/.test(values.date ?? "");
-  const hasValidSpo2 = !values.spo2 || /^\d+(\.\d+)?$/.test(values.spo2);
+  const hasValidHeight = isNumberInRange(values.taille, 30, 230);
+  const hasValidWeight = isNumberInRange(values.poids, 2, 350);
+  const hasValidSpo2 =
+    (!values.spo2 || /^\d+(\.\d+)?$/.test(values.spo2)) &&
+    isNumberInRange(values.spo2, 50, 100);
+  const hasValidBloodPressure = isBloodPressureValid(values.tension_arterielle);
   const hasValidHeartRate =
-    !values.frequence_cardiaque || /^\d+$/.test(values.frequence_cardiaque);
+    (!values.frequence_cardiaque || /^\d+$/.test(values.frequence_cardiaque)) &&
+    isNumberInRange(values.frequence_cardiaque, 30, 220);
   const hasValidTemperature =
-    !values.temperature || /^\d+(\.\d+)?$/.test(values.temperature);
+    (!values.temperature || /^\d+(\.\d+)?$/.test(values.temperature)) &&
+    isNumberInRange(values.temperature, 34, 43);
 
-  return !hasRequiredLinks || !hasValidDate || !hasValidSpo2 || !hasValidHeartRate || !hasValidTemperature;
+  return !hasRequiredLinks || !hasValidDate || !hasValidHeight || !hasValidWeight || !hasValidSpo2 || !hasValidBloodPressure || !hasValidHeartRate || !hasValidTemperature;
 }
 
 function FieldContainer({
@@ -895,6 +942,7 @@ function InputField({
         className="h-[33.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] font-normal leading-[normal] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(10,10,10,0.5)] hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20"
         onBlur={onBlur}
         onChange={onChange}
+        onKeyDown={handleEnterAsNextField}
         value={value}
       />
     </div>

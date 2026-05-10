@@ -822,6 +822,14 @@ function NumberStepperInput({
         />
         <button
           type="button"
+          onClick={() => adjustValue(-1)}
+          className="flex w-10 shrink-0 items-center justify-center border-l border-[#c2e0ef] text-[#0f3460] transition hover:bg-[#eaf4f9]"
+          aria-label={`Diminuer ${suffix || "la valeur"}`}
+        >
+          -
+        </button>
+        <button
+          type="button"
           onClick={() => adjustValue(1)}
           className="flex w-10 shrink-0 items-center justify-center border-l border-[#c2e0ef] text-[#0f3460] transition hover:bg-[#eaf4f9]"
           aria-label={`Augmenter ${suffix || "la valeur"}`}

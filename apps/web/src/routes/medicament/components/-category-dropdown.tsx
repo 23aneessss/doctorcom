@@ -56,7 +56,10 @@ export function CategoryDropdown({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[61px] z-10 w-[290px] overflow-hidden border border-[#9FA4A8] bg-white shadow-[0px_10px_24px_rgba(15,52,96,0.12)]">
+        <div
+          className="absolute right-0 top-[61px] z-10 max-h-[280px] w-[290px] overflow-y-auto overscroll-contain border border-[#9FA4A8] bg-white shadow-[0px_10px_24px_rgba(15,52,96,0.12)]"
+          onWheel={(event) => event.stopPropagation()}
+        >
           {categories.map((category, index) => {
             const isHighlighted =
               hoveredCategory === category ||

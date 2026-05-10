@@ -134,9 +134,23 @@ export function AjouterTraitementDialog({
       est_actif: boolean;
       prescrit_par: string;
     }) => {
+      let medicamentExterneId = value.medicament_externe_id;
+      if (!/^[1-9]\d*$/.test(medicamentExterneId) && value.nom_medicament.trim()) {
+        const searchResult = await trpcClient.medicaments.rechercherMedicaments.query({
+          query: value.nom_medicament.trim(),
+          page: 1,
+          page_size: 1,
+        });
+        const matchedMedication = searchResult.items[0];
+        if (!matchedMedication) {
+          throw new Error("Sélectionnez un médicament depuis la liste.");
+        }
+        medicamentExterneId = String(matchedMedication.id);
+      }
+
       return trpcClient.treatment.startTreatment.mutate({
         patient_id: patientId,
-        medicament_externe_id: value.medicament_externe_id,
+        medicament_externe_id: medicamentExterneId,
         dosage: value.dosage.trim() || null,
         posologie: value.posologie.trim(),
         date_prescription: value.date_prescription,
@@ -477,7 +491,6 @@ function isTreatmentSubmitBlocked(values: {
   date_prescription: string;
 }) {
   return (
-    !/^[1-9]\d*$/.test(values.medicament_externe_id) ||
     !values.nom_medicament.trim() ||
     !values.indication.trim() ||
     !values.dosage.trim() ||

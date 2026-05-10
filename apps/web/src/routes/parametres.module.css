@@ -130,6 +130,21 @@
   flex-shrink: 0;
 }
 
+.sectionIcon svg,
+.inputIcon svg,
+.aiProviderIcon svg,
+.aiComparisonIcon svg,
+.passwordChoiceIcon svg,
+.orangeButton svg,
+.secondaryActionButton svg,
+.saveButtonSmall svg,
+.saveButton svg,
+.cancelButton svg {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+}
+
 .profileGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -163,9 +178,13 @@
 
 .aiSettingsGrid {
   display: grid;
-  grid-template-columns: minmax(16rem, 0.85fr) minmax(18rem, 1fr) minmax(18rem, 1fr);
+  grid-template-columns: minmax(24rem, 1.05fr) minmax(26rem, 1fr);
   gap: 1rem;
   padding-top: 1.2rem;
+}
+
+.aiSettingsGrid > .aiProviderPanel:first-child {
+  grid-row: 1 / span 2;
 }
 
 .aiProviderPanel {
@@ -217,6 +236,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .aiHint {

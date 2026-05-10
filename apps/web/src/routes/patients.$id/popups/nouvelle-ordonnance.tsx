@@ -67,6 +67,11 @@ type PreRempliItem = {
   description: string | null;
   specialite: string | null;
   est_actif?: boolean;
+  category?: {
+    id: string;
+    nom: string;
+  };
+  medicaments?: Array<unknown>;
 };
 
 type AnomalySeverity = "error" | "warning" | "info";
@@ -291,17 +296,9 @@ export function NouvelleOrdonnanceDialog({
   const rendezVous = (patientFullRecord?.rendez_vous ?? []) as RendezVousLite[];
   const suivisList = (suivis ?? []) as SuiviLite[];
 
-  const categoriesQuery = useQuery({
-    ...trpc.ordonnance.getToutesCategories.queryOptions(),
+  const preRemplisPageQuery = useQuery({
+    ...trpc.ordonnance.getPreRemplisPageData.queryOptions(),
     enabled: open && mode === "pre-remplie",
-  });
-
-  const preRemplisByCategorieQuery = useQuery({
-    ...trpc.ordonnance.getPreRemplisByCategorie.queryOptions({
-      categorieId:
-        selectedCategorieId || "00000000-0000-0000-0000-000000000000",
-    }),
-    enabled: open && mode === "pre-remplie" && Boolean(selectedCategorieId),
   });
 
   const preRempliDetailQuery = useQuery({
@@ -312,13 +309,19 @@ export function NouvelleOrdonnanceDialog({
   });
 
   const preRempliItems = useMemo(() => {
-    return (preRemplisByCategorieQuery.data ?? []) as PreRempliItem[];
-  }, [preRemplisByCategorieQuery.data]);
+    return (preRemplisPageQuery.data?.preRemplis ?? []) as PreRempliItem[];
+  }, [preRemplisPageQuery.data]);
+  const categoryItems = preRemplisPageQuery.data?.categories ?? [];
 
   const normalizedTemplateSearch = templateSearch.trim().toLowerCase();
 
   const filteredPreRemplis = useMemo(() => {
     return preRempliItems.filter((item) => {
+      const byCategory = !selectedCategorieId || item.category?.id === selectedCategorieId;
+      if (!byCategory) {
+        return false;
+      }
+
       const bySpecialite =
         !selectedSpecialite ||
         (item.specialite ?? "").toLowerCase() ===
@@ -342,7 +345,7 @@ export function NouvelleOrdonnanceDialog({
 
       return inName || inDescription || inSpecialite;
     });
-  }, [preRempliItems, normalizedTemplateSearch, selectedSpecialite]);
+  }, [preRempliItems, normalizedTemplateSearch, selectedCategorieId, selectedSpecialite]);
 
   const uniqueSpecialites = useMemo(() => {
     const values = new Set<string>();
@@ -423,13 +426,6 @@ export function NouvelleOrdonnanceDialog({
   }, [open, selectedSuiviId, rendezVousTerminesForSuivi]);
 
   useEffect(() => {
-    if (!open || mode !== "pre-remplie") return;
-    if (!selectedCategorieId && categoriesQuery.data?.[0]?.id) {
-      setSelectedCategorieId(categoriesQuery.data[0].id);
-    }
-  }, [open, mode, selectedCategorieId, categoriesQuery.data]);
-
-  useEffect(() => {
     if (!selectedSpecialite) {
       return;
     }
@@ -445,15 +441,14 @@ export function NouvelleOrdonnanceDialog({
 
   useEffect(() => {
     if (!open || mode !== "pre-remplie") return;
-    const templateList = preRemplisByCategorieQuery.data ?? [];
-    const stillExists = templateList.some(
+    const stillExists = filteredPreRemplis.some(
       (item) => item.id === selectedPreRempliId,
     );
 
     if (!stillExists && selectedPreRempliId) {
       setSelectedPreRempliId("");
     }
-  }, [open, mode, selectedPreRempliId, preRemplisByCategorieQuery.data]);
+  }, [open, mode, selectedPreRempliId, filteredPreRemplis]);
 
   useEffect(() => {
     if (!open) return;
@@ -615,6 +610,17 @@ export function NouvelleOrdonnanceDialog({
           ? "stale"
           : row.confirmation_state,
     }));
+  };
+
+  const ensureNextMedicationRow = (rowId: string) => {
+    setRows((prev) => {
+      const rowIndex = prev.findIndex((row) => row.id === rowId);
+      if (rowIndex === -1 || rowIndex < prev.length - 1) {
+        return prev;
+      }
+
+      return [...prev, createEmptyRow()];
+    });
   };
 
   const normalizedRows = useMemo<NormalizedAnomalyDraft[]>(() => {
@@ -1374,7 +1380,7 @@ export function NouvelleOrdonnanceDialog({
                         value={selectedCategorieId}
                       >
                         <option value="">Toutes les catégories</option>
-                        {(categoriesQuery.data ?? []).map((categorie) => (
+                        {categoryItems.map((categorie) => (
                           <option key={categorie.id} value={categorie.id}>
                             {categorie.nom}
                           </option>
@@ -1678,6 +1684,7 @@ export function NouvelleOrdonnanceDialog({
                                         ? "stale"
                                         : current.confirmation_state,
                                   }));
+                                  ensureNextMedicationRow(row.id);
                                   setActiveSearchRowId(null);
                                   setSearchTerm(name);
                                   setIsRowsDirty(true);
@@ -1724,6 +1731,7 @@ export function NouvelleOrdonnanceDialog({
                                             ? "stale"
                                             : current.confirmation_state,
                                       }));
+                                      ensureNextMedicationRow(row.id);
                                       setActiveSearchRowId(null);
                                       setSearchTerm(item.nom_medicament);
                                       setIsRowsDirty(true);

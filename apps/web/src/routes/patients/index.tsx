@@ -227,10 +227,7 @@ function PatientsPage() {
       const matchesFilter =
         filterValue === "all" ||
         (filterValue === "female" && isFemaleSex(patient.sexeText)) ||
-        (filterValue === "male" && isMaleSex(patient.sexeText)) ||
-        (filterValue === "other" &&
-          !isFemaleSex(patient.sexeText) &&
-          !isMaleSex(patient.sexeText));
+        (filterValue === "male" && isMaleSex(patient.sexeText));
 
       return matchesSearch && matchesFilter;
     });
