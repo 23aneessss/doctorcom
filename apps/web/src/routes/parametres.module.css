@@ -37,12 +37,15 @@
   position: relative;
   overflow: hidden;
   height: clamp(7.15rem, 12.8vh, 8.4rem);
-  border-radius: 0.94rem;
+  border-radius: 0.9375rem;
   border: 1px solid color-mix(in srgb, var(--parametres-light-blue) 68%, white);
-  background: linear-gradient(96deg, rgba(194, 224, 239, 0.87) 0%, #ffffff 99.9%);
+  background: linear-gradient(
+    97.5deg,
+    color-mix(in srgb, var(--parametres-light-blue) 87%, white 13%) 0%,
+    #ffffff 99.9%
+  );
   box-shadow: 0 0.25rem 1.25rem rgba(118, 187, 221, 0.5);
   padding: clamp(0.65rem, 1.35vh, 1rem) clamp(1rem, 2vw, 1.5rem);
-  margin-bottom: 0.45rem;
 }
 
 .hero::before {
@@ -52,11 +55,12 @@
   right: -9%;
   top: -205%;
   bottom: -70%;
-  opacity: 0.2;
   pointer-events: none;
+  opacity: 0.2;
   background-image: var(--parametres-hero-texture);
-  background-position: center;
+  background-repeat: no-repeat;
   background-size: cover;
+  background-position: center;
 }
 
 .heroInner {
@@ -73,25 +77,20 @@
   min-width: 0;
 }
 
-.heroTitle,
-.heroSubtitle {
-  margin: 0;
-}
-
 .heroTitle {
+  margin: 0;
+  color: var(--parametres-dark-blue);
   font-size: clamp(1.28rem, 2.12vw, 1.78rem);
   line-height: 1.1;
   font-weight: 700;
-  color: var(--parametres-dark-blue);
 }
 
 .heroSubtitle {
-  max-width: 39rem;
-  margin-top: 0.18rem;
+  margin: 0.18rem 0 0;
+  color: var(--parametres-blue);
   font-size: clamp(0.88rem, 1.22vw, 1.06rem);
   line-height: 1.2;
   font-weight: 600;
-  color: var(--parametres-blue);
 }
 
 .section {
@@ -995,7 +994,8 @@
   }
 
   .hero {
-    padding: 1.25rem;
+    height: auto;
+    min-height: 7.6rem;
   }
 
   .section {

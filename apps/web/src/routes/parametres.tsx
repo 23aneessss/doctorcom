@@ -340,17 +340,18 @@ function ParametresPage() {
 
       <main className={styles.pageMain}>
         <div className={styles.pageContent}>
-          <header
+          <section
+            aria-labelledby="parametres-page-title"
             className={styles.hero}
             style={{ "--parametres-hero-texture": `url(${headerTexture})` } as React.CSSProperties}
           >
             <div className={styles.heroInner}>
               <div className={styles.heroText}>
-                <h1 className={styles.heroTitle}>{t.settings.title}</h1>
+                <h1 className={styles.heroTitle} id="parametres-page-title">{t.settings.title}</h1>
                 <p className={styles.heroSubtitle}>{t.settings.subtitle}</p>
               </div>
             </div>
-          </header>
+          </section>
 
           <SettingsSection icon={<UserRound size={20} />} title={t.settings.profile}>
             <div className={styles.profileGrid}>
