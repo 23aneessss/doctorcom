@@ -107,14 +107,16 @@ const DEFAULT_USER: NonNullable<SidebarProps["currentUser"]> = {
 
 const SIDEBAR_STYLE_MAP = {
   sidebar: {
-    position: "sticky",
+    position: "fixed",
     top: 0,
-    alignSelf: "flex-start",
+    bottom: 0,
+    left: 0,
+    zIndex: 40,
     width: 250,
     minWidth: 250,
     flexShrink: 0,
-    height: "100vh",
-    minHeight: "100svh",
+    height: "100dvh",
+    minHeight: "100vh",
     maxHeight: "100dvh",
     overflow: "hidden",
     boxSizing: "border-box",
