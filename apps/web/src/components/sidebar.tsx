@@ -459,6 +459,8 @@ function Sidebar({
 
   return (
     <>
+      <div className="app-sidebar-spacer" aria-hidden="true" />
+
       <aside
         className={mergeClassNames("app-sidebar", className)}
         style={mergeStyles(SIDEBAR_STYLE_MAP.sidebar, style)}

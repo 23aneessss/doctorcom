@@ -138,18 +138,17 @@
   display: none;
 }
 
-@media (min-width: 58.001rem) {
-  .app-sidebar ~ main,
-  .app-sidebar ~ div:not(.app-mobile-overlay):not(.app-mobile-drawer) {
-    flex: 0 0 calc(100% - 250px);
-    width: calc(100% - 250px);
-    max-width: calc(100% - 250px);
-    margin-left: 250px;
-  }
+.app-sidebar-spacer {
+  display: block;
+  flex: 0 0 250px;
+  width: 250px;
+  min-width: 250px;
+  align-self: stretch;
 }
 
 @media (max-width: 58rem) {
-  .app-sidebar {
+  .app-sidebar,
+  .app-sidebar-spacer {
     display: none !important;
   }
 
