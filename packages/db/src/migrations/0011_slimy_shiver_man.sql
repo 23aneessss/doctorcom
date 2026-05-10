@@ -1,4 +1,4 @@
-CREATE TABLE "app_settings" (
+CREATE TABLE IF NOT EXISTS "app_settings" (
 	"id" varchar(64) PRIMARY KEY NOT NULL,
 	"ai_provider" varchar(16) DEFAULT 'gemini' NOT NULL,
 	"gemini_api_key" text,

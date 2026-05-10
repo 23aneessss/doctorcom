@@ -102,6 +102,56 @@ function isPdfUpload(file: Express.Multer.File): boolean {
   return file.buffer.subarray(0, 5).toString("utf8") === "%PDF-";
 }
 
+function getUploadErrorResponse(err: unknown): { status: number; error: string } {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return {
+        status: 413,
+        error: "Le fichier est trop volumineux. La limite est de 10 Mo.",
+      };
+    }
+
+    return {
+      status: 400,
+      error: "Le fichier n'a pas pu etre lu correctement. Reessayez avec un autre fichier.",
+    };
+  }
+
+  if (isStorageUnavailableError(err)) {
+    return {
+      status: 503,
+      error:
+        "Le stockage des documents est temporairement indisponible. Verifiez MinIO puis reessayez.",
+    };
+  }
+
+  const message = err instanceof Error ? err.message : String(err ?? "");
+
+  if (/ordonnance_pdf_templates/i.test(message) || /column .* does not exist/i.test(message)) {
+    return {
+      status: 500,
+      error:
+        "La base de donnees n'est pas a jour pour les templates d'ordonnance. Lancez les migrations puis reessayez.",
+    };
+  }
+
+  if (/permission denied/i.test(message)) {
+    return {
+      status: 500,
+      error:
+        "Le serveur n'a pas les droits necessaires pour enregistrer ce template.",
+    };
+  }
+
+  return {
+    status: 500,
+    error: toSimpleFrenchRuntimeMessage({
+      code: "INTERNAL_SERVER_ERROR",
+      message,
+    }),
+  };
+}
+
 async function extractPdfPageSize(
   buffer: Buffer,
 ): Promise<{ width: number; height: number } | null> {
@@ -260,12 +310,8 @@ router.post("/ordonnance-template", upload.single("file"), async (req, res) => {
     res.status(201).json(template);
   } catch (err: any) {
     console.error("Upload ordonnance template error:", err);
-    res.status(500).json({
-      error: toSimpleFrenchRuntimeMessage({
-        code: "INTERNAL_SERVER_ERROR",
-        message: err?.message,
-      }),
-    });
+    const response = getUploadErrorResponse(err);
+    res.status(response.status).json({ error: response.error });
   }
 });
 
@@ -648,6 +694,16 @@ router.get("/document/:id/file", async (req, res) => {
             }),
     });
   }
+});
+
+router.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
+  const response = getUploadErrorResponse(err);
+  res.status(response.status).json({ error: response.error });
 });
 
 export const uploadRouter: Router = router;
