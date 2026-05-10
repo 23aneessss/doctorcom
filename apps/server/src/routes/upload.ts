@@ -706,4 +706,53 @@ router.use((err: unknown, _req: express.Request, res: express.Response, next: ex
   res.status(response.status).json({ error: response.error });
 });
 
+// ---------------------------------------------------------------------------
+// Quick document verify — upload to temp MinIO, no DB record created
+// ---------------------------------------------------------------------------
+router.post("/document-quick-verify", upload.single("file"), async (req, res) => {
+  try {
+    if (!ensureStorageReady(res)) return;
+
+    const session = await requireSession(req, res);
+    if (!session) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: "Aucun fichier fourni." });
+      return;
+    }
+
+    const documentMimeType = getSupportedDocumentMimeType(req.file);
+    if (!documentMimeType) {
+      res.status(400).json({
+        error:
+          "Format non pris en charge. Importez un PDF, PNG, JPG ou WebP valide.",
+      });
+      return;
+    }
+
+    const ext =
+      req.file.originalname.split(".").pop()?.toLowerCase() ?? "bin";
+    const uniqueId = crypto.randomUUID();
+    const objectName = `temp/quick-verify/${uniqueId}.${ext}`;
+
+    await minioClient.putObject(
+      storageConfig.bucket,
+      objectName,
+      req.file.buffer,
+      req.file.buffer.length,
+      { "Content-Type": documentMimeType },
+    );
+
+    res.status(201).json({ document_key: objectName });
+  } catch (err: any) {
+    console.error("Quick verify upload error:", err);
+    res.status(500).json({
+      error: toSimpleFrenchRuntimeMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        message: err?.message,
+      }),
+    });
+  }
+});
+
 export const uploadRouter: Router = router;

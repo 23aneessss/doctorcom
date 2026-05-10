@@ -27,6 +27,7 @@ import {
   trpcClient,
   trpcUnbatchedClient,
 } from "@/utils/trpc";
+import { QuickDocumentVerifyPopup } from "./QuickDocumentVerifyPopup";
 
 type MessageStatus = "thinking" | "done";
 
@@ -431,6 +432,7 @@ export function AIAssistantPanel() {
   );
   const [selectedSuiviId, setSelectedSuiviId] = useState<string | null>(null);
   const [isSuiviChooserOpen, setIsSuiviChooserOpen] = useState(false);
+  const [isQuickVerifyOpen, setIsQuickVerifyOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
 
@@ -1185,6 +1187,11 @@ export function AIAssistantPanel() {
       return;
     }
 
+    if (label === documentActionLabel) {
+      setIsQuickVerifyOpen(true);
+      return;
+    }
+
     const response = responses[label];
     if (!response) {
       return;
@@ -1257,6 +1264,12 @@ export function AIAssistantPanel() {
 
   return (
     <>
+      <QuickDocumentVerifyPopup
+        isOpen={isQuickVerifyOpen}
+        onClose={() => setIsQuickVerifyOpen(false)}
+        patientId={currentPatientId}
+      />
+
       <AnimatePresence>
         {isOpen && (
           <>
