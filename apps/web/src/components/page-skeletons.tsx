@@ -23,9 +23,9 @@ function GenericPageSkeleton() {
 
 export function AppRouteSkeleton() {
   return (
-    <div className="flex min-h-svh bg-[#f3f7fb]">
+    <div className="flex h-screen h-svh h-dvh overflow-hidden bg-[#f3f7fb]">
       <Sidebar />
-      <main className="flex-1 overflow-hidden px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
+      <main className="min-h-0 flex-1 overflow-hidden px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
         <GenericPageSkeleton />
       </main>
     </div>

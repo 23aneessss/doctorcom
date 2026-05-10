@@ -732,11 +732,11 @@ function RouteComponent() {
   } as CSSProperties;
 
   return (
-    <div className="min-h-screen bg-[#f8fbff]">
-      <div className="flex min-h-screen">
+    <div className="h-screen h-[100svh] h-[100dvh] overflow-hidden bg-[#f8fbff]">
+      <div className="flex h-full">
         <Sidebar currentUser={sidebarUser} />
 
-        <main className="min-w-0 flex-1 overflow-auto px-8 py-6 max-[58rem]:px-3">
+        <main className="min-h-0 min-w-0 flex-1 overflow-auto px-8 py-6 max-[58rem]:px-3">
           <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-7">
             {failedQueries.length > 0 ? (
               <div className="flex items-center justify-between rounded-[14px] border border-[#f77a21] bg-[#fff7ed] px-4 py-3">

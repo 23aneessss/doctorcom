@@ -9,9 +9,9 @@ export default function Loader() {
 
 export function RoutePendingSkeleton() {
   return (
-    <div className="flex min-h-svh bg-[#f3f7fb]">
+    <div className="flex h-screen h-svh h-dvh overflow-hidden bg-[#f3f7fb]">
       <Sidebar />
-      <main className="flex-1 overflow-hidden px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
+      <main className="min-h-0 flex-1 overflow-hidden px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)]">
         <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
           <Skeleton className="h-[136px] rounded-[15px]" />
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_21rem]">

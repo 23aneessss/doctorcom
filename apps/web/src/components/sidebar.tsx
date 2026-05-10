@@ -115,6 +115,7 @@ const SIDEBAR_STYLE_MAP = {
     flexShrink: 0,
     height: "100vh",
     minHeight: "100svh",
+    maxHeight: "100dvh",
     overflow: "hidden",
     boxSizing: "border-box",
     background: `linear-gradient(180deg, ${SIDEBAR_COLORS.gradientFrom} 30%, ${SIDEBAR_COLORS.gradientVia} 65%, ${SIDEBAR_COLORS.gradientTo} 100%)`,

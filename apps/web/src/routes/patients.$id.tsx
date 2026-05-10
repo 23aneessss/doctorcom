@@ -778,11 +778,11 @@ function PatientLayout() {
   };
 
   return (
-    <div className="flex h-svh">
+    <div className="flex h-screen h-svh h-dvh overflow-hidden">
       <Sidebar currentUser={sidebarUser} />
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden max-[58rem]:p-3">
+      <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] p-6 max-[58rem]:p-3">
         <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px] max-[58rem]:gap-5">
           {/* Back Link */}
           <Link
@@ -1467,10 +1467,10 @@ function PatientLayout() {
 
 function PatientLayoutSkeleton() {
   return (
-    <div className="flex h-svh">
+    <div className="flex h-screen h-svh h-dvh overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 min-h-screen min-w-0 bg-[#f8fafc] p-6 overflow-y-auto overflow-x-hidden max-[58rem]:p-3">
+      <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-[#f8fafc] p-6 max-[58rem]:p-3">
         <div className="max-w-[1112px] mx-auto flex flex-col gap-[33px] max-[58rem]:gap-5">
           <Skeleton className="h-7 w-56 rounded-md" />
 

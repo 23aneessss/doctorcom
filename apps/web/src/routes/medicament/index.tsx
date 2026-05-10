@@ -130,10 +130,10 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex h-svh bg-[#f3f7fb]">
+    <div className="flex h-screen h-svh h-dvh overflow-hidden bg-[#f3f7fb]">
       <Sidebar currentUser={sidebarUser} />
 
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)] max-[58rem]:px-3">
+      <main className="h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f3f7fb] px-[clamp(1.25rem,2.3vw,2.2rem)] py-[clamp(0.875rem,1.6vw,1.5rem)] max-[58rem]:px-3">
         {isDetailView ? (
           <VoirMedicamentDialog
             isDeleting={deleteMutation.isPending && deleteMutation.variables === viewMedicamentId}
