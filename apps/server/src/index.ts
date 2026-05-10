@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { auth } from "@doctor.com/auth";
-import { db } from "@doctor.com/db";
+import { db, pool } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
 import express from "express";
 import { createContext } from "@doctor.com/api/context";
@@ -16,12 +16,70 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import multer from "multer";
-import { setStorageAvailable } from "./infrastructure/storage-state";
+import { isStorageAvailable, setStorageAvailable } from "./infrastructure/storage-state";
 import { uploadRouter } from "./routes/upload";
 
 const STORAGE_INIT_MAX_ATTEMPTS = 5;
 const STORAGE_INIT_BASE_DELAY_MS = 800;
 const STORAGE_RECOVERY_INTERVAL_MS = 15_000;
+
+const ORD_TEMPLATE_COMPAT_SQL = `
+CREATE TABLE IF NOT EXISTS "ordonnance_pdf_templates" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "utilisateur_id" uuid NOT NULL,
+  "nom" varchar(255) NOT NULL,
+  "description" text,
+  "chemin_fichier" text NOT NULL,
+  "type_fichier" varchar(64) NOT NULL,
+  "taille_fichier" integer NOT NULL,
+  "page_width" integer DEFAULT 595 NOT NULL,
+  "page_height" integer DEFAULT 842 NOT NULL,
+  "layout_config" jsonb DEFAULT '{}'::jsonb NOT NULL,
+  "est_actif" boolean DEFAULT true NOT NULL,
+  "is_default_for_user" boolean DEFAULT false NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+  "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "logo_chemin_fichier" text;
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "logo_type_fichier" varchar(64);
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "logo_taille_fichier" integer;
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "page_width" integer DEFAULT 595 NOT NULL;
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "page_height" integer DEFAULT 842 NOT NULL;
+ALTER TABLE "ordonnance_pdf_templates" ADD COLUMN IF NOT EXISTS "layout_config" jsonb DEFAULT '{}'::jsonb NOT NULL;
+DO $$ BEGIN
+ ALTER TABLE "ordonnance_pdf_templates" ADD CONSTRAINT "ord_pdf_templates_utilisateur_id_fk" FOREIGN KEY ("utilisateur_id") REFERENCES "public"."utilisateurs"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+CREATE INDEX IF NOT EXISTS "ord_pdf_templates_utilisateur_id_idx" ON "ordonnance_pdf_templates" USING btree ("utilisateur_id");
+CREATE INDEX IF NOT EXISTS "ord_pdf_templates_default_idx" ON "ordonnance_pdf_templates" USING btree ("utilisateur_id","is_default_for_user");
+CREATE TABLE IF NOT EXISTS "app_settings" (
+  "id" varchar(64) PRIMARY KEY NOT NULL,
+  "ai_provider" varchar(16) DEFAULT 'gemini' NOT NULL,
+  "gemini_api_key" text,
+  "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+`;
+
+const REQUIRED_ORD_TEMPLATE_COLUMNS = [
+  "id",
+  "utilisateur_id",
+  "nom",
+  "description",
+  "chemin_fichier",
+  "type_fichier",
+  "taille_fichier",
+  "page_width",
+  "page_height",
+  "layout_config",
+  "est_actif",
+  "is_default_for_user",
+  "logo_chemin_fichier",
+  "logo_type_fichier",
+  "logo_taille_fichier",
+  "created_at",
+  "updated_at",
+] as const;
 
 function sleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
@@ -85,6 +143,44 @@ function startStorageRecoveryLoop(): void {
   }, STORAGE_RECOVERY_INTERVAL_MS);
 }
 
+async function ensureOrdonnanceTemplateSchema(): Promise<void> {
+  await pool.query(ORD_TEMPLATE_COMPAT_SQL);
+}
+
+async function getBackendHealthDetails(): Promise<{
+  database: "ok" | "error";
+  ordonnanceTemplates: "ok" | "error";
+  storage: "ok" | "degraded";
+  missingOrdonnanceTemplateColumns: string[];
+}> {
+  const details = {
+    database: "error" as "ok" | "error",
+    ordonnanceTemplates: "error" as "ok" | "error",
+    storage: isStorageAvailable() ? ("ok" as const) : ("degraded" as const),
+    missingOrdonnanceTemplateColumns: [] as string[],
+  };
+
+  await pool.query("select 1");
+  details.database = "ok";
+
+  const columnsResult = await pool.query<{ column_name: string }>(
+    `
+      select column_name
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'ordonnance_pdf_templates'
+    `,
+  );
+  const existingColumns = new Set(columnsResult.rows.map((row) => row.column_name));
+  details.missingOrdonnanceTemplateColumns = REQUIRED_ORD_TEMPLATE_COLUMNS.filter(
+    (column) => !existingColumns.has(column),
+  );
+  details.ordonnanceTemplates =
+    details.missingOrdonnanceTemplateColumns.length === 0 ? "ok" : "error";
+
+  return details;
+}
+
 const app: express.Express = express();
 const port = Number(process.env.PORT ?? 3000);
 const corsOrigin = env.CORS_ORIGIN.replace(/\/+$/, "");
@@ -127,6 +223,29 @@ app.get("/healthz", (_req, res) => {
   res.status(200).send("server running");
 });
 
+app.get("/healthz/backend", async (_req, res) => {
+  try {
+    const details = await getBackendHealthDetails();
+    const healthy =
+      details.database === "ok" &&
+      details.ordonnanceTemplates === "ok" &&
+      details.storage === "ok";
+
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? "ok" : "degraded",
+      ...details,
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "error",
+      database: "error",
+      ordonnanceTemplates: "unknown",
+      storage: isStorageAvailable() ? "ok" : "degraded",
+      error: error instanceof Error ? error.message : "Backend health check failed.",
+    });
+  }
+});
+
 const webDistDir = process.env.WEB_DIST_DIR;
 const webIndexFile = webDistDir ? path.join(webDistDir, "index.html") : null;
 
@@ -143,6 +262,16 @@ if (webDistDir && webIndexFile && existsSync(webIndexFile)) {
 }
 
 async function startServer(): Promise<void> {
+  try {
+    await ensureOrdonnanceTemplateSchema();
+    console.log("✅ Ordonnance template database schema is ready.");
+  } catch (error) {
+    console.error(
+      "Ordonnance template database schema could not be prepared. PDF template import may fail.",
+      error,
+    );
+  }
+
   try {
     await aiSettingsService.initializeRuntimeSettings(db);
   } catch (error) {
