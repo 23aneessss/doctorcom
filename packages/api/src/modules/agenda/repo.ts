@@ -478,6 +478,27 @@ export class AgendaRepository {
       horodatage: new Date().toISOString(),
     });
   }
+
+  async hasAgendaLogAction(
+    database: DatabaseClient,
+    data: {
+      utilisateur_id: string;
+      action: string;
+    },
+  ): Promise<boolean> {
+    const [existingLog] = await database
+      .select({ id: logs.id })
+      .from(logs)
+      .where(
+        and(
+          eq(logs.utilisateur_id, data.utilisateur_id),
+          eq(logs.action, data.action),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(existingLog);
+  }
 }
 
 export const agendaRepository = new AgendaRepository();

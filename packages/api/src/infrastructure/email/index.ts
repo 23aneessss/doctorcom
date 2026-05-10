@@ -48,6 +48,26 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
   }
 }
 
+export async function verifyEmailTransport(timeoutMs = 3_000): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      transporter.verify(),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          timeout = undefined;
+          reject(new Error(`SMTP verification timed out after ${timeoutMs}ms.`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 function buildEmailHtml(content: string, clinic: ClinicInfo): string {
   return `
   <div style="font-family: Arial, sans-serif; background-color: #f5f7fb; margin: 0; padding: 24px; color: #1f2937;">
@@ -93,6 +113,38 @@ export async function envoyerRappelRDV(params: {
     to: params.patientEmail,
     subject: `Rappel de votre rendez-vous - ${params.dateRDV}`,
     html: buildEmailHtml(content, params.clinic),
+  });
+}
+
+export async function envoyerRappelMedecinRDV(params: {
+  doctorEmail: string;
+  patientNom: string;
+  patientPrenom: string;
+  dateRDV: string;
+  heureRDV: string;
+  type: "five-minutes" | "now";
+  important?: boolean;
+}): Promise<void> {
+  const timing =
+    params.type === "five-minutes"
+      ? "commence dans 5 minutes"
+      : "commence maintenant";
+  const importantBlock = params.important
+    ? '<p style="margin: 12px 0; padding: 10px; border: 1px solid #ef4444; background-color: #fee2e2; color: #991b1b;"><strong>Rendez-vous important</strong></p>'
+    : "";
+
+  await sendEmail({
+    to: params.doctorEmail,
+    subject: `Rappel rendez-vous - ${params.patientPrenom} ${params.patientNom}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
+        <h2 style="margin: 0 0 12px 0;">Rappel rendez-vous</h2>
+        <p>Le rendez-vous de <strong>${params.patientPrenom} ${params.patientNom}</strong> ${timing}.</p>
+        <p><strong>Date:</strong> ${params.dateRDV}<br /><strong>Heure:</strong> ${params.heureRDV}</p>
+        ${importantBlock}
+      </div>
+    `,
+    text: `Le rendez-vous de ${params.patientPrenom} ${params.patientNom} ${timing}. Date: ${params.dateRDV}. Heure: ${params.heureRDV}.`,
   });
 }
 

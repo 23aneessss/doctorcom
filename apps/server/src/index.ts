@@ -8,9 +8,14 @@ import { db, pool } from "@doctor.com/db";
 import { env } from "@doctor.com/env/server";
 import express from "express";
 import { createContext } from "@doctor.com/api/context";
+import { verifyEmailTransport } from "@doctor.com/api/infrastructure/email/index";
 import { aiSettingsService } from "@doctor.com/api/modules/ai/settings/service";
 import { appRouter } from "@doctor.com/api/routers/index";
-import { ensureBucketExists, isStorageUnavailableError } from "@doctor.com/api/infrastructure/storage";
+import {
+  checkStorageAccess,
+  ensureBucketExists,
+  isStorageUnavailableError,
+} from "@doctor.com/api/infrastructure/storage";
 import { startScheduler } from "@doctor.com/api/infrastructure/scheduler";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { toNodeHandler } from "better-auth/node";
@@ -152,19 +157,27 @@ async function ensureOrdonnanceTemplateSchema(): Promise<void> {
   await pool.query(PATIENT_COMPAT_SQL);
 }
 
-async function getBackendHealthDetails(): Promise<{
+async function getBackendHealthDetails(options?: { deepStorage?: boolean }): Promise<{
   database: "ok" | "error";
   ordonnanceTemplates: "ok" | "error";
   patientNss: "ok" | "error";
   storage: "ok" | "degraded";
+  storageAccess: "ok" | "error";
+  email: "ok" | "error";
+  ai: "ok" | "degraded" | "error";
   missingOrdonnanceTemplateColumns: string[];
+  errors: Record<string, string>;
 }> {
   const details = {
     database: "error" as "ok" | "error",
     ordonnanceTemplates: "error" as "ok" | "error",
     patientNss: "error" as "ok" | "error",
     storage: isStorageAvailable() ? ("ok" as const) : ("degraded" as const),
+    storageAccess: "error" as "ok" | "error",
+    email: "error" as "ok" | "error",
+    ai: "error" as "ok" | "degraded" | "error",
     missingOrdonnanceTemplateColumns: [] as string[],
+    errors: {} as Record<string, string>,
   };
 
   await pool.query("select 1");
@@ -202,7 +215,48 @@ async function getBackendHealthDetails(): Promise<{
   details.patientNss =
     patientNssColumn?.data_type === "character varying" ? "ok" : "error";
 
+  try {
+    await checkStorageAccess({ deep: options?.deepStorage });
+    details.storageAccess = "ok";
+  } catch (error) {
+    details.errors.storageAccess =
+      error instanceof Error ? error.message : "Storage access check failed.";
+  }
+
+  try {
+    await verifyEmailTransport();
+    details.email = "ok";
+  } catch (error) {
+    details.errors.email =
+      error instanceof Error ? error.message : "SMTP verification failed.";
+  }
+
+  details.ai = getAiHealthStatus(details.errors);
+
   return details;
+}
+
+function getAiHealthStatus(errors: Record<string, string>): "ok" | "degraded" | "error" {
+  if (env.AI_PROVIDER === "gemini") {
+    if (env.GEMINI_API_KEY) {
+      return "ok";
+    }
+
+    errors.ai = "GEMINI_API_KEY is missing while AI_PROVIDER=gemini.";
+    return "error";
+  }
+
+  if (env.AI_PROVIDER === "ollama") {
+    if (env.OLLAMA_BASE_URL && env.OLLAMA_MODEL) {
+      return "degraded";
+    }
+
+    errors.ai = "OLLAMA_BASE_URL or OLLAMA_MODEL is missing while AI_PROVIDER=ollama.";
+    return "error";
+  }
+
+  errors.ai = `Unsupported AI_PROVIDER: ${env.AI_PROVIDER}.`;
+  return "error";
 }
 
 const app: express.Express = express();
@@ -247,14 +301,19 @@ app.get("/healthz", (_req, res) => {
   res.status(200).send("server running");
 });
 
-app.get("/healthz/backend", async (_req, res) => {
+app.get("/healthz/backend", async (req, res) => {
   try {
-    const details = await getBackendHealthDetails();
+    const details = await getBackendHealthDetails({
+      deepStorage: req.query.deep === "1",
+    });
     const healthy =
       details.database === "ok" &&
       details.ordonnanceTemplates === "ok" &&
       details.patientNss === "ok" &&
-      details.storage === "ok";
+      details.storage === "ok" &&
+      details.storageAccess === "ok" &&
+      details.email === "ok" &&
+      details.ai !== "error";
 
     res.status(healthy ? 200 : 503).json({
       status: healthy ? "ok" : "degraded",
@@ -267,6 +326,9 @@ app.get("/healthz/backend", async (_req, res) => {
       ordonnanceTemplates: "unknown",
       patientNss: "unknown",
       storage: isStorageAvailable() ? "ok" : "degraded",
+      storageAccess: "unknown",
+      email: "unknown",
+      ai: "unknown",
       error: error instanceof Error ? error.message : "Backend health check failed.",
     });
   }

@@ -4,6 +4,7 @@ import { patients } from "@doctor.com/db/schema";
 import { user as authUser } from "@doctor.com/db/schema/auth";
 import { eq } from "drizzle-orm";
 import {
+  envoyerRappelMedecinRDV,
   envoyerRappelRDV as envoyerRappelRDVInfrastructure,
   type ClinicInfo,
 } from "@doctor.com/api/infrastructure/email/index";
@@ -262,12 +263,39 @@ export class AgendaService {
     rdv_id: string;
   }): Promise<{ success: boolean; message: string }> {
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
-    await this.requireRendezVous(data.db, utilisateur.id, data.rdv_id);
+    const rendezVous = await this.requireRendezVous(data.db, utilisateur.id, data.rdv_id);
+    const patient = await data.db
+      .select({
+        nom: patients.nom,
+        prenom: patients.prenom,
+      })
+      .from(patients)
+      .where(eq(patients.id, rendezVous.patient_id))
+      .then((rows) => rows[0]);
 
-    return {
-      success: true,
-      message: "Notification de rappel non implementee (placeholder).",
-    };
+    if (!patient) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Patient introuvable.",
+      });
+    }
+
+    await envoyerRappelMedecinRDV({
+      doctorEmail: this.resolveSessionEmail(data.session),
+      patientNom: patient.nom,
+      patientPrenom: patient.prenom,
+      dateRDV: rendezVous.date,
+      heureRDV: rendezVous.heure,
+      type: "now",
+      important: rendezVous.important,
+    });
+
+    await agendaRepository.createAgendaLog(data.db, {
+      utilisateur_id: utilisateur.id,
+      action: `rdv-reminder:manual:${rendezVous.id}:${new Date().toISOString()}`,
+    });
+
+    return { success: true, message: "Notification de rappel envoyee." };
   }
 
   async envoyerRappelRDV(data: {

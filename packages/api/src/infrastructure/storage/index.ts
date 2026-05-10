@@ -65,6 +65,36 @@ export async function ensureBucketExists(): Promise<void> {
   }
 }
 
+export async function checkStorageAccess(options?: { deep?: boolean }): Promise<void> {
+  const exists = await minioClient.bucketExists(env.MINIO_BUCKET);
+  if (!exists) {
+    throw new Error(`MinIO bucket "${env.MINIO_BUCKET}" does not exist.`);
+  }
+
+  if (!options?.deep) {
+    return;
+  }
+
+  const objectName = `healthz/${randomUUID()}.txt`;
+  const content = Buffer.from("doctor.com storage health check", "utf8");
+
+  await minioClient.putObject(env.MINIO_BUCKET, objectName, content, content.length, {
+    "Content-Type": "text/plain",
+  });
+
+  try {
+    await minioClient.statObject(env.MINIO_BUCKET, objectName);
+    const stream = await minioClient.getObject(env.MINIO_BUCKET, objectName);
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", () => {});
+      stream.on("error", reject);
+      stream.on("end", resolve);
+    });
+  } finally {
+    await minioClient.removeObject(env.MINIO_BUCKET, objectName);
+  }
+}
+
 export async function uploadFile(params: {
   file: Express.Multer.File;
   folder?: string;

@@ -466,21 +466,18 @@ export class PatientService {
       id: data.id,
     });
 
-    const [ageResult, antecedents, lastExamen, upcomingAppointments] =
-      await Promise.all([
-        this.getPatientAge({
-          db: data.db,
-          session: data.session,
-          id: data.id,
-        }),
-        patientRepository.getPatientAntecedents(data.db, data.id),
-        patientRepository.getPatientLastExamen(data.db, data.id),
-        this.getPatientUpcomingAppointments({
-          db: data.db,
-          session: data.session,
-          id: data.id,
-        }),
-      ]);
+    const ageResult = await this.getPatientAge({
+      db: data.db,
+      session: data.session,
+      id: data.id,
+    });
+    const antecedents = await patientRepository.getPatientAntecedents(data.db, data.id);
+    const lastExamen = await patientRepository.getPatientLastExamen(data.db, data.id);
+    const upcomingAppointments = await this.getPatientUpcomingAppointments({
+      db: data.db,
+      session: data.session,
+      id: data.id,
+    });
 
     let imc: number | null = null;
     if (lastExamen && lastExamen.taille !== null && lastExamen.poids !== null) {

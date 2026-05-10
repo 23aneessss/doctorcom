@@ -57,6 +57,7 @@
     "db:seed:dashboard": "bun --env-file=apps/server/.env seed-dashboard.ts",
     "db:seed:mobile-demo": "bun seed-mobile-demo.ts",
     "db:cleanup:duplicate-patients": "bun --env-file=apps/server/.env cleanup-duplicate-patients.ts",
+    "backend:smoke": "bun --env-file=apps/server/.env apps/server/src/scripts/backend-smoke-test.ts",
     "ai:anomaly:test": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --prepare",
     "ai:anomaly:test:reseed": "bun apps/server/src/scripts/anomaly-flag/test-anomaly-detection.ts --reseed --prepare"
   },
