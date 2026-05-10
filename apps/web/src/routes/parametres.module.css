@@ -7,8 +7,12 @@
   --parametres-bg: #f8fafc;
   --parametres-white: #fffdfb;
   display: flex;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   min-height: 100vh;
   min-height: 100svh;
+  min-height: 100dvh;
   background: var(--parametres-bg);
   color: var(--parametres-dark-blue);
 }

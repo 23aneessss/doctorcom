@@ -3,7 +3,6 @@ import type { GroupedEvent, AgendaEvent } from "./types";
 import { DayMarker } from "./day-marker";
 import { AppointmentCard } from "./appointment-card";
 import { AgendaTimelineSkeleton } from "@/components/page-skeletons";
-import { useEffect } from "react";
 
 interface TimelineSectionProps {
   groupedEvents: GroupedEvent[];
@@ -20,16 +19,6 @@ export function TimelineSection({
   onAppointmentClick,
   emptyMessage = "Aucun rendez-vous pour cette période.",
 }: TimelineSectionProps) {
-  useEffect(() => {
-    if (isLoading || !selectedDate) {
-      return;
-    }
-
-    document
-      .getElementById(`agenda-day-${selectedDate}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [isLoading, selectedDate]);
-
   if (isLoading) {
     return <AgendaTimelineSkeleton />;
   }
