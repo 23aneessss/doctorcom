@@ -61,6 +61,11 @@ interface CandidateMedicationFeatures {
   is_bronchodilator_like: boolean;
   is_inhaled_like: boolean;
   is_antibiotic_like: boolean;
+  is_cardiovascular_like: boolean;
+  is_diabetes_like: boolean;
+  is_gastric_like: boolean;
+  is_anxiolytic_like: boolean;
+  is_dermato_like: boolean;
   has_adult_posology: boolean;
   has_safety_content: boolean;
 }
@@ -628,6 +633,21 @@ export class MedicationAssistantService {
     if (/antibioti|macrolide|infection bacter/.test(normalizedContext)) {
       return "antibiotic_general";
     }
+    if (/hypertension|tension arterielle|cardiaque|coronaire|antihypertens|betabloqu/.test(normalizedContext)) {
+      return "cardiovascular";
+    }
+    if (/diabet|glycemie|insulinoresist|antidiabet/.test(normalizedContext)) {
+      return "diabetes";
+    }
+    if (/gastrite|reflux|rgo|ulcere|brulure estomac|brulures? d estomac|inhibiteur pompe protons|\bipp\b/.test(normalizedContext)) {
+      return "gastric";
+    }
+    if (/anxiet|stress|insomnie|sommeil|anxiolytique|benzodiazepine/.test(normalizedContext)) {
+      return "anxiolytic";
+    }
+    if (/eczema|acne|psoriasis|prurit|dermato|cutane|peau/.test(normalizedContext)) {
+      return "dermato";
+    }
 
     return "generic";
   }
@@ -699,6 +719,54 @@ export class MedicationAssistantService {
         break;
       case "nasal_congestion":
         seededTerms.push("pseudoephedrine", "pseudoéphédrine", "oxymetazoline");
+        break;
+      case "cardiovascular":
+        seededTerms.push(
+          "antihypertenseur",
+          "betabloquant",
+          "iec",
+          "sartan",
+          "amlodipine",
+          "bisoprolol",
+          "enalapril",
+          "valsartan",
+        );
+        break;
+      case "diabetes":
+        seededTerms.push(
+          "antidiabetique",
+          "metformine",
+          "insuline",
+          "sulfonylur",
+          "gliclazide",
+          "sitagliptine",
+        );
+        break;
+      case "gastric":
+        seededTerms.push(
+          "ipp",
+          "omeprazole",
+          "pantoprazole",
+          "esomeprazole",
+          "antiacide",
+        );
+        break;
+      case "anxiolytic":
+        seededTerms.push(
+          "anxiolytique",
+          "benzodiazepine",
+          "alprazolam",
+          "bromazepam",
+          "diazepam",
+        );
+        break;
+      case "dermato":
+        seededTerms.push(
+          "dermocorticoide",
+          "antifongique cutane",
+          "antifongique topique",
+          "creme dermique",
+        );
         break;
       case "safety_lookup":
       case "comparison_general":
@@ -783,6 +851,65 @@ export class MedicationAssistantService {
           "nez bouché",
           "decongestionnant",
           "vasoconstricteur",
+        ];
+
+      case "cardiovascular":
+        return [
+          "antihypertenseur",
+          "hypertension",
+          "betabloquant",
+          "beta bloquant",
+          "iec",
+          "inhibiteur enzyme conversion",
+          "sartan",
+          "amlodipine",
+          "insuffisance cardiaque",
+        ];
+
+      case "diabetes":
+        return [
+          "antidiabetique",
+          "diabete",
+          "diabète",
+          "glycemie",
+          "metformine",
+          "insuline",
+          "sulfonylure",
+        ];
+
+      case "gastric":
+        return [
+          "inhibiteur de la pompe a protons",
+          "ipp",
+          "omeprazole",
+          "pantoprazole",
+          "antiacide",
+          "reflux gastro oesophagien",
+          "gastrite",
+          "ulcere",
+        ];
+
+      case "anxiolytic":
+        return [
+          "anxiolytique",
+          "benzodiazepine",
+          "alprazolam",
+          "bromazepam",
+          "diazepam",
+          "insomnie",
+          "anxiete",
+          "anxiété",
+        ];
+
+      case "dermato":
+        return [
+          "dermocorticoide",
+          "antifongique cutane",
+          "antifongique topique",
+          "usage cutane",
+          "voie cutanee",
+          "creme",
+          "pommade",
         ];
 
       case "safety_lookup":
@@ -1199,6 +1326,21 @@ export class MedicationAssistantService {
       case "nasal_congestion":
         return candidate.features.is_nasal_congestion_like;
 
+      case "cardiovascular":
+        return candidate.features.is_cardiovascular_like;
+
+      case "diabetes":
+        return candidate.features.is_diabetes_like;
+
+      case "gastric":
+        return candidate.features.is_gastric_like;
+
+      case "anxiolytic":
+        return candidate.features.is_anxiolytic_like;
+
+      case "dermato":
+        return candidate.features.is_dermato_like;
+
       case "safety_lookup":
         return candidate.features.has_safety_content || candidate.match_reasons.length > 0;
 
@@ -1469,6 +1611,26 @@ export class MedicationAssistantService {
         /antibioti|anti infectieux|macrolide|amoxicilline|azithromycine|cephalospor/.test(
           corpus,
         ),
+      is_cardiovascular_like:
+        /antihypertens|betabloqu|beta bloqu|inhibiteur enzyme conversion|sartan|amlodipine|nifedipine|atenolol|bisoprolol|enalapril|lisinopril|valsartan|losartan|hypertension|insuffisance cardiaque|coronaire|angor/.test(
+          corpus,
+        ),
+      is_diabetes_like:
+        /antidiabet|metformine|insuline|sulfonylur|gliclazide|gliben|sitagliptine|empagliflozine|liraglutide|glycemie|diabete/.test(
+          corpus,
+        ),
+      is_gastric_like:
+        /inhibiteur de la pompe a protons|inhibiteur pompe protons|\bipp\b|omeprazole|pantoprazole|esomeprazole|lansoprazole|rabeprazole|antiacide|ranitidine|famotidine|reflux|gastrite|ulcere/.test(
+          corpus,
+        ),
+      is_anxiolytic_like:
+        /anxiolytique|benzodiazepine|alprazolam|bromazepam|diazepam|lorazepam|oxazepam|hydroxyzine|zolpidem|zopiclone|insomnie|anxiete|trouble du sommeil/.test(
+          corpus,
+        ),
+      is_dermato_like:
+        /dermocorticoid|corticoide topique|antifongique cutane|antifongique topique|imidazole topique|isotretinoine topique|adapalene|benzoyle peroxyde|calcipotriol|eczema|psoriasis|acne|prurit|usage cutane|usage dermique|application locale/.test(
+          corpus,
+        ),
       has_adult_posology: Boolean(
         aggregate.medicament.posologie_adulte?.trim() ||
           aggregate.medicament.frequence_administration?.trim(),
@@ -1604,6 +1766,60 @@ export class MedicationAssistantService {
       case "nasal_congestion":
         if (/congestion|nez bouche|vasoconstricteur|decongestion/.test(candidate.fieldCorpus.indications + " " + candidate.fieldCorpus.classe)) {
           add(22);
+        }
+        break;
+
+      case "cardiovascular":
+        if (candidate.features.is_cardiovascular_like) {
+          add(24);
+          context.policyNotes.add("Profil cardiovasculaire compatible avec la demande");
+        } else {
+          add(-12);
+        }
+        if (candidate.features.is_cold_flu_combo) {
+          add(-10);
+          context.deprioritizedReasons.add(
+            "Association symptomatique non pertinente pour une demande cardiovasculaire",
+          );
+        }
+        break;
+
+      case "diabetes":
+        if (candidate.features.is_diabetes_like) {
+          add(24);
+          context.policyNotes.add("Profil antidiabetique compatible avec la demande");
+        } else {
+          add(-12);
+        }
+        break;
+
+      case "gastric":
+        if (candidate.features.is_gastric_like) {
+          add(22);
+          context.policyNotes.add("Profil gastrique compatible avec la demande (IPP / antiacide)");
+        } else {
+          add(-10);
+        }
+        break;
+
+      case "anxiolytic":
+        if (candidate.features.is_anxiolytic_like) {
+          add(22);
+          context.policyNotes.add("Profil anxiolytique / sedatif compatible avec la demande");
+          context.safetyNotes.add(
+            "Vigilance dependance et conduite automobile pour cette classe",
+          );
+        } else {
+          add(-12);
+        }
+        break;
+
+      case "dermato":
+        if (candidate.features.is_dermato_like) {
+          add(22);
+          context.policyNotes.add("Profil dermatologique a usage local compatible avec la demande");
+        } else {
+          add(-10);
         }
         break;
 

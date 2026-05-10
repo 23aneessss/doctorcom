@@ -1295,7 +1295,9 @@ export class OrdonnanceRecommendationService {
       "voir",
     ]);
 
-    return this.normalizeSearchText(value)
+    const expanded = this.expandMedicalAcronyms(value);
+
+    return this.normalizeSearchText(expanded)
       .split(" ")
       .filter(
         (token, index, allTokens) =>
@@ -1304,6 +1306,37 @@ export class OrdonnanceRecommendationService {
           !/^\d+$/.test(token) &&
           allTokens.indexOf(token) === index,
       );
+  }
+
+  private expandMedicalAcronyms(value: string): string {
+    const acronyms: Array<[RegExp, string]> = [
+      [/\bHTA\b/gi, "HTA hypertension"],
+      [/\bRGO\b/gi, "RGO reflux gastro oesophagien"],
+      [/\bDT2\b/gi, "DT2 diabete type 2"],
+      [/\bDT1\b/gi, "DT1 diabete type 1"],
+      [/\bBPCO\b/gi, "BPCO bronchopneumopathie chronique obstructive"],
+      [/\bIRC\b/gi, "IRC insuffisance renale chronique"],
+      [/\bIRA\b/gi, "IRA insuffisance renale aigue"],
+      [/\bIDM\b/gi, "IDM infarctus myocarde"],
+      [/\bAVC\b/gi, "AVC accident vasculaire cerebral"],
+      [/\bAIT\b/gi, "AIT accident ischemique transitoire"],
+      [/\bIPP\b/gi, "IPP inhibiteur pompe protons"],
+      [/\bIEC\b/gi, "IEC inhibiteur enzyme conversion"],
+      [/\bARA2?\b/gi, "ARA2 sartan antagoniste angiotensine"],
+      [/\bAINS\b/gi, "AINS anti inflammatoire non steroidien"],
+      [/\bMTX\b/gi, "MTX methotrexate"],
+      [/\bSEP\b/gi, "SEP sclerose en plaques"],
+      [/\bMICI\b/gi, "MICI maladie inflammatoire intestin"],
+      [/\bIVRS\b/gi, "IVRS infection voies respiratoires superieures"],
+      [/\bIST\b/gi, "IST infection sexuellement transmissible"],
+      [/\bITU\b/gi, "ITU infection urinaire"],
+    ];
+
+    let output = value;
+    for (const [regex, replacement] of acronyms) {
+      output = output.replace(regex, replacement);
+    }
+    return output;
   }
 
   private normalizeSearchText(value: string): string {

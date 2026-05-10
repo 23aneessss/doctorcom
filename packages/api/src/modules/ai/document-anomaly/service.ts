@@ -493,6 +493,7 @@ export class DocumentAnomalyService {
     try {
       const result = await generateText({
         model: model,
+        temperature: 0,
         messages: [
           {
             role: "system",
@@ -537,6 +538,7 @@ export class DocumentAnomalyService {
     try {
       const result = await generateText({
         model,
+        temperature: 0,
         messages: [
           {
             role: "system",
@@ -589,6 +591,7 @@ export class DocumentAnomalyService {
     try {
       const result = await generateText({
         model: model,
+        temperature: 0.1,
         messages: [
           {
             role: "system",

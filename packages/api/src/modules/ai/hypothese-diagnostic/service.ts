@@ -799,6 +799,7 @@ export class HypotheseDiagnosticService {
       prompt: this.buildProviderPrompt(context),
       system:
         "Tu es un assistant de raisonnement clinique. Tu réponds uniquement avec un JSON valide correspondant au schéma demandé.",
+      temperature: 0.4,
     });
 
     return response.text.trim();

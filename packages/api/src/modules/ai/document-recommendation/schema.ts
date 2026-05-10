@@ -32,15 +32,15 @@ export const generateCertificatInputSchema = z.object({
 
 export const orientationLetterOutputSchema = z.object({
   contenu_lettre: z.string().trim().min(1).max(8000),
-  raison: z.string().trim().min(1).max(2000),
-  examen_demande: z.string().trim().min(1).max(1000),
-  urgence: z.string().trim().min(1).max(64),
+  raison: z.string().trim().max(2000).default(""),
+  examen_demande: z.string().trim().max(1000).default(""),
+  urgence: z.string().trim().max(64).default(""),
 });
 
 export const certificatOutputSchema = z.object({
   contenu_certificat: z.string().trim().min(1).max(8000),
-  diagnostic: z.string().trim().min(1).max(2000),
-  notes: z.string().trim().min(1).max(2000),
+  diagnostic: z.string().trim().max(2000).default(""),
+  notes: z.string().trim().max(2000).default(""),
 });
 
 // --- TypeScript types ---

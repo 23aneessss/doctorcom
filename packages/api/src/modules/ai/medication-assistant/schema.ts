@@ -16,6 +16,11 @@ export type MedicationPolicyProfile =
   | "nasal_congestion"
   | "bronchodilator_inhaled"
   | "antibiotic_general"
+  | "cardiovascular"
+  | "diabetes"
+  | "gastric"
+  | "anxiolytic"
+  | "dermato"
   | "safety_lookup"
   | "comparison_general";
 

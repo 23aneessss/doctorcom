@@ -28,8 +28,53 @@ function extractMessage(error: unknown): string {
   }
 }
 
-export function logAiError(scope: string, error: unknown): void {
-  console.error(`[${scope}]`, error);
+export interface AiErrorContext {
+  patientId?: string | number | null;
+  provider?: string | null;
+  module?: string | null;
+  extra?: Record<string, unknown>;
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function buildErrorPayload(
+  scope: string,
+  error: unknown,
+  context?: AiErrorContext,
+): Record<string, unknown> {
+  const message = extractMessage(error);
+  const status = extractStatus(error);
+  const stack =
+    error instanceof Error && typeof error.stack === "string" ? error.stack : null;
+
+  return {
+    timestamp: new Date().toISOString(),
+    level: "error",
+    source: "ai",
+    scope,
+    message,
+    status,
+    stack,
+    patient_id: context?.patientId ?? null,
+    provider: context?.provider ?? null,
+    module: context?.module ?? scope.split(".")[0] ?? null,
+    extra: context?.extra ?? null,
+  };
+}
+
+export function logAiError(
+  scope: string,
+  error: unknown,
+  context?: AiErrorContext,
+): void {
+  const payload = buildErrorPayload(scope, error, context);
+  console.error(`[ai:${scope}] ${safeStringify(payload)}`);
 }
 
 export function toSimpleFrenchAiMessage(error: unknown): string {

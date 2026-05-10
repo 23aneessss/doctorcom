@@ -23,7 +23,7 @@ export const recommendationSchema = z.object({
   rank: z.number().int().min(1).max(3),
   label: z.string().trim().min(1).max(120),
   rationale: z.string().trim().min(1).max(2400),
-  warnings: z.array(z.string().trim().min(1).max(500)).max(10),
+  warnings: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
   ordonnance_draft: z.object({
     remarques: z.string().trim().min(1).max(800).nullable().optional(),
     medicaments: z.array(recommendationMedicamentSchema).min(1).max(6),
@@ -32,7 +32,7 @@ export const recommendationSchema = z.object({
 
 export const aiResponseSchema = z.object({
   recommendations: z.array(recommendationSchema).max(3),
-  global_warnings: z.array(z.string().trim().min(1).max(500)).max(12),
+  global_warnings: z.array(z.string().trim().min(1).max(500)).max(12).default([]),
   verification_justification: z.string().trim().min(1).max(2000),
 });
 

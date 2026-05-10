@@ -49,6 +49,46 @@ export interface GeminiTextGenerationInput {
 export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-001" as const;
 export const GEMINI_EMBEDDING_DIMENSIONS = 3072 as const;
 
+const EMBEDDING_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const EMBEDDING_CACHE_MAX_ENTRIES = 200;
+const embeddingCache = new Map<
+  string,
+  { value: number[]; expiresAt: number }
+>();
+
+function buildEmbeddingCacheKey(value: string): string {
+  const normalized = value.normalize("NFC").trim().toLowerCase();
+  let hash = 5381;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = ((hash << 5) + hash + normalized.charCodeAt(i)) | 0;
+  }
+  return `${normalized.length}:${hash}`;
+}
+
+function getCachedEmbedding(key: string): number[] | null {
+  const entry = embeddingCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    embeddingCache.delete(key);
+    return null;
+  }
+  embeddingCache.delete(key);
+  embeddingCache.set(key, entry);
+  return entry.value;
+}
+
+function setCachedEmbedding(key: string, value: number[]): void {
+  embeddingCache.set(key, {
+    value,
+    expiresAt: Date.now() + EMBEDDING_CACHE_TTL_MS,
+  });
+  while (embeddingCache.size > EMBEDDING_CACHE_MAX_ENTRIES) {
+    const oldestKey = embeddingCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    embeddingCache.delete(oldestKey);
+  }
+}
+
 function getConfiguredGeminiApiKey(): string | undefined {
   return runtimeAISettings?.geminiApiKey ?? env.GEMINI_API_KEY;
 }
@@ -195,6 +235,12 @@ async function generateOllamaText(input: {
 export async function generateGeminiEmbedding(
   value: string,
 ): Promise<number[]> {
+  const cacheKey = buildEmbeddingCacheKey(value);
+  const cached = getCachedEmbedding(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const apiKey = getConfiguredGeminiApiKey();
   if (!apiKey) {
     throw new TRPCError({
@@ -218,6 +264,7 @@ export async function generateGeminiEmbedding(
       });
     }
 
+    setCachedEmbedding(cacheKey, result.embedding);
     return result.embedding;
   } catch (error) {
     if (error instanceof TRPCError) throw error;
