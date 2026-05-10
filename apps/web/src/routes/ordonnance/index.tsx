@@ -64,7 +64,6 @@ type CategoryRow =
   RouterOutputs["ordonnance"]["getPreRemplisPageData"]["categories"][number];
 type PreRempliPageRow =
   RouterOutputs["ordonnance"]["getPreRemplisPageData"]["preRemplis"][number];
-type PreRempliDetail = RouterOutputs["ordonnance"]["getPreRempliById"];
 type OrdonnancePdfTemplateRow =
   RouterOutputs["ordonnance"]["listPdfTemplates"][number];
 type OrdonnancePdfTemplateDetail =
@@ -1076,7 +1075,7 @@ function RouteComponent() {
         onClose={() => setUsingTemplateId(null)}
         onSaved={refreshOrdonnancePageData}
         patients={patientRows}
-        templateId={usingTemplateId}
+        template={preRemplis.find((item) => item.id === usingTemplateId) ?? null}
       />
       <OrdonnancePreviewDialog
         onClose={() => setPreviewOrdonnanceId(null)}
@@ -2361,18 +2360,19 @@ function PdfRangeControl({
 }
 
 function UtiliserPreRempliDialog({
-  templateId,
+  template,
   patients,
   onClose,
   onSaved,
 }: {
-  templateId: string | null;
+  template: PreRempliPageRow | null;
   patients: PatientSearchRow[];
   onClose: () => void;
   onSaved: () => Promise<void> | void;
 }) {
   const { trpc } = Route.useRouteContext();
-  const open = Boolean(templateId);
+  const open = Boolean(template);
+  const templateId = template?.id ?? null;
   useDialogScrollLock(open);
 
   const [selectedPatientId, setSelectedPatientId] = useState("");
@@ -2391,14 +2391,6 @@ function UtiliserPreRempliDialog({
   const [hydratedTemplateId, setHydratedTemplateId] = useState<string | null>(
     null,
   );
-
-  const templateDetailQuery = useQuery({
-    ...trpc.ordonnance.getPreRempliById.queryOptions({
-      id: templateId ?? EMPTY_UUID,
-    }),
-    enabled: open,
-    staleTime: 60_000,
-  });
 
   const { data: suivis = [] } = useQuery({
     ...trpc.consultation.getPatientSuivis.queryOptions({
@@ -2483,16 +2475,16 @@ function UtiliserPreRempliDialog({
   }, [open, searchTerm]);
 
   useEffect(() => {
-    if (!open || !templateDetailQuery.data) {
+    if (!open || !template) {
       return;
     }
 
-    if (hydratedTemplateId === templateDetailQuery.data.id) {
+    if (hydratedTemplateId === template.id) {
       return;
     }
 
-    const templateRows = templateDetailQuery.data.medicaments?.length
-      ? templateDetailQuery.data.medicaments.map((medicament) => ({
+    const templateRows = template.medicaments.length
+      ? template.medicaments.map((medicament) => ({
           localId: crypto.randomUUID(),
           medicament_externe_id: medicament.medicament_externe_id,
           nom_medicament: medicament.nom_medicament,
@@ -2504,8 +2496,8 @@ function UtiliserPreRempliDialog({
       : [createEmptyEditMedicationRow()];
 
     setRows(templateRows);
-    setHydratedTemplateId(templateDetailQuery.data.id);
-  }, [hydratedTemplateId, open, templateDetailQuery.data]);
+    setHydratedTemplateId(template.id);
+  }, [hydratedTemplateId, open, template]);
 
   useEffect(() => {
     if (!open) {
@@ -2639,7 +2631,7 @@ function UtiliserPreRempliDialog({
     }
   };
 
-  const isLoadingInitialData = templateDetailQuery.isLoading;
+  const isLoadingInitialData = false;
   const selectedPatient = patients.find(
     (patient) => patient.id === selectedPatientId,
   );
@@ -2688,9 +2680,9 @@ function UtiliserPreRempliDialog({
                 <p className="truncate font-['Plus_Jakarta_Sans'] text-[18px] font-medium text-[#0f3460]">
                   Utiliser un modèle d'ordonnance
                 </p>
-                {templateDetailQuery.data?.nom ? (
+                {template?.nom ? (
                   <p className="truncate font-['Inter'] text-[11px] text-[#6d879d]">
-                    {templateDetailQuery.data.nom}
+                    {template.nom}
                   </p>
                 ) : null}
               </div>
