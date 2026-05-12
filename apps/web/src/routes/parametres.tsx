@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Cloud,
-  Cpu,
+  Server,
   Download,
   Globe2,
   KeyRound,
@@ -469,7 +469,7 @@ function ParametresPage() {
                     {aiProvider === "gemini" ? (
                       <Cloud size={18} aria-hidden="true" />
                     ) : (
-                      <Cpu size={18} aria-hidden="true" />
+                      <Server size={18} aria-hidden="true" />
                     )}
                   </span>
                   <div>
@@ -482,7 +482,7 @@ function ParametresPage() {
                   </div>
                 </div>
 
-                <SettingsField label={t.settings.aiProvider} icon={<BrainCircuit size={16} />}>
+                <SettingsField label={t.settings.aiProvider} icon={aiProvider === "gemini" ? <Cloud size={16} /> : <Server size={16} />}>
                   <div className={styles.selectWrap}>
                     <select
                       className={styles.select}
@@ -500,18 +500,12 @@ function ParametresPage() {
 
                 <div className={styles.aiComparisonGrid}>
                   <div className={styles.aiComparisonItem}>
-                    <span className={styles.aiComparisonIcon}>
-                      <Cpu size={15} aria-hidden="true" />
-                    </span>
                     <div>
                       <p>{t.settings.localGemma}</p>
                       <span>{t.settings.localAiDescription}</span>
                     </div>
                   </div>
                   <div className={styles.aiComparisonItem}>
-                    <span className={styles.aiComparisonIcon}>
-                      <Cloud size={15} aria-hidden="true" />
-                    </span>
                     <div>
                       <p>{t.settings.cloudGemini}</p>
                       <span>{t.settings.cloudAiDescription}</span>
@@ -580,7 +574,7 @@ function ParametresPage() {
               <div className={styles.aiProviderPanel}>
                 <div className={styles.aiProviderHeader}>
                   <span className={styles.aiProviderIcon}>
-                    <Cpu size={18} aria-hidden="true" />
+                    <Server size={18} aria-hidden="true" />
                   </span>
                   <div>
                     <p>{aiSettings?.ollama.model ?? "gemma4:e2b"}</p>

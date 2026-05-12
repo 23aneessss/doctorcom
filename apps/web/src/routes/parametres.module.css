@@ -131,8 +131,6 @@
 
 .sectionIcon svg,
 .inputIcon svg,
-.aiProviderIcon svg,
-.aiComparisonIcon svg,
 .passwordChoiceIcon svg,
 .orangeButton svg,
 .secondaryActionButton svg,
@@ -142,6 +140,12 @@
   flex: 0 0 auto;
   width: auto;
   height: auto;
+}
+
+.aiProviderIcon svg,
+.aiComparisonIcon svg {
+  flex: 0 0 auto;
+  display: block;
 }
 
 .profileGrid {
@@ -232,7 +236,7 @@
   border-radius: 0.72rem;
   background: rgba(194, 224, 239, 0.45);
   color: var(--parametres-blue);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -250,6 +254,7 @@
 .aiComparisonItem {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: 0.6rem;
   border: 0.667px solid rgba(194, 224, 239, 0.65);
   border-radius: 0.7rem;
@@ -258,14 +263,15 @@
 }
 
 .aiComparisonIcon {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.6rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
   background: rgba(194, 224, 239, 0.38);
   color: var(--parametres-blue);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .aiComparisonItem p,
