@@ -12,6 +12,7 @@ import {
   TimeField,
   fieldControlClassName,
   getInitialsFromName,
+  isBlockedSlotType,
   type RdvFormValues,
 } from "./rdv-dialog-shared";
 
@@ -59,10 +60,14 @@ export function ModifierRdvDialog({
     return null;
   }
 
-  const resolvedInitials = values.patientInitials.trim() || getInitialsFromName(values.patientName);
+  // A blocked slot is locked: only the status field is editable, no movement allowed.
+  const isBlocked = isBlockedSlotType(values.type) || isBlockedSlotType(appointment?.type);
+  const resolvedInitials = isBlocked
+    ? "BL"
+    : (values.patientInitials.trim() || getInitialsFromName(values.patientName));
   const isTimeValid = values.endTime > values.startTime;
   const isValid =
-    values.patientName.trim().length > 0 &&
+    (isBlocked || values.patientName.trim().length > 0) &&
     values.type.trim().length > 0 &&
     values.date.trim().length > 0 &&
     values.startTime.trim().length > 0 &&
@@ -134,7 +139,9 @@ export function ModifierRdvDialog({
               </span>
               <div className="min-w-0">
                 <p className="m-0 truncate font-['Plus_Jakarta_Sans'] text-[16px] font-bold text-[#0f3460]">
-                  {values.patientName.trim() || "Nom du patient"}
+                  {isBlocked
+                    ? "Créneau bloqué"
+                    : (values.patientName.trim() || "Nom du patient")}
                 </p>
                 <p className="m-0 mt-1 truncate font-['Inter'] text-[12px] font-medium text-[#64748b]">
                   {values.type} - {values.startTime} a {values.endTime}
@@ -151,27 +158,36 @@ export function ModifierRdvDialog({
           </p>
         ) : null}
 
+        {isBlocked ? (
+          <p className="rounded-[12px] border border-[#4B5563]/30 bg-[#EEF2F7] px-3 py-2 font-['Inter'] text-[13px] font-medium text-[#4B5563]">
+            Ce créneau est bloqué — seul son statut peut être modifié. La date, l'heure et les autres champs sont verrouillés.
+          </p>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Patient" required>
-              <div className="group relative">
-                <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-[#76bbdd]" />
-                <input
-                  className={`${fieldControlClassName} pl-10`}
-                  value={values.patientName}
-                  onChange={(event) => updateValue("patientName", event.currentTarget.value)}
-                  placeholder="Ex : Bouarab Hiba"
-                />
-              </div>
-            </Field>
-          </div>
+          {!isBlocked ? (
+            <div className="sm:col-span-2">
+              <Field label="Patient" required>
+                <div className="group relative">
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-[#76bbdd]" />
+                  <input
+                    className={`${fieldControlClassName} pl-10`}
+                    value={values.patientName}
+                    onChange={(event) => updateValue("patientName", event.currentTarget.value)}
+                    placeholder="Ex : Bouarab Hiba"
+                  />
+                </div>
+              </Field>
+            </div>
+          ) : null}
 
           <Field label="Type" required>
             <div className="group relative">
               <select
-                className={`${fieldControlClassName} appearance-none pr-9`}
+                className={`${fieldControlClassName} appearance-none pr-9 ${isBlocked ? "cursor-not-allowed opacity-60" : ""}`}
                 value={values.type}
                 onChange={(event) => updateValue("type", event.currentTarget.value)}
+                disabled={isBlocked}
               >
                 {RDV_TYPE_OPTIONS.map((type) => (
                   <option key={type} value={type}>
@@ -204,10 +220,11 @@ export function ModifierRdvDialog({
             <div className="group relative">
               <CalendarDays className="pointer-events-none absolute left-3 top-5 size-4 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-[#76bbdd]" />
               <input
-                className={`${fieldControlClassName} pl-10`}
+                className={`${fieldControlClassName} pl-10 ${isBlocked ? "cursor-not-allowed opacity-60" : ""}`}
                 type="date"
                 value={values.date}
                 onChange={(event) => updateValue("date", event.currentTarget.value)}
+                disabled={isBlocked}
               />
             </div>
           </Field>
@@ -220,7 +237,7 @@ export function ModifierRdvDialog({
                   ariaLabel="Heure de debut"
                   value={values.startTime}
                   onChange={(value) => updateValue("startTime", value)}
-                  className="pl-10"
+                  className={`pl-10 ${isBlocked ? "pointer-events-none opacity-60" : ""}`}
                 />
               </div>
             </Field>
@@ -229,6 +246,7 @@ export function ModifierRdvDialog({
                 ariaLabel="Heure de fin"
                 value={values.endTime}
                 onChange={(value) => updateValue("endTime", value)}
+                className={isBlocked ? "pointer-events-none opacity-60" : ""}
               />
             </Field>
           </div>

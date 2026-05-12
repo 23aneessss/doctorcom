@@ -98,15 +98,6 @@ git commit -m "feat(patient): add create patient procedure"
 git push origin <ta-branche>
 ```
 
-## Checklist PR (avant review)
-
-- [ ] Le scope est limite au module concerne.
-- [ ] Pas de fichier global modifie sans justification.
-- [ ] `bun run check-types:backend` passe.
-- [ ] Si DB touchee: migration generee et commit.
-- [ ] Pas de dead code / TODO inutile.
-- [ ] Description PR claire (quoi, pourquoi, impact).
-
 ## Commandes utiles
 
 Installation:

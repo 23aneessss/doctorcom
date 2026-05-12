@@ -8,11 +8,11 @@ import {
   type ReactNode,
 } from "react";
 
-export type InterfaceLanguage = "fr" | "ar" | "en";
+export type InterfaceLanguage = "fr" | "en";
 
 const STORAGE_KEY = "doctor-com-interface-language";
 
-const COPY_TRANSLATIONS: Record<string, { en: string; ar: string }> = {
+const COPY_TRANSLATIONS: Record<string, { en: string; ar?: string }> = {
   "Accueil": { en: "Home", ar: "الرئيسية" },
   "Patients": { en: "Patients", ar: "المرضى" },
   "Agenda": { en: "Calendar", ar: "المواعيد" },
@@ -1057,88 +1057,6 @@ const TRANSLATIONS = {
       finish: "Terminer",
     },
   },
-  ar: {
-    sidebar: {
-      accueil: "الرئيسية",
-      patients: "المرضى",
-      agenda: "المواعيد",
-      ordonnances: "الوصفات",
-      medicaments: "الأدوية",
-      parametres: "الإعدادات",
-      aide: "المساعدة والدعم",
-      logout: "تسجيل الخروج",
-      primaryNavigation: "التنقل الرئيسي",
-      secondaryNavigation: "التنقل الثانوي",
-      currentUser: "ملف المستخدم الحالي",
-    },
-    settings: {
-      title: "الإعدادات",
-      subtitle:
-        "عدّل معلوماتك، وأدر أمان حسابك، واضبط تفضيلاتك بسهولة.",
-      userProfile: "ملف المستخدم",
-      profile: "الملف الشخصي",
-      fullName: "الاسم الكامل",
-      firstName: "الاسم الشخصي",
-      lastName: "اللقب",
-      email: "البريد الإلكتروني",
-      phone: "رقم الهاتف",
-      cabinetAddress: "عنوان العيادة",
-      preferences: "التفضيلات",
-      interfaceLanguage: "لغة الواجهة",
-      french: "Français",
-      arabic: "العربية",
-      english: "English",
-      security: "الأمان",
-      changeNow: "تغيير الآن",
-      passwordHelp:
-        "استبدله باستخدام كلمة المرور الحالية. يحدّث هذا الخيار وصولك مباشرة.",
-      changePassword: "تغيير كلمة المرور",
-      cancel: "إلغاء",
-      save: "حفظ التعديلات",
-      saving: "جارٍ الحفظ...",
-      profileLoadError: "تعذر تحميل ملفك الشخصي.",
-      noChanges: "لا توجد تعديلات للحفظ.",
-      nameRequired: "الاسم واللقب مطلوبان.",
-      contactRequired: "رقم الهاتف وعنوان العيادة مطلوبان.",
-      saved: "تم حفظ الإعدادات.",
-      saveError: "تعذر حفظ الإعدادات.",
-      passwordChangedTitle: "تم تغيير كلمة المرور",
-      passwordChangedDescription:
-        "تم تحديث كلمة المرور بنجاح. يمكنك استخدامها في عمليات تسجيل الدخول القادمة.",
-      aiAssistant: "مساعد الذكاء الاصطناعي",
-      aiProvider: "مزود الذكاء الاصطناعي",
-      cloudGeminiActive: "يُستخدم Gemini السحابي للردود الذكية.",
-      localGemmaActive: "يُستخدم Gemma المحلي للردود الذكية.",
-      cloudGemini: "Gemini السحابي",
-      localGemma: "Gemma المحلي",
-      localAiDescription:
-        "يعمل على جهاز العيادة. تبقى البيانات أكثر أماناً محلياً، مع دقة عادةً أقل.",
-      cloudAiDescription:
-        "يستخدم Gemini عبر الإنترنت. تكون الإجابات عادةً أدق، لكن الخدمة ليست مجانية.",
-      aiFallbackHint:
-        "بدون مفتاح Gemini صالح، ينتقل التطبيق تلقائياً إلى النموذج المحلي.",
-      geminiApiKey: "مفتاح Gemini API",
-      apiKeyConfigured: "المفتاح مضبوط",
-      apiKeyPlaceholder: "ألصق مفتاح Gemini API",
-      apiKeyMissing: "لا يوجد مفتاح Gemini",
-      saveAISettings: "حفظ إعدادات الذكاء",
-      clearApiKey: "حذف المفتاح",
-      localModelReady: "النموذج المحلي مثبت",
-      localModelMissing: "النموذج المحلي غير موجود",
-      ollamaService: "خدمة Ollama",
-      localModelInstalled: "النموذج مثبت",
-      localModelLoaded: "النموذج محمل",
-      downloadingModel: "جارٍ التنزيل...",
-      downloadLocalModel: "تنزيل",
-      deletingModel: "جارٍ الحذف...",
-      deleteLocalModel: "حذف",
-      aiSettingsSaved: "تم حفظ إعدادات الذكاء الاصطناعي.",
-      localModelDownloaded: "تم تنزيل النموذج المحلي.",
-      localModelDeleted: "تم حذف النموذج المحلي.",
-      localModelError: "تعذر إدارة النموذج المحلي.",
-      finish: "إنهاء",
-    },
-  },
   en: {
     sidebar: {
       accueil: "Home",
@@ -1242,7 +1160,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function toInterfaceLanguage(
   value: string | null | undefined,
 ): InterfaceLanguage {
-  return value === "ar" || value === "en" ? value : "fr";
+  return value === "en" ? value : "fr";
 }
 
 function normalizeCopy(value: string) {
@@ -1373,7 +1291,7 @@ export function InterfaceLanguageProvider({
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.dir = "ltr";
   }, [language]);
 
   useEffect(() => {

@@ -425,7 +425,6 @@ function ParametresPage() {
                       value={language}
                     >
                       <option value="fr">{t.settings.french}</option>
-                      <option value="ar">{t.settings.arabic}</option>
                       <option value="en">{t.settings.english}</option>
                     </select>
                     <ChevronDown size={16} aria-hidden="true" />

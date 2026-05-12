@@ -10,6 +10,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { trpc, trpcClient } from "@/utils/trpc";
 
 type UrgenceLettre = "normale" | "urgente" | "tres_urgente";
@@ -171,13 +175,19 @@ export function NouvelleLettreOrientationDialog({
     setRaison("");
     setContenuLettre("");
     setInstructions("");
-  }, [open]);
+  }, [open, patientId]);
 
   useEffect(() => {
     if (open && !selectedSuiviId && suivis[0]) {
-      setSelectedSuiviId(suivis[0].id);
+      setSelectedSuiviId(getPreferredActiveSuiviId(patientId, suivis));
     }
-  }, [open, selectedSuiviId, suivis]);
+  }, [open, patientId, selectedSuiviId, suivis]);
+
+  useEffect(() => {
+    if (selectedSuiviId) {
+      rememberActiveSuiviId(patientId, selectedSuiviId);
+    }
+  }, [patientId, selectedSuiviId]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -334,7 +344,10 @@ export function NouvelleLettreOrientationDialog({
                 <FieldLabel required text="Suivi lié" />
                 <select
                   className={inputClassName("appearance-auto")}
-                  onChange={(event) => setSelectedSuiviId(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedSuiviId(event.target.value);
+                    rememberActiveSuiviId(patientId, event.target.value);
+                  }}
                   value={selectedSuiviId}
                 >
                   <option value="">Sélectionner un suivi</option>

@@ -6,6 +6,10 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { DialogShell } from "@/routes/agenda/popups/rdv-dialog-shared";
 import { trpc, trpcClient } from "@/utils/trpc";
 
@@ -131,10 +135,14 @@ export function NouvelleConsultationDialog({
   examenId?: string;
   values?: ConsultationDialogValues;
 }) {
-  const { data: activeSuivis = [], isLoading: isLoadingSuivis } = useQuery({
+  const { data: activeSuivisData, isLoading: isLoadingSuivis } = useQuery({
     ...trpc.consultation.getActiveSuivis.queryOptions({ patient_id: patientId }),
     enabled: open,
   });
+  const activeSuivis = useMemo(
+    () => activeSuivisData ?? [],
+    [activeSuivisData],
+  );
 
   const {
     data: fullRecord,
@@ -402,10 +410,16 @@ export function NouvelleConsultationDialog({
 
   useEffect(() => {
     form.reset(initialValues);
+    if (open && mode !== "edit" && !initialValues.suivi_id) {
+      const preferredSuiviId = getPreferredActiveSuiviId(patientId, activeSuivis);
+      if (preferredSuiviId) {
+        form.setFieldValue("suivi_id", preferredSuiviId);
+      }
+    }
     setIsCreateRdvOpen(false);
     setRdvDraft(defaultRendezVousDraft());
     setRdvValidationError(null);
-  }, [form, initialValues, mode, open]);
+  }, [activeSuivis, form, initialValues, mode, open, patientId]);
 
   if (!open) return null;
 
@@ -509,7 +523,10 @@ export function NouvelleConsultationDialog({
                         className="h-[37.6px] w-full appearance-none rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-white pl-3 pr-9 font-['Inter'] text-[14px] font-normal leading-[20px] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20 disabled:cursor-not-allowed disabled:bg-[#f1f5f9] disabled:text-[#94a3b8] [&>option]:font-normal [&>option]:text-[#0f3460]"
                         disabled={mode === "edit"}
                         onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
+                        onChange={(e) => {
+                          field.handleChange(e.target.value);
+                          rememberActiveSuiviId(patientId, e.target.value);
+                        }}
                         value={field.state.value}
                       >
                         <option className="text-[#94a3b8]" value="">

@@ -52,6 +52,7 @@ const mobileSlotInputSchema = z.object({
   endTime: heureSchema,
   status: mobileSlotStatusSchema,
   slotType: z.string().trim().min(1).max(64),
+  patientId: uuidSchema.optional(),
   patientInitials: z.string().trim().min(1).max(16).optional(),
   patientLabel: z.string().trim().min(1).max(255).optional(),
   notes: z.string().trim().min(1).max(5000).optional(),

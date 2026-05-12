@@ -39,6 +39,10 @@ import { toast } from "sonner";
 
 import headerTexture from "@/assets/figma/patients/fc145d0d9403ead31e8bc198dd8335751de59305.svg";
 import Sidebar from "@/components/sidebar";
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { getServerBaseUrl } from "@/lib/server-url";
 import { requireSession } from "@/lib/require-session";
 import { openBase64Pdf } from "@/lib/pdf-client";
@@ -2516,6 +2520,14 @@ function UtiliserPreRempliDialog({
   }, [open, selectedPatientId]);
 
   useEffect(() => {
+    if (!open || !selectedPatientId || selectedSuiviId || !suivisList.length) {
+      return;
+    }
+
+    handleSuiviChange(getPreferredActiveSuiviId(selectedPatientId, suivisList));
+  }, [open, selectedPatientId, selectedSuiviId, suivisList]);
+
+  useEffect(() => {
     if (!open) {
       return;
     }
@@ -2551,6 +2563,7 @@ function UtiliserPreRempliDialog({
 
   const handleSuiviChange = (suiviId: string) => {
     setSelectedSuiviId(suiviId);
+    rememberActiveSuiviId(selectedPatientId, suiviId);
     const latestRendezVous = rendezVous
       .filter((item) => item.suivi_id === suiviId && item.statut === "termine")
       .sort((left, right) => {
@@ -3347,6 +3360,7 @@ function OrdonnanceEditDialog({
 
   const handleSuiviChange = (suiviId: string) => {
     setSelectedSuiviId(suiviId);
+    rememberActiveSuiviId(patientId, suiviId);
     const latestRendezVous = rendezVous
       .filter((item) => item.suivi_id === suiviId && item.statut === "termine")
       .sort((left, right) => {

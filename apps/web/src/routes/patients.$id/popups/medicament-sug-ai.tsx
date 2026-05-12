@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Sparkles, X } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -27,6 +27,7 @@ export function MedicamentSugAiDialog({
   suiviLabel,
   onSelectMedicament,
   variant = "overlay",
+  addedMedicamentIds = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,7 +43,9 @@ export function MedicamentSugAiDialog({
     instructions: string | null;
   }) => void;
   variant?: "overlay" | "side-panel";
+  addedMedicamentIds?: string[];
 }) {
+  const addedSet = useMemo(() => new Set(addedMedicamentIds), [addedMedicamentIds]);
   const chatMutation = useMutation({
     mutationFn: async () => {
       if (!suiviId) {
@@ -120,10 +123,16 @@ export function MedicamentSugAiDialog({
             Cliquez sur "Generer des suggestions" pour afficher les medicaments proposes.
           </div>
         ) : (
-          suggestions.slice(0, 6).map((item) => (
+          suggestions.slice(0, 6).map((item) => {
+            const isAlreadyAdded = addedSet.has(item.medicament_externe_id);
+            return (
             <button
               key={item.medicament_externe_id}
-              className="min-h-[174px] cursor-pointer rounded-[14px] border border-[#c2e0ef] bg-white px-3 py-4 text-left shadow-[0px_4px_20px_0px_rgba(194,224,239,0.35)] transition-colors hover:bg-[#f8fbff]"
+              className={`min-h-[174px] cursor-pointer rounded-[14px] border px-3 py-4 text-left shadow-[0px_4px_20px_0px_rgba(194,224,239,0.35)] transition-colors ${
+                isAlreadyAdded
+                  ? "border-[#16a34a] bg-[#f0fdf4] hover:bg-[#dcfce7]"
+                  : "border-[#c2e0ef] bg-white hover:bg-[#f8fbff]"
+              }`}
               onClick={() => {
                 onSelectMedicament({
                   medicament_externe_id: item.medicament_externe_id,
@@ -146,9 +155,16 @@ export function MedicamentSugAiDialog({
                     {item.dci ?? "DCI non renseignee"}
                   </p>
                 </div>
-                <span className="ml-2 shrink-0 rounded-[8px] bg-[#265284] px-3 py-1 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-white">
-                  IA
-                </span>
+                {isAlreadyAdded ? (
+                  <span className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-[8px] bg-[#16a34a] px-2 py-1 font-['Plus_Jakarta_Sans'] text-[11px] font-semibold text-white">
+                    <Check className="size-3" />
+                    Ajouté
+                  </span>
+                ) : (
+                  <span className="ml-2 shrink-0 rounded-[8px] bg-[#265284] px-3 py-1 font-['Plus_Jakarta_Sans'] text-[12px] font-semibold text-white">
+                    IA
+                  </span>
+                )}
               </div>
               {item.is_active_treatment ? (
                 <div className="mt-2 inline-flex rounded-[8px] border border-[#f97316] bg-[#fff7ed] px-2 py-1 font-['Plus_Jakarta_Sans'] text-[11px] font-semibold text-[#c2410c]">
@@ -162,11 +178,29 @@ export function MedicamentSugAiDialog({
                 {item.justification ?? "Suggestion issue du moteur de recommandation clinique."}
               </p>
             </button>
-          ))
+            );
+          })
         )}
       </div>
 
       <div className="mx-5 shrink-0 border-t-[0.8px] border-[#c2e0ef] py-4 sm:mx-6">
+        {suggestions.length > 0 ? (
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="font-['Inter'] text-[12px] text-[#265284]">
+              {addedSet.size > 0
+                ? `${addedSet.size} médicament${addedSet.size > 1 ? "s" : ""} ajouté${addedSet.size > 1 ? "s" : ""} à l'ordonnance`
+                : "Cliquez sur une suggestion pour l'ajouter à l'ordonnance"}
+            </p>
+            <button
+              className="inline-flex h-[34px] cursor-pointer items-center gap-1 rounded-[10px] bg-[#16a34a] px-3 font-['Inter'] text-[12px] font-semibold text-white transition-colors hover:bg-[#15803d]"
+              onClick={() => onOpenChange(false)}
+              type="button"
+            >
+              <Check className="size-3.5" />
+              Terminer
+            </button>
+          </div>
+        ) : null}
         <p className="text-center font-['Inter'] text-[12px] text-[rgba(100,116,139,0.9)]">
           Attention: les suggestions IA sont basees sur les donnees cliniques du patient et{" "}
           <span className="font-semibold text-[#265284]">doivent etre validees par le medecin</span>

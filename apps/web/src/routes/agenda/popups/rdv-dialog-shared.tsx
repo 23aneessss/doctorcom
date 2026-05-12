@@ -33,6 +33,14 @@ export const RDV_TYPE_OPTIONS = [
   "Creneau bloque",
 ] as const;
 
+export const BLOCKED_SLOT_TYPE = "Creneau bloque";
+
+export function isBlockedSlotType(type: string | undefined | null): boolean {
+  if (!type) return false;
+  const normalized = type.trim().toLowerCase();
+  return normalized === "creneau bloque" || normalized === "créneau bloqué";
+}
+
 export interface RdvPatientOption {
   id: string;
   label: string;

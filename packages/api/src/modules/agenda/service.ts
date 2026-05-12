@@ -51,12 +51,13 @@ export class AgendaService {
       utilisateur_id: utilisateur.id,
       date: data.input.date,
       heure: data.input.heure,
+      heure_fin: data.input.heure_fin ?? null,
     });
 
     if (hasConflict) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: "Un rendez-vous actif existe deja pour ce creneau.",
+        message: "Ce créneau chevauche déjà un rendez-vous actif.",
       });
     }
 
@@ -85,6 +86,10 @@ export class AgendaService {
 
     const nextDate = data.input.date ?? existingRendezVous.date;
     const nextHeure = data.input.heure ?? existingRendezVous.heure;
+    const nextHeureFin =
+      data.input.heure_fin !== undefined
+        ? data.input.heure_fin
+        : existingRendezVous.heure_fin;
     const nextStatut = data.input.statut ?? existingRendezVous.statut;
 
     if (this.isActiveStatut(nextStatut)) {
@@ -92,13 +97,14 @@ export class AgendaService {
         utilisateur_id: utilisateur.id,
         date: nextDate,
         heure: nextHeure,
+        heure_fin: nextHeureFin ?? null,
         exclude_rendez_vous_id: existingRendezVous.id,
       });
 
       if (hasConflict) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Le creneau cible est deja occupe par un rendez-vous actif.",
+          message: "Ce créneau chevauche déjà un rendez-vous actif.",
         });
       }
     }
@@ -503,6 +509,7 @@ export class AgendaService {
       endTime: string;
       status: MobileSlotStatus;
       slotType: string;
+      patientId?: string;
       patientInitials?: string;
       patientLabel?: string;
       notes?: string;
@@ -514,6 +521,7 @@ export class AgendaService {
 
     const utilisateur = await this.resolveUtilisateur(data.db, data.session);
     const placeholderPatientId = await this.ensureMobilePlaceholderPatient(data.db, utilisateur);
+    const effectivePatientId = data.input.patientId ?? placeholderPatientId;
     await this.ensureSlotWindowAvailability(data.db, utilisateur.id, {
       date: data.input.date,
       startTime: data.input.startTime,
@@ -521,7 +529,7 @@ export class AgendaService {
     });
 
     const created = await agendaRepository.createRendezVous(data.db, utilisateur.id, {
-      patient_id: placeholderPatientId,
+      patient_id: effectivePatientId,
       date: data.input.date,
       heure: data.input.startTime,
       heure_fin: data.input.endTime,

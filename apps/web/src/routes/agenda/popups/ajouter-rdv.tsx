@@ -12,6 +12,7 @@ import {
   TimeField,
   fieldControlClassName,
   getInitialsFromName,
+  isBlockedSlotType,
   type RdvPatientOption,
   type RdvFormValues,
 } from "./rdv-dialog-shared";
@@ -59,10 +60,13 @@ export function AjouterRdvDialog({
     }
   }, [initialValues, open]);
 
-  const resolvedInitials = values.patientInitials.trim() || getInitialsFromName(values.patientName);
+  const isBlocked = isBlockedSlotType(values.type);
+  const resolvedInitials = isBlocked
+    ? "BL"
+    : (values.patientInitials.trim() || getInitialsFromName(values.patientName));
   const isTimeValid = values.endTime > values.startTime;
   const isValid =
-    values.patientName.trim().length > 0 &&
+    (isBlocked || values.patientName.trim().length > 0) &&
     values.type.trim().length > 0 &&
     values.date.trim().length > 0 &&
     values.startTime.trim().length > 0 &&
@@ -97,7 +101,8 @@ export function AjouterRdvDialog({
 
     const created = await onCreate({
       ...values,
-      patientName: values.patientName.trim(),
+      patientId: isBlocked ? undefined : values.patientId,
+      patientName: isBlocked ? "Créneau bloqué" : values.patientName.trim(),
       patientInitials: resolvedInitials,
       type: values.type.trim(),
       notes: values.notes.trim(),
@@ -147,7 +152,9 @@ export function AjouterRdvDialog({
               </span>
               <div className="min-w-0">
                 <p className="m-0 truncate font-['Plus_Jakarta_Sans'] text-[16px] font-bold text-[#0f3460]">
-                  {values.patientName.trim() || "Nom du patient"}
+                  {isBlocked
+                    ? "Créneau bloqué"
+                    : (values.patientName.trim() || "Nom du patient")}
                 </p>
                 <p className="m-0 mt-1 truncate font-['Inter'] text-[12px] font-medium text-[#64748b]">
                   {values.type} - {values.startTime} a {values.endTime}
@@ -165,32 +172,34 @@ export function AjouterRdvDialog({
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Selectionner patient" required>
-              <div className="group relative">
-                <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-[#76bbdd]" />
-                <input
-                  className={`${fieldControlClassName} pl-10`}
-                  value={values.patientName}
-                  onChange={(event) => updatePatientName(event.currentTarget.value)}
-                  list="agenda-ajouter-patients"
-                  placeholder="Rechercher ou creer un patient"
-                />
-                <datalist id="agenda-ajouter-patients">
-                  {patientOptions.map((patient) => (
-                    <option key={patient.id} value={patient.label}>
-                      {patient.matricule ?? patient.initials}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-              {values.patientName.trim() && !values.patientId ? (
-                <span className="font-['Inter'] text-[12px] font-medium text-[#f97316]">
-                  Aucun patient exact trouve: il sera cree automatiquement.
-                </span>
-              ) : null}
-            </Field>
-          </div>
+          {!isBlocked ? (
+            <div className="sm:col-span-2">
+              <Field label="Selectionner patient" required>
+                <div className="group relative">
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-[#76bbdd]" />
+                  <input
+                    className={`${fieldControlClassName} pl-10`}
+                    value={values.patientName}
+                    onChange={(event) => updatePatientName(event.currentTarget.value)}
+                    list="agenda-ajouter-patients"
+                    placeholder="Rechercher ou creer un patient"
+                  />
+                  <datalist id="agenda-ajouter-patients">
+                    {patientOptions.map((patient) => (
+                      <option key={patient.id} value={patient.label}>
+                        {patient.matricule ?? patient.initials}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+                {values.patientName.trim() && !values.patientId ? (
+                  <span className="font-['Inter'] text-[12px] font-medium text-[#f97316]">
+                    Aucun patient exact trouve: il sera cree automatiquement.
+                  </span>
+                ) : null}
+              </Field>
+            </div>
+          ) : null}
 
           <Field label="Type" required>
             <div className="group relative">

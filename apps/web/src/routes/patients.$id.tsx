@@ -40,6 +40,7 @@ import { z } from "zod";
 
 import Sidebar from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getRememberedActiveSuiviId } from "@/lib/active-suivi";
 import { requireSession } from "@/lib/require-session";
 import { formatSexLabel, isFemaleSex } from "@/lib/patient-sex";
 import { NouvelleConsultationDialog } from "@/routes/patients.$id/popups/nouvelle-consultation";
@@ -377,10 +378,12 @@ function PatientLayout() {
             | undefined) ?? {};
         if (
           customEvent.detail.mode !== "edit" &&
-          customEvent.detail.suiviId &&
           !initial.suivi_id
         ) {
-          initial.suivi_id = customEvent.detail.suiviId;
+          initial.suivi_id =
+            customEvent.detail.suiviId ??
+            getRememberedActiveSuiviId(id) ??
+            undefined;
         }
         setConsultationDialogValues(
           Object.keys(initial).length > 0 ? initial : undefined,
@@ -428,10 +431,21 @@ function PatientLayout() {
       }
 
       if (customEvent.detail?.type === "ordonnance") {
-        setOrdonnanceValues(
+        const initial =
           (customEvent.detail.initialValues as
             | OrdonnanceDialogValues
-            | undefined) ?? undefined,
+            | undefined) ?? {};
+        if (
+          customEvent.detail.mode !== "edit" &&
+          !initial.suivi_id
+        ) {
+          initial.suivi_id =
+            customEvent.detail.suiviId ??
+            getRememberedActiveSuiviId(id) ??
+            undefined;
+        }
+        setOrdonnanceValues(
+          Object.keys(initial).length > 0 ? initial : undefined,
         );
         setIsNouvelleOrdonnanceOpen(true);
       }
@@ -469,7 +483,7 @@ function PatientLayout() {
         "patient-popup-open",
         handler as EventListener,
       );
-  }, []);
+  }, [id]);
 
   const { data: patient } = useSuspenseQuery(
     trpc.patient.getPatient.queryOptions({ id }),
@@ -482,13 +496,16 @@ function PatientLayout() {
     mutationFn: async (data: {
       nom?: string;
       prenom?: string;
-      telephone?: string | null;
-      email?: string | null;
-      adresse?: string | null;
-      profession?: string | null;
-      nationalite?: string | null;
-      situation_familiale?: string | null;
+      telephone?: string;
+      email?: string;
+      adresse?: string;
+      profession?: string;
+      nationalite?: string;
+      situation_familiale?: string;
       assure?: boolean;
+      date_naissance?: string;
+      lieu_naissance?: string;
+      nss?: string;
     }) => {
       return trpcClient.patient.updatePatient.mutate({ id, data });
     },
@@ -540,6 +557,9 @@ function PatientLayout() {
       nationalite: patient.nationalite ?? "",
       situation_familiale: patient.situation_familiale ?? "",
       assure: patient.assure ?? false,
+      date_naissance: patient.date_naissance ?? "",
+      lieu_naissance: patient.lieu_naissance ?? "",
+      nss: patient.nss ? String(patient.nss) : "",
     },
     validators: {
       onSubmit: z.object({
@@ -552,6 +572,12 @@ function PatientLayout() {
         nationalite: z.string().max(255),
         situation_familiale: z.string().max(255),
         assure: z.boolean(),
+        date_naissance: z.union([
+          z.literal(""),
+          z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide (YYYY-MM-DD)"),
+        ]),
+        lieu_naissance: z.string().max(255),
+        nss: z.string().max(64),
         revenu_mensuel: z.union([
           z.literal(""),
           z.string().regex(/^\d+(\.\d+)?$/, "Le revenu doit être numérique"),
@@ -562,13 +588,16 @@ function PatientLayout() {
       const nextData: {
         nom?: string;
         prenom?: string;
-        telephone?: string | null;
-        email?: string | null;
-        adresse?: string | null;
-        profession?: string | null;
-        nationalite?: string | null;
-        situation_familiale?: string | null;
+        telephone?: string;
+        email?: string;
+        adresse?: string;
+        profession?: string;
+        nationalite?: string;
+        situation_familiale?: string;
         assure?: boolean;
+        date_naissance?: string;
+        lieu_naissance?: string;
+        nss?: string;
       } = {};
 
       const changedValue = (next: string, current: string | null | undefined) =>
@@ -594,17 +623,17 @@ function PatientLayout() {
         value.telephone,
         patient.telephone,
       );
-      if (telephone !== undefined) {
+      if (telephone !== undefined && telephone !== null) {
         nextData.telephone = telephone;
       }
 
       const email = normalizeOptionalField(value.email, patient.email);
-      if (email !== undefined) {
+      if (email !== undefined && email !== null) {
         nextData.email = email;
       }
 
       const adresse = normalizeOptionalField(value.adresse, patient.adresse);
-      if (adresse !== undefined) {
+      if (adresse !== undefined && adresse !== null) {
         nextData.adresse = adresse;
       }
 
@@ -612,7 +641,7 @@ function PatientLayout() {
         value.profession,
         patient.profession,
       );
-      if (profession !== undefined) {
+      if (profession !== undefined && profession !== null) {
         nextData.profession = profession;
       }
 
@@ -620,7 +649,7 @@ function PatientLayout() {
         value.nationalite,
         patient.nationalite,
       );
-      if (nationalite !== undefined) {
+      if (nationalite !== undefined && nationalite !== null) {
         nextData.nationalite = nationalite;
       }
 
@@ -628,12 +657,35 @@ function PatientLayout() {
         value.situation_familiale,
         patient.situation_familiale,
       );
-      if (situationFamiliale !== undefined) {
+      if (situationFamiliale !== undefined && situationFamiliale !== null) {
         nextData.situation_familiale = situationFamiliale;
       }
 
       if (value.assure !== (patient.assure ?? false)) {
         nextData.assure = value.assure;
+      }
+
+      if (
+        value.date_naissance &&
+        value.date_naissance !== (patient.date_naissance ?? "")
+      ) {
+        nextData.date_naissance = value.date_naissance;
+      }
+
+      const lieuNaissance = normalizeOptionalField(
+        value.lieu_naissance,
+        patient.lieu_naissance,
+      );
+      if (lieuNaissance !== undefined && lieuNaissance !== null) {
+        nextData.lieu_naissance = lieuNaissance;
+      }
+
+      const nss = normalizeOptionalField(
+        value.nss,
+        patient.nss ? String(patient.nss) : null,
+      );
+      if (nss !== undefined && nss !== null) {
+        nextData.nss = nss;
       }
 
       if (Object.keys(nextData).length === 0) {
@@ -822,9 +874,9 @@ function PatientLayout() {
 
           {/* Patient Info Card */}
           <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)] max-[58rem]:px-4">
-            <div className="flex flex-col gap-6">
-              {/* Top row: name + ID + badges (full width) */}
-              <div className="flex flex-col gap-[8px] min-w-0">
+            <div className="flex justify-between gap-8 max-[72rem]:flex-col">
+              {/* Left: Identity */}
+              <div className="flex w-[330px] max-w-full flex-col gap-[8px]">
                 <h1 className="break-words font-['Plus_Jakarta_Sans'] font-medium text-[clamp(1.55rem,6vw,1.875rem)] leading-[1.2] text-[#0f3460]">
                   {fullName}
                 </h1>
@@ -851,15 +903,9 @@ function PatientLayout() {
                     </span>
                   )}
                 </div>
-              </div>
-
-              {/* Two-column info grid (stacks on mobile) */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2 max-[40rem]:grid-cols-1">
-                {/* Left column: contact + profession */}
-                <div className="flex flex-col gap-[8px] min-w-0">
 
                 {/* Contact rows */}
-                <div className="flex flex-col gap-[8px]">
+                <div className="mt-1 flex max-w-[320px] max-[40rem]:max-w-full flex-col gap-[8px]">
                   <div className="flex items-center gap-2">
                     <User className="size-4 text-[#265284]" />
                     {isEditing ? (
@@ -1032,17 +1078,92 @@ function PatientLayout() {
                 <PatientInfoRow
                   icon={<ShieldCheck className="size-4" />}
                   label="NSS :"
-                  value={patient.nss ? String(patient.nss) : "—"}
+                  value={
+                    isEditing ? (
+                      <form.Field name="nss">
+                        {(field) => (
+                          <div>
+                            <input
+                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                              placeholder="Ex: 192061501"
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </form.Field>
+                    ) : (
+                      patient.nss ? String(patient.nss) : "—"
+                    )
+                  }
                 />
                 <PatientInfoRow
                   icon={<Calendar className="size-4" />}
                   label="Date de naissance :"
-                  value={formatDate(patient.date_naissance)}
+                  value={
+                    isEditing ? (
+                      <form.Field name="date_naissance">
+                        {(field) => (
+                          <div>
+                            <input
+                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                              type="date"
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </form.Field>
+                    ) : (
+                      formatDate(patient.date_naissance)
+                    )
+                  }
                 />
                 <PatientInfoRow
                   icon={<MapPin className="size-4" />}
                   label="Lieu de naissance :"
-                  value={patient.lieu_naissance ?? "—"}
+                  value={
+                    isEditing ? (
+                      <form.Field name="lieu_naissance">
+                        {(field) => (
+                          <div>
+                            <input
+                              className="h-8 rounded-md border border-[#c2e0ef] bg-white px-2 font-['Poppins'] text-[14px] leading-[20px] text-[#265284]"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                              placeholder="Ex: Alger"
+                            />
+                            {field.state.meta.errors[0]?.message ? (
+                              <p className="text-xs text-red-600">
+                                {field.state.meta.errors[0].message}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </form.Field>
+                    ) : (
+                      patient.lieu_naissance ?? "—"
+                    )
+                  }
                 />
                 <PatientInfoRow
                   icon={<User className="size-4" />}
@@ -1141,13 +1262,12 @@ function PatientLayout() {
                   />
                 </div>
               </div>
-              </div>
 
-              {/* Bottom row: Action Buttons (3 + 2 layout) */}
-              <div className="grid grid-cols-3 gap-2 max-[40rem]:grid-cols-2">
+              {/* Right: Action Buttons */}
+              <div className="flex flex-col gap-[8px] justify-center">
                 {!isEditing ? (
                   <button
-                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
                     onClick={() => {
                       form.reset({
                         nom: patient.nom ?? "",
@@ -1159,6 +1279,9 @@ function PatientLayout() {
                         nationalite: patient.nationalite ?? "",
                         situation_familiale: patient.situation_familiale ?? "",
                         assure: patient.assure ?? false,
+                        date_naissance: patient.date_naissance ?? "",
+                        lieu_naissance: patient.lieu_naissance ?? "",
+                        nss: patient.nss ? String(patient.nss) : "",
                       });
                       setIsEditing(true);
                     }}
@@ -1169,14 +1292,14 @@ function PatientLayout() {
                 ) : (
                   <>
                     <button
-                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
+                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
                       onClick={() => setIsEditing(false)}
                       type="button"
                     >
                       Annuler
                     </button>
                     <button
-                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
+                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors max-[40rem]:w-full"
                       onClick={() => form.handleSubmit()}
                       disabled={updatePatientMutation.isPending}
                       type="button"
@@ -1547,7 +1670,7 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
+        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors max-[40rem]:w-full",
         layout === "suivi"
           ? "flex items-center"
           : "flex items-center justify-start",

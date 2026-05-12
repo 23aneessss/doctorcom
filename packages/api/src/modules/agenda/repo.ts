@@ -255,13 +255,13 @@ export class AgendaRepository {
       utilisateur_id: string;
       date: string;
       heure: string;
+      heure_fin?: string | null;
       exclude_rendez_vous_id?: string;
     },
   ): Promise<boolean> {
     const predicates = [
       eq(rendez_vous.utilisateur_id, data.utilisateur_id),
       eq(rendez_vous.date, data.date),
-      eq(rendez_vous.heure, data.heure),
       inArray(rendez_vous.statut, ACTIVE_RENDEZ_VOUS_STATUTS),
     ];
 
@@ -269,13 +269,41 @@ export class AgendaRepository {
       predicates.push(ne(rendez_vous.id, data.exclude_rendez_vous_id));
     }
 
-    const [conflictingRendezVous] = await database
-      .select({ id: rendez_vous.id })
+    // Load every active slot on that day, then check time-window overlap in JS
+    // (avoids SQL time-arithmetic and keeps the logic identical to ensureSlotWindowAvailability)
+    const candidateSlots = await database
+      .select({
+        id: rendez_vous.id,
+        heure: rendez_vous.heure,
+        heure_fin: rendez_vous.heure_fin,
+      })
       .from(rendez_vous)
-      .where(and(...predicates))
-      .limit(1);
+      .where(and(...predicates));
 
-    return Boolean(conflictingRendezVous);
+    const toMinutes = (timeValue: string): number => {
+      const [hours = 0, minutes = 0] = timeValue
+        .split(":")
+        .map((part) => Number(part));
+      return hours * 60 + minutes;
+    };
+
+    const addMinutes = (timeValue: string, minutesToAdd: number): string => {
+      const total = toMinutes(timeValue) + minutesToAdd;
+      const hours = Math.floor(total / 60) % 24;
+      const minutes = total % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    };
+
+    const candidateStart = toMinutes(data.heure);
+    const candidateEnd = toMinutes(
+      data.heure_fin ?? addMinutes(data.heure, 30),
+    );
+
+    return candidateSlots.some((slot) => {
+      const slotStart = toMinutes(slot.heure);
+      const slotEnd = toMinutes(slot.heure_fin ?? addMinutes(slot.heure, 30));
+      return candidateStart < slotEnd && candidateEnd > slotStart;
+    });
   }
 
   async listRendezVousByDateForUtilisateur(

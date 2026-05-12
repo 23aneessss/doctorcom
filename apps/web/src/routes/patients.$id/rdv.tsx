@@ -26,6 +26,10 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { getServerBaseUrl } from "@/lib/server-url";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import {
@@ -247,6 +251,7 @@ function PatientRdvPage() {
 
   const activeSuivis = (suivisQuery.data ?? []) as Array<{
     id: string;
+    est_actif?: boolean | null;
     motif?: string | null;
     symptoms?: string[] | null;
   }>;
@@ -364,6 +369,7 @@ function PatientRdvPage() {
         date_ouverture: new Date().toISOString().slice(0, 10),
       }),
     onSuccess: async (suivi) => {
+      rememberActiveSuiviId(id, suivi.id);
       setSelectedSuiviId(suivi.id);
       setSymptoms([]);
       setSymptomDraft("");
@@ -478,16 +484,17 @@ function PatientRdvPage() {
   };
 
   const openWizard = (rdv?: PatientRdv) => {
+    const preferredSuiviId = getPreferredActiveSuiviId(id, activeSuivis);
     if (rdv) {
       setWizardSkipsRdv(true);
       setSelectedRdvId(rdv.id);
-      setSelectedSuiviId(rdv.suivi_id ?? activeSuivis[0]?.id ?? "");
+      setSelectedSuiviId(rdv.suivi_id ?? preferredSuiviId);
       setConsultationFields(createDefaultConsultation(rdv.date));
     } else {
       setWizardSkipsRdv(false);
       const firstActive = rdvs.find((r) => r.statut !== "termine" && r.statut !== "annule");
       setSelectedRdvId(firstActive?.id ?? "");
-      setSelectedSuiviId(firstActive?.suivi_id ?? activeSuivis[0]?.id ?? "");
+      setSelectedSuiviId(firstActive?.suivi_id ?? preferredSuiviId);
       setConsultationFields(createDefaultConsultation(firstActive?.date));
     }
     setWizardRdvForm(createDefaultForm());
@@ -758,6 +765,7 @@ function PatientRdvPage() {
           isUpdating={isWizardUpdating}
           isRdvCreateOpen={isWizardRdvCreateOpen}
           maxStep={maxStep}
+          patientId={id}
           rdvs={rdvs}
           rdvForm={wizardRdvForm}
           selectedRdvId={selectedRdvId}
@@ -792,7 +800,10 @@ function PatientRdvPage() {
           onSelectRdv={(rdvId) => {
             setSelectedRdvId(rdvId);
             const rdv = rdvs.find((r) => r.id === rdvId);
-            if (rdv?.suivi_id) setSelectedSuiviId(rdv.suivi_id);
+            if (rdv?.suivi_id) {
+              rememberActiveSuiviId(id, rdv.suivi_id);
+              setSelectedSuiviId(rdv.suivi_id);
+            }
             if (rdv?.date) setConsultationFields((c) => ({ ...c, date: rdv.date }));
           }}
           onSelectSuivi={setSelectedSuiviId}
@@ -1014,6 +1025,7 @@ function WorkflowDialog({
   isUpdating,
   isRdvCreateOpen,
   maxStep,
+  patientId,
   rdvs,
   rdvForm,
   selectedRdvId,
@@ -1047,6 +1059,7 @@ function WorkflowDialog({
   isUpdating: boolean;
   isRdvCreateOpen: boolean;
   maxStep: number;
+  patientId: string;
   rdvs: PatientRdv[];
   rdvForm: RdvFormState;
   selectedRdvId: string;
@@ -1361,7 +1374,10 @@ function WorkflowDialog({
               <div className="relative">
                 <select
                   className={cn(fieldControlClassName, "appearance-none pr-9")}
-                  onChange={(e) => onSelectSuivi(e.target.value)}
+                  onChange={(e) => {
+                    onSelectSuivi(e.target.value);
+                    rememberActiveSuiviId(patientId, e.target.value);
+                  }}
                   value={selectedSuiviId}
                 >
                   <option value="">Sélectionner un suivi</option>

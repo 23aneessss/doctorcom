@@ -2,6 +2,7 @@ import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CircleHelp,
+  Bot,
   FileStack,
   FileText,
   Loader2,
@@ -18,8 +19,16 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { openBase64Pdf } from "@/lib/pdf-client";
 import { MedicamentSugAiDialog } from "@/routes/patients.$id/popups/medicament-sug-ai";
+import {
+  OrdonnanceSugAiDialog,
+  type OrdonnanceAiRecommendation,
+} from "@/routes/patients.$id/popups/ordonnance-sug-ai";
 import { trpc, trpcClient, trpcUnbatchedClient } from "@/utils/trpc";
 
 type OrdonnanceMode = "manuel" | "pre-remplie";
@@ -257,6 +266,7 @@ export function NouvelleOrdonnanceDialog({
   const [showMedicationAiPanel, setShowMedicationAiPanel] = useState(false);
   const [isMedicationAiPanelVisible, setIsMedicationAiPanelVisible] =
     useState(false);
+  const [showOrdonnanceAiPanel, setShowOrdonnanceAiPanel] = useState(false);
   const [selectedCategorieId, setSelectedCategorieId] = useState("");
   const [selectedPreRempliId, setSelectedPreRempliId] = useState("");
   const [selectedSpecialite, setSelectedSpecialite] = useState("");
@@ -409,9 +419,15 @@ export function NouvelleOrdonnanceDialog({
     if (!open || mode !== "manuel") return;
 
     if (!selectedSuiviId && suivisList[0]?.id) {
-      setSelectedSuiviId(suivisList[0].id);
+      setSelectedSuiviId(getPreferredActiveSuiviId(patientId, suivisList));
     }
-  }, [open, selectedSuiviId, suivisList]);
+  }, [open, patientId, selectedSuiviId, suivisList]);
+
+  useEffect(() => {
+    if (selectedSuiviId) {
+      rememberActiveSuiviId(patientId, selectedSuiviId);
+    }
+  }, [patientId, selectedSuiviId]);
 
   useEffect(() => {
     if (!open) return;
@@ -1250,22 +1266,44 @@ export function NouvelleOrdonnanceDialog({
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {mode === "manuel" ? (
-                  <button
-                    className={`inline-flex h-[33px] cursor-pointer items-center gap-2 rounded-[10px] border px-3 font-['Plus_Jakarta_Sans'] text-[13px] font-medium transition-colors ${
-                      showMedicationAiPanel
-                        ? "border-[#265284] bg-[#265284] text-white hover:bg-[#1f436d]"
-                        : "border-[#c2e0ef] bg-[#f0f6ff] text-[#265284] hover:bg-[#e2eff8]"
-                    }`}
-                    onClick={() => {
-                      setShowMedicationAiPanel((current) => !current);
-                    }}
-                    type="button"
-                  >
-                    <Sparkles className="size-3.5" />
-                    <span>IA médicaments</span>
-                  </button>
+                  <>
+                    <button
+                      className={`inline-flex h-[33px] cursor-pointer items-center gap-2 rounded-[10px] border px-3 font-['Plus_Jakarta_Sans'] text-[13px] font-medium transition-colors ${
+                        showOrdonnanceAiPanel
+                          ? "border-[#265284] bg-[#265284] text-white hover:bg-[#1f436d]"
+                          : "border-[#c2e0ef] bg-[#f0f6ff] text-[#265284] hover:bg-[#e2eff8]"
+                      }`}
+                      disabled={!selectedSuiviId}
+                      onClick={() => {
+                        if (!selectedSuiviId) {
+                          toast.error("Sélectionnez un suivi avant de lancer la recommandation IA.");
+                          return;
+                        }
+                        setShowMedicationAiPanel(false);
+                        setShowOrdonnanceAiPanel(true);
+                      }}
+                      type="button"
+                    >
+                      <Bot className="size-3.5" />
+                      <span>IA ordonnance</span>
+                    </button>
+                    <button
+                      className={`inline-flex h-[33px] cursor-pointer items-center gap-2 rounded-[10px] border px-3 font-['Plus_Jakarta_Sans'] text-[13px] font-medium transition-colors ${
+                        showMedicationAiPanel
+                          ? "border-[#265284] bg-[#265284] text-white hover:bg-[#1f436d]"
+                          : "border-[#c2e0ef] bg-[#f0f6ff] text-[#265284] hover:bg-[#e2eff8]"
+                      }`}
+                      onClick={() => {
+                        setShowMedicationAiPanel((current) => !current);
+                      }}
+                      type="button"
+                    >
+                      <Sparkles className="size-3.5" />
+                      <span>IA médicaments</span>
+                    </button>
+                  </>
                 ) : null}
                 <button
                   aria-label="Aide"
@@ -1286,10 +1324,10 @@ export function NouvelleOrdonnanceDialog({
             </div>
 
             <div
-              className={`consultation-modal-scrollbar flex flex-col overflow-y-auto px-5 pb-4 pt-5 ${
+              className={`consultation-modal-scrollbar flex flex-col overflow-y-auto overscroll-contain px-5 pb-4 pt-5 ${
                 hasRightPanel
-                  ? "max-h-[calc(723px-68px)] lg:flex-1"
-                  : "max-h-[82vh]"
+                  ? "max-h-[calc(100dvh-6rem)] lg:max-h-[calc(723px-68px)] lg:flex-1"
+                  : "max-h-[calc(100dvh-4rem)] lg:max-h-[82vh]"
               }`}
             >
               <FieldLabel required text="Suivi lié" />
@@ -2123,18 +2161,47 @@ export function NouvelleOrdonnanceDialog({
                     ) as OrdonnanceRow,
                   ]);
                   toast.success(`${item.nom_medicament} ajouté à l'ordonnance`);
-                  setShowMedicationAiPanel(false);
                   setIsRowsDirty(true);
                 }}
                 open={showMedicationAiPanel}
                 suiviId={selectedSuiviId || undefined}
                 suiviLabel={selectedSuiviLabel}
                 variant="side-panel"
+                addedMedicamentIds={rows
+                  .map((row) => row.medicament_externe_id)
+                  .filter(Boolean)}
               />
             </div>
           ) : null}
         </div>
       </div>
+      <OrdonnanceSugAiDialog
+        open={showOrdonnanceAiPanel}
+        onOpenChange={setShowOrdonnanceAiPanel}
+        suiviId={selectedSuiviId || undefined}
+        onAccept={(recommendation: OrdonnanceAiRecommendation) => {
+          setMode("manuel");
+          const newRows = recommendation.ordonnance_draft.medicaments.map(
+            (medicament) =>
+              createOrdonnanceRow(
+                {
+                  medicament_externe_id: medicament.medicament_externe_id,
+                  nom_medicament: medicament.nom_medicament,
+                  dosage: medicament.dosage,
+                  posologie: medicament.posologie,
+                  duree_traitement: medicament.duree_traitement,
+                  instructions: medicament.instructions,
+                },
+                "draft",
+              ) as OrdonnanceRow,
+          );
+          setRows(newRows);
+          setIsRowsDirty(true);
+          toast.success(
+            `Ordonnance IA appliquée — ${newRows.length} médicament${newRows.length > 1 ? "s" : ""} chargé${newRows.length > 1 ? "s" : ""}. Vérifiez et enregistrez.`,
+          );
+        }}
+      />
     </>
   );
 }

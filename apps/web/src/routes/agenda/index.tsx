@@ -202,6 +202,7 @@ function toSlotPayload(values: RdvFormValues) {
     endTime: normalizeTime(values.endTime),
     status: values.status,
     slotType: values.type.trim(),
+    patientId: values.patientId || undefined,
     patientLabel: patientName,
     patientInitials:
       values.patientInitials.trim() || getInitialsFromName(patientName),
@@ -462,12 +463,15 @@ function RouteComponent() {
           };
         } else {
           const { nom, prenom } = splitPatientName(patientName);
+          // Use today's date as a clearly-temporary placeholder so the doctor
+          // notices and updates it from the patient dossier.
+          const todayIso = new Date().toISOString().slice(0, 10);
           const createdPatient = await createPatientMutation.mutateAsync({
             patient: {
               nom,
               prenom,
               matricule: buildPatientMatricule(patientName, (patientsQuery.data?.length ?? 0) + 1),
-              date_naissance: "1970-01-01",
+              date_naissance: todayIso,
             },
           });
 

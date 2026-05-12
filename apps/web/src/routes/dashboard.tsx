@@ -1069,6 +1069,7 @@ function toSlotPayload(values: RdvFormValues) {
     endTime: normalizeTime(values.endTime),
     status: values.status,
     slotType: values.type.trim(),
+    patientId: values.patientId || undefined,
     patientLabel: patientName,
     patientInitials:
       values.patientInitials.trim() || getInitialsFromName(patientName),

@@ -54,9 +54,8 @@ export function AjouterTraitementDialog({
     defaultValues: initialValues,
     validators: {
       onSubmit: z.object({
-        medicament_externe_id: z
-          .string()
-          .regex(/^[1-9]\d*$/, "Veuillez sélectionner un médicament valide"),
+        // Optional — the mutation resolves the medicament id from the name when empty
+        medicament_externe_id: z.string(),
         nom_medicament: z.string().trim().min(1, "Le médicament est requis"),
         indication: z.string().trim().min(1, "L'indication est requise"),
         dosage: z.string().trim().min(1, "Le dosage est requis"),
@@ -143,9 +142,14 @@ export function AjouterTraitementDialog({
         });
         const matchedMedication = searchResult.items[0];
         if (!matchedMedication) {
-          throw new Error("Sélectionnez un médicament depuis la liste.");
+          throw new Error(
+            `Aucun médicament "${value.nom_medicament.trim()}" trouvé dans la base. Sélectionnez une suggestion ou modifiez le nom.`,
+          );
         }
         medicamentExterneId = String(matchedMedication.id);
+      }
+      if (!medicamentExterneId) {
+        throw new Error("Veuillez saisir un nom de médicament.");
       }
 
       return trpcClient.treatment.startTreatment.mutate({
@@ -361,26 +365,41 @@ function FieldInput({
 }) {
   return (
     <form.Field name={name}>
-      {(field: any) => (
+      {(field: any) => {
+        const hasError = Boolean(field.state.meta.errors[0]?.message);
+        const isRequiredAndEmpty =
+          required && field.state.meta.isTouched && !String(field.state.value ?? "").trim();
+        const showError = hasError || isRequiredAndEmpty;
+        return (
         <div className="space-y-[6px]">
           <label className="font-['Inter'] text-[14px] font-medium leading-5 text-[#0f3460]">
             {label} {required ? <span className="text-[#f97316]">*</span> : null}
           </label>
           <input
-            className="h-[37.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:border-[#76bbdd] focus:ring-2 focus:ring-[#c2e0ef]/50 disabled:cursor-not-allowed disabled:bg-[#f8fafc]"
+            className={cn(
+              "h-[37.6px] w-full rounded-[10px] border-[0.8px] bg-white px-3 font-['Inter'] text-[14px] leading-5 text-[#0f3460] outline-none transition-colors placeholder:text-[rgba(100,116,139,0.9)] focus:ring-2 disabled:cursor-not-allowed disabled:bg-[#f8fafc]",
+              showError
+                ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                : "border-[#c2e0ef] focus:border-[#76bbdd] focus:ring-[#c2e0ef]/50",
+            )}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
             placeholder={placeholder}
             readOnly={readOnly}
             value={field.state.value}
           />
-          {field.state.meta.errors[0]?.message ? (
+          {hasError ? (
             <p className="font-['Inter'] text-xs text-red-600">
               {field.state.meta.errors[0].message}
             </p>
+          ) : isRequiredAndEmpty ? (
+            <p className="font-['Inter'] text-xs text-red-600">
+              Ce champ est requis
+            </p>
           ) : null}
         </div>
-      )}
+        );
+      }}
     </form.Field>
   );
 }

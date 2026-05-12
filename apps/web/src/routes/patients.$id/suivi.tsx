@@ -12,10 +12,14 @@ import {
   Stethoscope,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  getPreferredActiveSuiviId,
+  rememberActiveSuiviId,
+} from "@/lib/active-suivi";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
@@ -43,9 +47,10 @@ function RouteComponent() {
     trpc.consultation.getExamensPatient.queryOptions({ patient_id: id }),
   );
 
-  const [selectedSuiviId, setSelectedSuiviId] = useState<string | null>(
-    suivis[0]?.id ?? null,
-  );
+  const [selectedSuiviId, setSelectedSuiviId] = useState<string | null>(() => {
+    const preferredSuiviId = getPreferredActiveSuiviId(id, suivis);
+    return preferredSuiviId || null;
+  });
   const [expandedExamenId, setExpandedExamenId] = useState<string | null>(null);
 
   const examensBySuivi = useMemo(() => {
@@ -69,6 +74,11 @@ function RouteComponent() {
       suivis.find((suivi) => suivi.id === selectedSuiviId) ?? suivis[0] ?? null
     );
   }, [selectedSuiviId, suivis]);
+
+  useEffect(() => {
+    if (!selectedSuivi?.est_actif) return;
+    rememberActiveSuiviId(id, selectedSuivi.id);
+  }, [id, selectedSuivi]);
 
   const selectedExamens = selectedSuivi
     ? (examensBySuivi.get(selectedSuivi.id) ?? [])
@@ -154,6 +164,9 @@ function RouteComponent() {
                       : "border-[#c2e0ef] bg-white hover:bg-[#f8fcff]",
                 )}
                 onClick={() => {
+                  if (suivi.est_actif) {
+                    rememberActiveSuiviId(id, suivi.id);
+                  }
                   setSelectedSuiviId(suivi.id);
                   setExpandedExamenId(null);
                 }}
