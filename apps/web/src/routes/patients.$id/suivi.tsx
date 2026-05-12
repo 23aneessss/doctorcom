@@ -131,10 +131,16 @@ function RouteComponent() {
     <div className="grid items-start gap-6 pb-6 xl:grid-cols-[288px_minmax(0,1fr)]">
       <aside className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
-          {suivis.map((suivi) => {
+          {[...suivis]
+            .sort((a, b) => {
+              if (a.est_actif !== b.est_actif) return a.est_actif ? -1 : 1;
+              return 0;
+            })
+            .map((suivi) => {
             const consultationsCount =
               examensBySuivi.get(suivi.id)?.length ?? 0;
             const isSelected = selectedSuivi?.id === suivi.id;
+            const isClosed = !suivi.est_actif;
 
             return (
               <button
@@ -143,7 +149,9 @@ function RouteComponent() {
                   "relative min-h-[112px] w-full cursor-pointer rounded-[14px] border-[0.8px] px-4 py-3 text-left transition-all duration-200 ease-out",
                   isSelected
                     ? "border-[#c2e0ef] bg-[#f0f6ff] shadow-[0px_3px_8px_0px_rgba(15,52,96,0.12)]"
-                    : "border-[#c2e0ef] bg-white hover:bg-[#f8fcff]",
+                    : isClosed
+                      ? "border-[#e5e7eb] bg-[#f9fafb] opacity-70 hover:opacity-90 hover:bg-[#f3f4f6]"
+                      : "border-[#c2e0ef] bg-white hover:bg-[#f8fcff]",
                 )}
                 onClick={() => {
                   setSelectedSuiviId(suivi.id);
@@ -152,7 +160,10 @@ function RouteComponent() {
                 type="button"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px] text-[#0f3460]">
+                  <p className={cn(
+                    "font-['Plus_Jakarta_Sans'] text-[14px] font-semibold leading-[20px]",
+                    isClosed ? "text-[#6b7280]" : "text-[#0f3460]",
+                  )}>
                     {formatSymptoms(suivi)}
                   </p>
                   <span
@@ -163,7 +174,7 @@ function RouteComponent() {
                         : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]",
                     )}
                   >
-                    {suivi.est_actif ? "Actif" : "Cloture"}
+                    {suivi.est_actif ? "Actif" : "Cloturé"}
                   </span>
                 </div>
 

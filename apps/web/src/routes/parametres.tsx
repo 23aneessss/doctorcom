@@ -500,12 +500,18 @@ function ParametresPage() {
 
                 <div className={styles.aiComparisonGrid}>
                   <div className={styles.aiComparisonItem}>
+                    <span className={styles.aiComparisonIcon}>
+                      <Server aria-hidden="true" />
+                    </span>
                     <div>
                       <p>{t.settings.localGemma}</p>
                       <span>{t.settings.localAiDescription}</span>
                     </div>
                   </div>
                   <div className={styles.aiComparisonItem}>
+                    <span className={styles.aiComparisonIcon}>
+                      <Cloud aria-hidden="true" />
+                    </span>
                     <div>
                       <p>{t.settings.cloudGemini}</p>
                       <span>{t.settings.cloudAiDescription}</span>

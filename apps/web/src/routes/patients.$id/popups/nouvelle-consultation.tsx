@@ -668,12 +668,12 @@ export function NouvelleConsultationDialog({
 
               <form.Field name="description_consultation">
                 {(field) => (
-                  <FieldContainer label="description consultation">
+                  <FieldContainer label="Description de la consultation">
                     <textarea
                       className="h-[77.6px] w-full resize-none rounded-[12px] border-[0.8px] border-[#c2e0ef] bg-white px-3 py-2 font-['Inter'] text-[14px] font-normal leading-[20px] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(10,10,10,0.5)] hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20"
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="description de la consultation"
+                      placeholder="Description de la consultation"
                       value={field.state.value}
                     />
                     {field.state.meta.errors[0]?.message ? (
@@ -694,30 +694,33 @@ export function NouvelleConsultationDialog({
                     <form.Field name="taille">
                       {(field) => (
                         <InputField
-                          label="Taille"
+                          label="Taille (cm)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="taille"
                         />
                       )}
                     </form.Field>
                     <form.Field name="poids">
                       {(field) => (
                         <InputField
-                          label="Poids"
+                          label="Poids (kg)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="poids"
                         />
                       )}
                     </form.Field>
                     <form.Field name="spo2">
                       {(field) => (
                         <InputField
-                          label="SpO2"
+                          label="SpO2 (%)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="spo2"
                         />
                       )}
                     </form.Field>
@@ -727,30 +730,33 @@ export function NouvelleConsultationDialog({
                     <form.Field name="tension_arterielle">
                       {(field) => (
                         <InputField
-                          label="Tension arterielle"
+                          label="Tension artérielle (mmHg)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="tension"
                         />
                       )}
                     </form.Field>
                     <form.Field name="frequence_cardiaque">
                       {(field) => (
                         <InputField
-                          label="Frequence cardiaque"
+                          label="Fréquence cardiaque (bpm)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="frequence"
                         />
                       )}
                     </form.Field>
                     <form.Field name="temperature">
                       {(field) => (
                         <InputField
-                          label="Temperature"
+                          label="Température (°C)"
                           onBlur={field.handleBlur}
                           onChange={(e) => field.handleChange(e.target.value)}
                           value={field.state.value}
+                          vital="temperature"
                         />
                       )}
                     </form.Field>
@@ -923,28 +929,72 @@ function FieldContainer({
   );
 }
 
+type VitalLevel = "normal" | "warning";
+
+function checkVital(value: string, kind?: VitalKind): VitalLevel {
+  if (!kind || !value || !value.trim()) return "normal";
+  if (kind === "tension") {
+    const match = value.trim().match(/^(\d{1,3})\s*[\/\-]\s*(\d{1,3})$/);
+    if (!match) return "normal";
+    const sys = Number(match[1]);
+    const dia = Number(match[2]);
+    if (sys < 90 || sys > 160 || dia < 50 || dia > 100) return "warning";
+    return "normal";
+  }
+  const n = Number(value.replace(",", "."));
+  if (!Number.isFinite(n)) return "normal";
+  switch (kind) {
+    case "temperature": return n < 35.5 || n > 37.8 ? "warning" : "normal";
+    case "poids":       return n < 30 || n > 200 ? "warning" : "normal";
+    case "taille":      return n < 130 || n > 210 ? "warning" : "normal";
+    case "spo2":        return n < 94 ? "warning" : "normal";
+    case "frequence":   return n < 50 || n > 110 ? "warning" : "normal";
+  }
+  return "normal";
+}
+
+type VitalKind = "temperature" | "poids" | "taille" | "spo2" | "tension" | "frequence";
+
 function InputField({
   label,
   value,
   onChange,
   onBlur,
+  vital,
 }: {
   label: string;
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onBlur: () => void;
+  vital?: VitalKind;
 }) {
+  const level = checkVital(value, vital);
+  const isWarning = level === "warning";
   return (
     <div className="space-y-1">
       <p className="font-['Plus_Jakarta_Sans'] text-[12px] font-medium leading-[16px] text-[#052ca0]">
         {label}
+        {isWarning && (
+          <span
+            className="ml-1 inline-block align-middle text-[#d97706]"
+            title="Valeur en dehors de la plage habituelle, veuillez vérifier."
+            aria-label="Valeur inhabituelle"
+          >
+            ⚠
+          </span>
+        )}
       </p>
       <input
-        className="h-[33.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] font-normal leading-[normal] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(10,10,10,0.5)] hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20"
+        className={
+          isWarning
+            ? "h-[33.6px] w-full rounded-[10px] border-[1.5px] border-[#f59e0b] bg-[#fffbeb] px-3 font-['Inter'] text-[14px] font-normal leading-[normal] text-[#92400e] shadow-[0_1px_2px_rgba(245,158,11,0.18)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(146,64,14,0.45)] hover:border-[#d97706] focus:border-[#d97706] focus:ring-4 focus:ring-[#f59e0b]/20"
+            : "h-[33.6px] w-full rounded-[10px] border-[0.8px] border-[#c2e0ef] bg-white px-3 font-['Inter'] text-[14px] font-normal leading-[normal] text-[#0f3460] shadow-[0_1px_2px_rgba(15,52,96,0.08)] outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-[rgba(10,10,10,0.5)] hover:border-[#9ecae0] focus:border-[#76bbdd] focus:bg-white focus:ring-4 focus:ring-[#76bbdd]/20"
+        }
         onBlur={onBlur}
         onChange={onChange}
         onKeyDown={handleEnterAsNextField}
         value={value}
+        title={isWarning ? "Valeur en dehors de la plage habituelle, veuillez vérifier." : undefined}
       />
     </div>
   );

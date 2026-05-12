@@ -142,8 +142,7 @@
   height: auto;
 }
 
-.aiProviderIcon svg,
-.aiComparisonIcon svg {
+.aiProviderIcon svg {
   flex: 0 0 auto;
   display: block;
 }
@@ -263,15 +262,21 @@
 }
 
 .aiComparisonIcon {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.65rem;
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  border-radius: 0.55rem;
   background: rgba(194, 224, 239, 0.38);
   color: var(--parametres-blue);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  align-self: center;
+}
+
+.aiComparisonIcon svg {
+  width: 16px !important;
+  height: 16px !important;
+  display: block;
 }
 
 .aiComparisonItem p,

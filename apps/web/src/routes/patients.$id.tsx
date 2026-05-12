@@ -822,9 +822,9 @@ function PatientLayout() {
 
           {/* Patient Info Card */}
           <div className="bg-white border-[0.8px] border-[#f97316] rounded-[20px] px-12 pt-6 pb-6 shadow-[0px_4px_6px_0px_rgba(201,228,241,0.2),0px_2px_4px_0px_rgba(201,228,241,0.2)] max-[58rem]:px-4">
-            <div className="flex justify-between gap-8 max-[72rem]:flex-col">
-              {/* Left: Identity */}
-              <div className="flex w-[330px] max-w-full flex-col gap-[8px]">
+            <div className="flex flex-col gap-6">
+              {/* Top row: name + ID + badges (full width) */}
+              <div className="flex flex-col gap-[8px] min-w-0">
                 <h1 className="break-words font-['Plus_Jakarta_Sans'] font-medium text-[clamp(1.55rem,6vw,1.875rem)] leading-[1.2] text-[#0f3460]">
                   {fullName}
                 </h1>
@@ -851,9 +851,15 @@ function PatientLayout() {
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Two-column info grid (stacks on mobile) */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 max-[40rem]:grid-cols-1">
+                {/* Left column: contact + profession */}
+                <div className="flex flex-col gap-[8px] min-w-0">
 
                 {/* Contact rows */}
-                <div className="mt-1 flex max-w-[320px] max-[40rem]:max-w-full flex-col gap-[8px]">
+                <div className="flex flex-col gap-[8px]">
                   <div className="flex items-center gap-2">
                     <User className="size-4 text-[#265284]" />
                     {isEditing ? (
@@ -1135,12 +1141,13 @@ function PatientLayout() {
                   />
                 </div>
               </div>
+              </div>
 
-              {/* Right: Action Buttons */}
-              <div className="flex flex-col gap-[8px] justify-center">
+              {/* Bottom row: Action Buttons (3 + 2 layout) */}
+              <div className="grid grid-cols-3 gap-2 max-[40rem]:grid-cols-2">
                 {!isEditing ? (
                   <button
-                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
+                    className="flex items-center justify-center bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                     onClick={() => {
                       form.reset({
                         nom: patient.nom ?? "",
@@ -1162,14 +1169,14 @@ function PatientLayout() {
                 ) : (
                   <>
                     <button
-                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors max-[40rem]:w-full"
+                      className="flex items-center justify-start bg-white border border-[#c2e0ef] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#f8fafc] transition-colors"
                       onClick={() => setIsEditing(false)}
                       type="button"
                     >
                       Annuler
                     </button>
                     <button
-                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors max-[40rem]:w-full"
+                      className="flex items-center justify-start bg-[#f97316] rounded-[10px] h-[40px] w-full px-[16px] text-center whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-white hover:bg-[#ea6a13] transition-colors"
                       onClick={() => form.handleSubmit()}
                       disabled={updatePatientMutation.isPending}
                       type="button"
@@ -1540,7 +1547,7 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-[240px] max-w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors max-[40rem]:w-full",
+        "bg-[#c2e0ef] rounded-[10px] h-[45px] w-full px-[16px] text-left whitespace-nowrap font-['Plus_Jakarta_Sans'] font-semibold text-[14px] leading-[16px] text-[#0f3460] hover:bg-[#b0d4e8] transition-colors",
         layout === "suivi"
           ? "flex items-center"
           : "flex items-center justify-start",

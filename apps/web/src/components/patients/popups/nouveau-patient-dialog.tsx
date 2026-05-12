@@ -754,9 +754,9 @@ export function NouveauPatientDialog({
                       <label className={styles.checkboxPill}><input type="checkbox" checked={treatment.maladieActive} onChange={(event) => updateTreatment(treatment.id, { maladieActive: event.currentTarget.checked })} /><span>Maladie active</span></label>
                     </div>
                     <div className={styles.treatmentTripleGrid}>
-                      <input className={styles.input} value={treatment.dosage} onChange={(event) => updateTreatment(treatment.id, { dosage: event.currentTarget.value })} placeholder="Dosage" />
+                      <input className={styles.input} value={treatment.dosage} onChange={(event) => updateTreatment(treatment.id, { dosage: event.currentTarget.value })} placeholder="Dosage *" required />
                       <input className={styles.input} value={treatment.indication} onChange={(event) => updateTreatment(treatment.id, { indication: event.currentTarget.value })} placeholder="Indication" />
-                      <input className={styles.input} value={treatment.posologie} onChange={(event) => updateTreatment(treatment.id, { posologie: event.currentTarget.value })} placeholder="Posologie" />
+                      <input className={styles.input} value={treatment.posologie} onChange={(event) => updateTreatment(treatment.id, { posologie: event.currentTarget.value })} placeholder="Posologie *" required />
                     </div>
                   </div>
                 ))}
