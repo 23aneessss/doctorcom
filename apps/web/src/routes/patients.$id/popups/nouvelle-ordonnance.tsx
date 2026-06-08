@@ -263,6 +263,7 @@ export function NouvelleOrdonnanceDialog({
   const [createdOrdonnanceId, setCreatedOrdonnanceId] = useState<string | null>(
     null,
   );
+  const [isFromAiRecommendation, setIsFromAiRecommendation] = useState(false);
   const [showMedicationAiPanel, setShowMedicationAiPanel] = useState(false);
   const [isMedicationAiPanelVisible, setIsMedicationAiPanelVisible] =
     useState(false);
@@ -1123,6 +1124,7 @@ export function NouvelleOrdonnanceDialog({
       setRemarques("");
       setCreatedOrdonnanceId(null);
       setActiveSearchRowId(null);
+      setIsFromAiRecommendation(false);
       setShowMedicationAiPanel(false);
       setSelectedCategorieId("");
       setSelectedPreRempliId("");
@@ -1264,10 +1266,16 @@ export function NouvelleOrdonnanceDialog({
                 <p className="font-['Plus_Jakarta_Sans'] text-[18px] font-medium text-[#0f3460]">
                   Créer une ordonnance
                 </p>
+                {isFromAiRecommendation ? (
+                  <span className="inline-flex items-center gap-1 rounded-[8px] bg-[#f0f6ff] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#265284]">
+                    <Sparkles className="size-3" />
+                    Générée par IA
+                  </span>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-2">
-                {mode === "manuel" ? (
+                {mode === "manuel" && !isFromAiRecommendation ? (
                   <>
                     <button
                       className={`inline-flex h-[33px] cursor-pointer items-center gap-2 rounded-[10px] border px-3 font-['Plus_Jakarta_Sans'] text-[13px] font-medium transition-colors ${
@@ -1513,12 +1521,12 @@ export function NouvelleOrdonnanceDialog({
                   {rows.map((row, index) => (
                     <div
                       key={row.id}
-                      className="relative rounded-[10px] border border-[#c2e0ef] bg-[#f8fafc]"
+                      className="relative overflow-hidden rounded-[12px] border border-[#d4e8f5] bg-white shadow-[0px_2px_8px_rgba(15,52,96,0.05)]"
                     >
-                      <div className="flex items-center justify-between border-b border-[#c2e0ef] bg-[#c2e0ef] px-4 py-2">
+                      <div className="flex items-center justify-between border-b border-[#e8f2fa] bg-[#f4f9fd] px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          <p className="font-['Plus_Jakarta_Sans'] text-[14px] font-medium text-[#265284]">
-                            médicament {index + 1}
+                          <p className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#265284]">
+                            Médicament {index + 1}
                           </p>
                           <span className={`rounded-full px-2 py-0.5 font-['Inter'] text-[10px] font-semibold uppercase tracking-[0.2px] ${getRowStatusClasses(row.confirmation_state)}`}>
                             {getRowStatusLabel(row.confirmation_state)}
@@ -1658,10 +1666,10 @@ export function NouvelleOrdonnanceDialog({
                         </div>
                       </div>
 
-                      <div className="space-y-2 p-3">
+                      <div className="space-y-2.5 px-4 pb-4 pt-3">
                         <div className="relative">
                           <input
-                            className="h-[34px] w-full rounded-[4px] border border-[#c2e0ef] px-2 pr-8 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            className="h-[38px] w-full rounded-[8px] border border-[#c2e0ef] bg-[#f8fbff] px-3 pr-9 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:bg-white focus:outline-none"
                             onChange={(event) => {
                               const value = event.target.value;
                               setSearchTerm(value);
@@ -1688,7 +1696,7 @@ export function NouvelleOrdonnanceDialog({
                             placeholder="Nom du médicament / DCI *"
                             value={row.nom_medicament}
                           />
-                          <Search className="absolute right-2 top-2.5 size-4 text-[#94a3b8]" />
+                          <Search className="absolute right-2.5 top-[11px] size-4 text-[#94a3b8]" />
                         </div>
 
                         {activeSearchRowId === row.id ? (
@@ -1797,19 +1805,19 @@ export function NouvelleOrdonnanceDialog({
                           </div>
                         ) : null}
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-[1fr_120px] gap-2">
                           <input
-                            className="h-[33px] rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            className="h-[38px] rounded-[8px] border border-[#c2e0ef] bg-[#f8fbff] px-3 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:bg-white focus:outline-none"
                             onChange={(event) => {
                               const value = event.target.value;
                               updateEditableRow(row.id, { posologie: value });
                               setIsRowsDirty(true);
                             }}
-                            placeholder="Posologie"
+                            placeholder="Posologie *"
                             value={row.posologie}
                           />
                           <input
-                            className="h-[33px] rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
+                            className="h-[38px] rounded-[8px] border border-[#c2e0ef] bg-[#f8fbff] px-3 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:bg-white focus:outline-none"
                             onChange={(event) => {
                               const value = event.target.value;
                               updateEditableRow(row.id, {
@@ -1822,37 +1830,38 @@ export function NouvelleOrdonnanceDialog({
                           />
                         </div>
 
-                        <input
-                          className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            updateEditableRow(row.id, { dosage: value });
-                            setIsRowsDirty(true);
-                          }}
-                          placeholder="Dosage"
-                          value={row.dosage}
-                        />
-
-                        <input
-                          className="h-[33px] w-full rounded-[4px] border border-[#c2e0ef] px-2 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460]"
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            updateEditableRow(row.id, { instructions: value });
-                            setIsRowsDirty(true);
-                          }}
-                          placeholder="Instructions..."
-                          value={row.instructions}
-                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            className="h-[38px] rounded-[8px] border border-[#c2e0ef] bg-[#f8fbff] px-3 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:bg-white focus:outline-none"
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              updateEditableRow(row.id, { dosage: value });
+                              setIsRowsDirty(true);
+                            }}
+                            placeholder="Dosage"
+                            value={row.dosage}
+                          />
+                          <input
+                            className="h-[38px] rounded-[8px] border border-[#c2e0ef] bg-[#f8fbff] px-3 font-['Plus_Jakarta_Sans'] text-[14px] text-[#0f3460] placeholder:text-[#94a3b8] focus:border-[#76bbdd] focus:bg-white focus:outline-none"
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              updateEditableRow(row.id, { instructions: value });
+                              setIsRowsDirty(true);
+                            }}
+                            placeholder="Instructions"
+                            value={row.instructions}
+                          />
+                        </div>
 
                         {row.confirmation_state === "stale" ? (
-                          <p className="rounded-[8px] border border-[#fed7aa] bg-[#fff7ed] px-2.5 py-2 font-['Inter'] text-[11px] text-[#c2410c]">
-                            Ce médicament a été modifié après analyse. Reconfirmez-le pour relancer la vérification avec l'ensemble confirmé actuel.
+                          <p className="flex items-center gap-1.5 rounded-[8px] border border-[#fed7aa] bg-[#fff7ed] px-3 py-2 font-['Inter'] text-[11px] text-[#c2410c]">
+                            Modifié après analyse — reconfirmez pour relancer la vérification.
                           </p>
                         ) : null}
 
                         {row.confirmation_state === "draft" ? (
-                          <p className="rounded-[8px] border border-dashed border-[#c2e0ef] bg-white px-2.5 py-2 font-['Inter'] text-[11px] text-[#64748b]">
-                            Finalisez la rédaction puis cliquez sur confirmer pour inclure ce médicament dans l'analyse.
+                          <p className="font-['Inter'] text-[11px] text-[#94a3b8]">
+                            Remplissez le nom et la posologie puis cliquez sur <span className="font-semibold text-[#265284]">Confirmer</span> pour inclure dans l'analyse.
                           </p>
                         ) : null}
                       </div>
@@ -2181,6 +2190,7 @@ export function NouvelleOrdonnanceDialog({
         suiviId={selectedSuiviId || undefined}
         onAccept={(recommendation: OrdonnanceAiRecommendation) => {
           setMode("manuel");
+          setShowMedicationAiPanel(false);
           const newRows = recommendation.ordonnance_draft.medicaments.map(
             (medicament) =>
               createOrdonnanceRow(
@@ -2197,6 +2207,7 @@ export function NouvelleOrdonnanceDialog({
           );
           setRows(newRows);
           setIsRowsDirty(true);
+          setIsFromAiRecommendation(true);
           toast.success(
             `Ordonnance IA appliquée — ${newRows.length} médicament${newRows.length > 1 ? "s" : ""} chargé${newRows.length > 1 ? "s" : ""}. Vérifiez et enregistrez.`,
           );

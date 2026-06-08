@@ -233,35 +233,33 @@ function RouteComponent() {
             <>
               <div className="flex items-start justify-between px-5 pt-5">
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-[30px] text-[#052ca0]">
-                      {formatSymptoms(selectedSuivi)}
-                    </h3>
-                    <span
-                      className={cn(
-                        "inline-flex h-[21.587px] items-center gap-[5px] rounded-[8px] border-[0.8px] pl-2 pr-[9px]",
-                        selectedSuivi.est_actif
-                          ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
-                          : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]",
-                      )}
-                    >
-                      {selectedSuivi.est_actif ? (
-                        <CheckCircle2 className="size-3" />
-                      ) : (
-                        <Circle className="size-3" />
-                      )}
-                      <span className="font-['Poppins'] text-[12px] font-medium leading-4">
-                        {selectedSuivi.est_actif ? "Actif" : "Cloture"}
-                      </span>
-                    </span>
-                  </div>
+                  <h3 className="font-['Plus_Jakarta_Sans'] text-[20px] font-medium leading-[30px] text-[#052ca0]">
+                    {formatSymptoms(selectedSuivi)}
+                  </h3>
                   <p className="font-['Plus_Jakarta_Sans'] text-[14px] leading-5 text-[#f97316]">
                     Hypothese :{" "}
                     {selectedSuivi.hypothese_diagnostic || "Non renseignee"}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex h-[29.587px] items-center gap-[5px] rounded-[10px] border-[0.8px] pl-2 pr-[9px]",
+                      selectedSuivi.est_actif
+                        ? "border-[#7bf1a8] bg-[#f0fdf4] text-[#008236]"
+                        : "border-[#d1d5dc] bg-[#f3f4f6] text-[#6a7282]",
+                    )}
+                  >
+                    {selectedSuivi.est_actif ? (
+                      <CheckCircle2 className="size-3" />
+                    ) : (
+                      <Circle className="size-3" />
+                    )}
+                    <span className="font-['Poppins'] text-[12px] font-medium leading-4">
+                      {selectedSuivi.est_actif ? "Actif" : "Cloturé"}
+                    </span>
+                  </span>
                   <button
                     className="inline-flex h-[29.587px] cursor-pointer items-center gap-1 rounded-[10px] border-[0.8px] border-[#0f3460] px-3"
                     onClick={() =>
